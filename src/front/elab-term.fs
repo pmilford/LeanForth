@@ -295,31 +295,37 @@ end-structure
 \ The expected type: known, else Lean postpones (132).
 : et-postponed ( -- -1 outcome ) lfa-e-elab-postpone lf-elab-fail no-result ;
 : et-whnf-r-mvar? ( t -- flag outcome )
-  lf-meta-whnf-r lf-elab-meta ok-then? if lf-elab-mvar-app? outcome-ok else false swap then ;
+  lf-meta-whnf-r lf-elab-meta ok-then?
+  if lf-elab-mvar-app? outcome-ok else false swap then ;
 : et-known ( expected -- t outcome )
   dup 0< if drop et-postponed exit then lf-instantiate-mvars lf-elab-meta ;
 : et-settled ( t -- t outcome )
-  dup et-whnf-r-mvar? ok-then? 0= if nip no-result exit then if drop et-postponed exit then
-  outcome-ok ;
+  dup et-whnf-r-mvar? ok-then? 0= if nip no-result exit then
+  if drop et-postponed else outcome-ok then ;
+: et-head-mvar? ( t -- flag ) lf-meta-head lf-mvar? ;
 : et-anon-whnf ( t -- t' outcome )
-  lf-meta-whnf lf-elab-meta ok-then? 0= if no-result exit then dup lf-meta-head lf-mvar?
-  if drop lfa-e-anon-unknown lf-elab-fail no-result else outcome-ok then ;
+  lf-meta-whnf lf-elab-meta ok-then? 0= if no-result exit then
+  dup et-head-mvar? 0= if outcome-ok exit then
+  drop lfa-e-anon-unknown lf-elab-fail no-result ;
 : et-anon-type ( expected -- t outcome )
   et-known ['] et-settled ok-apply ['] et-anon-whnf ok-apply ;
 \ Its inductive type's one constructor.
 : et-type-error ( t code -- -1 outcome ) lf-elab-fail-term no-result ;
+: et-noted ( t code c-addr u -- -1 outcome )
+  lf-elab-rest+ ['] et-usage. lf-elab-below! et-type-error ;
 : et-not-inductive ( t -- -1 outcome )
-  s" is not an inductive type" lf-elab-rest+ ['] et-usage. lf-elab-below!
-  lfa-e-anon-type et-type-error ;
-: et-no-ctor ( t -- -1 outcome ) s" has no constructors" lf-elab-rest+ lfa-e-anon-none et-type-error ;
+  lfa-e-anon-type s" is not an inductive type" et-noted ;
 : et-ctors-error ( t -- -1 outcome )
-  s" has more than one constructor" lf-elab-rest+ ['] et-usage. lf-elab-below!
-  lfa-e-anon-ctors et-type-error ;
+  lfa-e-anon-ctors s" has more than one constructor" et-noted ;
+: et-no-ctor ( t -- -1 outcome )
+  s" has no constructors" lf-elab-rest+ lfa-e-anon-none et-type-error ;
 : et-ctor-of ( t items n -- name outcome )
-  dup 1 = if drop nip @ outcome-ok exit then nip 0= if et-no-ctor else et-ctors-error then ;
-: et-anon-name ( t -- name outcome )
-  dup lf-meta-head lf-match-const-induct 0= if et-not-inductive exit then
+  dup 1 = if drop nip @ outcome-ok exit then
+  nip 0= if et-no-ctor else et-ctors-error then ;
+: et-ctors ( t d -- name outcome )
   lf-menv-data ?dup 0= if drop et-unported exit then lf-ity-ctors@ et-ctor-of ;
+: et-anon-name ( t -- name outcome )
+  dup lf-meta-head lf-match-const-induct if et-ctors else et-not-inductive then ;
 : et-private? ( name -- flag ) lf-name-root s" _private" lf-name-str-is? ;
 : et-ctor-decl ( name -- c outcome )
   dup et-private? if drop et-unported exit then lf-menv-find lf-elab-meta ;
@@ -328,61 +334,70 @@ end-structure
 \ numExplicitFields.
 : et-params ( c -- p outcome )
   lf-menv-data ?dup if lf-ict-params lf-more-field outcome-ok else et-unported then ;
-: et-past ( addr n k -- addr' n' ) tuck - >r cells + r> ;
+: et-past ( addr n k -- addr' n' ) tuck - -rot cells + swap ;
 : et-explicit? ( addr k -- addr flag ) over swap cells + @ lf-binder-default = ;
 : et-fields-past ( c p -- n outcome )
   swap lf-menv-kinds rot 2dup < if 2drop drop et-unported exit then
   et-past ['] et-explicit? count-index outcome-ok ;
-: et-fields ( c -- n outcome ) dup et-params ok-then? if et-fields-past else nip no-result then ;
+: et-fields ( c -- n outcome )
+  dup et-params ok-then? if et-fields-past else nip no-result then ;
 \ The messages of too few items: Lean's words, its plural as it writes it
 \ (fieldsStr "fields" for one field, else "field": BuiltinNotation.lean:72).
 : et-name+ ( name -- )
   s"  `" lf-elab-rest+ ['] lf-elab-rest+ lf-pp-name-to s" ` " lf-elab-rest+ ;
 : et-n+ ( n -- ) u>decimal lf-elab-rest+ ;
 : et-field-word ( n -- c-addr u ) 1 = if s" fields" else s" field" then ;
-: et-has ( n -- ) s" has " lf-elab-rest+ dup et-n+ s"  explicit " lf-elab-rest+ et-field-word
-  lf-elab-rest+ ;
+: et-has ( n -- )
+  s" has " lf-elab-rest+ dup et-n+ s"  explicit " lf-elab-rest+
+  et-field-word lf-elab-rest+ ;
 : et-provided ( k -- )
   case 0 of s" none were" lf-elab-rest+ endof 1 of s" only 1 was" lf-elab-rest+ endof
     s" only " lf-elab-rest+ dup et-n+ s"  were" lf-elab-rest+ endcase ;
+: et-few-error ( -- -1 outcome )
+  s"  provided" lf-elab-rest+ lfa-e-anon-few lf-elab-fail no-result ;
 : et-too-few ( c n k -- -1 outcome )
   rot lf-menv-name et-name+ swap et-has s" , but " lf-elab-rest+ et-provided
-  s"  provided" lf-elab-rest+ lfa-e-anon-few lf-elab-fail no-result ;
+  et-few-error ;
 : et-was ( k -- c-addr u ) 1 = if s"  was" else s"  were" then ;
+: et-none-error ( k -- -1 outcome )
+  dup et-n+ et-was lf-elab-rest+ s"  provided" lf-elab-rest+
+  lfa-e-anon-fields lf-elab-fail no-result ;
 : et-no-fields ( c k -- -1 outcome )
-  swap lf-menv-name et-name+ s" does not have explicit fields, but " lf-elab-rest+ dup et-n+
-  et-was lf-elab-rest+ s"  provided" lf-elab-rest+ lfa-e-anon-fields lf-elab-fail no-result ;
-\ The items as the constructor's arguments: new ⟨ ⟩ nodes at the node's
-\ place (an argument node's place is its node's) of m slots, filled from
-\ from' (a node whose item i is the one wanted, i from 0).
+  swap lf-menv-name et-name+ s" does not have explicit fields, but " lf-elab-rest+
+  et-none-error ;
+\ The items as the constructor's arguments: new ⟨ ⟩ nodes of m slots at
+\ the place of node (an argument node's place is its node's), filled
+\ from from', a node whose item i is the one wanted, i from 0.
 : et-anon-like ( node m -- new outcome )
-  >r syn-k-anon swap syn-at@ r> syn-node-new room-result ;
-: et-copy ( from' to m -- ) 0 ?do over i syn-arg over i rot syn-arg! loop 2drop ;
-: et-copied ( from' new m -- new outcome ) >r tuck r> et-copy outcome-ok ;
+  swap syn-k-anon swap syn-at@ syn-node-new room-result ;
+: et-copy ( from' m to -- to ) swap 0 ?do 2dup swap i syn-arg i swap syn-arg! loop nip ;
+: et-anon-of ( from' m -- new outcome )
+  2dup et-anon-like ok-then? if et-copy outcome-ok else nip nip no-result then ;
 : et-rest# ( node n -- m ) swap syn-b@ swap - 1+ ;
-: et-nested ( node n -- nested outcome )
-  2dup et-rest# >r + 1- dup r@ et-anon-like ok-then? 0= if nip r> drop no-result exit then
-  r> et-copied ;
-: et-outer ( node n nested -- stx outcome )
-  >r 2dup et-anon-like ok-then? 0= if nip nip r> drop no-result exit then
-  dup >r swap 1- et-copy r> r> syn-last! outcome-ok ;
+: et-from ( node n -- from' m ) 2dup + 1- -rot et-rest# ;
+\ The rest from item n-1 on, nested; the node's first n items (the last
+\ then the nested one).
+: et-outer ( nested node n -- stx outcome )
+  et-anon-of ok-then? if swap syn-last! outcome-ok else nip no-result then ;
 : et-split ( node n -- stx outcome )
-  2dup et-nested ok-then? if et-outer else nip nip no-result then ;
+  2dup et-from et-anon-of ok-then? if -rot et-outer else nip nip no-result then ;
 : et-exact? ( node n -- flag ) swap syn-b@ = ;
 : et-few? ( node n -- flag ) swap syn-b@ > ;
+: et-more ( c node n -- stx outcome )
+  dup 0= if drop syn-b@ et-no-fields else rot drop et-split then ;
 : et-anon-stx ( c node n -- stx outcome )
-  2dup et-exact? if drop nip outcome-ok exit then 2dup et-few? if swap syn-b@ et-too-few exit then
-  dup 0= if drop syn-b@ et-no-fields exit then rot drop et-split ;
+  2dup et-exact? if drop nip outcome-ok exit then
+  2dup et-few? if swap syn-b@ et-too-few else et-more then ;
 : et-anon-built ( node c -- stx outcome )
-  dup et-fields ok-then? 0= if nip nip no-result exit then >r swap r> et-anon-stx ;
+  dup et-fields ok-then? if rot swap et-anon-stx else nip nip no-result then ;
 \ The constructor applied to the items (elabApp), against the expected type.
-: et-anon-app ( stx c expected -- ... frames next )
-  >r lf-meta-const-fresh ok-then? 0= if nip r> drop et-failed exit then
-  r> lf-elab-app-new dup ok? 0= if nip et-failed exit then drop
+: et-anon-app ( stx expected c -- ... frames next )
+  lf-meta-const-fresh ok-then? 0= if nip nip et-failed exit then
+  swap lf-elab-app-new dup ok? 0= if nip et-failed exit then drop
   lf-elab-app-syntax! et-app-call ;
 : et-anon ( node expected -- ... frames next )
-  dup et-anon-ctor ok-then? 0= if nip nip et-failed exit then
-  rot over et-anon-built ok-then? 0= if nip nip et-failed exit then swap rot et-anon-app ;
+  tuck et-anon-ctor ok-then? 0= if nip nip et-failed exit then
+  tuck et-anon-built ok-then? 0= if nip nip et-failed exit then -rot et-anon-app ;
 defer et-op ( node expected -- ... frames next )
 defer et-rel ( node expected -- ... frames next )
 \ binop% and rightact% are elabOp's (Extra.lean:182).
@@ -415,7 +430,8 @@ is lf-elab-arg-call
   lf-instantiate-mvars lf-elab-meta ok-then? if et-whnf-r-mvar? else false swap then ;
 : et-root-unknown? ( node expected -- flag outcome )
   over syn-kind@ syn-k-anon = if nip et-type-unknown? else 2drop false outcome-ok then ;
-: et-root-unknown ( node -- -1 outcome ) et-at! lfa-e-anon-unknown lf-elab-fail no-result ;
+: et-root-unknown ( node -- -1 outcome )
+  et-at! lfa-e-anon-unknown lf-elab-fail no-result ;
 : lf-elab-final ( node expected -- term outcome )
   2dup et-root-unknown? ok-then? 0= if nip nip no-result exit then
   if drop et-root-unknown else lf-elab-term then ;

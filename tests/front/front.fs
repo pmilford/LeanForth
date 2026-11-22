@@ -180,7 +180,7 @@ T{ 0 unmeant# ! ' unmeant lf-words traverse-wordlist unmeant# @ -> 0 }T
 T{ s\" s\" Foo.bar\" syn-k-binop lfn-operator: zz" reg msg-lacks says? entries -> -2 true 23 }T
 T{ s\" s\" LT.lt\" syn-k-binrel lfn-operator: $" reg msg-lacks says? entries -> -2 true 23 }T
 T{ s" theorem t Nat explicit: n 0 n + n = := ' Nat.succ n $ end t" nfails -> 71 1 55 }T
-T{ s\" s\" LT.lt\" syn-k-binrel lfn-operator: <<" reg msg-lacks says? entries -> -2 true 23 }T
+T{ s\" s\" LT.lt\" syn-k-binrel lfn-operator: <<<" reg msg-lacks says? entries -> -2 true 23 }T
 T{ s\" s\" Not\" lfn-notation-name: !" reg msg-lacks says? entries -> -2 true 23 }T
 T{ s\" s\" HAdd.hAdd\" syn-k-binop lfn-operator: +" reg msg-twice says? entries -> -2 true 23 }T
 T{ s\" s\" Membership.mem\" syn-k-binrel lfn-operator: ∈" reg
@@ -198,7 +198,7 @@ T{ s" divides" lfa-natural-later? s" by" lfa-natural-later? -> false false }T
 T{ s\" s\" Dvd.dvd\" lfn-own-name: $" reg s" reader.fs: a word with a meaning of its own" says? entries
    -> -2 true 23 }T
 T{ s" theorem t Nat explicit: n 0 n + n = := ' Nat.succ n $ end t" nfails -> 71 1 55 }T
-T{ s" zz" lf-words search-wordlist s" <<" lf-words search-wordlist -> 0 0 }T
+T{ s" zz" lf-words search-wordlist s" <<<" lf-words search-wordlist -> 0 0 }T
 \ The words.fs list: a word reserved already aborts.
 T{ s" lfa-natural-words +" reg s" words.fs: reserved twice" says? -> -2 true }T
 T{ s\" theorem t\n 123456789\n 1 = := by end t" nfails -> 71 3 12 }T

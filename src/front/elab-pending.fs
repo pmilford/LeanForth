@@ -195,7 +195,8 @@ end-structure
 \ (cut at ep-rest# characters), and what prints below it, kept only
 \ while no error is recorded, for the error recorded next.
 : ep-free? ( -- flag ) ep ep-code @ 0= ;
-: ep-rest+ ( c-addr u -- ) ep ep-rest ep-rest# cell-counted-left min ep ep-rest cell-counted+! ;
+: ep-rest+ ( c-addr u -- )
+  ep ep-rest ep-rest# cell-counted-left min ep ep-rest cell-counted+! ;
 : lf-elab-rest+ ( c-addr u -- ) ep-free? if ep-rest+ else 2drop then ;
 : lf-elab-below! ( xt -- ) ep-free? if ep ep-below ! else drop then ;
 : lf-elab-rest ( -- c-addr u ) ep ep-rest cell-count ;

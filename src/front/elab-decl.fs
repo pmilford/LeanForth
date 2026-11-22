@@ -154,7 +154,8 @@ action-of lfa-run-fresh constant edc-run-before
 : edc-mode ( postpone? -- mode ) if lf-postpone-yes else lf-postpone-no then ;
 \ (With no postponing after it: elab-term.fs's lf-elab-final, a ⟨ ⟩ of
 \ unknown type at the root Lean's error 462.)
-: edc-elab ( node expected postpone? -- term outcome ) if lf-elab-term else lf-elab-final then ;
+: edc-elab ( node expected postpone? -- term outcome )
+  if lf-elab-term else lf-elab-final then ;
 : edc-tac-run ( node expected postpone? -- term outcome )
   dup >r edc-elab ok-then? 0= if r> drop no-result exit then r> edc-mode edc-finish ;
 : edc-tac-with ( i*x xt -- term outcome )

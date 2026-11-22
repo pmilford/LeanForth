@@ -548,7 +548,7 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 8,
-  "shuffles": 12,
+  "shuffles": 20,
   "words": 151
  },
  "src/front/expr-remap.fs": {
@@ -819,7 +819,7 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 9,
+  "rstack": 11,
   "shuffles": 2,
   "words": 6
  },
@@ -967,6 +967,14 @@
   "shuffles": 0,
   "words": 1
  },
+ "src/front/tactics/exists.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 9
+ },
  "src/front/tactics/have.fs": {
   "globals": 4,
   "long lines": 0,
@@ -1003,7 +1011,7 @@
   "globals": 1,
   "long lines": 0,
   "long words": 0,
-  "rstack": 2,
+  "rstack": 0,
   "shuffles": 0,
   "words": 4
  },

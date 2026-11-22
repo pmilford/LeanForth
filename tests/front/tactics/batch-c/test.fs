@@ -114,9 +114,11 @@ T{ h1ab s" ' h1 by-exact by-case: _ => ' h1 by-exact by-end" tactic-ran token s"
    -> 90 0 }T
 T{ s" Nat explicit: n n n =" st s" n by-induction-with | _ => by-rfl by-end" tactic-ran
    -> 72 }T
-\ The shapes: by-exacts[ a bracket of values, by-rwa[ of rules.
-T{ tac-shape-list lft-bracket-shape? tac-shape-rules lft-bracket-shape?
-   tac-shape-plain lft-bracket-shape? 0 lft-bracket-shape? -> true true false false }T
+\ The shapes: by-exacts[ a bracket of values, by-rwa[ of rules (each
+\ built by lft-build-rules, which opens a bracket).
+: bracket-shape? ( shape -- flag ) shape-build @ ['] lft-build-rules = ;
+T{ tac-shape-list bracket-shape? tac-shape-rules bracket-shape? tac-shape-plain bracket-shape?
+   -> true true false }T
 lf-tac-forget
 
 \ ---- lf-tactic-seq:: rows in order on one step. constructor, then

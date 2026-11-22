@@ -191,14 +191,14 @@ require ./library.fs
 ' lfa-w-natural-only lfa-word '
 ' lfa-w-natural-only lfa-word #check
 \ The notation words (slice S3a-ops; src/front/reader.fs gives each its
-\ meaning with lfn-operator:), each reserved for the printer here.
+\ meaning with lfn-operator:) and the anonymous constructor's brackets
+\ << >> ⟨ ⟩ (plan row TB2, batch 3c; reader.fs's lfn-w-anon), each
+\ reserved for the printer here.
 : lfa-natural-words ( "word ..." -- )
   begin >in @ parse-name dup while
     2dup lf-pf-reserved? abort" words.fs: reserved twice"
     lf-pf-reserve-more >in ! ['] lfa-w-natural-only lfa-word repeat 2drop drop ;
-lfa-natural-words + - * / % = ≠ < > ≤ <= ≥ >= ¬ ∧ /\ ∨ \/ ↔ <-> ∣ divides
-\ The anonymous constructor's brackets (plan row TB2, batch 3c; reader.fs).
-lfa-natural-words << >> ⟨ ⟩
+lfa-natural-words + - * / % = ≠ < > ≤ <= ≥ >= ¬ ∧ /\ ∨ \/ ↔ <-> ∣ divides << >> ⟨ ⟩
 ' lfa-w-tactic lfa-word-both by-induction
 ' lfa-w-tactic lfa-word-both by-case:
 ' lfa-w-tactic lfa-word-both by-next

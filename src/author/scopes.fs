@@ -58,14 +58,14 @@ begin-structure /lfa-scope
   field: lfa-scope-floor      \ data-stack depth where the run began
 end-structure
 /lfa-scope context-record: lfa-scope
-begin-structure /lfa-bracket
-  field: lfa-bracket-mark     \ data-stack depth when it opened
-  field: lfa-bracket-binders  \ binders open then
-  field: lfa-bracket-at       \ position of its word
-  field: lfa-bracket-closer   \ its closing words' address
-  cell lfa-token-keep chars + +field lfa-bracket-word   \ its spelling, cell-counted
+begin-structure /lfb       \ a bracket open (see the header)
+  field: lfb-mark          \ data-stack depth when it opened
+  field: lfb-binders       \ binders open then
+  field: lfb-at            \ position of its word
+  field: lfb-closer        \ its closing words' address
+  cell lfa-token-keep chars + +field lfb-word   \ its spelling, cell-counted
 end-structure
-/lfa-bracket context-slab: lfa-brackets
+/lfb context-slab: lfa-brackets
 
 \ Outside every declaration, binder and bracket.
 : lfa-scope-close ( -- ) lfa-binders store-clear -1 lfa-scope lfa-scope-base !
@@ -106,35 +106,31 @@ end-structure
 458 outcome-invalid s" this list is never closed: its ] or >> is missing"
   lfa-code: lfa-e-list-open
 : lfa-bracketed? ( -- flag ) lfa-brackets slab-count 0<> ;
-: lfa-bracket ( -- addr ) lfa-brackets slab-last ;
-: lfa-list-closer ( -- closer|0 )
-  lfa-bracketed? if lfa-bracket lfa-bracket-closer @ else 0 then ;
-\ (No room for one is full, as for a binder: 65.)
-: lfa-bracket-new ( -- addr ) lfa-brackets slab-claim-one ok? lfa-e-binders-full lfa-must ;
-: lfa-bracket-word! ( addr -- )
-  lfa-token lfa-token-keep min rot lfa-bracket-word lfa-token-keep cell-counted! drop ;
-: lfa-bracket-place ( addr -- addr )
-  lfa-depth over lfa-bracket-binders ! lfa-here over lfa-bracket-at ! dup lfa-bracket-word! ;
-: lfa-bracket-fill ( mark closer addr -- )
-  tuck lfa-bracket-closer ! tuck lfa-bracket-mark ! lfa-bracket-place drop ;
-: lfa-bracket-open ( closer -- ) depth 1- swap lfa-bracket-new lfa-bracket-fill ;
+: lfb ( -- addr ) lfa-brackets slab-last ;   \ the innermost one (unchecked)
+: lfa-list-closer ( -- closer|0 ) lfa-bracketed? if lfb lfb-closer @ else 0 then ;
+\ A new one, the innermost (no room for it is full, as for a binder: 65).
+: lfb-new ( -- ) lfa-brackets slab-claim-one ok? lfa-e-binders-full lfa-must drop ;
+: lfb-word! ( -- )
+  lfa-token lfa-token-keep min lfb lfb-word lfa-token-keep cell-counted! drop ;
+: lfb-place ( -- ) lfa-depth lfb lfb-binders ! lfa-here lfb lfb-at ! lfb-word! ;
+: lfa-bracket-open ( closer -- )
+  depth 1- lfb-new lfb lfb-mark ! lfb lfb-closer ! lfb-place ;
 : lfa-bracket-drop ( -- ) lfa-brackets slab-drop ;
 : lfa-list-unclosed ( -- )
-  lfa-bracket dup lfa-bracket-word cell-count rot lfa-bracket-at @ lfa-e-list-open lfa-fail-at ;
+  lfb lfb-word cell-count lfb lfb-at @ lfa-e-list-open lfa-fail-at ;
 : lfa-brackets-closed ( -- ) lfa-bracketed? if lfa-list-unclosed then ;
-: lfa-bracket-own ( closer code -- )
-  lfa-bracketed? 0= if nip lfa-fail then drop lfa-list-closer <> if lfa-list-unclosed then ;
-: lfa-bracket-binders? ( -- )
-  lfa-depth lfa-bracket lfa-bracket-binders @ = if exit then
+: lfb-own ( closer code -- )
+  lfa-bracketed? 0= if nip lfa-fail then
+  drop lfa-list-closer <> if lfa-list-unclosed then ;
+: lfb-binders? ( -- )
+  lfa-depth lfb lfb-binders @ = if exit then
   lfa-innermost lfa-binder-at @ lfa-e-open-binder lfa-fail-see ;
-: lfa-bracket-items ( -- n pos )
-  depth lfa-bracket lfa-bracket-mark @ - lfa-bracket lfa-bracket-at @ ;
+: lfb-items ( -- n pos ) depth lfb lfb-mark @ - lfb lfb-at @ ;
 : lfa-bracket-close ( closer code -- n pos )
-  lfa-bracket-own lfa-bracket-binders? lfa-bracket-items lfa-bracket-drop ;
+  lfb-own lfb-binders? lfb-items lfa-bracket-drop ;
 
 \ The frame: the innermost bracket's, binder's or declaration's.
-: lfa-frame ( -- depth )
-  lfa-binder-frame lfa-bracketed? if lfa-bracket lfa-bracket-mark @ max then ;
+: lfa-frame ( -- depth ) lfa-binder-frame lfa-bracketed? if lfb lfb-mark @ max then ;
 \ Terms stand inside a declaration, or in natural text anywhere.
 : lfa-terms? ( -- flag ) lfa-inside? lfa-kernel-form? 0= or ;
 \ Stop unless n values are above the frame, where terms may stand. Called

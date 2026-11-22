@@ -202,9 +202,10 @@ end-structure
 : lfa-in! ( c-addr -- ) lfa-on? if drop else source drop - >in ! then ;
 : lfa-skip-to ( c-addr -- ) dup lfa-in! lfa-offset lfa-source lfa-source-end ! ;
 : lfa-next-on ( -- c-addr u )
-  lfa-line-rest lfa-next-token 2swap 2drop 2dup lfa-token! 2dup + lfa-in! ;
-\ Comments: \ to the line's end, ( past its ) on the line (else error 28).
-: lfa-comment-on? ( c-addr u -- flag ) 2dup lfa-comment? -rot s" (" lfa-token= or ;
+  lfa-line-rest lfa-skip-blanks over swap lfa-word-end 2dup lfa-token! 2dup + lfa-in! ;
+\ Comments: \ to the line's end, ( past its ) on the line (else error 42).
+: lfa-comment-on? ( c-addr u -- flag )
+  2dup s" (" lfa-token= if 2drop true else lfa-comment? then ;
 : lfa-paren-end ( -- c-addr )
   lfa-line-rest [char] ) byte-scan 0<> lfa-e-comment-end lfa-must 1+ ;
 : lfa-skip-on ( c-addr u -- )

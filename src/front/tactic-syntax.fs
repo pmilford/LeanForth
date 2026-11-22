@@ -314,10 +314,12 @@ end-structure
 : lft-closer? ( c-addr u -- flag ) s" ]" lfa-token= ;
 : lft-star? ( c-addr u -- flag ) s" *" lfa-token= ;
 : lft-item-word? ( c-addr u -- flag )
-  2dup lfa-underscore? if 2drop true exit then 2dup lft-star? if 2drop true exit then lft-closer? ;
-: lft-stops? ( c-addr u -- flag ) 2dup lf-pf-reserved? if lft-item-word? 0= else 2drop false then ;
-: lft-list-token ( -- c-addr u )
-  lfa-token-on dup 0= if lfa-list-unclosed then 2dup lft-stops? if lfa-list-unclosed then ;
+  2dup lfa-underscore? if 2drop true exit then
+  2dup lft-star? if 2drop true exit then lft-closer? ;
+: lft-stops? ( c-addr u -- flag )
+  dup 0= if 2drop true exit then
+  2dup lf-pf-reserved? if lft-item-word? 0= else 2drop false then ;
+: lft-list-token ( -- c-addr u ) lfa-token-on 2dup lft-stops? if lfa-list-unclosed then ;
 : lft-list-name ( -- c-addr u true | false )
   lft-list-token 2dup lft-closer? if 2drop lfa-bracket-drop false else true then ;
 \ A hypothesis named: no LeanForth word (_ is a reserved word too).
@@ -390,11 +392,12 @@ end-structure
 \ a << open inside: 458 at <<).
 : lft-rules ( v1 .. vn n -- ) lft-open swap lft-terms ;
 \ A list of one item at least (tac-shape-list+) with none is 460.
-: lft-some? ( n -- n )
-  dup 0= lft-open lft-shape@ shape-some @ and 0= lfa-e-tac-list-empty lfa-must ;
+: lft-some-wanted? ( -- flag ) lft-open lft-shape@ shape-some @ ;
+: lft-some? ( n -- n ) dup 0= lft-some-wanted? and 0= lfa-e-tac-list-empty lfa-must ;
+: lft-bracket-items ( v1 .. vn -- v1 .. vn n )
+  lft-in-proof lft-close-square lfa-e-tac-closer lfa-bracket-close drop lft-some? ;
 : lft-w-bracket-end ( v1 .. vn -- )
-  lft-in-proof lft-close-square lfa-e-tac-closer lfa-bracket-close drop lft-some? lft-rules
-  lft-past lft-close lft-from! ;
+  lft-bracket-items lft-rules lft-past lft-close lft-from! ;
 \ <- : the values so far the bracket's rules, the last one right to left
 \ (Lean's ←, rwRule's symm flag): right inside a bracket of rules (83),
 \ after a rule (86).

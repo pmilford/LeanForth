@@ -278,10 +278,12 @@ end-structure
 : tcr-blank. ( -- outcome ) s"  " lf-pp-emit outcome-ok ;
 : tcr-inline. ( term -- outcome )
   dup 0< if tcr-rest. exit then
-  s"  " lf-pp-emit lf-tac-inline. ['] tcr-blank. ok-and 0 swap ['] tcr-rest. ok-with nip ;
+  s"  " lf-pp-emit lf-tac-inline. ['] tcr-blank. ok-and
+  0 swap ['] tcr-rest. ok-with nip ;
 : tcr-rest-detail ( term -- )
   ['] tcr-inline. lf-tac-inline lf-elab-below ?dup if ['] execute lf-tac-detail then ;
-: tcr-term-detail ( term -- ) dup 0< if drop else ['] lf-tac-indented. lf-tac-detail then ;
+: tcr-term-detail ( term -- )
+  dup 0< if drop else ['] lf-tac-indented. lf-tac-detail then ;
 : lf-tac-elab-detail ( -- )
   lf-elab-error-term lf-elab-rest nip if tcr-rest-detail else tcr-term-detail then ;
 : lf-tac-elab-fail ( outcome -- ) lf-tac-elab-detail lf-elab-code lfa-see! lf-tac-stop ;
