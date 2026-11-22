@@ -721,7 +721,7 @@ Errors named in the "Function" cells are codes of `src/author/errors.fs`.
 | `->` | `( a b -- t )` | none; kernel form only | takes two types, leaves the function type | `A B ->` is Lean's `A → B`. |
 | `fun` `forall` | `( v -- t )` | none; kernel form only | closes the innermost open binder around the one value above it | A λ (function) or a Π (for all) over that binder; errors 13 no binder open, 12 body not one expression. |
 | `Prop` `Type` `Sort` `^` `var#` `lit#` `proj#` `level+` `level-max` `level-imax` `root:` | see [programming reference](../programming/LEANFORTH_WORDS.md#the-vocabulary) | kernel form only (natural form: error 70) | build kernel expressions and levels | Levels, de Bruijn variables, literals, projections and universe arguments written out. |
-| `**` natural spellings `->`, `fun`, `forall`, `Prop`, `∃`, `_`, `let:`, `have:`, `show`, `⟨ ⟩`, `.NAME`, `@`, `++` and more | `( A B -- t )` etc. | designed: [FE2_TERMS.md §2.2](../design/FE2_TERMS.md) | n/a | Today error 70 in natural form; `_`, `let:`, `have`, `by` in kernel form are errors 51 and 52. |
+| `**` natural spellings `->`, `fun`, `forall`, `Prop`, `∃`, `let:`, `have:`, `show`, `⟨ ⟩`, `.NAME`, `@`, `++` and more | `( A B -- t )` etc. | designed: [FE2_TERMS.md §2.2](../design/FE2_TERMS.md) | n/a | Today error 70 in natural form; `let:`, `have`, `by` in kernel form are errors 51 and 52 (`_` is built in natural form since tactic batch 3b, [A.2](#a2-the-words); in kernel form it is 52). |
 | `**` `variable`, `section`, `set_option` | `( -- )` | designed: [FE2_TERMS.md §2.2](../design/FE2_TERMS.md) | n/a | Commands, not built. |
 
 ### A.2 The words
@@ -1371,10 +1371,11 @@ goal and its context, and leave parts of a proof to later steps.
   `refine_2` after it (`rf_and_case`); `' And.intro ?: left $ ?: right $
   by-refine` tags them `left` and `right` (`rf_named`). A `_` unification
   fills is no goal (`_ Eq.refl by-refine`, `rf_natural`); one it leaves:
-  461, Lean's "don't know how to synthesize placeholder" with its context,
-  and 99 when the hole is an argument (Lean's message then names it); an
-  implicit argument left open: 95; t of another type: 96; a NAME a goal
-  has already: 139.
+  461, Lean's "don't know how to synthesize placeholder" with its context
+  (reported at the step's word, where Lean reports it at the hole), and 99
+  when the hole is an argument (Lean's message then names it); an implicit
+  argument left open: 95; t of another type: 96; a NAME any metavariable
+  has already, an assigned or closed goal's too: 139.
 - `_` in `by-exact`, `by-apply` and `by-have:`'s value: unification fills
   it (`ex_hole`: `_ Eq.refl by-exact`; `ap_hole`: `' Nat.le_refl _ $
   by-apply`; `hv_hole`: `a a ≤ ' Nat.le_refl _ $ by-have: h`); `by-exact`
@@ -1409,7 +1410,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-change` | `( T -- )` | ordinary | read: a step holding T. Run: replaces the main goal by one of type T, the old one assigned `id` of it (the same goal when T is its type) | Restates the goal as a definitionally equal T; not equal: 443; T no proposition: 96. | `change T` |
 | `by-show` | `( T -- )` | ordinary | read: a step holding T. Run: as `by-change` on the first goal T fits, which becomes the main goal | Picks and restates the goal T fits; none: 444 (one goal), 445 (several); no goal: 90. | `show T` |
 | `by-swap` | `( -- )` | ordinary | read: a step. Run: the second goal becomes the first | Swaps the first two goals; fewer than two: 446. | `swap` (Batteries) |
-| `by-specialize` | `( t -- )` | ordinary | read: a step holding t. Run: a new hypothesis of t's type, named as t's head hypothesis, which goes when nothing depends on it | Replaces the hypothesis h by t = h applied; t's head no hypothesis: 447; t leaving a metavariable: 93. | `specialize t` |
+| `by-specialize` | `( t -- )` | ordinary | read: a step holding t. Run: a new hypothesis of t's type, named as t's head hypothesis, which goes when nothing depends on it | Replaces the hypothesis h by t = h applied; t's head no hypothesis: 447; a hole of t left open is a new goal before the new main one (Lean's allowNaturalHoles), which text cannot reach yet: a hypothesis applied to a hole is 136. | `specialize t` |
 | `by-revert` | `( h -- )` | ordinary | read: a step holding h. Run: replaces the main goal by one with h, and the hypotheses that depend on it, as binders | Puts h back into the goal; h no hypothesis: 389; a `let` among them: 93. | `revert h` |
 | `by-delta` | `( f -- )` | ordinary | read: a step holding f. Run: replaces the main goal by one with f unfolded, assigned `id` of it | Unfolds the definition f in the goal; nothing to unfold: 448; f no constant: 99; a theorem: 93. | `delta f` |
 | `by-contradiction` | `( -- )` | ordinary | read: a step. Run: assigns the main goal a proof from contradictory hypotheses, removes it | Closes the goal from `False`, `¬p` and `p`, `a ≠ a`, or a statement `decide` refutes; none: 449; a case split or `noConfusion` it would need: 99 (not supported yet). | `contradiction` |
@@ -1439,7 +1440,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-refine` | `( t -- )` (top: t) | ordinary | read: a step holding t. Run: elaborates t against the goal, assigns it, its `?_` and `?: NAME` new goals in its place, tagged as Lean's | Closes the goal with t up to its holes; a `_` left open: 461 (99 as an argument); an implicit argument left: 95; a mismatch: 96; a NAME taken: 139. | `refine t` |
 | `_` | `( -- t )` | ordinary (kernel form: 52) | read: a hole node | A hole unification fills (or a goal where the tactic allows one: `by-specialize`). | `_` |
 | `?_` | `( -- t )` | ordinary (kernel form: 52) | read: a synthetic hole node | A new goal of `by-refine`; elsewhere left open (461 in `by-exact`). | `?_` |
-| `?: NAME` | `( -- t )` | parsing: one name after it on its line (2 when none); `_` gives `?_` | read: a synthetic hole node with NAME | A new goal tagged NAME; a NAME some goal has: 139. | `?NAME` |
+| `?: NAME` | `( -- t )` | parsing: one name after it on its line (2 when none); `_` gives `?_` | read: a synthetic hole node with NAME | A new goal tagged NAME; a NAME any metavariable has, an assigned or closed goal's too: 139. | `?NAME` |
 | `by-exacts[` | `( -- )` | ordinary; opens a term block that `]` closes (no `<-`) | read: a step whose terms are the values up to `]`. Run: `by-exact` of each, then no goal may be left | Closes the goals one term each; a mismatch: 96; a goal left: 89. | `exacts [` (Batteries) |
 | `by-cases: HYP-NAME` | `( p -- )` (top: p) | parsing: one name after it, on its line | read: a step holding p; HYP-NAME a hypothesis word. Run: assigns the main goal `dite p` of two new goals, `pos` (HYP-NAME : p) and `neg` (HYP-NAME : ¬p), which take its place | Splits on whether p holds; p's `Decidable` instance, else `Classical.propDecidable` (the report's axioms then `propext`, `Classical.choice`, `Quot.sound`, which `--strict-axioms` accepts); p no proposition or `_`: 99. | `by_cases HYP-NAME : p` |
 | `by-contra: HYP-NAME` | `( -- )` | parsing: one name after it, on its line | read: a step; HYP-NAME a hypothesis word. Run: `by-contra-core`, then `by-intro:` of HYP-NAME on the same step | Proves the goal p from HYP-NAME : ¬p and the goal `False` (for p = ¬q, HYP-NAME : q); `rfl`: 99. | `by_contra HYP-NAME` (Batteries) |

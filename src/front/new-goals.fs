@@ -19,19 +19,23 @@
 \       a hole (elab-app.fs's lf-elab-hole), the newest one's error, 461,
 \       Lean's "don't know how to synthesize placeholder" with "context:"
 \       and the hole's goal below (at the step's word; Lean's place is the
-\       hole's); a
-\       hole that is an application's argument, whose message Lean ends
-\       with the argument's name, is not supported yet (99); any other
-\       metavariable is error 95 (an implicit argument's message, not
-\       ported: exact's answer before batch 3b).
+\       hole's); a hole that is an application's argument, whose message
+\       Lean ends with the argument's name, is not supported yet (99); any
+\       other metavariable is error 95 (an implicit argument's message,
+\       not ported: exact's answer before batch 3b).
 \   lf-tag-untagged ( goals suffix parent -- )  tagUntaggedGoals: the
 \       goals' anonymous ones tagged parent when there is one, else
 \       parent ++ suffix_1, suffix_2, .. in order (suffix a counted
 \       string, Lean's one-part Name, with appendIndexAfter; the parts
-\       joined by meta-tactic/goal.fs's lf-name-append-tag, as
-\       tactics/and-intros.fs joins refine_1)
+\       joined by meta-tactic/goal.fs's lf-name-append-tag; refine's,
+\       specialize's and tactics/and-intros.fs's). A suffix_idx longer
+\       than 64 characters is a fault (invalid).
 \ Errors are thrown as authoring errors at the step running
 \ (tactic-run.fs's lf-tac-stop), Meta failures as outcomes (meta-must.fs).
+\ Cost: lf-fresh-mvars walks e once for each metavariable made since
+\ `from` (O(k*|e|), where Lean's getMVars walks it once and keeps what
+\ it meets); a step makes a few, so this is fine at today's sizes
+\ (review tb2-batch3b 10).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: tng-frames (lf-tag-untagged's frame per call open, meta-must.fs's
 \ lf-with-record), in the checker context (ADR 0009); no other. Loads in
