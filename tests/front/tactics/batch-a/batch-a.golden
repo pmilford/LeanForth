@@ -22,6 +22,8 @@ rv_reuse type (pi Nat.{} (pi Nat.{} (pi (app (app (app (app LE.le.{0} Nat.{}) in
 rv_reuse value (lam Nat.{} (lam Nat.{} (lam (app (app (app (app LE.le.{0} Nat.{}) instLENat.{}) #1) #0) #0)))
 de_ge type (pi Nat.{} (pi Nat.{} (pi (app (app (app (app LE.le.{0} Nat.{}) instLENat.{}) #0) #1) (app (app (app (app GE.ge.{0} Nat.{}) instLENat.{}) #2) #1))))
 de_ge value (lam Nat.{} (lam Nat.{} (lam (app (app (app (app LE.le.{0} Nat.{}) instLENat.{}) #0) #1) (app (app id.{0} (app (app (app (app GE.ge.{0} Nat.{}) instLENat.{}) #2) #1)) #0))))
+de_revisit type (pi Nat.{} (app (app (app Eq.{1} Nat.{}) (app (app (app (app id.{1} (pi (pi Nat.{} Nat.{}) (pi Nat.{} Nat.{}))) (app id.{1} (pi Nat.{} Nat.{}))) Nat.succ.{}) #0)) (app Nat.succ.{} #0)))
+de_revisit value (lam Nat.{} (app (app id.{0} (app (app (app Eq.{1} Nat.{}) (app (app (app (app id.{1} (pi (pi Nat.{} Nat.{}) (pi Nat.{} Nat.{}))) (app id.{1} (pi Nat.{} Nat.{}))) Nat.succ.{}) #0)) (app Nat.succ.{} #0))) (app (app Eq.refl.{1} Nat.{}) (app Nat.succ.{} #0))))
 cn_false type (pi Nat.{} (pi Nat.{} (pi False.{} (app (app (app Eq.{1} Nat.{}) #2) #1))))
 cn_false value (lam Nat.{} (lam Nat.{} (lam False.{} (app (app (app (app absurd.{0} False.{}) (app (app (app Eq.{1} Nat.{}) #2) #1)) #0) (app (app (app of_decide_eq_false.{} False.{}) instDecidableFalse.{}) (app (app Eq.refl.{1} Bool.{}) (app (app Decidable.decide.{} False.{}) instDecidableFalse.{})))))))
 cn_not type (pi Nat.{} (pi Nat.{} (pi (app Not.{} (app (app (app (app LE.le.{0} Nat.{}) instLENat.{}) #1) #0)) (pi (app (app (app (app LE.le.{0} Nat.{}) instLENat.{}) #2) #1) (app (app (app Eq.{1} Nat.{}) #3) #2)))))

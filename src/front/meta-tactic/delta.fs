@@ -19,15 +19,20 @@
 \       tactic gives a constant).
 \ The walk is bottom-up (dag-walk.fs: each node's image made once, from
 \ its children's), where Lean's is top-down and visits the expansion
-\ again: an application of name has the arguments as its children, so
-\ its image puts in the arguments' images, and f's value names no f (a
-\ definition's value never names the definition itself), so the two give
-\ the same term. Not ported (unsupported, through the walk): head beta of an
-\ argument with loose bound variables under a binder of f's value
-\ (instantiate.fs), and the zeta step betaRev's useZeta takes when a let
-\ sits between f's lambdas with arguments left over (instantiate.fs's head
-\ beta stops at the let: the term would differ from Lean's, so it is
-\ refused).
+\ again (Core.transform's .visit): an application of name has the
+\ arguments as its children, so its image puts in the arguments' images,
+\ and f's value names no f (a definition's value never names the
+\ definition itself). The two give the same term but where an argument is
+\ itself name applied (or name alone) and its image a lambda: put in head
+\ position by f's value, Lean meets it there with the arguments after it
+\ and expands it with them all, beta-reduced, where this walk would leave
+\ the redex (@id (N → N) (@id N) s 0: Lean's s 0, here (fun a => a) s 0).
+\ Not ported (unsupported, through the walk): that argument, wherever the
+\ value puts it; head beta of an argument with loose bound variables under
+\ a binder of f's value (instantiate.fs); and the zeta step betaRev's
+\ useZeta takes when a let sits between f's lambdas with arguments left
+\ over (instantiate.fs's head beta stops at the let: the term would
+\ differ from Lean's, so it is refused).
 \ Lean call list: delta? -> mdl-head? and mdl-expand; matchConst ->
 \ lf-term-const? and lf-const-name; levelParams.length == fLvls.length ->
 \ lf-meta-arity? (meta-spine.fs); instantiateValueLevelParams ->
@@ -48,6 +53,7 @@ require ../../core/let-terms.fs
 require ../../core/input.fs
 require ../../core/name-equal.fs
 require ../../core/constant-term-boundary.fs
+require ../../core/annotations.fs
 require ../dag-walk.fs
 require ../meta-env.fs
 require ../meta-spine.fs
@@ -85,10 +91,16 @@ end-structure
   over mdl-head? if drop mdl-want-args else dw-want-binary then ;
 
 \ ---- The images: the value applied to the arguments' images, head beta;
-\ any other binary node over its parts' images; a leaf itself.
-: mdl-image! ( addr -- ) dup @ mdl-dw dw-image swap ! ;
-: mdl-images ( -- ) mdl-args slab-count 0 ?do i mdl-args slab-at mdl-image! loop ;
-: mdl-value ( head -- value outcome ) mdl mdl-decl @ swap lf-unfold-value mdl-images ;
+\ any other binary node over its parts' images; a leaf itself. An
+\ argument that is name applied, its image a lambda (under annotations,
+\ as headBeta looks), is the revisit not ported: unsupported.
+: mdl-revisited? ( arg image -- flag ) lf-annot-strip lf-term-lam? if mdl-head? else drop false then ;
+: mdl-image ( arg -- image outcome )
+  dup mdl-dw dw-image tuck mdl-revisited? if outcome-unsupported else outcome-ok then ;
+: mdl-image! ( k -- outcome ) mdl-args slab-at dup @ mdl-image >r swap ! r> ;
+: mdl-images ( -- outcome ) mdl-args slab-count ['] mdl-image! ok-each ;
+: mdl-value ( head -- value outcome )
+  mdl mdl-decl @ swap lf-unfold-value ['] mdl-images ok-and ;
 \ betaRev's useZeta: a let between the value's lambdas, with arguments
 \ left for the lambdas after it, would be zeta-reduced: not ported.
 : mdl-zeta ( e -- e outcome )

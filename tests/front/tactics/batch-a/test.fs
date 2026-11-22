@@ -233,6 +233,27 @@ T{ const-loose s" Function.const" lfa-intern ' lf-delta-expand code2 -> thrown-u
   sb lf-mk-app ;
 T{ let-applied mdl-zeta nip -> outcome-unsupported }T
 T{ sab mdl-zeta nip -> outcome-ok }T
+\ Lean visits an expansion again (review of 2026-11-21, finding 3): in
+\ @id ((N → N) → N → N) (@id (N → N)) Nat.succ a the argument @id (N → N)
+\ lands in head position and Lean expands it with Nat.succ a, giving
+\ Nat.succ a (batch-a.golden's de_revisit pins it on pinned Lean: rfl's
+\ Eq.refl takes the new goal's left side, Nat.succ a); the
+\ bottom-up walk would leave (fun a => a) Nat.succ a: not ported. An
+\ argument of name whose image is a lambda is refused wherever it lands
+\ (@id (N → N) (@id N): Lean's fun a => a, refused too); a full one, or a
+\ lambda not of name, is kept.
+: level1 ( -- u ) 0 lf-level-succ 0= abort" level" ;
+: n>n ( -- t ) nat nat lf-term-pi lf-made! ;
+: id1 ( type -- t ) s" id" level1 lf-mk-const1 swap lf-mk-app ;
+: succ ( -- t ) s" Nat.succ" lf-mk-const0 ;
+: id-ex ( -- name ) s" id" lfa-intern ;
+: id-id ( -- t ) n>n n>n lf-term-pi lf-made! id1 n>n id1 lf-mk-app succ lf-mk-app sa lf-mk-app ;
+T{ id-id id-ex ' lf-delta-expand code2 -> thrown-unsupported }T
+T{ n>n id1 nat id1 lf-mk-app id-ex ' lf-delta-expand code2 -> thrown-unsupported }T
+T{ n>n id1 succ lf-mk-app sa lf-mk-app id-ex lf-delta-expand succ sa lf-mk-app eqv? -> true }T
+T{ nat id1 nat id1 sa lf-mk-app lf-mk-app id-ex lf-delta-expand sa = -> true }T
+: lam-x ( -- t ) nat bvar0 lf-term-lam lf-made! ;
+T{ n>n id1 lam-x lf-mk-app sa lf-mk-app id-ex lf-delta-expand lam-x sa lf-mk-app eqv? -> true }T
 
 \ ---- contradiction: each rule, a fresh context each time.
 : rules ( type -- code ) goal ['] lf-goal-contradiction catch dup if nip then authored ;

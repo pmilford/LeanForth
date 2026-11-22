@@ -1156,7 +1156,9 @@ on decide's slice of Init (`--env tests/front/decide-slice.ndjson
 - `' f by-delta` unfolds the definition `f` everywhere in the goal: `' GE.ge
   by-delta` turns `a ≥ b` into `b ≤ a` (`de_ge`); Lean: `delta GE.ge`.
   Nothing to unfold: 448, "did not delta reduce [f]". A theorem's name is
-  not supported yet (93).
+  not supported yet (93), nor `f` applied to `f` given too few arguments to
+  be used up (`@id (N → N) (@id N)`: Lean unfolds the inner one again where
+  it lands, 93).
 - `by-contradiction` closes any goal from contradictory hypotheses:
   `h : False` (`cn_false`), `h : ¬ p` beside `h2 : p` (`cn_not`, the
   hypotheses `a b ≤ ¬` and `a b ≤`), `h : a ≠ a` (`cn_ne`), or a closed

@@ -186,6 +186,30 @@ new = ''': mdl-theorem ( kind -- kind ) ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: a theorem's name leaves the term as it is, where Lean would put the proof in"
 
+[[fault]]
+id = "tb2-delta-revisit-ignored"
+file = "src/front/meta-tactic/delta.fs"
+old = ''': mdl-revisited? ( arg image -- flag ) lf-annot-strip lf-term-lam? if mdl-head? else drop false then ;'''
+new = ''': mdl-revisited? ( arg image -- flag ) 2drop false ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2 review 3: an argument of name with a lambda image is put in, leaving a redex Lean expands"
+
+[[fault]]
+id = "tb2-delta-revisit-any-lambda"
+file = "src/front/meta-tactic/delta.fs"
+old = ''': mdl-revisited? ( arg image -- flag ) lf-annot-strip lf-term-lam? if mdl-head? else drop false then ;'''
+new = ''': mdl-revisited? ( arg image -- flag ) lf-annot-strip lf-term-lam? nip ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2 review 3: any lambda argument refused, though Lean keeps one not of name ((fun x => x) a)"
+
+[[fault]]
+id = "tb2-delta-images-unchecked"
+file = "src/front/meta-tactic/delta.fs"
+old = '''  mdl mdl-decl @ swap lf-unfold-value ['] mdl-images ok-and ;'''
+new = '''  mdl mdl-decl @ swap lf-unfold-value mdl-images drop ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2 review 3: the arguments' revisit check made but its unsupported dropped"
+
 # ---- meta-tactic/contradiction.fs
 [[fault]]
 id = "tb2-cn-no-pair"

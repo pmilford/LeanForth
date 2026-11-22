@@ -74,6 +74,14 @@ theorem rv_reuse (a b : Nat) (h : a ≤ b) : a ≤ b := by
 theorem de_ge (a b : Nat) (h : b ≤ a) : a ≥ b := by
   delta GE.ge
   exact h
+-- Lean's side only: delta visits its expansion again, so @id (Nat → Nat), put in head position,
+-- is expanded with Nat.succ a: rfl's Eq.refl takes the new goal's left side, Nat.succ a, not
+-- (fun a => a) Nat.succ a. LeanForth refuses the shape as not supported yet (test.fs, delta.fs;
+-- review of 2026-11-21, finding 3).
+theorem de_revisit (a : Nat) :
+    @id ((Nat → Nat) → Nat → Nat) (@id (Nat → Nat)) Nat.succ a = Nat.succ a := by
+  delta id
+  rfl
 theorem cn_false (a b : Nat) (h : False) : a = b := by contradiction
 theorem cn_not (a b : Nat) (h : ¬ a ≤ b) (h2 : a ≤ b) : a = b := by contradiction
 theorem cn_ne (a b : Nat) (h : a ≠ a) : a = b := by contradiction
@@ -111,6 +119,6 @@ def dump (n : Name) : MetaM Unit := do
 
 #eval do
   for n in [``ch_target, ``ch_same, ``sh_target, ``sh_second, ``sw_and, ``rv_hyp, ``rv_dep,
-      ``sp_self, ``sp_exact, ``sp_later, ``rv_reuse, ``de_ge, ``cn_false, ``cn_not, ``cn_ne, ``tr_rfl, ``tr_and, ``tr_decide,
+      ``sp_self, ``sp_exact, ``sp_later, ``rv_reuse, ``de_ge, ``de_revisit, ``cn_false, ``cn_not, ``cn_ne, ``tr_rfl, ``tr_and, ``tr_decide,
       ``tr_false, ``tr_assumption, ``ab_neg, ``ab_pos] do
     dump n
