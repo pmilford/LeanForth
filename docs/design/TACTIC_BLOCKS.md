@@ -108,7 +108,7 @@ About 440 lines with comments counted as today's files do, 420 without the statu
 | Later work | What it uses from F | What F leaves ready |
 |---|---|---|
 | nested `by` in terms (FE2), simp dischargers | `blk-nested`, `lfr-loop-from` called from inside a step with the current depth | Forth recursion only as deep as the text nests `by`; `lf-tactic-by` must stop clearing frames (`lfr-fresh` :679) when FE2 lands |
-| rcases/obtain patterns (E) | `|` inside a pattern bracket | `lft-w-bar` asks an open bracket first (`lft-bracket?`), then the bars block |
+| rcases/obtain patterns (E) | `|` inside a pattern bracket | inside an open bracket list a bar is that list's item (a pattern bar), also at a line's start, and the list's own reader takes it; outside brackets a bar at a line's start begins an alternative ([TACTIC_PATTERNS.md](TACTIC_PATTERNS.md), section 2) |
 | `case a \| b =>` | the body run once per tag | `lf-tac-again` in a mode-end |
 | have with binders | `fun` wrapping | FE2; have-by's row unchanged |
 | conv | its own mode and goal kind | `lf-block-mode:` |
