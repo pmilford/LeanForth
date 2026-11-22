@@ -1,7 +1,8 @@
 \ The new goals a term leaves (plan row TB2, tactic batch 3b; mechanism B,
 \ holes), after Lean 4.35.0's Elab/Tactic/ElabTerm.lean:64-134 and
 \ Elab/Tactic/Basic.lean:613-629, below the tactics' elaboration glue
-\ (tactic-core.fs's lf-tac-elab-with-holes and closeMainGoalUsing):
+\ (tactic-core.fs's lf-tac-elab-holes, lf-tac-tag-new and
+\ closeMainGoalUsing):
 \   lf-fresh-mvars ( e from -- mvars )  collectFreshMVars's list
 \       (getMVarsNoDelayed, filterOldMVars, sortMVarIdsByIndex): the
 \       metavariables numbered from `from` on (Lean's mvarCounter saved)

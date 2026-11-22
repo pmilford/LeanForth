@@ -6,7 +6,8 @@
 \ lf-mvar-named, new-goals.fs's lf-fresh-mvars, lf-natural-mvars,
 \ lf-tac-log-unassigned and lf-tag-untagged, meta-config.fs's
 \ lf-with-holes-as-goals, tactic-core.fs's lf-tac-arg-fvars and
-\ lf-tac-elab-with-holes (through by-refine and by-specialize), and the
+\ lf-tac-elab-holes and lf-tac-tag-new (through by-refine and
+\ by-specialize, and lf-tac-elab-holes through a test tactic), and the
 \ list words through LeanForth text (tests/support/tactic-text.fs):
 \ 1. outcomes: each word accepted, each refusal with its code (94, 95,
 \    99, 139, 440, 455, 461), each case not ported (99, 139);
@@ -182,7 +183,7 @@ T{ aa s" ' Nat.le_refl _ $ by-refine" tactic-ran lf-goals run-count -> 0 0 }T
 T{ ab s" ' Nat.le_refl _ $ by-refine" tactic-ran -> 96 }T
 lf-tac-forget
 
-\ ---- lf-tac-elab-with-holes collects the step's own metavariables only
+\ ---- lf-tac-elab-holes collects the step's own metavariables only
 \ (filterOldMVars; review tb2-batch3b 5): a test tactic makes ?old, a
 \ synthetic opaque Nat, and starts the step after it; the term _ Eq.refl
 \ against ?old ?old = holds ?old, which is no new goal. (No tactic leaves
@@ -191,7 +192,7 @@ variable old-goals#
 : old-expected ( -- type ) nat mv-opaque lf-mvar-new made dup lf-mk-eq ;
 : old-step ( type -- type ) lf-mvar-count tb tb-from ! ;
 : old-holes ( i -- goals )
-  0 lf-tac-arg old-expected old-step c" old" false lf-tac-elab-with-holes nip ;
+  0 lf-tac-arg old-expected old-step false lf-tac-elab-holes nip ;
 : old-tac ( i goal -- goals ) swap old-holes run-count old-goals# ! lf-goals1 ;
 : old-run ( i -- ) dup ['] old-tac lf-lift-meta-tactic ;
 tac-shape-term lf-tactic: by-old-holes ' old-run swap lf-tactic-action!

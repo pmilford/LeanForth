@@ -38,12 +38,11 @@ s" and_intros" tac-k-and-intros lf-tactic-lean!
 : tai-holes ( goals -- l r ) dup 0 run@ swap 1 run@ ;
 : tai-assign ( goals goal -- goals goal )
   over tai-holes tai-term over swap lf-mvar-assign lf-must ;
-: tai-new ( goal a b -- goals goal ) tai-split lf-goals2 swap tai-assign ;
 \ The holes tagged from goal's tag, tagUntaggedGoals with the suffix refine.
-: tai-tagged ( goals goal -- goals )
+: tai-tag ( goals goal -- goals )
   over swap lf-goal-tag c" refine" swap lf-tag-untagged ;
 : tai-f ( goal -- goals true | false )
-  dup tai-and if tai-new tai-tagged true else drop false then ;
+  dup tai-and if tai-split lf-goals2 swap tai-assign tai-tag true else drop false then ;
 : tai-in ( goal -- goals true | false ) dup ['] tai-f lf-with-goal ;
 : tai-run ( i -- ) drop lf-goals ['] tai-in lf-goals-repeat lf-goals! lf-tac-must ;
 ' tai-run tac-k-and-intros lf-tactic-action!

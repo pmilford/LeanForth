@@ -145,15 +145,17 @@
 \       arguments in order, a run (a header's or a list's names: case's,
 \       rename_i's); lf-tac-arg-fvars ( i -- fvars ) getFVarIds of them,
 \       a run (by-revert[, by-clear[)
-\   lf-tac-elab-with-holes ( node expected suffix allow? -- e goals )
+\   lf-tac-elab-holes ( node expected allow? -- e goals ) and
+\   lf-tac-tag-new ( goals suffix -- goals ), one after the other
 \       elabTermWithHoles (ElabTerm.lean:150-205; plan row TB2, batch 3b):
 \       the term elaborated, ensuring expected (-1: none), with no
 \       postponing; goals (a run) its new metavariables still open, the
 \       step's (numbered from tb-from), oldest first (new-goals.fs's
 \       lf-fresh-mvars); unless allow? a natural one among them is
 \       logUnassignedAndAbort's error (lf-tac-log-unassigned: 461, 95,
-\       99); each anonymous one tagged from the main goal's tag with the
-\       suffix, a counted string (lf-tag-untagged); allow? elaborates
+\       99); then lf-tac-tag-new tags each anonymous one from the main
+\       goal's tag with the suffix, a counted string (tagUntaggedGoals,
+\       lf-tag-untagged); allow? elaborates
 \       with holes synthetic opaque and assignable
 \       (lf-with-holes-as-goals: refine', specialize)
 \   lf-with-location ( i*x i xt-local xt-target -- i*x )  withLocation
@@ -297,10 +299,10 @@ end-structure
 \ ---- elabTermWithHoles (ElabTerm.lean:150-205, withCollectingNewGoalsFrom):
 \ elabTermEnsuringType (no expected type: elabTerm), its new
 \ metavariables collected (numbered from tb-from: the step's own), the
-\ natural ones refused unless allowed (logUnassignedAndAbort), each
-\ anonymous one tagged from the main goal's tag (tagUntaggedGoals);
-\ allowed, the elaboration runs with holes synthetic opaque and those
-\ assignable (meta-config.fs's lf-with-holes-as-goals).
+\ natural ones refused unless allowed (logUnassignedAndAbort); then, in
+\ a word of its own, each anonymous one tagged from the main goal's tag
+\ (tagUntaggedGoals); allowed, the elaboration runs with holes synthetic
+\ opaque and those assignable (meta-config.fs's lf-with-holes-as-goals).
 : tcr-ensuring ( node expected -- e )
   dup 0< if false lf-tac-elab-term else lf-tac-elab-ensuring then ;
 : tcr-holes-elab ( node expected allow? -- e )
@@ -308,9 +310,10 @@ end-structure
 : tcr-goals ( e allow? -- goals )
   swap tb tb-from @ lf-fresh-mvars swap if exit then
   dup lf-natural-mvars lf-tac-log-unassigned ;
-: tcr-tagged ( goals suffix -- goals ) over swap lf-tac-main lf-goal-tag lf-tag-untagged ;
-: lf-tac-elab-with-holes ( node expected suffix allow? -- e goals )
-  swap >r dup >r tcr-holes-elab dup r> tcr-goals r> tcr-tagged ;
+: lf-tac-elab-holes ( node expected allow? -- e goals )
+  dup >r tcr-holes-elab dup r> tcr-goals ;
+: lf-tac-tag-new ( goals suffix -- goals )
+  over swap lf-tac-main lf-goal-tag lf-tag-untagged ;
 
 \ ---- closeMainGoalUsing: the step's new metavariables (numbered from
 \ tb-from) that the term leaves unassigned, logUnassignedAndAbort's

@@ -431,7 +431,7 @@ marked ~); "exists" names the file. Forth estimates use 1.9 file lines per Lean 
 | `coerce?`, `coerceSimple?`, `expandCoe`, `coerceToFunction?`, `coerceToSort?` | Meta/Coe.lean:274, 93, 44, 100, 114 | ~170 | `lf-coerce`, `lf-coerce-to-fun`, `lf-coerce-to-sort` | FE4a (monad lifts later) | 320 |
 | `Tactic.elabTerm`, `elabTermEnsuringType`, `runTermElab` | Elab/Tactic/ElabTerm.lean:45, 51, 31 | ~50 | `lf-tac-elab-term`, `lf-tac-elab-ensuring` | hook today; LA | 95 |
 | `closeMainGoalUsing` | ElabTerm.lean:85 | 15 | `lf-close-main-goal-using` | LA | 30 |
-| `withCollectingNewGoalsFrom`, `elabTermWithHoles`, `getMVarsNoDelayed` | ElabTerm.lean:142, 200; CollectMVars.lean:42 | ~70 | `lf-tac-collecting-goals`, `lf-tac-elab-with-holes` | LA | 135 |
+| `withCollectingNewGoalsFrom`, `elabTermWithHoles`, `getMVarsNoDelayed` | ElabTerm.lean:142, 200; CollectMVars.lean:42 | ~70 | `lf-tac-collecting-goals`, `lf-tac-elab-holes` and `lf-tac-tag-new` | LA | 135 |
 | `elabTermForApply` | ElabTerm.lean:265 | 17 | `lf-tac-elab-for-apply` | `tactic-core.fs` (a2-ii); moved in LA | — |
 | Binders, `fun`, `∀`, `let`, `have`, `show`, ascription, `sorry`, `▸` | Binders.lean:258-745; BuiltinNotation.lean:114-457 | ~700 | FE2_TERMS §5.5 | S5, S6 | per FE2 |
 

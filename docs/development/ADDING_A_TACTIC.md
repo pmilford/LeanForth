@@ -77,12 +77,14 @@ s" assumption" tac-k-assumption lf-tactic-lean!
 - Holes (mechanism B, batch 3b): `_`, `?_` and `?: NAME` are term nodes
   (`syntax.fs`'s `syn-k-hole`, `syn-k-synthetic`) that `elab-term.fs`
   elaborates as Lean's elabHole and elabSyntheticHole. A tactic that
-  takes a term with holes elaborates it with `lf-tac-elab-with-holes (
-  node expected suffix allow? -- e goals )` (`tactic-core.fs`, Lean's
-  elabTermWithHoles: expected -1 for none, suffix a counted string,
-  `c" refine"`; goals the term's new open metavariables, tagged as
-  Lean's tagUntaggedGoals; with allow? false a natural hole left open is
-  Lean's placeholder error, 461): `tactics/refine.fs`, `specialize.fs`.
+  takes a term with holes elaborates it with `lf-tac-elab-holes ( node
+  expected allow? -- e goals )` and then tags the goals with
+  `lf-tac-tag-new ( goals suffix -- goals )` (`tactic-core.fs`, the two
+  together Lean's elabTermWithHoles: expected -1 for none; goals the
+  term's new open metavariables, with allow? false a natural hole left
+  open being Lean's placeholder error, 461; suffix a counted string,
+  `c" refine"`, the anonymous goals tagged as Lean's tagUntaggedGoals):
+  `tactics/refine.fs`, `specialize.fs`.
   The goal words under it are `new-goals.fs`'s `lf-fresh-mvars`,
   `lf-natural-mvars`, `lf-tac-log-unassigned` and `lf-tag-untagged`.
 - A tactic that takes Lean's location (`at h ⊢`) is registered with a

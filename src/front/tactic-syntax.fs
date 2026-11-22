@@ -218,11 +218,11 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 : lft-inner+ ( -- ) 1 lft-open lft-rec tac-inner +! ;
 : lft-tactic-new ( kind -- i ) lft-inner+ lft-new ;
 
-\ Names given to hypotheses: _, or a name that is no LeanForth word,
-\ which the block's text can use until the block ends (groups.fs).
-: lft-hole? ( c-addr u -- flag ) s" _" lfa-token= ;
-\ The LeanForth words are the printer's reserved list (words.fs checks
-\ each against it), which needs no name lookup in the front end.
+\ Names given to hypotheses: _ (reader.fs's lfn-underscore?), or a name
+\ that is no LeanForth word, which the block's text can use until the
+\ block ends (groups.fs). The LeanForth words are the printer's reserved
+\ list (words.fs checks each against it), which needs no name lookup in
+\ the front end.
 : lft-no-word ( c-addr u -- c-addr u ) 2dup lf-pf-reserved? 0= lfa-e-tac-header lfa-must ;
 : lft-entry! ( c-addr u j -- )
   >r lf-locals lfa-entry-new lfa-entry-hypothesis r> rot lfa-entry-set ;
@@ -230,7 +230,7 @@ action-of lfa-declaration-fresh constant lft-fresh-before
   lfa-word-name 2dup targ# lft-entry! lfa-intern lfa-here lft-arg+ ;
 : lft-inaccessible ( i -- i ) 0 lfa-here lft-arg+ ;
 : lft-given ( i c-addr u -- i )
-  2dup lft-hole? if 2drop lft-inaccessible exit then lft-no-word lft-hypothesis ;
+  2dup lfn-underscore? if 2drop lft-inaccessible exit then lft-no-word lft-hypothesis ;
 \ k names after the word, each on its line (a missing one: error 2).
 : lft-names-after ( i k -- i ) 0 ?do lfa-name-token lft-given loop ;
 \ The next token on the line, current (none: an empty string).
@@ -306,9 +306,8 @@ end-structure
   lft-list-token 2dup lft-closer? if 2drop false else true then ;
 \ A hypothesis named: no LeanForth word (_ is a reserved word too).
 : lft-loc-name? ( c-addr u -- flag ) lf-pf-reserved? 0= ;
-: lft-name-id ( c-addr u -- name ) lfa-word-name lfa-intern ;
 : lft-hyp-ref ( i c-addr u -- i )
-  2dup lft-loc-name? lfa-e-tac-hyp-names lfa-must lft-name-id lfa-here lft-arg+ ;
+  2dup lft-loc-name? lfa-e-tac-hyp-names lfa-must lfn-name-id lfa-here lft-arg+ ;
 : lft-binders] ( i -- i ) begin lft-list-name while lft-given repeat ;
 : lft-hyps] ( i -- i ) begin lft-list-name while lft-hyp-ref repeat ;
 : lft-some ( i -- i ) dup lft-rec tac-count @ 0> lfa-e-tac-list-empty lfa-must ;
@@ -396,9 +395,9 @@ end-structure
 \ The tag: a name. Lean's wildcard _ and @TAG (every field explicit) are
 \ not supported yet.
 : lft-at-sign? ( c-addr u -- flag ) drop 1 s" @" lfa-token= ;
-: lft-tag-later? ( c-addr u -- flag ) 2dup lft-hole? -rot lft-at-sign? or ;
+: lft-tag-later? ( c-addr u -- flag ) 2dup lfn-underscore? -rot lft-at-sign? or ;
 : lft-tag ( c-addr u -- name )
-  2dup lft-tag-later? if lfa-e-tactic lfa-fail then lft-no-word lfa-word-name lfa-intern ;
+  2dup lft-tag-later? if lfa-e-tactic lfa-fail then lft-no-word lfn-name-id ;
 \ The names: | before => is a second tag (| a | b =>), not supported yet.
 : lft-name ( i c-addr u -- i ) 2dup lft-bar? if lfa-e-tactic lfa-fail then lft-given ;
 : lft-names ( i -- i )
@@ -407,7 +406,7 @@ end-structure
 : lft-name! ( i name -- i ) over lft-rec tac-name ! ;
 : lft-tag! ( i -- i ) lft-header-token lft-tag lft-name! ;
 \ by-case:'s tag may be _ (Lean's case _: the main goal), kept as 0.
-: lft-case-tag ( c-addr u -- name ) 2dup lft-hole? 0= if lft-tag exit then 2drop 0 ;
+: lft-case-tag ( c-addr u -- name ) 2dup lfn-underscore? 0= if lft-tag exit then 2drop 0 ;
 : lft-case-tag! ( i -- i ) lft-header-token lft-case-tag lft-name! ;
 : lft-arrow! ( i -- i ) lfa-here over lft-rec tac-arrow ! ;
 : lft-headed ( i -- ) lft-names lft-arrow! lft-opened ;
@@ -469,7 +468,7 @@ end-structure
   2dup s" |-" lfa-token= if 2drop true else s" ⊢" lfa-token= then ;
 : lft-star? ( c-addr u -- flag ) s" *" lfa-token= ;
 : lft-loc-hyp ( i c-addr u -- i )
-  2dup lft-loc-name? lfa-e-tac-at-names lfa-must lft-name-id lfa-here lft-arg!
+  2dup lft-loc-name? lfa-e-tac-at-names lfa-must lfn-name-id lfa-here lft-arg!
   lft-loc-open 1 over lft-rec tac-loc# +! ;
 \ * only first: nothing named yet.
 : lft-loc-fresh? ( i -- flag )

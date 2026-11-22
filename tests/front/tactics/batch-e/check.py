@@ -2,8 +2,8 @@
 """Tactic batch 3b end to end against pinned Lean (plan row TB2: lists of names up to ] for
 by-intro[ ], by-revert[ ], by-clear[ ] and by-rename-i[ ]; holes _, ?_ and ?: NAME with
 by-refine, by-exact, by-apply and by-have:; src/front/tactic-syntax.fs's list shapes,
-src/front/new-goals.fs, tactic-core.fs's lf-tac-elab-with-holes, elab-term.fs's holes, and
-src/front/tactics/intro.fs, revert.fs, clear.fs, rename-i.fs, refine.fs): the harness and
+src/front/new-goals.fs, tactic-core.fs's lf-tac-elab-holes and lf-tac-tag-new,
+elab-term.fs's holes, and src/front/tactics/intro.fs, revert.fs, clear.fs, rename-i.fs, refine.fs): the harness and
 its usage are tests/front/tactics/tactic_check.py's, against decide's slice of Init
 (tests/front/decide-slice.ndjson, as batch-a's), with this batch's own Lean twins
 (batch-e.lean, batch-e-wrong.lean) and golden (batch-e.golden)."""

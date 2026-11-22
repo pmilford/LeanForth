@@ -1,10 +1,12 @@
 # Planted faults of tactic batch 3b (plan row TB2: src/front/tactic-syntax.fs's lists of
 # names and at[ ], src/front/reader.fs's and elab-term.fs's holes, elab-app.fs's hole
-# records and lf-elab-record+ (over src/lib/slab.fs's slab-claim-one), mvars.fs's lf-mvar-at and lf-mvar-named, meta-config.fs's
-# lf-with-holes-as-goals, elab-decl.fs's edc-kept, src/front/new-goals.fs, tactic-core.fs's
-# name words and lf-tac-elab-with-holes, src/front/tactics/intro.fs, revert.fs, clear.fs,
-# rename-i.fs, refine.fs), read with faults.toml as one list (scripts/mutants.py). Each is
-# caught by the test it names (tests/front/tactics/batch-e/test.fs or its check.py).
+# records and lf-elab-record+ (over src/lib/slab.fs's slab-claim-one), mvars.fs's
+# lf-mvar-at and lf-mvar-named, meta-config.fs's lf-with-holes-as-goals, elab-decl.fs's
+# edc-kept, src/front/new-goals.fs, tactic-core.fs's name words, lf-tac-elab-holes and
+# lf-tac-tag-new, src/front/tactics/intro.fs, revert.fs, clear.fs, rename-i.fs,
+# refine.fs, specialize.fs), read with faults.toml as one list (scripts/mutants.py).
+# Each is caught by the test it names (tests/front/tactics/batch-e/test.fs or its
+# check.py), unless it says why not (gap, equivalent).
 
 # ---- tactic-syntax.fs: lists of names
 [[fault]]
@@ -34,16 +36,16 @@ reason = "TB2 3b: the list stops at its first name and reads ] as a name"
 [[fault]]
 id = "tb3b-hyp-ref-any"
 file = "src/front/tactic-syntax.fs"
-old = '''  2dup lft-loc-name? lfa-e-tac-hyp-names lfa-must lft-name-id lfa-here lft-arg+ ;'''
-new = '''  lft-name-id lfa-here lft-arg+ ;'''
+old = '''  2dup lft-loc-name? lfa-e-tac-hyp-names lfa-must lfn-name-id lfa-here lft-arg+ ;'''
+new = '''  lfn-name-id lfa-here lft-arg+ ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: _ or a LeanForth word read as a hypothesis's name in by-revert[ (not 459)"
 
 [[fault]]
 id = "tb3b-hyp-ref-uncounted"
 file = "src/front/tactic-syntax.fs"
-old = '''  2dup lft-loc-name? lfa-e-tac-hyp-names lfa-must lft-name-id lfa-here lft-arg+ ;'''
-new = '''  2dup lft-loc-name? lfa-e-tac-hyp-names lfa-must lft-name-id lfa-here lft-arg! ;'''
+old = '''  2dup lft-loc-name? lfa-e-tac-hyp-names lfa-must lfn-name-id lfa-here lft-arg+ ;'''
+new = '''  2dup lft-loc-name? lfa-e-tac-hyp-names lfa-must lfn-name-id lfa-here lft-arg! ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: the names are stored but not counted as the step's arguments"
 
@@ -107,8 +109,8 @@ reason = "TB2 3b: * after a name in at[ ] read as the wildcard (not 454)"
 [[fault]]
 id = "tb3b-hole-name-underscore"
 file = "src/front/reader.fs"
-old = '''  2dup s" _" lfa-token= if 2drop 0 else lfa-word-name lfa-intern then ;'''
-new = '''  lfa-word-name lfa-intern ;'''
+old = '''  2dup lfn-underscore? if 2drop 0 exit then lfn-name-id ;'''
+new = '''  lfn-name-id ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: ?: _ names its goal _ instead of being ?_"
 
@@ -517,8 +519,8 @@ reason = "TB2 3b: metavariables made before the step counted as its new goals (c
 [[fault]]
 id = "tb3b-tagged-parent-lost"
 file = "src/front/tactic-core.fs"
-old = ''': tcr-tagged ( goals suffix -- goals ) over swap lf-tac-main lf-goal-tag lf-tag-untagged ;'''
-new = ''': tcr-tagged ( goals suffix -- goals ) over swap 0 lf-tag-untagged ;'''
+old = '''  over swap lf-tac-main lf-goal-tag lf-tag-untagged ;'''
+new = '''  over swap 0 lf-tag-untagged ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: the new goals tagged without the main goal's tag"
 
@@ -615,15 +617,15 @@ reason = "TB2 3b: refine leaves the main goal unassigned"
 [[fault]]
 id = "tb3b-refine-natural-allowed"
 file = "src/front/tactics/refine.fs"
-old = '''  swap 0 lf-tac-arg over lf-goal-target drop c" refine" false lf-tac-elab-with-holes ;'''
-new = '''  swap 0 lf-tac-arg over lf-goal-target drop c" refine" true lf-tac-elab-with-holes ;'''
+old = '''  swap 0 lf-tac-arg over lf-goal-target drop false lf-tac-elab-holes ;'''
+new = '''  swap 0 lf-tac-arg over lf-goal-target drop true lf-tac-elab-holes ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: refine is refine' (natural holes become goals, not 461)"
 
 [[fault]]
 id = "tb3b-refine-no-expected"
 file = "src/front/tactics/refine.fs"
-old = '''  swap 0 lf-tac-arg over lf-goal-target drop c" refine" false lf-tac-elab-with-holes ;'''
-new = '''  swap 0 lf-tac-arg -1 c" refine" false lf-tac-elab-with-holes ;'''
+old = '''  swap 0 lf-tac-arg over lf-goal-target drop false lf-tac-elab-holes ;'''
+new = '''  swap 0 lf-tac-arg -1 false lf-tac-elab-holes ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: refine's term elaborated with no expected type (no mismatch 96)"

@@ -14272,7 +14272,7 @@ reason = "FE1g-2: a header whose line ends before => is not refused as a header 
 [[fault]]
 id = "fe-tac-tag-wildcard"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-tag-later? ( c-addr u -- flag ) 2dup lft-hole? -rot lft-at-sign? or ;'''
+old = ''': lft-tag-later? ( c-addr u -- flag ) 2dup lfn-underscore? -rot lft-at-sign? or ;'''
 new = ''': lft-tag-later? ( c-addr u -- flag ) 2drop false ;'''
 test = "$GFORTH tests/front/tactic-syntax.fs"
 reason = "FE1g-2: Lean's wildcard and @ alternatives (| _ =>, | @succ =>) are refused as malformed or read as a tag @succ, not answered not supported yet (72)"
