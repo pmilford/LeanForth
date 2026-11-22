@@ -171,6 +171,9 @@ T{ ab-le ba-le s" Or" rel2 s" Or.symm" symm-head? -> true }T
 : symm-code ( t -- code ) tagged ['] lf-goal-symm code1 ;
 T{ ab-le lf-mk-not symm-code s\"   \xc2\xaca \xe2\x89\xa4 b" detail-has? -> 451 true }T
 lf-tac-forget
+\ (True, no application at all: 451 too)
+T{ s" True" lf-mk-const0 symm-code s"   True" detail-has? -> 451 true }T
+lf-tac-forget
 T{ ab-le symm-code -> 99 }T
 lf-tac-forget
 T{ false ' msy-fit code0 true ' msy-fit code0 -> 99 0 }T

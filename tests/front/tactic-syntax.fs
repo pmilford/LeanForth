@@ -177,7 +177,9 @@ T{ s" n by-induction-with by-case: zero => by-rfl by-end by-end end t" proof nfa
 T{ s" n by-induction-with | _ => by-rfl by-end end t" proof nfails -> 72 1 65 }T
 T{ s" n by-induction-with | @succ k ih => by-rfl by-end end t" proof nfails -> 72 1 65 }T
 T{ s" n by-induction-with | zero | succ => by-rfl by-end end t" proof nfails -> 72 1 70 }T
-T{ s" by-case: _ => by-rfl by-end end t" proof nfails -> 72 1 52 }T
+\ (by-case: _ is read since tactic batch 2b, Lean's case _: by-case:'s @
+\ form is still 72)
+T{ s" by-case: @zero => by-rfl by-end end t" proof nfails -> 72 1 52 }T
 \ Too many values where a hypothesis read since the last tactic word had
 \ values below it, which it may take once tactics run: not supported yet
 \ (87). One read first takes nothing (ih k by-exact: two values, 86); too
