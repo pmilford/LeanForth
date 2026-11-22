@@ -138,7 +138,6 @@ old = '''  dup lf-meta-head lf-mvar? 0= if outcome-ok exit then'''
 new = '''  outcome-ok exit'''
 test = "$GFORTH tests/front/tactics/batch-f/test.fs"
 reason = "TB2 3c: an expected type whose whnf is a metavariable's application is 463, not Lean's 462"
-gap = "no text reaches it: an expected type whose whnfR is no metavariable's application while its whnf is one (a definition that unfolds to a metavariable at default transparency only) is in no slice the tests read; the root case of an unknown type is lf-elab-final's, tested"
 
 [[fault]]
 id = "tb3c-one-ctor-unchecked"

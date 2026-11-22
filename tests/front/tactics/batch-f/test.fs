@@ -40,6 +40,8 @@ lf-author-begin
 : nm ( c-addr u -- id ) lfa-intern ;
 : token ( -- c-addr u ) lfa-error lfa-err-token lfa-error lfa-err-length @ ;
 : at@ ( -- line col ) lfa-error lfa-err-at @ lfa-pos> ;
+: detail-has? ( c-addr u -- flag )
+  0 lfa-detail slab-at lfa-detail slab-count 2swap search nip nip ;
 : step@ ( i -- addr ) lf-tactic-step ;
 create stmt 512 allot  variable stmt#
 : stmt+ ( c-addr u -- ) tuck stmt stmt# @ + swap move stmt# +! ;
@@ -203,6 +205,52 @@ lf-elab-error-reset
 T{ items3 2 et-split made dup syn-b@ over 0 syn-arg rot 1 syn-arg dup syn-b@ over 0 syn-arg
    rot 1 syn-arg -> 2 101 2 102 103 }T
 T{ items3 1 et-split made dup syn-b@ swap 0 syn-arg dup syn-b@ swap 2 syn-arg -> 1 3 103 }T
+
+\ ---- The steps' failures and the other messages, word by word: a Meta
+\ step refused (a term no store holds: -5, invalid), a declaration with no
+\ inductive data (a theorem's: not ported, 139), kinds fewer than the
+\ parameters, a whnf at a metavariable (462), the plural words.
+T{ -5 et-whnf-r-mvar? nip ok? -5 et-settled nip ok? -5 et-anon-whnf nip ok? -> false false false }T
+lf-elab-error-reset
+: nat ( -- t ) s" Nat" lf-mk-const0 ;
+T{ nat mv-natural lf-mvar-new made et-anon-whnf nip lf-elab-error drop -> outcome-invalid 462 }T
+lf-elab-error-reset
+: thm ( -- d ) s" Nat.le_refl" ctor ;
+T{ -1 thm et-ctors nip thm et-params nip thm et-fields nip -> outcome-unsupported dup dup }T
+lf-elab-error-reset
+T{ s" And.intro" ctor 99 et-fields-past nip -> outcome-unsupported }T
+lf-elab-error-reset
+T{ anon0 thm et-anon-built nip -> outcome-unsupported }T
+lf-elab-error-reset
+T{ 2 et-provided lf-elab-rest s" only 2 were" compare -> 0 }T
+lf-elab-error-reset
+T{ s" Nat Nonempty" st s" << >> by-exact" tactic-ran -> 466 }T
+T{ s" `Nonempty.intro` has 1 explicit fields, but none were" detail-has? -> true }T
+T{ s" a b = explicit: h a b =" st s" << ' h ' h >> by-exact" tactic-ran -> 467 }T
+lf-tac-forget
+\ A node the syntax store refuses: the rest's (et-anon-of, et-split), the
+\ outer node's with room for the rest only (et-outer); exists' (full, 60).
+: room! ( room -- limit )
+  syn-store store-limit @ swap syn-store dup store-count @ rot + swap store-limit! drop ;
+: split-full ( room -- outcome )
+  items3 swap room! >r 2 et-split nip r> syn-store store-limit! drop ;
+T{ 2 split-full 3 split-full 6 split-full -> outcome-full outcome-full outcome-ok }T
+: full-node ( -- code )
+  syn-store full-at >r 1 syn-k-anon 0 ['] txs-node catch r> syn-store limit-back
+  if 2drop drop lf-author-code else drop 0 then ;
+T{ full-node -> 60 }T
+lfa-error-reset
+\ The constructor's application refused: its constant (no room for its
+\ level), its activation (the heap).
+: app-levels-full ( -- outcome )
+  mv-levels full-at >r anon0 -1 s" Exists.intro" ctor et-anon-app 2drop nip r> mv-levels limit-back ;
+T{ app-levels-full -> outcome-full }T
+lf-elab-error-reset
+: refuse-acts ( -- ) ea-acts sweep-slab-anew 1 heap-refusals ! ;
+s" True.intro" ctor lf-meta-const-fresh 2drop   \ (room for the constant's term)
+T{ refuse-acts anon0 -1 s" True.intro" ctor et-anon-app 0 heap-refusals ! 2drop nip
+   -> outcome-full }T
+lf-elab-reset
 
 \ ---- 5. Resources: the words through their text with every heap
 \ allocation refused in turn: the answer or full.
