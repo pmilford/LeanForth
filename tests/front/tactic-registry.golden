@@ -145,12 +145,16 @@
 219	1	Invalid rewrite argument: The pattern to be substituted is a metavariable
 220	1	Occurs check failed: Expression
 300	6	out of room: a Forth stack, the dictionary or the heap, with its THROW code
-453	1	at: follows no tactic word that takes a location
-454	1	at: takes hypothesis names and |-, or * alone, on its line
+458	1	a list of names ends with ] on its line
+459	1	by-revert[ and by-clear[ take names of hypotheses up to ]
+460	1	this list takes one name at least
+453	1	at[ follows no tactic word that takes a location
+454	1	at[ takes hypothesis names and |-, or * alone, up to ]
 440	1	Tactic `clear` failed: unknown variable
 441	1	Tactic `clear` failed: variable
 442	1	Tactic `clear` failed: target depends on
 457	1	Tactic `rfl` failed: Expected the goal to be a binary relation
+461	1	don't know how to synthesize placeholder
 389	1	Unexpected term
 455	1	Unknown identifier
 380	1	Tactic `apply` failed: could not unify the
@@ -209,6 +213,8 @@ reserved label: word
 reserved note" word
 reserved ai-note" word
 reserved _ word
+reserved ?_ word
+reserved ?: word
 reserved let: word
 reserved let word
 reserved have word
@@ -234,7 +240,7 @@ reserved by-rw[ word
 reserved by-rewrite[ word
 reserved ] word
 reserved <- word
-reserved at: word
+reserved at[ word
 reserved | word
 reserved => word
 reserved by-sorry word
@@ -271,12 +277,14 @@ reserved by-let: word
 reserved by-suffices: word
 reserved by-have-goal: word
 reserved by-cases: word
+reserved by-intro[ word
 reserved by-contra-core word
 reserved by-contra: word
 reserved by-contra word
 reserved by-change word
 reserved by-show word
 reserved by-clear word
+reserved by-clear[ word
 reserved by-constructor word
 reserved by-contradiction word
 reserved by-decide word
@@ -286,8 +294,11 @@ reserved by-exacts[ word
 reserved by-exfalso word
 reserved by-intros word
 reserved by-left word
+reserved by-refine word
+reserved by-rename-i[ word
 reserved by-replace: word
 reserved by-revert word
+reserved by-revert[ word
 reserved by-right word
 reserved by-rwa[ word
 reserved by-specialize word
@@ -315,26 +326,31 @@ kind 18 by-let: 0 let run
 kind 19 by-suffices: 0 suffices run
 kind 20 by-have-goal: 0 have run
 kind 21 by-cases: 0 by_cases run
-kind 22 by-contra-core 0 by_contra_core run
-kind 23 by-contra: 0 by_contra run
-kind 24 by-contra 0 by_contra run
-kind 25 by-change 0 change run
-kind 26 by-show 0 show run
-kind 27 by-clear 0 clear run
-kind 28 by-constructor 0 constructor run
-kind 29 by-contradiction 0 contradiction run
-kind 30 by-decide 0 decide run
-kind 31 by-native-decide 0 native_decide run
-kind 32 by-delta 0 delta run
-kind 33 by-exacts[ 0 exacts run
-kind 34 by-exfalso 0 exfalso run
-kind 35 by-intros 0 intros run
-kind 36 by-left 0 left run
-kind 37 by-replace: 0 replace run
-kind 38 by-revert 0 revert run
-kind 39 by-right 0 right run
-kind 40 by-rwa[ 0 rwa run
-kind 41 by-specialize 0 specialize run
-kind 42 by-swap 0 swap run
-kind 43 by-symm 0 symm run
-kind 44 by-trivial 0 trivial run
+kind 22 by-intro[ 0 intro run
+kind 23 by-contra-core 0 by_contra_core run
+kind 24 by-contra: 0 by_contra run
+kind 25 by-contra 0 by_contra run
+kind 26 by-change 0 change run
+kind 27 by-show 0 show run
+kind 28 by-clear 0 clear run
+kind 29 by-clear[ 0 clear run
+kind 30 by-constructor 0 constructor run
+kind 31 by-contradiction 0 contradiction run
+kind 32 by-decide 0 decide run
+kind 33 by-native-decide 0 native_decide run
+kind 34 by-delta 0 delta run
+kind 35 by-exacts[ 0 exacts run
+kind 36 by-exfalso 0 exfalso run
+kind 37 by-intros 0 intros run
+kind 38 by-left 0 left run
+kind 39 by-refine 0 refine run
+kind 40 by-rename-i[ 0 rename_i run
+kind 41 by-replace: 0 replace run
+kind 42 by-revert 0 revert run
+kind 43 by-revert[ 0 revert run
+kind 44 by-right 0 right run
+kind 45 by-rwa[ 0 rwa run
+kind 46 by-specialize 0 specialize run
+kind 47 by-swap 0 swap run
+kind 48 by-symm 0 symm run
+kind 49 by-trivial 0 trivial run

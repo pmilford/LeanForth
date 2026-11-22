@@ -135,10 +135,14 @@ defer lf-elab-term-call ( node expected frames cont -- ... frames next )
 defer lf-elab-arg-call ( node expected frames cont -- ... frames next )
 
 \ ---- The holes' records.
-: eh-fill ( mvar pos addr -- ) dup /eh erase tuck eh-at ! eh-mvar ! ;
-: lf-elab-hole+ ( mvar pos -- outcome )
-  1 ea-holes slab-claim ok-then? 0= if nip nip exit then
-  ea-holes slab-at eh-fill outcome-ok ;
+\ A record of two values on top of a slab: one unit claimed and filled
+\ by xt ( x1 x2 addr -- ); ok, or the claim's refusal with x1 x2 dropped
+\ (the elaborator's activations, binop% records and holes).
+: lf-elab-record+ ( x1 x2 slab xt -- outcome )
+  swap 1 over slab-claim ok-then? 0= if nip nip nip nip exit then
+  swap slab-at swap execute outcome-ok ;
+: eh-fill ( mvar pos addr -- ) false over eh-arg ! tuck eh-at ! eh-mvar ! ;
+: lf-elab-hole+ ( mvar pos -- outcome ) ea-holes ['] eh-fill lf-elab-record+ ;
 : eh-is? ( mvar k -- mvar flag ) ea-holes slab-at eh-mvar @ over = ;
 : eh-find ( mvar -- addr true | false )
   ea-holes slab-count ['] eh-is? find-last-index dup if swap ea-holes slab-at swap then ;
@@ -153,9 +157,7 @@ defer lf-elab-arg-call ( node expected frames cont -- ... frames next )
   true over ea-support ! -1 over ea-head ! -1 over ea-stx !
   ea-args slab-count over ea-fargs !
   ea-insts slab-count over ea-inst0 ! ea-xargs slab-count swap ea-xs ! ;
-: lf-elab-app-new ( f expected -- outcome )
-  1 ea-acts slab-claim ok-then? 0= if nip nip exit then
-  ea-acts slab-at ea-fill outcome-ok ;
+: lf-elab-app-new ( f expected -- outcome ) ea-acts ['] ea-fill lf-elab-record+ ;
 : lf-elab-app-syntax! ( app -- ) ea ea-stx ! ;
 : lf-elab-app-term+ ( term -- outcome ) ea-xargs slab-push ;
 : lf-elab-app-plain ( -- ) false ea ea-support ! ;

@@ -172,8 +172,8 @@ require ./library.fs
 ' lfa-w-note lfa-word note"
 ' lfa-w-ai-note lfa-word ai-note"
 \ Gforth 1.0 warns that _ could be read as a number; LF-WORDS is searched
-\ before any number conversion, so _ is this word. ?_ and ?: NAME are
-\ Lean's synthetic holes (plan row TB2, batch 3b); src/front/reader.fs
+\ before any number conversion, so _ is this word. The synthetic holes
+\ ?_ and ?: NAME, plan row TB2 batch 3b, are words too; src/front/reader.fs
 \ gives the three their natural meanings.
 [defined] warnings [if] warnings @ warnings off [then]
 ' lfa-w-hole lfa-word-both _

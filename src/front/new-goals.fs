@@ -40,6 +40,7 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../lib/lib.fs
 require ../lib/runs.fs
 require ../lib/find.fs
+require ../lib/decimal.fs
 require ../author/errors.fs
 require ./mvars.fs
 require ./term-find.fs
@@ -80,20 +81,28 @@ require ./meta-tactic/goal.fs
 
 \ ---- tagUntaggedGoals, a frame per call: the parent's tag, the suffix,
 \ whether one goal is anonymous, and how many were tagged so far.
+40 constant tng-suffix#   \ the longest suffix
+64 constant tng-text#     \ room for suffix_idx
 begin-structure /tng
   field: tng-parent
   field: tng-suffix
   field: tng-one
   field: tng-idx
+  field: tng-len          \ the text of suffix_idx so far
+  tng-text# +field tng-text
 end-structure
 /tng context-slab: tng-frames
 : tng ( -- frame ) tng-frames slab-last ;
 : tng-untagged? ( run k -- run flag ) over swap run@ lf-goal-tag 0= ;
 : tng-anonymous# ( run -- n ) dup run-count ['] tng-untagged? count-index ;
-\ suffix_idx (appendIndexAfter), held in the pictured-number buffer.
-: tng-hold-text ( c-addr u -- ) begin dup while 1- 2dup + c@ hold repeat 2drop ;
+\ suffix_idx (appendIndexAfter), written in the frame's text; a suffix
+\ longer than tng-suffix# is a fault (invalid).
+: tng-put ( c-addr u -- ) tng tng-text tng tng-len @ + over tng tng-len +! swap move ;
+: tng-suffix-text ( c-addr -- c-addr u )
+  count dup tng-suffix# > if outcome-invalid lf-must then ;
 : tng-index-name ( suffix idx -- name )
-  0 <# #s [char] _ hold 2>r count tng-hold-text 2r> #> lfa-intern ;
+  0 tng tng-len ! swap tng-suffix-text tng-put s" _" tng-put u>decimal tng-put
+  tng tng-text tng tng-len @ lfa-intern ;
 : tng-next-tag ( -- tag )
   1 tng tng-idx +! tng tng-parent @ tng tng-one @ if exit then
   tng tng-suffix @ tng tng-idx @ tng-index-name lf-name-append-tag ;

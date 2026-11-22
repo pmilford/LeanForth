@@ -1138,16 +1138,6 @@
   "reason": "accepted: a count read and clamped, `@ 0 max capacity min`, each its own field and capacity; the idiom is shorter than a clamp word's call",
   "tokens": 7
  },
- "91515f88b12a": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/front/elab-app.fs:lf-elab-app-new",
-   "src/front/elab-term.fs:et-eo-new"
-  ],
-  "reason": "planned: 9.4.8k front batch (s1-elab's words, came with main's merge of s1-elab)",
-  "tokens": 14
- },
  "929af6c198ed": {
   "copies": 2,
   "kind": "shape",

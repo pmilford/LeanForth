@@ -474,9 +474,7 @@ defer et-x-call ( i x frames cont -- ... frames next )
 \ ---- elabOp and elabBinRelCore, a record each on et-ops.
 : et-eo-fill ( expected rel? addr -- )
   dup /eo erase tuck eo-rel ! tuck eo-expected ! et-tree slab-count swap eo-root ! ;
-: et-eo-new ( expected rel? -- outcome )
-  1 et-ops slab-claim ok-then? 0= if nip nip exit then
-  et-ops slab-at et-eo-fill outcome-ok ;
+: et-eo-new ( expected rel? -- outcome ) et-ops ['] et-eo-fill lf-elab-record+ ;
 : et-eo-end ( term outcome -- term outcome frames 0 )
   eo eo-root @ et-tree slab-cut et-ops slab-drop et-fr 0 ;
 : et-eo-fail ( outcome -- -1 outcome frames 0 ) no-result et-eo-end ;

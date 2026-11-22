@@ -230,6 +230,14 @@ T{ u4 u2 run2 c-specialize s" q" nm lf-tag-untagged u4 tag@ -> s" q" nm }T
 nat goal constant u5
 nat goal constant u6
 T{ u6 u5 run2 c-refine 0 lf-tag-untagged u5 tag@ u6 tag@ -> s" refine_2" nm s" refine_1" nm }T
+\ A suffix longer than 40 characters: a fault (invalid), nothing tagged,
+\ the frame given back.
+lf-meta-throw-base outcome-invalid - constant thrown-invalid
+nat goal constant u7
+nat goal constant u8
+: c-long ( -- c-addr ) c" a-suffix-of-forty-one-characters-at-least" ;
+: tag-long ( -- ) u7 u8 run2 c-long 0 lf-tag-untagged ;
+T{ ' tag-long catch tng-frames slab-count u7 tag@ u8 tag@ -> thrown-invalid 0 0 0 }T
 T{ tng-frames slab-count -> 0 }T
 
 \ ---- lf-tac-log-unassigned: none, nothing; each a hole: Lean's
