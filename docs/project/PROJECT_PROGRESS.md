@@ -175,6 +175,10 @@ status changes when this date is older than them. Stages are those of the
   version then current, with the matching Mathlib, and measure the port effort (kernel and import against the new
   export format, the front end's ported functions, every tactic's twins); a tool that lists the tactic files whose
   cited Lean, Batteries or Mathlib source changed between two pins comes first.
+- Bracket lists over several lines (owner, 2026-11-22; not started): review the rule of batch 3b that a list such
+  as `by-intro[ a b c ]` or `at[ h1 h2 ]` must close on the line it opens (error 458). The owner expects to allow
+  line breaks, since ten items read better set vertically; the list reader would read on to the next line as
+  Forth's own multi-line words do, and a forgotten `]` must still be reported near where the list opened.
 - Run the twins of Batteries and Mathlib tactics inside the built Mathlib checkout, on the tactic itself, where
   today they run on core Lean in an equivalent form (2026-11-22; not started).
 - Lean-beam for connecting AI tools to LeanForth (owner, 2026-11-21; long term, not started): investigate it, and
