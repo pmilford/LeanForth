@@ -130,8 +130,8 @@ reason = "a builder that queries another tree leaves that tree's output slab as 
 [[fault]]
 id = "mf2-catch-forgets-refusal"
 file = "src/front/elab-pending.fs"
-old = '''  lf-inst-refusal 0= and ;'''
-new = '''  ;'''
+old = '''  outcome-invalid = ep ep-code @ lf-author-lean? and lf-inst-refusal 0= and ;'''
+new = '''  outcome-invalid = ep ep-code @ lf-author-lean? and ;'''
 test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
 reason = "a try ... catch (lf-elab-catch) forgets a Lean error recorded while the data is refused, so elaboration may go on"
 

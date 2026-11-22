@@ -73,7 +73,7 @@ require ./meta-tactic/goal.fs
 : lf-natural-mvars ( mvars -- mvars' ) ['] tng-natural? run-filter lf-must ;
 
 \ ---- logUnassignedAndAbort, the holes' error infos.
-461 outcome-invalid s" don't know how to synthesize placeholder"
+461 lfa-lean s" don't know how to synthesize placeholder"
   lfa-code: lfa-e-tac-placeholder
 : tng-hole? ( mvar -- flag ) lf-elab-hole dup if nip nip then ;
 : tng-other? ( run k -- run flag ) over swap run@ tng-hole? 0= ;

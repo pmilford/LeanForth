@@ -139,7 +139,13 @@ s" assumption" tac-k-assumption lf-tactic-lean!
   message (Lean's first line), in the file that raises it (assumption's
   381 is in `meta-tactic/assumption.fs`, where Lean's throwTacticEx is); a
   code registered anywhere aborts the load. Plan the number by the ranges
-  of the design's appendix C.
+  of the design's appendix C. A code that is Lean's own error, raised
+  where Lean raises it, takes the outcome `lfa-lean` (invalid, with the
+  code's "Lean's error" bit set): only such a code is caught by try and
+  first (`lf-tac-try-lean`, `lf-tac-first-of`, tactic-msg.fs's
+  `lf-tac-lean-error?`; plan row TB2, blocks slice 1). Every other code,
+  `outcome-invalid` included, is LeanForth's own refusal and passes every
+  try, so a gap or a malformed state never becomes another alternative.
 - `lf-lift-meta-tactic` (Lean's liftMetaTactic): xt ( i*x goal -- goals )
   gets the main goal in its context; its goals (a run) take its place.
   `lf-lift-meta-tactic1` (liftMetaTactic1): the same for a goal operation

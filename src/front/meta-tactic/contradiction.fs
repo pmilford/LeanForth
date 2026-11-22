@@ -76,7 +76,7 @@ require ../app-builder.fs
 require ./goal.fs
 require ./assumption.fs
 
-449 outcome-invalid s" Tactic `contradiction` failed" lfa-code: lfa-e-contradiction
+449 lfa-lean s" Tactic `contradiction` failed" lfa-code: lfa-e-contradiction
 
 begin-structure /mcd
   field: mcd-goal        \ the goal

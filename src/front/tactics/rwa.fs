@@ -43,7 +43,7 @@ require ./assumption.fs
 require ./rewrite.fs
 require ./rfl.fs
 
-456 outcome-invalid s" Type mismatch: The rewritten hypothesis"
+456 lfa-lean s" Type mismatch: The rewritten hypothesis"
   lfa-code: lfa-e-rwa-mismatch
 tac-shape-rules lf-tactic: by-rwa[ constant tac-k-rwa
 s" rwa" tac-k-rwa lf-tactic-lean!

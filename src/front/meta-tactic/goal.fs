@@ -309,10 +309,10 @@ end-structure
 \ ---- MVarId.clear (Clear.lean:20-41): its three refusals, each
 \ throwTacticEx `clear` with Lean's text and the goal, then goals.fs's
 \ lf-goal-clear (which checks again and makes the goal).
-440 outcome-invalid s" Tactic `clear` failed: unknown variable"
+440 lfa-lean s" Tactic `clear` failed: unknown variable"
   lfa-code: lfa-e-clear-unknown
-441 outcome-invalid s" Tactic `clear` failed: variable" lfa-code: lfa-e-clear-depends
-442 outcome-invalid s" Tactic `clear` failed: target depends on"
+441 lfa-lean s" Tactic `clear` failed: variable" lfa-code: lfa-e-clear-depends
+442 lfa-lean s" Tactic `clear` failed: target depends on"
   lfa-code: lfa-e-clear-target
 : mcl-fvar. ( fvar -- outcome ) s"  " lf-pp-emit lf-tac-quoted. ;
 : mcl-depends. ( fvar -- outcome ) s"  depends on" lf-pp-emit mcl-fvar. ;
@@ -379,7 +379,7 @@ end-structure
 \ Lean's error 457 with its hint and the goal, rfl's own on a goal that
 \ is no relation; HEq of four, whose HEq.refl path is not ported, 93);
 \ approxDefEq isDefEqGuarded of the sides.
-457 outcome-invalid s" Tactic `rfl` failed: Expected the goal to be a binary relation"
+457 lfa-lean s" Tactic `rfl` failed: Expected the goal to be a binary relation"
   lfa-code: lfa-e-rfl-binary
 : mrf-hint. ( goal -- outcome )
   s\" \nHint: Reflexivity tactics can only be used on goals of the form " lf-pp-emit

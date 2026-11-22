@@ -51,9 +51,9 @@
 require ../tactic-api.fs
 require ../meta-tactic/assert.fs
 
-443 outcome-invalid s" 'change' tactic failed, pattern" lfa-code: lfa-e-change
-444 outcome-invalid s" 'show' tactic failed, pattern" lfa-code: lfa-e-show
-445 outcome-invalid s" 'show' tactic failed, no goals unify with the given pattern."
+443 lfa-lean s" 'change' tactic failed, pattern" lfa-code: lfa-e-change
+444 lfa-lean s" 'show' tactic failed, pattern" lfa-code: lfa-e-show
+445 lfa-lean s" 'show' tactic failed, no goals unify with the given pattern."
   lfa-code: lfa-e-show-none
 tac-shape-term-at lf-tactic: by-change constant tac-k-change
 s" change" tac-k-change lf-tactic-lean!

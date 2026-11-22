@@ -232,15 +232,28 @@ require ./source.fs
                                     \ the dictionary or the heap ran out
 
 \ The catalogue: one message record per code, in order, each followed by
-\ its text and aligned; a record with code 0 closes it.
+\ its text and aligned; a record with code 0 closes it. Each record says
+\ whether the code is Lean's own error (plan row TB2, blocks slice 1;
+\ docs/design/TACTIC_BLOCKS.md 5): an error Lean's elaborator raises in
+\ the same place, which try and first catch (tactic-msg.fs's
+\ lf-tac-lean-error?). Only a code registered with lfa-lean (lfa-lean,
+\ in the catalogue, lfa-lean as lfa-code:'s outcome) is; every other
+\ code, LeanForth's own refusals, gaps and limits, is not, so a try
+\ never swallows them.
 begin-structure /lfa-message
   field: lfa-message-code
   field: lfa-message-outcome
+  field: lfa-message-lean     \ true: Lean's own error (lfa-lean)
   field: lfa-message-length
   0 +field lfa-message-chars
 end-structure
+\ The outcome a code is registered with when it is Lean's own error: kept
+\ as invalid, with the record's flag set (no outcome of the vocabulary).
+outcome-full 2 + constant lfa-lean
+: lfa-outcome, ( outcome -- )
+  dup lfa-lean = if drop outcome-invalid , true , else , false , then ;
 : lfa-chars, ( c-addr u -- ) here swap dup chars allot move align ;
-: lfa-message, ( code outcome c-addr u -- ) 2swap swap , , dup , lfa-chars, ;
+: lfa-message, ( code outcome c-addr u -- ) 2swap swap , lfa-outcome, dup , lfa-chars, ;
 : lfa-message-text ( message -- c-addr u )
   dup lfa-message-chars swap lfa-message-length @ ;
 : lfa-message-next ( message -- message' ) lfa-message-text chars + aligned ;
@@ -251,6 +264,7 @@ end-structure
   rot lfa-unpad over swap lfa-message-length +! lfa-chars, ;
 : lfa-of, ( code c-addr u outcome -- ) -rot lfa-message, ;
 : lfa-invalid, ( code c-addr u -- ) outcome-invalid lfa-of, ;
+: lfa-lean, ( code c-addr u -- ) lfa-lean lfa-of, ;
 : lfa-unsupported, ( code c-addr u -- ) outcome-unsupported lfa-of, ;
 : lfa-full, ( code c-addr u -- ) outcome-full lfa-of, ;
 : lfa-exhausted, ( code c-addr u -- ) outcome-exhausted lfa-of, ;
@@ -307,7 +321,7 @@ create lfa-catalogue
   lfa-invalid,
   lfa-e-interpreter s" a LeanForth word must be run by the text interpreter" lfa-invalid,
   lfa-e-note-end s\" a note must end with \" on the same line" lfa-invalid,
-  lfa-e-unknown-constant s" unknown constant" lfa-invalid,
+  lfa-e-unknown-constant s" unknown constant" lfa-lean,
   lfa-e-line s" line too long" lfa-full,
   lfa-e-file s" the file cannot be opened or read" lfa-invalid,
   lfa-e-forth s" a Forth exception, with its THROW code" lfa-internal,
@@ -401,8 +415,8 @@ create lfa-catalogue
   s" not supported yet: how many values a hypothesis takes is known when tactics run"
   lfa-unsupported,
   lfa-e-tac-full s" out of room: the tactic store is full" lfa-full,
-  lfa-e-tac-unsolved s" unsolved goals" lfa-invalid,
-  lfa-e-tac-no-goals s" No goals to be solved" lfa-invalid,
+  lfa-e-tac-unsolved s" unsolved goals" lfa-lean,
+  lfa-e-tac-no-goals s" No goals to be solved" lfa-lean,
   lfa-e-tac-fuel
   s" out of fuel: the tactic proof, or a reduction it ran, took more steps than its fuel"
   lfa-exhausted,
@@ -413,24 +427,24 @@ create lfa-catalogue
   s" not supported yet: a type inference, reduction or let binder the tactic needs (FE1c)"
   lfa-unsupported,
   here lfa-e-tac-no-intro s" Tactic `introN` failed: There are no additional binders"
-  lfa-invalid, s"  or `let` bindings in the goal to introduce" lfa-more,
+  lfa-lean, s"  or `let` bindings in the goal to introduce" lfa-more,
   lfa-e-tac-unassigned
   s" don't know how to synthesize: the term leaves a metavariable it made unassigned"
-  lfa-invalid,
-  lfa-e-tac-mismatch s" Type mismatch" lfa-invalid,
-  lfa-e-tac-rfl s" Tactic `rfl` failed: The left-hand side" lfa-invalid,
+  lfa-lean,
+  lfa-e-tac-mismatch s" Type mismatch" lfa-lean,
+  lfa-e-tac-rfl s" Tactic `rfl` failed: The left-hand side" lfa-lean,
   lfa-e-tac-assign
-  s" Tactic `exact` failed: attempting to close the goal using" lfa-invalid,
+  s" Tactic `exact` failed: attempting to close the goal using" lfa-lean,
   lfa-e-tac-form
   s" not supported yet: this case of the tactic (FE1G_TACTICS.md 5 names its step)"
   lfa-unsupported,
-  lfa-e-universe-level s" invalid universe level: not greater than 0" lfa-invalid,
+  lfa-e-universe-level s" invalid universe level: not greater than 0" lfa-lean,
   here lfa-e-app-builder s" AppBuilder failed: a term the tactic library builds does not "
-  lfa-invalid, dup s" fit (an equality proof expected, an application type mismatch, no "
+  lfa-lean, dup s" fit (an equality proof expected, an application type mismatch, no "
   lfa-more, s" instance found)" lfa-more,
-  lfa-e-not-class s" type class instance expected" lfa-invalid,
+  lfa-e-not-class s" type class instance expected" lfa-lean,
   lfa-e-synth-args
-  s" type class resolution failed, insufficient number of arguments" lfa-invalid,
+  s" type class resolution failed, insufficient number of arguments" lfa-lean,
   lfa-e-inst-class
   s" elaboration data refused: an instance is recorded under a class its type is not of"
   lfa-invalid,
@@ -460,16 +474,16 @@ create lfa-catalogue
   lfa-e-synth-check
   s" not supported yet: Lean's check of an instance that holds metavariables (FE1e5b)"
   lfa-unsupported,
-  lfa-e-synth-failed s" failed to synthesize" lfa-invalid,
-  lfa-e-elab-synth s" failed to synthesize instance of type class" lfa-invalid,
-  lfa-e-elab-stuck s" typeclass instance problem is stuck" lfa-invalid,
+  lfa-e-synth-failed s" failed to synthesize" lfa-lean,
+  lfa-e-elab-synth s" failed to synthesize instance of type class" lfa-lean,
+  lfa-e-elab-stuck s" typeclass instance problem is stuck" lfa-lean,
   lfa-e-elab-numeral
-  s" numerals are data in Lean, but the expected type is a proposition" lfa-invalid,
+  s" numerals are data in Lean, but the expected type is a proposition" lfa-lean,
   here lfa-e-elab-numeral-u
   s" numerals are data in Lean, but the expected type is universe polymorphic and may be "
-  lfa-invalid, s" a proposition" lfa-more,
-  lfa-e-elab-instance s" failed to assign synthesized type class instance" lfa-invalid,
-  lfa-e-elab-type s" type expected" lfa-invalid,
+  lfa-lean, s" a proposition" lfa-more,
+  lfa-e-elab-instance s" failed to assign synthesized type class instance" lfa-lean,
+  lfa-e-elab-type s" type expected" lfa-lean,
   lfa-e-elab-coercion s" not supported yet: a coercion (plan FE4)" lfa-unsupported,
   lfa-e-elab-postpone s" not supported yet: postponing an elaboration (plan FE2)"
   lfa-unsupported,
@@ -493,24 +507,24 @@ create lfa-catalogue
   s" not supported yet: a smart-unfolding marker reached the declaration (plan S2)"
   lfa-unsupported,
   lfa-e-tac-not-inductive
-  s" Tactic `induction` failed: major premise type is not an inductive type" lfa-invalid,
-  lfa-e-tac-alt-name s" Invalid alternative name" lfa-invalid,
-  lfa-e-tac-alt-missing s" Alternative" lfa-invalid,
-  lfa-e-tac-alt-names s" Too many variable names provided at alternative" lfa-invalid,
-  lfa-e-tac-mutual s" The `induction` tactic does not support the type" lfa-invalid,
-  lfa-e-tac-case-tag s" Case tag" lfa-invalid,
-  lfa-e-tac-case-names s" too many variable names provided" lfa-invalid,
-  lfa-e-tac-elim-motive s" Type mismatch when assigning motive" lfa-invalid,
-  lfa-e-tac-alt-twice s" Duplicate alternative name" lfa-invalid,
+  s" Tactic `induction` failed: major premise type is not an inductive type" lfa-lean,
+  lfa-e-tac-alt-name s" Invalid alternative name" lfa-lean,
+  lfa-e-tac-alt-missing s" Alternative" lfa-lean,
+  lfa-e-tac-alt-names s" Too many variable names provided at alternative" lfa-lean,
+  lfa-e-tac-mutual s" The `induction` tactic does not support the type" lfa-lean,
+  lfa-e-tac-case-tag s" Case tag" lfa-lean,
+  lfa-e-tac-case-names s" too many variable names provided" lfa-lean,
+  lfa-e-tac-elim-motive s" Type mismatch when assigning motive" lfa-lean,
+  lfa-e-tac-alt-twice s" Duplicate alternative name" lfa-lean,
   lfa-e-tac-no-pattern
-  s" Tactic `rewrite` failed: Did not find an occurrence of the pattern" lfa-invalid,
-  lfa-e-tac-motive s" Tactic `rewrite` failed: motive is not type correct:" lfa-invalid,
-  lfa-e-tac-motive-dep s" Tactic `rewrite` failed: Motive is dependent:" lfa-invalid,
+  s" Tactic `rewrite` failed: Did not find an occurrence of the pattern" lfa-lean,
+  lfa-e-tac-motive s" Tactic `rewrite` failed: motive is not type correct:" lfa-lean,
+  lfa-e-tac-motive-dep s" Tactic `rewrite` failed: Motive is dependent:" lfa-lean,
   here lfa-e-tac-not-eq s" Invalid rewrite argument: Expected an equality or iff proof "
-  lfa-invalid, s" or definition name, but" lfa-more,
+  lfa-lean, s" or definition name, but" lfa-more,
   here lfa-e-tac-mvar-pattern s" Invalid rewrite argument: The pattern to be substituted "
-  lfa-invalid, s" is a metavariable" lfa-more,
-  lfa-e-tac-occurs s" Occurs check failed: Expression" lfa-invalid,
+  lfa-lean, s" is a metavariable" lfa-more,
+  lfa-e-tac-occurs s" Occurs check failed: Expression" lfa-lean,
   lfa-e-forth-room
   s" out of room: a Forth stack, the dictionary or the heap, with its THROW code"
   lfa-full,
@@ -525,7 +539,8 @@ create lfa-catalogue
 \ ---- Codes a tactic file adds (tactic plug-in design 3.5): lfa-code: ( n
 \ outcome c-addr u "name" -- ) defines the constant name as n with its
 \ message, appended to a chain of records (a link cell, then the message)
-\ after the catalogue, in load order. The load aborts on a code 0 or
+\ after the catalogue, in load order; outcome lfa-lean for Lean's own
+\ error (above). The load aborts on a code 0 or
 \ below, or one registered anywhere already. The chain is set while the
 \ modules load and read-only afterwards, as the catalogue is.
 create lfa-codes-more 0 ,         \ the chain's first record, or 0
@@ -551,6 +566,8 @@ create lfa-codes-more 0 ,         \ the chain's first record, or 0
 : lf-author-each-message ( xt -- ) dup lfa-catalogue lfa-each-in lfa-each-chained ;
 : lf-author-message ( code -- c-addr u ) lfa-message-of lfa-message-text ;
 : lf-author-outcome ( code -- outcome ) lfa-message-of lfa-message-outcome @ ;
+\ Whether code is Lean's own error (lfa-lean; an unknown code is not).
+: lf-author-lean? ( code -- flag ) lfa-message-of lfa-message-lean @ ;
 
 \ The error record: the first error of a run.
 64 constant lfa-token-keep

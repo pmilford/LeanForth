@@ -40,7 +40,7 @@ require ../meta-tactic/by-cases.fs
 require ./by-cases.fs
 require ./intro.fs
 
-450 outcome-invalid s" The main goal is" lfa-code: lfa-e-guard-target
+450 lfa-lean s" The main goal is" lfa-code: lfa-e-guard-target
 
 tac-shape-plain lf-tactic: by-contra-core constant tac-k-by-contra-core
 s" by_contra_core" tac-k-by-contra-core lf-tactic-lean!

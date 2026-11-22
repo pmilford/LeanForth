@@ -38,10 +38,13 @@
 \       step running whose detail is lf-has-type-but-expected.'s (exact's
 \       Type mismatch 96, setMotiveArg's 212)
 \   lf-tac-lean-error? ( code -- flag )  whether a THROW code is a Lean
-\       error that try and observing? catch: an authoring error whose
-\       outcome is invalid, or a library rejection; never unsupported, no
-\       room, no fuel or a fault (Lean's try never catches a runtime
-\       exception, CoreM.lean:806-810, and a gap of LeanForth's stays one)
+\       error that try and observing? catch: an authoring error whose code
+\       is Lean's own (author/errors.fs's lf-author-lean?, registered with
+\       lfa-lean; plan row TB2, blocks slice 1), or a library rejection;
+\       never unsupported, no room, no fuel, a malformed record (92) or
+\       another refusal of LeanForth's own, or a fault (Lean's try never
+\       catches a runtime exception, CoreM.lean:806-810, and a gap of
+\       LeanForth's stays one)
 \   lf-tac-forget-lean ( code -- )  a Lean error forgotten (the message
 \       dropped), any other code thrown on
 \ Untrusted: only the kernel's check of the finished term decides.
@@ -124,7 +127,7 @@ require ./meta-must.fs
 ' tmg-lean-detail is lf-tac-lean-detail
 
 \ ---- Lean's errors, as try and observing? catch them.
-: tmg-authored? ( -- flag ) lf-author-code lf-author-outcome outcome-invalid = ;
+: tmg-authored? ( -- flag ) lf-author-code lf-author-lean? ;
 : tmg-rejected? ( code -- flag )
   dup lf-meta-thrown? if lf-meta-outcome outcome-rejected = else drop false then ;
 : lf-tac-lean-error? ( code -- flag )

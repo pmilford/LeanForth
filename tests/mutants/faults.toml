@@ -17972,10 +17972,8 @@ reason = "review s1-elab H1 F2: commitWhen's try never catches: a failed to synt
 [[fault]]
 id = "fe-elab-catch-malformed"
 file = "src/front/elab-pending.fs"
-old = '''  outcome-invalid = ep ep-code @ dup 0<> swap lfa-e-malformed <> and and
-  lf-inst-refusal 0= and ;'''
-new = '''  outcome-invalid =
-  lf-inst-refusal 0= and ;'''
+old = '''  outcome-invalid = ep ep-code @ lf-author-lean? and lf-inst-refusal 0= and ;'''
+new = '''  outcome-invalid = lf-inst-refusal 0= and ;'''
 test = "$GFORTH tests/front/elab.fs 2>&1 | grep -q 'all tests passed'"
 reason = "review s1-elab M3: commitWhen's try also forgets malformed or corrupt state (76), which then reads as a plain failure"
 

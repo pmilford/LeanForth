@@ -68,9 +68,9 @@ require ../app-builder.fs
 require ./goal.fs
 require ./apply.fs
 
-382 outcome-invalid s" Tactic `constructor` failed: target is not an inductive datatype"
+382 lfa-lean s" Tactic `constructor` failed: target is not an inductive datatype"
   lfa-code: lfa-e-ctor-target
-383 outcome-invalid s" Tactic `constructor` failed: no applicable constructor found"
+383 lfa-lean s" Tactic `constructor` failed: no applicable constructor found"
   lfa-code: lfa-e-ctor-none
 
 \ ---- matchConstInduct on getType''s head: the head constant and its

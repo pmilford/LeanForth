@@ -365,16 +365,19 @@ s" sorry" tac-k-sorry lf-tactic-lean!
   dup lfr-kind lf-tactic-shape@ if lfr-spelling exit then
   lfr-kind tac-k-by = if s" by" else s" =>" then ;
 : lfr-block-fail ( i code -- ) >r dup lfr-block-word rot lfr-block-at r> lfa-fail-at ;
-\ An outcome other than ok stops the run: the run's own stores (no room
-\ 88, else 92), or a Meta step (no room for terms 60, fuel 91; rejected,
+\ An outcome other than ok stops the run: the run's own stores and goal
+\ list (no room 88, fuel 91, not supported 93, else 92: none of them
+\ Lean's error, so no try catches them, plan row TB2 blocks slice 1), or
+\ a Meta step (no room for terms 60, fuel 91; rejected,
 \ the tactic library's Lean error (AppBuilder's exception, an application
 \ type mismatch, an instance not found), 101 "AppBuilder failed" (plan
-\ 9.4.8l G), whose outcome is invalid, so that try catches it as Lean's
+\ 9.4.8l G), Lean's own error, so that try catches it as Lean's
 \ does; anything else
 \ 93, not supported yet: the step works on goals Lean's invariants keep
 \ well formed, so a refusal there is a gap of LeanForth's).
 : lfr-own-code ( outcome -- code )
-  outcome-full = if lfa-e-tac-full else lfa-e-tac-record then ;
+  case outcome-full of lfa-e-tac-full endof outcome-exhausted of lfa-e-tac-fuel endof
+    outcome-unsupported of lfa-e-tac-meta endof lfa-e-tac-record swap endcase ;
 : lfr-must ( outcome -- ) dup ok? if drop else lfr-own-code lfr-fail then ;
 : lfr-meta-code ( outcome -- code )
   case outcome-full of lfa-e-terms-full endof outcome-exhausted of lfa-e-tac-fuel endof

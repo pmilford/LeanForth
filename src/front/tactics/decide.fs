@@ -33,13 +33,13 @@
 
 require ../tactic-api.fs
 
-250 outcome-invalid s" Tactic `decide` proved that the proposition"
+250 lfa-lean s" Tactic `decide` proved that the proposition"
   lfa-code: lfa-e-decide-false
-251 outcome-invalid s" Expected type must not contain free variables"
+251 lfa-lean s" Expected type must not contain free variables"
   lfa-code: lfa-e-decide-fvars
-252 outcome-invalid s" Expected type must not contain metavariables"
+252 lfa-lean s" Expected type must not contain metavariables"
   lfa-code: lfa-e-decide-mvars
-253 outcome-invalid s" Tactic `decide` failed to reduce" lfa-code: lfa-e-decide-stuck
+253 lfa-lean s" Tactic `decide` failed to reduce" lfa-code: lfa-e-decide-stuck
 254 outcome-unsupported
   s" `native_decide` is not supported: it trusts Lean's compiler (`Lean.ofReduceBool`), "
   lfa-code: lfa-e-native-decide

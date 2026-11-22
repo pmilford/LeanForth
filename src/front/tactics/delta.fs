@@ -29,7 +29,7 @@
 require ../tactic-api.fs
 require ../meta-tactic/delta.fs
 
-448 outcome-invalid s" Tactic `delta` failed: did not delta reduce" lfa-code: lfa-e-delta
+448 lfa-lean s" Tactic `delta` failed: did not delta reduce" lfa-code: lfa-e-delta
 tac-shape-term-at lf-tactic: by-delta constant tac-k-delta
 s" delta" tac-k-delta lf-tactic-lean!
 

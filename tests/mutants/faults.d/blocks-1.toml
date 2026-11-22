@@ -1,0 +1,31 @@
+# Planted faults of tactic blocks, slice 1 (plan row TB2, piece F; design
+# docs/design/TACTIC_BLOCKS.md 4 and 5): the Lean-error bit of author/errors.fs, the
+# runner's own codes and try's gate (tactic-run.fs, tactic-msg.fs, elab-pending.fs), read
+# with faults.toml as one list (scripts/mutants.py). Each is caught by the test it names,
+# unless it says why not (gap, equivalent).
+
+# ---- The Lean-error bit and try's gate (the hole of error 92)
+[[fault]]
+id = "tb2b1-own-code-reverted"
+file = "src/front/tactic-run.fs"
+old = '''  case outcome-full of lfa-e-tac-full endof outcome-exhausted of lfa-e-tac-fuel endof
+    outcome-unsupported of lfa-e-tac-meta endof lfa-e-tac-record swap endcase ;'''
+new = '''  outcome-full = if lfa-e-tac-full else lfa-e-tac-record then ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "TB2 blocks 1: the runner's own refusals all 92 again: tactic-run.fs's lfr-own-code table expects 91 for exhausted and 93 for unsupported, and own-try's 93 and 91"
+
+[[fault]]
+id = "tb2b1-lean-bit-every-invalid"
+file = "src/author/errors.fs"
+old = '''  dup lfa-lean = if drop outcome-invalid , true , else , false , then ;'''
+new = '''  dup lfa-lean = if drop outcome-invalid then dup , outcome-invalid = , ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "TB2 blocks 1: every invalid code Lean's (the bit set by default): tactic-run.fs's 92 lf-author-lean? is true and own-try's 92 is caught (false) instead of thrown"
+
+[[fault]]
+id = "tb2b1-authored-by-outcome"
+file = "src/front/tactic-msg.fs"
+old = ''': tmg-authored? ( -- flag ) lf-author-code lf-author-lean? ;'''
+new = ''': tmg-authored? ( -- flag ) lf-author-code lf-author-outcome outcome-invalid = ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "TB2 blocks 1: try's gate by outcome again (the hole on main): tactic-run.fs's own-try catches 92 (false) and own-first runs the second alternative"

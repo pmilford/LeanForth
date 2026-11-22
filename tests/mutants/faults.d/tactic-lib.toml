@@ -402,7 +402,7 @@ reason = "9.4.8l-I lf-local-decl-new: the new view made current, so a caller's c
 [[fault]]
 id = "lib-try-lean-catches-gap"
 file = "src/front/tactic-msg.fs"
-old = ''': tmg-authored? ( -- flag ) lf-author-code lf-author-outcome outcome-invalid = ;'''
+old = ''': tmg-authored? ( -- flag ) lf-author-code lf-author-lean? ;'''
 new = ''': tmg-authored? ( -- flag ) lf-author-code 0<> ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "9.4.8l-I fail-closed: try (lf-tac-try-lean) catches unsupported, no room and no fuel as Lean errors, so a gap of LeanForth's becomes a choice"

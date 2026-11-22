@@ -364,7 +364,7 @@ end-structure
 : lf-tac-elab-for-apply ( node -- e ) true tcr-for-apply tcr-not-mvar ;
 
 \ ---- getFVarId: elabTermForApply with no postponing, a free variable.
-389 outcome-invalid s" Unexpected term" lfa-code: lfa-e-tac-not-fvar
+389 lfa-lean s" Unexpected term" lfa-code: lfa-e-tac-not-fvar
 : tcr-expected. ( -- outcome )
   s" ; expected single reference to variable" lf-pp-emit outcome-ok ;
 : tcr-unexpected. ( e -- outcome )
@@ -386,7 +386,7 @@ end-structure
 \ goal's context (resolveLocalName); else a constant of that name is
 \ Lean's 389, not ported here (99), and no name at all Lean's unknown
 \ identifier, 455 (at the step's word, as getFVarId's 389 is).
-455 outcome-invalid s" Unknown identifier" lfa-code: lfa-e-tac-unknown-id
+455 lfa-lean s" Unknown identifier" lfa-code: lfa-e-tac-unknown-id
 : tcr-quoted. ( name -- outcome ) s"  " lf-pp-emit lf-tac-.name outcome-ok ;
 : tcr-constant? ( name -- flag ) lf-menv-find nip ok? ;
 : tcr-unknown ( name -- )

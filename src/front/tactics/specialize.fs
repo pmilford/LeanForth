@@ -23,7 +23,7 @@
 require ../tactic-api.fs
 require ../meta-tactic/assert.fs
 
-447 outcome-invalid s" 'specialize' requires a term of the form `h x_1 .. x_n` "
+447 lfa-lean s" 'specialize' requires a term of the form `h x_1 .. x_n` "
   lfa-code: lfa-e-specialize
 lfa-e-specialize lfa-message-of s" where `h` appears in the local context" lfa-more,
 tac-shape-term lf-tactic: by-specialize constant tac-k-specialize

@@ -453,6 +453,38 @@ T{ outcome-rejected lean-try state? lf-author-code -> false false 0 mv-opaque 2 
 T{ outcome-unsupported lean-code outcome-full lean-code outcome-exhausted lean-code
    -> lf-author-throw 93 lf-author-throw 60 lf-author-throw 91 }T
 T{ two-goals ' spoil-throw ' lf-tac-try-lean catch nip lfr-saves -> -77 0 }T
+\ The runner's own refusals (lfr-must: its goal list, slabs and runs) are
+\ never Lean's error (plan row TB2, blocks slice 1, the hole of error
+\ 92): no room 88, fuel 91, not supported 93, else 92, each with the
+\ Lean bit clear, so try passes each on, undone, where it once answered
+\ false and let a first go on to its next alternative.
+: own-fails ( -- ) spoil lib-outcome @ lfr-must ;
+: own-try ( outcome -- code ) lib-outcome ! two-goals ['] own-fails ['] lf-tac-try-lean catch
+  dup if nip then lf-author-code lf-tac-forget ;
+T{ outcome-full lfr-own-code outcome-exhausted lfr-own-code outcome-unsupported lfr-own-code
+   outcome-invalid lfr-own-code outcome-rejected lfr-own-code outcome-unknown lfr-own-code
+   -> 88 91 93 92 92 92 }T
+T{ 88 lf-author-lean? 91 lf-author-lean? 93 lf-author-lean? 92 lf-author-lean?
+   -> false false false false }T
+T{ outcome-invalid own-try state? outcome-unsupported own-try outcome-exhausted own-try
+   outcome-rejected own-try outcome-full own-try
+   -> lf-author-throw 92 false 0 mv-opaque 2 lf-author-throw 93 lf-author-throw 91
+      lf-author-throw 92 lf-author-throw 88 }T
+\ So through first: the first alternative's refusal stops it, the second
+\ (which would succeed) is never run.
+variable second-ran
+: second ( -- ) true second-ran ! ;
+: own-first ( -- ) ['] second ['] own-fails 2 lf-tac-first-of ;
+T{ false second-ran ! outcome-invalid lib-outcome ! two-goals ' own-first catch
+   lf-author-code second-ran @ lf-tac-forget -> lf-author-throw 92 false }T
+\ The bit is the code's own: Lean's unsolved goals, no goals, a type
+\ mismatch, AppBuilder's 101 and synthInstance's 122 are; LeanForth's
+\ malformed elaboration (76), data refused (112), a code no one
+\ registered and 0 are not.
+T{ 89 lf-author-lean? 90 lf-author-lean? 96 lf-author-lean? 101 lf-author-lean?
+   122 lf-author-lean? -> true true true true true }T
+T{ 76 lf-author-lean? 112 lf-author-lean? 9999 lf-author-lean? 0 lf-author-lean?
+   -> false false false false }T
 \ A failed attempt that leaves an inner mark or depth scope open (review
 \ C1 of 2026-11-18): every scope opened since the save is undone with it,
 \ the assignments before the goal list, and no mark stays open.

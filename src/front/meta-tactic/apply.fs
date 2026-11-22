@@ -84,8 +84,8 @@ require ../app-builder.fs
 require ../telescope.fs
 require ./goal.fs
 
-380 outcome-invalid s" Tactic `apply` failed: could not unify the" lfa-code: lfa-e-apply
-384 outcome-invalid s" Tactic `apply` failed: failed to assign synthesized instance"
+380 lfa-lean s" Tactic `apply` failed: could not unify the" lfa-code: lfa-e-apply
+384 lfa-lean s" Tactic `apply` failed: failed to assign synthesized instance"
   lfa-code: lfa-e-apply-inst
 
 begin-structure /ap

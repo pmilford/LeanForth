@@ -278,18 +278,18 @@ end-structure
 \ The messages are Lean's, the type shown as inlineExpr shows a short one
 \ (Lean indents one longer than 30 characters: not ported, the message
 \ differs).
-462 outcome-invalid
+462 lfa-lean
   s" Invalid `⟨...⟩` notation: The expected type of this term could not be determined"
   lfa-code: lfa-e-anon-unknown
-463 outcome-invalid s" Invalid `⟨...⟩` notation: The expected type"
+463 lfa-lean s" Invalid `⟨...⟩` notation: The expected type"
   lfa-code: lfa-e-anon-type
-464 outcome-invalid s" Invalid `⟨...⟩` notation: The expected type"
+464 lfa-lean s" Invalid `⟨...⟩` notation: The expected type"
   lfa-code: lfa-e-anon-none
-465 outcome-invalid s" Invalid `⟨...⟩` notation: The expected type"
+465 lfa-lean s" Invalid `⟨...⟩` notation: The expected type"
   lfa-code: lfa-e-anon-ctors
-466 outcome-invalid s" Insufficient number of fields for `⟨...⟩` constructor: Constructor"
+466 lfa-lean s" Insufficient number of fields for `⟨...⟩` constructor: Constructor"
   lfa-code: lfa-e-anon-few
-467 outcome-invalid s" Insufficient number of fields for `⟨...⟩` constructor: Constructor"
+467 lfa-lean s" Insufficient number of fields for `⟨...⟩` constructor: Constructor"
   lfa-code: lfa-e-anon-fields
 : et-usage. ( -- outcome )
   s\" \nNote: This notation can only be used when the expected type is an " lf-pp-emit

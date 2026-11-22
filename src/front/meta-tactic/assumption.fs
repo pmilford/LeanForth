@@ -42,7 +42,7 @@ require ../tactic-msg.fs
 require ../meta-must.fs
 require ./goal.fs
 
-381 outcome-invalid s" Tactic `assumption` failed" lfa-code: lfa-e-assumption
+381 lfa-lean s" Tactic `assumption` failed" lfa-code: lfa-e-assumption
 
 \ Local k of the current context fits type: no implementation detail, its
 \ type defeq; findDeclRevM?: the last k that fits.

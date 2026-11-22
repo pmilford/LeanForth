@@ -12,7 +12,7 @@
 
 require ../tactic-api.fs
 
-446 outcome-invalid s" goal index `2` is out of bounds" lfa-code: lfa-e-swap-bounds
+446 lfa-lean s" goal index `2` is out of bounds" lfa-code: lfa-e-swap-bounds
 tac-shape-plain lf-tactic: by-swap constant tac-k-swap
 s" swap" tac-k-swap lf-tactic-lean!
 

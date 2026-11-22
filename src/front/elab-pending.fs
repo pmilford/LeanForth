@@ -69,7 +69,8 @@
 \   lf-elab-code and lf-elab-error-term; lf-elab-catch never forgets it.
 \   lf-elab-catch ( outcome -- flag ), Lean's try ... catch _ (commitWhen,
 \   trySynthesizeAppInstMVars): true for a Lean error (invalid with a
-\   recorded code other than 76), which is forgotten; false for anything
+\   recorded code that is Lean's own, author/errors.fs's lf-author-lean?:
+\   never 76), which is forgotten; false for anything
 \   else, which goes on: malformed or corrupt state, unsupported,
 \   exhausted (Lean's runtime limits are not caught either), full.
 \ - The trace (FE1E 1.6, for tests): lf-elab-trace! ( flag -- ),
@@ -236,9 +237,10 @@ end-structure
   ep-settle lf-elab-error over if rot drop else 2drop ep-meta-code -1 then ;
 : lf-elab-error-term ( -- term ) ep-settle ep ep-term @ ;
 \ A Lean error that a caller's try ... catch takes (commitWhen): forgotten.
+\ (Lean's own by the code's bit, author/errors.fs's lf-author-lean?, as
+\ the tactic layer's try tells it: plan row TB2, blocks slice 1.)
 : ep-lean-error? ( outcome -- flag )
-  outcome-invalid = ep ep-code @ dup 0<> swap lfa-e-malformed <> and and
-  lf-inst-refusal 0= and ;
+  outcome-invalid = ep ep-code @ lf-author-lean? and lf-inst-refusal 0= and ;
 : lf-elab-catch ( outcome -- flag ) ep-lean-error? dup if lf-elab-error-reset then ;
 : lf-elab-spend ( -- outcome )
   lf-meta-spend? if outcome-ok else lfa-e-elab-fuel lf-elab-fail then ;

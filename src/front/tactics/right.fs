@@ -15,9 +15,9 @@
 
 require ../tactic-api.fs
 
-387 outcome-invalid s" Tactic `right` failed: target is not an inductive datatype"
+387 lfa-lean s" Tactic `right` failed: target is not an inductive datatype"
   lfa-code: lfa-e-right-target
-388 outcome-invalid s" Tactic `right` failed: right tactic works for inductive types"
+388 lfa-lean s" Tactic `right` failed: right tactic works for inductive types"
   lfa-code: lfa-e-right-count
 lfa-e-right-count lfa-message-of s"  with exactly 2 constructors" lfa-more,
 tac-shape-plain lf-tactic: by-right constant tac-k-right

@@ -58,7 +58,7 @@ require ../telescope.fs
 require ./goal.fs
 require ./assert.fs
 
-451 outcome-invalid s" Symmetry lemmas only apply to binary relations, not"
+451 lfa-lean s" Symmetry lemmas only apply to binary relations, not"
   lfa-code: lfa-e-symm-binary
 
 \ ---- getSymmLems: a table of the relations, each word giving the

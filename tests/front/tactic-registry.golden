@@ -1,192 +1,192 @@
-1	1	unknown name: no syntax word, bound variable, universe parameter or constant has it
-2	1	a name must follow on the same line
-3	1	missing value: this word would use the stack below its binder or declaration
-4	1	terms belong inside a declaration
-5	1	a term is needed here, not a universe level
-6	1	a universe level is needed here, not a term
-7	1	a universe parameter is not a term (write root: NAME for a constant)
-8	1	a universe parameter is needed here, not a variable
-9	1	universe arguments attach only to a constant
-10	1	too many universe arguments (at most 8)
-11	1	wrong number of universe arguments for the constant (write each with ^)
-12	1	the body of the binder must be exactly one term
-13	1	no binder of this term is open here
-14	1	declarations do not nest
-15	1	a declaration starts with an empty stack
-16	1	universe comes right after the declaration's name
-17	1	:= is not expected here
-18	1	the statement before := must be exactly one term
-19	1	:= is missing
-20	1	the proof after := must be exactly one term
-21	1	a binder of the proof is still open
-22	1	end names another declaration or namespace
-23	1	end names no open namespace
-24	1	namespace and open belong outside declarations
-25	6	too many namespaces open
-26	1	unknown namespace
-27	1	ambiguous name: write the full name
-28	1	already declared
-29	1	label used twice in this declaration
-30	1	not a name: an empty part, a part like a number, or a leading zero
-31	1	var# index outside the binders
-32	1	a count (a number) is needed here
-33	1	the text ends inside a declaration or with values left
-34	1	not a live LeanForth value: each value is used once
-35	1	not a LeanForth word or number: numbers are plain decimals of at most 9 digits
-36	1	a LeanForth word must be run by the text interpreter
-37	1	a note must end with " on the same line
-38	1	unknown constant
-39	6	line too long
-40	1	the file cannot be opened or read
-41	7	a Forth exception, with its THROW code
-42	1	a ( comment must end with ) on the same line
-43	1	protected comes right before theorem, def, axiom or import-stub
-44	1	protected declarations must be in a namespace
-45	1	LeanForth text runs only while Forth interprets, never while it compiles
-46	1	a character no line may hold (a control or format character, or no UTF-8)
-47	6	out of room: the search order holds more wordlists than a run can save
-48	1	import-stub is never checked: name the library with --env and use its constant
-49	1	nothing to check: the text declares no theorem, definition or axiom
-50	5	not supported yet: natural-number literals need literal nodes (ADR 0017 section 14)
-51	5	not supported yet: designed in ADR 0017 but not built yet
-52	5	not supported yet: holes are filled by the elaborator (plan task 8.3.1)
-53	5	not supported yet: _root_ in a declaration's name
-54	5	not supported yet: export and the aliases it makes
-55	5	not supported yet: a library constant by a short name; write the full name
-56	1	a projection leaf is no term: apply it with $ to the term it projects
-57	1	kernel-form belongs outside declarations
-58	1	a word of natural LeanForth: the text is in the kernel form (kernel-form)
-59	1	' takes the name right after it on the same line
-60	6	out of room: the term store is full
-61	6	out of room: the level store is full or the level too large
-62	6	out of room: the name store is full or the name too long
-63	6	out of room: the constant-reference store is full
-64	6	out of room: too many values in one declaration
-65	6	out of room: too many binders or lists open
-66	6	out of room: too many names, namespaces or declarations
-67	6	out of room: too many labels and notes
-68	6	out of room: the syntax store is full
-69	1	by comes right after := and before the proof
-70	5	not supported yet in natural LeanForth (plan FE2); write kernel-form first
-71	5	not supported yet: elaborating natural LeanForth (plan FE1e-f)
-72	5	not supported yet: tactics (plan FE1g)
-73	5	not supported yet: how many arguments the name takes depends on unfolding its type
-74	1	elaboration incomplete: a hole (metavariable) is left in the declaration
-75	1	unused universe parameter: the statement (or a definition's value) must use it
-76	1	malformed elaboration: a term that is no node, or a value unfit for the declaration
-77	5	not supported yet: this step of instantiating metavariables (plan FE1c)
-78	1	a reserved word: a syntax word cannot name a binder
-80	5	not supported yet: running this tactic
-81	1	a tactic word belongs in a tactic proof, after := by
-82	1	a block is still open: by-end closes by-induction-with and by-case:
-83	1	no block of this word's kind is open (| belongs right inside by-induction-with)
-84	1	a header is TAG NAMES... => on one line, after | or by-case:; names are no words
-85	1	an alternative or a by-case: block needs at least one tactic
-86	1	wrong number of values: by-exact and by-induction take one, the others none
-87	5	not supported yet: how many values a hypothesis takes is known when tactics run
-88	6	out of room: the tactic store is full
-89	1	unsolved goals
-90	1	No goals to be solved
-91	2	out of fuel: the tactic proof, or a reduction it ran, took more steps than its fuel
-92	1	malformed tactic record or proof state: steps not nested as read, a bad goal list
-93	5	not supported yet: a type inference, reduction or let binder the tactic needs (FE1c)
-94	1	Tactic `introN` failed: There are no additional binders or `let` bindings in the goal to introduce
-95	1	don't know how to synthesize: the term leaves a metavariable it made unassigned
-96	1	Type mismatch
-97	1	Tactic `rfl` failed: The left-hand side
-98	1	Tactic `exact` failed: attempting to close the goal using
-99	5	not supported yet: this case of the tactic (FE1G_TACTICS.md 5 names its step)
-100	1	invalid universe level: not greater than 0
-101	1	AppBuilder failed: a term the tactic library builds does not fit (an equality proof expected, an application type mismatch, no instance found)
-110	1	type class instance expected
-111	1	type class resolution failed, insufficient number of arguments
-112	1	elaboration data refused: an instance is recorded under a class its type is not of
-113	1	elaboration data refused: an instance's recorded keys differ from its type's
-114	5	not supported yet: an instance's recorded keys are wider than its type's (no_index)
-115	1	elaboration data refused: an instance is filed under another root key than its class
-116	1	elaboration data refused: a default instance's type is not of its recorded class
-117	5	not supported yet: an instance problem whose type is a function type (plan FE1e5b)
-118	5	not supported yet: an instance answer that keeps the search's metavariables (FE1e5b)
-119	5	not supported yet: the search tries an instance the export left out
-120	5	not supported yet: the search tries an instance whose keys could not be checked (S2)
-121	5	not supported yet: Lean's check of an instance that holds metavariables (FE1e5b)
-122	1	failed to synthesize
-125	1	failed to synthesize instance of type class
-126	1	typeclass instance problem is stuck
-127	1	numerals are data in Lean, but the expected type is a proposition
-128	1	numerals are data in Lean, but the expected type is universe polymorphic and may be a proposition
-129	1	failed to assign synthesized type class instance
-130	1	type expected
-131	5	not supported yet: a coercion (plan FE4)
-132	5	not supported yet: postponing an elaboration (plan FE2)
-133	5	not supported yet: an implicit lambda (plan FE2)
-134	5	not supported yet: an optParam, autoParam or eta argument (plan FE2)
-135	5	not supported yet: elaborating as an eliminator (plan FE5)
-136	5	not supported yet: a binder whose kind the declaration's type does not give (plan S5)
-137	5	not supported yet: #check of this form (plan FE2)
-138	2	out of fuel: the front end's work limit (--elab-fuel N gives more)
-139	5	not supported yet: an elaboration step (plans FE2-FE5, S2)
-140	1	unexpected token '#check'; expected term
-141	1	#check is a command: Lean would end the tactic block here; put it after end
-200	5	not supported yet: a smart-unfolding marker reached the declaration (plan S2)
-205	1	Tactic `induction` failed: major premise type is not an inductive type
-206	1	Invalid alternative name
-207	1	Alternative
-208	1	Too many variable names provided at alternative
-209	1	The `induction` tactic does not support the type
-210	1	Case tag
-211	1	too many variable names provided
-212	1	Type mismatch when assigning motive
-213	1	Duplicate alternative name
-215	1	Tactic `rewrite` failed: Did not find an occurrence of the pattern
-216	1	Tactic `rewrite` failed: motive is not type correct:
-217	1	Tactic `rewrite` failed: Motive is dependent:
-218	1	Invalid rewrite argument: Expected an equality or iff proof or definition name, but
-219	1	Invalid rewrite argument: The pattern to be substituted is a metavariable
-220	1	Occurs check failed: Expression
-300	6	out of room: a Forth stack, the dictionary or the heap, with its THROW code
-458	1	this list is never closed: its closing word (], >> or ⟩) is missing
-462	1	Invalid `⟨...⟩` notation: The expected type of this term could not be determined
-463	1	Invalid `⟨...⟩` notation: The expected type
-464	1	Invalid `⟨...⟩` notation: The expected type
-465	1	Invalid `⟨...⟩` notation: The expected type
-466	1	Insufficient number of fields for `⟨...⟩` constructor: Constructor
-467	1	Insufficient number of fields for `⟨...⟩` constructor: Constructor
-459	1	by-revert[ and by-clear[ take names of hypotheses up to ]
-460	1	this list takes one item at least
-453	1	at[ follows no tactic word that takes a location
-454	1	at[ takes hypothesis names and |-, or * alone, up to ]
-440	1	Tactic `clear` failed: unknown variable
-441	1	Tactic `clear` failed: variable
-442	1	Tactic `clear` failed: target depends on
-457	1	Tactic `rfl` failed: Expected the goal to be a binary relation
-461	1	don't know how to synthesize placeholder
-389	1	Unexpected term
-455	1	Unknown identifier
-380	1	Tactic `apply` failed: could not unify the
-384	1	Tactic `apply` failed: failed to assign synthesized instance
-381	1	Tactic `assumption` failed
-382	1	Tactic `constructor` failed: target is not an inductive datatype
-383	1	Tactic `constructor` failed: no applicable constructor found
-450	1	The main goal is
-443	1	'change' tactic failed, pattern
-444	1	'show' tactic failed, pattern
-445	1	'show' tactic failed, no goals unify with the given pattern.
-449	1	Tactic `contradiction` failed
-250	1	Tactic `decide` proved that the proposition
-251	1	Expected type must not contain free variables
-252	1	Expected type must not contain metavariables
-253	1	Tactic `decide` failed to reduce
-254	5	`native_decide` is not supported: it trusts Lean's compiler (`Lean.ofReduceBool`), never accepted (ADR 0021 D7)
-448	1	Tactic `delta` failed: did not delta reduce
-385	1	Tactic `left` failed: target is not an inductive datatype
-386	1	Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors
-387	1	Tactic `right` failed: target is not an inductive datatype
-388	1	Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors
-456	1	Type mismatch: The rewritten hypothesis
-447	1	'specialize' requires a term of the form `h x_1 .. x_n` where `h` appears in the local context
-446	1	goal index `2` is out of bounds
-451	1	Symmetry lemmas only apply to binary relations, not
+1	1	-	unknown name: no syntax word, bound variable, universe parameter or constant has it
+2	1	-	a name must follow on the same line
+3	1	-	missing value: this word would use the stack below its binder or declaration
+4	1	-	terms belong inside a declaration
+5	1	-	a term is needed here, not a universe level
+6	1	-	a universe level is needed here, not a term
+7	1	-	a universe parameter is not a term (write root: NAME for a constant)
+8	1	-	a universe parameter is needed here, not a variable
+9	1	-	universe arguments attach only to a constant
+10	1	-	too many universe arguments (at most 8)
+11	1	-	wrong number of universe arguments for the constant (write each with ^)
+12	1	-	the body of the binder must be exactly one term
+13	1	-	no binder of this term is open here
+14	1	-	declarations do not nest
+15	1	-	a declaration starts with an empty stack
+16	1	-	universe comes right after the declaration's name
+17	1	-	:= is not expected here
+18	1	-	the statement before := must be exactly one term
+19	1	-	:= is missing
+20	1	-	the proof after := must be exactly one term
+21	1	-	a binder of the proof is still open
+22	1	-	end names another declaration or namespace
+23	1	-	end names no open namespace
+24	1	-	namespace and open belong outside declarations
+25	6	-	too many namespaces open
+26	1	-	unknown namespace
+27	1	-	ambiguous name: write the full name
+28	1	-	already declared
+29	1	-	label used twice in this declaration
+30	1	-	not a name: an empty part, a part like a number, or a leading zero
+31	1	-	var# index outside the binders
+32	1	-	a count (a number) is needed here
+33	1	-	the text ends inside a declaration or with values left
+34	1	-	not a live LeanForth value: each value is used once
+35	1	-	not a LeanForth word or number: numbers are plain decimals of at most 9 digits
+36	1	-	a LeanForth word must be run by the text interpreter
+37	1	-	a note must end with " on the same line
+38	1	lean	unknown constant
+39	6	-	line too long
+40	1	-	the file cannot be opened or read
+41	7	-	a Forth exception, with its THROW code
+42	1	-	a ( comment must end with ) on the same line
+43	1	-	protected comes right before theorem, def, axiom or import-stub
+44	1	-	protected declarations must be in a namespace
+45	1	-	LeanForth text runs only while Forth interprets, never while it compiles
+46	1	-	a character no line may hold (a control or format character, or no UTF-8)
+47	6	-	out of room: the search order holds more wordlists than a run can save
+48	1	-	import-stub is never checked: name the library with --env and use its constant
+49	1	-	nothing to check: the text declares no theorem, definition or axiom
+50	5	-	not supported yet: natural-number literals need literal nodes (ADR 0017 section 14)
+51	5	-	not supported yet: designed in ADR 0017 but not built yet
+52	5	-	not supported yet: holes are filled by the elaborator (plan task 8.3.1)
+53	5	-	not supported yet: _root_ in a declaration's name
+54	5	-	not supported yet: export and the aliases it makes
+55	5	-	not supported yet: a library constant by a short name; write the full name
+56	1	-	a projection leaf is no term: apply it with $ to the term it projects
+57	1	-	kernel-form belongs outside declarations
+58	1	-	a word of natural LeanForth: the text is in the kernel form (kernel-form)
+59	1	-	' takes the name right after it on the same line
+60	6	-	out of room: the term store is full
+61	6	-	out of room: the level store is full or the level too large
+62	6	-	out of room: the name store is full or the name too long
+63	6	-	out of room: the constant-reference store is full
+64	6	-	out of room: too many values in one declaration
+65	6	-	out of room: too many binders or lists open
+66	6	-	out of room: too many names, namespaces or declarations
+67	6	-	out of room: too many labels and notes
+68	6	-	out of room: the syntax store is full
+69	1	-	by comes right after := and before the proof
+70	5	-	not supported yet in natural LeanForth (plan FE2); write kernel-form first
+71	5	-	not supported yet: elaborating natural LeanForth (plan FE1e-f)
+72	5	-	not supported yet: tactics (plan FE1g)
+73	5	-	not supported yet: how many arguments the name takes depends on unfolding its type
+74	1	-	elaboration incomplete: a hole (metavariable) is left in the declaration
+75	1	-	unused universe parameter: the statement (or a definition's value) must use it
+76	1	-	malformed elaboration: a term that is no node, or a value unfit for the declaration
+77	5	-	not supported yet: this step of instantiating metavariables (plan FE1c)
+78	1	-	a reserved word: a syntax word cannot name a binder
+80	5	-	not supported yet: running this tactic
+81	1	-	a tactic word belongs in a tactic proof, after := by
+82	1	-	a block is still open: by-end closes by-induction-with and by-case:
+83	1	-	no block of this word's kind is open (| belongs right inside by-induction-with)
+84	1	-	a header is TAG NAMES... => on one line, after | or by-case:; names are no words
+85	1	-	an alternative or a by-case: block needs at least one tactic
+86	1	-	wrong number of values: by-exact and by-induction take one, the others none
+87	5	-	not supported yet: how many values a hypothesis takes is known when tactics run
+88	6	-	out of room: the tactic store is full
+89	1	lean	unsolved goals
+90	1	lean	No goals to be solved
+91	2	-	out of fuel: the tactic proof, or a reduction it ran, took more steps than its fuel
+92	1	-	malformed tactic record or proof state: steps not nested as read, a bad goal list
+93	5	-	not supported yet: a type inference, reduction or let binder the tactic needs (FE1c)
+94	1	lean	Tactic `introN` failed: There are no additional binders or `let` bindings in the goal to introduce
+95	1	lean	don't know how to synthesize: the term leaves a metavariable it made unassigned
+96	1	lean	Type mismatch
+97	1	lean	Tactic `rfl` failed: The left-hand side
+98	1	lean	Tactic `exact` failed: attempting to close the goal using
+99	5	-	not supported yet: this case of the tactic (FE1G_TACTICS.md 5 names its step)
+100	1	lean	invalid universe level: not greater than 0
+101	1	lean	AppBuilder failed: a term the tactic library builds does not fit (an equality proof expected, an application type mismatch, no instance found)
+110	1	lean	type class instance expected
+111	1	lean	type class resolution failed, insufficient number of arguments
+112	1	-	elaboration data refused: an instance is recorded under a class its type is not of
+113	1	-	elaboration data refused: an instance's recorded keys differ from its type's
+114	5	-	not supported yet: an instance's recorded keys are wider than its type's (no_index)
+115	1	-	elaboration data refused: an instance is filed under another root key than its class
+116	1	-	elaboration data refused: a default instance's type is not of its recorded class
+117	5	-	not supported yet: an instance problem whose type is a function type (plan FE1e5b)
+118	5	-	not supported yet: an instance answer that keeps the search's metavariables (FE1e5b)
+119	5	-	not supported yet: the search tries an instance the export left out
+120	5	-	not supported yet: the search tries an instance whose keys could not be checked (S2)
+121	5	-	not supported yet: Lean's check of an instance that holds metavariables (FE1e5b)
+122	1	lean	failed to synthesize
+125	1	lean	failed to synthesize instance of type class
+126	1	lean	typeclass instance problem is stuck
+127	1	lean	numerals are data in Lean, but the expected type is a proposition
+128	1	lean	numerals are data in Lean, but the expected type is universe polymorphic and may be a proposition
+129	1	lean	failed to assign synthesized type class instance
+130	1	lean	type expected
+131	5	-	not supported yet: a coercion (plan FE4)
+132	5	-	not supported yet: postponing an elaboration (plan FE2)
+133	5	-	not supported yet: an implicit lambda (plan FE2)
+134	5	-	not supported yet: an optParam, autoParam or eta argument (plan FE2)
+135	5	-	not supported yet: elaborating as an eliminator (plan FE5)
+136	5	-	not supported yet: a binder whose kind the declaration's type does not give (plan S5)
+137	5	-	not supported yet: #check of this form (plan FE2)
+138	2	-	out of fuel: the front end's work limit (--elab-fuel N gives more)
+139	5	-	not supported yet: an elaboration step (plans FE2-FE5, S2)
+140	1	-	unexpected token '#check'; expected term
+141	1	-	#check is a command: Lean would end the tactic block here; put it after end
+200	5	-	not supported yet: a smart-unfolding marker reached the declaration (plan S2)
+205	1	lean	Tactic `induction` failed: major premise type is not an inductive type
+206	1	lean	Invalid alternative name
+207	1	lean	Alternative
+208	1	lean	Too many variable names provided at alternative
+209	1	lean	The `induction` tactic does not support the type
+210	1	lean	Case tag
+211	1	lean	too many variable names provided
+212	1	lean	Type mismatch when assigning motive
+213	1	lean	Duplicate alternative name
+215	1	lean	Tactic `rewrite` failed: Did not find an occurrence of the pattern
+216	1	lean	Tactic `rewrite` failed: motive is not type correct:
+217	1	lean	Tactic `rewrite` failed: Motive is dependent:
+218	1	lean	Invalid rewrite argument: Expected an equality or iff proof or definition name, but
+219	1	lean	Invalid rewrite argument: The pattern to be substituted is a metavariable
+220	1	lean	Occurs check failed: Expression
+300	6	-	out of room: a Forth stack, the dictionary or the heap, with its THROW code
+458	1	-	this list is never closed: its closing word (], >> or ⟩) is missing
+462	1	lean	Invalid `⟨...⟩` notation: The expected type of this term could not be determined
+463	1	lean	Invalid `⟨...⟩` notation: The expected type
+464	1	lean	Invalid `⟨...⟩` notation: The expected type
+465	1	lean	Invalid `⟨...⟩` notation: The expected type
+466	1	lean	Insufficient number of fields for `⟨...⟩` constructor: Constructor
+467	1	lean	Insufficient number of fields for `⟨...⟩` constructor: Constructor
+459	1	-	by-revert[ and by-clear[ take names of hypotheses up to ]
+460	1	-	this list takes one item at least
+453	1	-	at[ follows no tactic word that takes a location
+454	1	-	at[ takes hypothesis names and |-, or * alone, up to ]
+440	1	lean	Tactic `clear` failed: unknown variable
+441	1	lean	Tactic `clear` failed: variable
+442	1	lean	Tactic `clear` failed: target depends on
+457	1	lean	Tactic `rfl` failed: Expected the goal to be a binary relation
+461	1	lean	don't know how to synthesize placeholder
+389	1	lean	Unexpected term
+455	1	lean	Unknown identifier
+380	1	lean	Tactic `apply` failed: could not unify the
+384	1	lean	Tactic `apply` failed: failed to assign synthesized instance
+381	1	lean	Tactic `assumption` failed
+382	1	lean	Tactic `constructor` failed: target is not an inductive datatype
+383	1	lean	Tactic `constructor` failed: no applicable constructor found
+450	1	lean	The main goal is
+443	1	lean	'change' tactic failed, pattern
+444	1	lean	'show' tactic failed, pattern
+445	1	lean	'show' tactic failed, no goals unify with the given pattern.
+449	1	lean	Tactic `contradiction` failed
+250	1	lean	Tactic `decide` proved that the proposition
+251	1	lean	Expected type must not contain free variables
+252	1	lean	Expected type must not contain metavariables
+253	1	lean	Tactic `decide` failed to reduce
+254	5	-	`native_decide` is not supported: it trusts Lean's compiler (`Lean.ofReduceBool`), never accepted (ADR 0021 D7)
+448	1	lean	Tactic `delta` failed: did not delta reduce
+385	1	lean	Tactic `left` failed: target is not an inductive datatype
+386	1	lean	Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors
+387	1	lean	Tactic `right` failed: target is not an inductive datatype
+388	1	lean	Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors
+456	1	lean	Type mismatch: The rewritten hypothesis
+447	1	lean	'specialize' requires a term of the form `h x_1 .. x_n` where `h` appears in the local context
+446	1	lean	goal index `2` is out of bounds
+451	1	lean	Symmetry lemmas only apply to binary relations, not
 reserved \ word
 reserved ( word
 reserved theorem word
