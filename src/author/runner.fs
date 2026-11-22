@@ -122,7 +122,7 @@ end-structure
 \ one stops the run at its first token.
 : lfa-buffer ( -- c-addr ) lfa-run lfa-run-line ;
 : lfa-long ( c-addr u -- )
-  lfa-line! lfa-the-line lfa-next-token lfa-token! 2drop lfa-e-line lfa-fail ;
+  lfa-line! lfa-the-line lfa-token-of lfa-token! lfa-e-line lfa-fail ;
 : lfa-file-line ( -- c-addr u true | false )
   lfa-buffer lfa-line-capacity lfa-run lfa-run-file @ read-line 0= lfa-e-file lfa-must
   0= if drop false exit then lfa-buffer swap dup lfa-line-capacity < if true exit then
@@ -229,8 +229,8 @@ end-structure
 \ Another exception names the last token a word read, or, when no word
 \ read one on this line yet, the line's first token.
 : lfa-first-token ( -- )
-  lfa-token nip if exit then lfa-the-line lfa-next-token dup 0= if 2drop 2drop exit then
-  lfa-token! 2drop ;
+  lfa-token nip if exit then
+  lfa-the-line lfa-token-of dup 0= if 2drop exit then lfa-token! ;
 \ A host stack, the dictionary or the heap ran out (THROW -3, -5, -8, or
 \ ALLOCATE's or RESIZE's -59, -61): error 300, full (exit 3); any other
 \ code is LeanForth's internal fault, error 41 (exit 5), never the text's.
