@@ -702,7 +702,7 @@ Errors named in the "Function" cells are codes of `src/author/errors.fs`.
 | NAME of a constant or variable (a word you never define; the interpreter finds it) | `( v1 ... vk -- v )`: its k explicit arguments | none | takes its arguments, leaves one value | Applies the constant or variable to as many values as it has explicit arguments (k); errors 1 unknown, 27 ambiguous, 55 a short name of a library constant, 73 the count depends on unfolding a definition. |
 | a numeral `0`, `2` | `( -- v )` | none (read by Forth, not a LeanForth word) | pushes a number and remembers where it was written | In natural form Lean's numeral, a plain decimal of at most nine digits; other number forms are error 35. |
 | `' NAME` | `( -- v )` | reads the next token without consuming it; natural form only | the next name takes no arguments from the stack | The function or theorem NAME itself, applied to nothing ("tick NAME"); error 59 when no name follows on the line. |
-| `$` | `( f a -- v )` | none | takes two values, leaves the application | One more argument: `f a $` is Lean's `f a`. |
+| `$` | `( func value -- func(value) )` | none | the value is on top of the stack, the function second; both are taken and the function applied to the value is left | One more argument: `f a $` is Lean's `f a`, never `a` applied to `f`; `f a $ b $` is Lean's `f a b`. |
 | `+` `*` | `( a b -- v )` | none; natural form only (error 58 in kernel form) | takes two values, leaves the sum or product | Lean's `a + b` and `a * b`, as `binop%` of `HAdd.hAdd` and `HMul.hMul`. |
 | `-` `/` `%` | `( a b -- v )` | none; natural form only (58 in kernel form) | takes two values, leaves the difference, quotient or remainder | Lean's `a - b`, `a / b`, `a % b`, as `binop%` of `HSub.hSub`, `HDiv.hDiv`, `HMod.hMod` (on `Nat`: `10 20 -` is 0, `17 5 /` is 3). Binary minus only; unary minus is not a word yet. |
 | `^` | `( a n -- v )` | none; in natural form "to the power", in kernel form still the universe word | takes the base and the exponent, leaves the power | Lean's `a ^ n`, as `rightact%` of `HPow.hPow`: the exponent is elaborated on its own and does not help choose the number type (owner, 2026-11-20). `2 3 2 ^ ^` is `2 ^ 3 ^ 2`, that is 2⁹. |
@@ -934,7 +934,7 @@ term that results.
 | --- | --- | --- | --- | --- |
 | NAME of a theorem or constructor | `( a1 ... ak -- t )` | ordinary (resolved when run) | pops k values, pushes the application | Applies it to its explicit arguments: `n Eq.refl` is Lean's `Eq.refl n`; the elaborator supplies the hidden type and level. |
 | `' NAME` | `( -- t )` | looks ahead; natural form | marks a pending tick | The constant itself, unapplied. |
-| `$` | `( f a -- t )` | ordinary | pops two, pushes one | One more argument. |
+| `$` | `( func value -- func(value) )` | ordinary | pops two (the value on top, the function second), pushes one | One more argument. |
 | `Eq.refl`, `Nat.zero_add`, `congrArg`, ... | `( a -- t )` | ordinary names | as NAME | Any constant of the library named with `--env`; the count of values is its explicit arguments. |
 | `^` | `( c l -- c' )` | ordinary; kernel form only | adds a universe argument to the constant | `Eq.refl 1 ^ Nat $ n $`: explicit universe levels with `^`, every argument with `$`. |
 | `**` `fun`, `⟨ ⟩`, `show`, `▸`, `calc`, `let:` and `have:` in natural form | | designed: [FE2_TERMS.md §2.2](../design/FE2_TERMS.md) | n/a | Proof-term forms, not built. |

@@ -1864,3 +1864,28 @@ laptop had worked but did not say so): "Let's make second tag, svfig-preprealfa2
 tokens". The tag `svfig-preprealfa2` (the owner's spelling) goes on the tree that holds those endings, the large-runs
 page and the Mathlib record, once `make daily` has passed on exactly it; `svfig-prepre-alpha` stays on `677800d7`.
 No nightly run tonight.
+
+
+### Tactics at speed, and the spellings of the next batches (2026-11-21)
+
+Owner, 2026-11-21, after the talk: implement tactics in larger numbers and cheaply ("10 per week would take half a
+year ... how can we work smarter?"; "we need to improve the process for tactics so we can complete most of them this
+week"). The answer is plan row TB2: tactics ordered by their use in Mathlib's source
+([TACTIC_INVENTORY.md](../development/TACTIC_INVENTORY.md)), built in batches of 8 to 12 per branch with one word
+list, one Forth review, one tier and one done check per batch. Reading Mathlib's source for the count is approved (it
+was already in `.tools/mathlib/mathlib4`).
+
+Spellings the owner accepted ("follow your spelling suggestions"; "bars ok"):
+- `have`: `T e by-have: h` (type, proof, then the name), `e by-have` (unnamed), `T by-have-goal: h` (the proof
+  follows as a new goal).
+- Lean's `by_cases` is `p by-cases: h`, Lean's name kept beside `by-case:`.
+- A right-to-left rewrite rule is `' lemma <-` inside `by-rw[ ]`; a location is a trailing `at: h1 h2`.
+- Blocks: `by-try ... by-end`, `by-all-goals ... by-end`, and `by-first | ... | ... by-end`; the bar at the start of
+  a proof line begins an alternative there as it does a case.
+- The anonymous constructor: proposed `<< p q >>` (with Lean's `⟨ p q ⟩` beside it), the parts postfix terms, no
+  comma; the owner asked how it reads and has not yet chosen between it and the counted postfix `p q 2 anon`:
+  to confirm before batch 3.
+
+Wording (owner, same day): describe a word by stack position, top and second, never "first" alone, and write a
+stack comment that shows what comes out, as `$ ( func value -- func(value) )`.
+
