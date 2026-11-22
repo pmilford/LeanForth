@@ -29,3 +29,149 @@ old = ''': lfr-lean-authored? ( -- flag ) lf-author-code lf-author-lean? lf-auth
 new = ''': lfr-lean-authored? ( -- flag ) lf-author-code lf-author-outcome outcome-invalid = ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "TB2 blocks 1: try's gate by outcome again (the hole on main): tactic-run.fs's own-try catches 92 (false) and own-first runs the second alternative"
+
+# ---- The runner's modes, recover flags and loop (tactic-run.fs, tactic-core.fs)
+[[fault]]
+id = "tb2b1-mode-end-skipped"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-end-block ( -- ) lfr-top dup tfr-mode @ mode-end @ execute lfr-pop ;'''
+new = ''': lfr-end-block ( -- ) lfr-pop ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: a block's end never runs its mode (no done, no goals put back): blocks-1 test.fs's { } over a goal gives 0, not 89"
+
+[[fault]]
+id = "tb2b1-rest-dropped"
+file = "src/front/tactic-run.fs"
+old = '''  dup tfr-step @ lfr-ending lf-tac-done tfr-rest @ lfr-goals! ;'''
+new = '''  dup tfr-step @ lfr-ending lf-tac-done drop ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: done's end drops the goals outside the block: blocks-1 test.fs's br_and text (fuel-swept?, p-brace) finds no goal for its second brace (90)"
+
+[[fault]]
+id = "tb2b1-focus-after-push"
+file = "src/front/tactic-run.fs"
+old = ''': lf-tac-focused ( i -- ) lf-tac-focus lf-tac-block ;'''
+new = ''': lf-tac-focused ( i -- ) lf-goals lf-tac-block lf-tac-focus drop ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: the no-goal check after the frame is pushed (Lean's Basic.lean:354 is before the catch): blocks-1 test.fs's { with no goal leaves 2 frames, not 1"
+
+[[fault]]
+id = "tb2b1-have-by-not-fresh"
+file = "src/front/tactic-run.fs"
+old = '''' drop ' lfr-nested-end 0 lfr-admits lfr-fresh-recover or lf-block-mode'''
+new = '''' drop ' lfr-nested-end 0 lfr-admits lf-block-mode'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: have-by's block takes the recover of the block around it, not a fresh Tactic.run's (review finding 1): blocks-1 test.fs's probe in a have-by inside the probe block sees false"
+
+[[fault]]
+id = "tb2b1-recover-not-inherited"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-kept-in ( mode -- flag ) lfr-no-recover lfr-mode-flag? 0= lfr-inherited and ;'''
+new = ''': lfr-kept-in ( mode -- flag ) drop true ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: a block opened while recover is false (and a no-recover mode) recovers: blocks-1 test.fs's probe block's probe sees true"
+
+[[fault]]
+id = "tb2b1-log-fail-thrown"
+file = "src/front/tactic-run.fs"
+old = ''': lf-tac-logged ( i*x xt -- j*x ) lf-tac-recover? if lfr-finally else execute then ;'''
+new = ''': lf-tac-logged ( i*x xt -- j*x ) execute ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: Lean's logged class made an ordinary throw: blocks-1 test.fs's by-probe-log at the proof's level is not final"
+
+[[fault]]
+id = "tb2b1-try-lean-recovers"
+file = "src/front/tactic-core.fs"
+old = '''  ['] lf-tac-try lf-tac-no-recover ?dup 0= if true exit then lf-tac-forget-lean false ;'''
+new = '''  lf-tac-try ?dup 0= if true exit then lf-tac-forget-lean false ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: try's and first's non-last alternatives keep recover (Lean's orElse clears it): blocks-1 test.fs's by-probe-first's first alternative sees true"
+
+[[fault]]
+id = "tb2b1-final-never"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-final-at? ( k -- flag ) dup lfr-admits lfr-frame-flag? swap lfr-below-recover and ;'''
+new = ''': lfr-final-at? ( k -- flag ) drop false ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: an error leaving an admitting block over one that recovers is not final: blocks-1 test.fs's brace in a have-by in the probe try is taken back (0, not 96)"
+
+[[fault]]
+id = "tb2b1-handler-no-restore"
+file = "src/front/tactic-run.fs"
+old = '''  dup lfr-frame tfr-save @ lf-tac-restore lfr-sure lf-tac-forget lfr-frame'''
+new = '''  dup lfr-frame tfr-save @ drop lf-tac-forget lfr-frame'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: a handler takes an error back without putting the state back: blocks-1 test.fs's probe try that closed a goal and then failed leaves one goal (90 at the second h)"
+
+[[fault]]
+id = "tb2b1-gate-skipped"
+file = "src/front/tactic-run.fs"
+old = '''  dup lf-tac-lean-error? 0= if nip throw then swap lfr-taker if lfr-take else throw then ;'''
+new = '''  swap lfr-taker if lfr-take else throw then ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: the loop takes back an error that is no Lean error: blocks-1 test.fs's probe gap (93) in the probe try is taken (0)"
+
+[[fault]]
+id = "tb2b1-base-ignored"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-in? ( base k -- k true | false ) tuck > if drop false else true then ;'''
+new = ''': lfr-in? ( base k -- k true | false ) nip true ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: a loop from a base takes an error to a frame below its base: blocks-1 test.fs's nested loop in the probe try returns (nested-done true) instead of throwing on"
+
+[[fault]]
+id = "tb2b1-shaped-not-holder"
+file = "src/front/tactic-run.fs"
+old = '''  dup lfr-fixed-block? if drop true else lfr-shaped-block? then ;'''
+new = '''  lfr-fixed-block? ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: the record check refuses a step inside a shaped block: every brace text of blocks-1 test.fs is 92"
+
+[[fault]]
+id = "tb2b1-brace-word"
+file = "src/front/tactic-run.fs"
+old = '''  lft-self-closing? if drop s" }" else lfr-spelling then ;'''
+new = '''  drop lfr-spelling ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: a brace's unsolved goals told with { at }'s place: blocks-1 test.fs's 89 token is not }"
+
+# ---- The reader's closers and names (tactic-syntax.fs, tactics/)
+[[fault]]
+id = "tb2b1-brace-names-kept"
+file = "src/front/tactic-syntax.fs"
+old = '''  lft-open lft-arrow! drop lft-past lft-open lft-rec lft-cut-names lft-close ;'''
+new = '''  lft-open lft-arrow! drop lft-past lft-open lft-rec drop lft-close ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: names given inside a brace stay after its }: blocks-1 test.fs's x after } reads as the hypothesis, not error 1"
+
+[[fault]]
+id = "tb2b1-brace-closes-any"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-in-brace ( -- ) lft-open-flags tac-block-self and 0= if lft-closer-at then ;'''
+new = ''': lft-in-brace ( -- ) ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: } closes any block: blocks-1 test.fs's } after by-focus closes it (not 83)"
+
+[[fault]]
+id = "tb2b1-by-end-closes-brace"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-not-brace ( flags -- flags ) dup tac-block-self and if lft-closer-at then ;'''
+new = ''': lft-not-brace ( flags -- flags ) ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: by-end closes a brace: blocks-1 test.fs's { ' h by-exact by-end is accepted (not 83 with the { second)"
+
+[[fault]]
+id = "tb2b1-have-by-keeps-names"
+file = "src/front/tactics/have.fs"
+old = '''1 1 tac-block-cuts tac-shape-block lf-tactic: by-have-by: constant tac-k-have-by'''
+new = '''1 1 0 tac-shape-block lf-tactic: by-have-by: constant tac-k-have-by'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: names given inside a have-by's block stay after by-end: blocks-1 test.fs's x after by-end reads as the hypothesis, not error 1"
+
+[[fault]]
+id = "tb2b1-focus-cuts-names"
+file = "src/front/tactics/blocks.fs"
+old = '''0 0 0 tac-shape-block lf-tactic: by-focus constant tac-k-focus'''
+new = '''0 0 tac-block-cuts tac-shape-block lf-tactic: by-focus constant tac-k-focus'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: by-focus cuts the names given inside it (review finding 6): blocks-1 test.fs's x after by-focus's by-end is error 1, not accepted"

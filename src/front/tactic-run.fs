@@ -795,9 +795,8 @@ lfr-states# 2* 0 xt-table: lfr-states
 : lfr-frame-flag? ( k bit -- flag ) swap lfr-frame tfr-mode @ swap lfr-mode-flag? ;
 : lfr-final-at? ( k -- flag ) dup lfr-admits lfr-frame-flag? swap lfr-below-recover and ;
 : lfr-handler? ( k -- flag ) lfr-frame tfr-mode @ mode-fail @ 0<> ;
-\ (k below base answers too, so that the search stops there.)
-: lfr-decides? ( base k -- base flag )
-  2dup > if drop true else dup lfr-final-at? swap lfr-handler? or then ;
+\ (The topmost frame that decides; one below base is the caller's loop's.)
+: lfr-decides? ( base k -- base flag ) dup lfr-final-at? swap lfr-handler? or ;
 : lfr-in? ( base k -- k true | false ) tuck > if drop false else true then ;
 : lfr-taker ( base -- k true | false )
   dup lfr-depth ['] lfr-decides? find-last-index if lfr-in? else drop false then ;

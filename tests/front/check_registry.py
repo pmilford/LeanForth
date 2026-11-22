@@ -10,8 +10,9 @@
 2. src/front/tactics/all.fs requires every tactic file of its folder once,
    sorted, and nothing else.
 3. The load refuses a code registered twice and a code 0 (lfa-code:), and a
-   word reserved already, a tactic's or any other, and a word not spelt
-   by-... (lf-tactic:).
+   word reserved already, a tactic's or any other (lf-tactic: and
+   lf-tactic-sign:, blocks slice 1), and a word not spelt by-...
+   (lf-tactic:).
 A harness self-test first checks that a changed line and an unsorted list
 are told apart.
 
@@ -85,6 +86,8 @@ REFUSALS = [
     ("tac-shape-plain lf-tactic: by-rfl drop", "a word reserved already"),
     ("tac-shape-plain lf-tactic: Nat drop", "a tactic word is spelt by-"),
     ("tac-shape-plain lf-tactic: by- drop", "a tactic word is spelt by-"),
+    ("tac-shape-plain lf-tactic-sign: } drop", "a word reserved already"),
+    ("tac-shape-plain lf-tactic-sign: { drop", "a word reserved already"),
 ]
 
 
