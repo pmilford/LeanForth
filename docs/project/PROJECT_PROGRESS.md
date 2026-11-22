@@ -165,6 +165,11 @@ status changes when this date is older than them. Stages are those of the
   check is owed.
 
 **Later**
+- Lean-beam for connecting AI tools to LeanForth (owner, 2026-11-21; long term, not started): investigate it, and
+  whether LeanForth should aim to be compatible with its interface, so tools written for Lean work with LeanForth.
+- Automated proof generation (owner, 2026-11-21; long term, not started): review SMT solvers (external tools, whose
+  answers the kernel must still check) and Lean's `grind` tactic (4,620 uses in Mathlib's source,
+  [TACTIC_INVENTORY.md](../development/TACTIC_INVENTORY.md)).
 - A faster sort for short lists (`lib/sort.fs` below its cut-over of 32; plan 9.4.8i, owner 2026-11-13): only if
   benchmarks and traces of the callers' list sizes show it is worthwhile.
 - Proof development (owner, 2026-11-12; long term, after strict Lean compatibility): research note
