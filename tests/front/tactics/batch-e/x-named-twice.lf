@@ -1,0 +1,14 @@
+\ Not supported yet (plan row TB2, tactic batch 3b): a named hole whose
+\ name a metavariable has already (Lean's findUserName?, which reuses
+\ it here: one goal x for both arguments): 139, never accepted.
+\ Lean: theorem x_named_twice (a b : Nat) (h : a = b) : a = b ∧ a = b := by
+\         refine And.intro ?x ?x
+\         exact h
+theorem x_named_twice
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b = a b = ∧
+:= by
+  ' And.intro ?: x $ ?: x $ by-refine
+  ' h by-exact
+end x_named_twice

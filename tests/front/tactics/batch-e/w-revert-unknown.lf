@@ -1,0 +1,12 @@
+\ A wrong twin (plan row TB2, tactic batch 3b; batch-e-wrong.lean): a name
+\ in by-revert[ ] no local has: Lean's getFVarIds, "Unknown identifier
+\ `foo`" (455), before anything is reverted.
+\ Lean: theorem w_revert_unknown (a b : Nat) (h : a = b) : a = b := by
+\         revert h foo
+theorem w_revert_unknown
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  by-revert[ h foo ]
+end w_revert_unknown

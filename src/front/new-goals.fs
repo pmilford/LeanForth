@@ -17,7 +17,8 @@
 \       (Term/TermElabM.lean:901-956): nothing for none; when each one is
 \       a hole (elab-app.fs's lf-elab-hole), the newest one's error, 461,
 \       Lean's "don't know how to synthesize placeholder" with "context:"
-\       and the hole's goal below, the hole's place as the second one; a
+\       and the hole's goal below (at the step's word; Lean's place is the
+\       hole's); a
 \       hole that is an application's argument, whose message Lean ends
 \       with the argument's name, is not supported yet (99); any other
 \       metavariable is error 95 (an implicit argument's message, not
@@ -70,8 +71,8 @@ require ./meta-tactic/goal.fs
 : tng-other? ( run k -- run flag ) over swap run@ tng-hole? 0= ;
 : tng-context. ( mvar -- outcome ) s" context:" lf-pp-emit lf-tac-goal-of. ;
 : tng-placeholder ( mvar -- )
-  dup lf-elab-hole drop if 2drop lfa-e-tac-form lf-tac-fail then
-  lfa-see! ['] tng-context. lf-tac-detail lfa-e-tac-placeholder lf-tac-stop ;
+  dup lf-elab-hole drop nip if drop lfa-e-tac-form lf-tac-fail then
+  ['] tng-context. lf-tac-detail lfa-e-tac-placeholder lf-tac-stop ;
 : tng-others? ( mvars -- flag ) dup run-count ['] tng-other? find-index dup if nip then ;
 : lf-tac-log-unassigned ( mvars -- )
   dup run-count 0= if drop exit then

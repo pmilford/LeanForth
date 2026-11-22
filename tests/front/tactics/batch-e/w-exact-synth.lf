@@ -1,0 +1,12 @@
+\ A wrong twin (plan row TB2, tactic batch 3b; batch-e-wrong.lean): a
+\ synthetic hole in exact's term, which exact never makes a goal: the
+\ same placeholder error (461).
+\ Lean: theorem w_exact_synth (a b : Nat) (h : a = b) : a = b := by
+\         exact ?_
+theorem w_exact_synth
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  ?_ by-exact
+end w_exact_synth

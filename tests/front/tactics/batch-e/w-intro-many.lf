@@ -1,0 +1,14 @@
+\ A wrong twin (plan row TB2, tactic batch 3b; batch-e-wrong.lean): more
+\ names than binders: intro's second step is Lean's introN failure (94),
+\ the first one done.
+\ Lean: theorem w_intro_many (a b : Nat) (h : a = b) : a = b := by
+\         revert h
+\         intro x y
+theorem w_intro_many
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  by-revert[ h ]
+  by-intro[ x y ]
+end w_intro_many

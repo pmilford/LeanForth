@@ -1,0 +1,12 @@
+\ A wrong twin (plan row TB2, tactic batch 3b; batch-e-wrong.lean): a
+\ natural hole refine cannot fill: Lean's "don't know how to synthesize
+\ placeholder" with its context (461).
+\ Lean: theorem w_refine_hole (a b : Nat) (h : a = b) : a = b := by
+\         refine _
+theorem w_refine_hole
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  _ by-refine
+end w_refine_hole

@@ -1,0 +1,57 @@
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"nl_intro","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":3}}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ a = b","goals_after":["a b : Nat\n⊢ a = b → b = a → a = b"],"parent":0,"source":"13:3","step":1,"tactic":"revert","word":"by-revert["}
+{"goal_before":"a b : Nat\n⊢ a = b → b = a → a = b","goals_after":["a b : Nat\nx : a = b\ny : b = a\n⊢ a = b"],"parent":0,"source":"14:3","step":2,"tactic":"intro","word":"by-intro["}
+{"goal_before":"a b : Nat\nx : a = b\ny : b = a\n⊢ a = b","goals_after":[],"parent":0,"source":"15:5","step":3,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"nl_holes","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":4}}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ b = a","goals_after":["a b : Nat\n⊢ a = b → b = a → b = a"],"parent":0,"source":"30:3","step":1,"tactic":"revert","word":"by-revert["}
+{"goal_before":"a b : Nat\n⊢ a = b → b = a → b = a","goals_after":["a b : Nat\nh✝ : a = b\n⊢ b = a → b = a"],"parent":0,"source":"31:3","step":2,"tactic":"intro","word":"by-intro["}
+{"goal_before":"a b : Nat\nh✝ : a = b\n⊢ b = a → b = a","goals_after":["a b : Nat\nh✝ : a = b\nk✝ : b = a\n⊢ b = a"],"parent":0,"source":"32:3","step":3,"tactic":"intro","word":"by-intro["}
+{"goal_before":"a b : Nat\nh✝ : a = b\nk✝ : b = a\n⊢ b = a","goals_after":[],"parent":0,"source":"33:3","step":4,"tactic":"assumption","word":"by-assumption"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"nl_revert_dep","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":3}}
+{"goal_before":"a b : Nat\nh : a = b\nk : h = h\n⊢ a = b","goals_after":["b : Nat\n⊢ (a : Nat) → (h : a = b) → h = h → a = b"],"parent":0,"source":"47:3","step":1,"tactic":"revert","word":"by-revert["}
+{"goal_before":"b : Nat\n⊢ (a : Nat) → (h : a = b) → h = h → a = b","goals_after":["b x : Nat\ny : x = b\nz : y = y\n⊢ x = b"],"parent":0,"source":"48:3","step":2,"tactic":"intro","word":"by-intro["}
+{"goal_before":"b x : Nat\ny : x = b\nz : y = y\n⊢ x = b","goals_after":[],"parent":0,"source":"49:5","step":3,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"nl_clear","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a = b\nk : h = h\nj : b = a\n⊢ b = a","goals_after":["a b : Nat\nj : b = a\n⊢ b = a"],"parent":0,"source":"62:3","step":1,"tactic":"clear","word":"by-clear["}
+{"goal_before":"a b : Nat\nj : b = a\n⊢ b = a","goals_after":[],"parent":0,"source":"63:7","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"nl_rename","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":4}}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ a = b","goals_after":["a b : Nat\n⊢ a = b → b = a → a = b"],"parent":0,"source":"77:3","step":1,"tactic":"revert","word":"by-revert["}
+{"goal_before":"a b : Nat\n⊢ a = b → b = a → a = b","goals_after":["a b : Nat\nh✝ : a = b\nk✝ : b = a\n⊢ a = b"],"parent":0,"source":"78:3","step":2,"tactic":"intro","word":"by-intro["}
+{"goal_before":"a b : Nat\nh✝ : a = b\nk✝ : b = a\n⊢ a = b","goals_after":["a b : Nat\nx : a = b\ny : b = a\n⊢ a = b"],"parent":0,"source":"79:3","step":3,"tactic":"rename_i","word":"by-rename-i["}
+{"goal_before":"a b : Nat\nx : a = b\ny : b = a\n⊢ a = b","goals_after":[],"parent":0,"source":"80:5","step":4,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"nl_rename_hole","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":4}}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ a = b","goals_after":["a b : Nat\n⊢ a = b → b = a → a = b"],"parent":0,"source":"95:3","step":1,"tactic":"revert","word":"by-revert["}
+{"goal_before":"a b : Nat\n⊢ a = b → b = a → a = b","goals_after":["a b : Nat\nh✝ : a = b\nk✝ : b = a\n⊢ a = b"],"parent":0,"source":"96:3","step":2,"tactic":"intro","word":"by-intro["}
+{"goal_before":"a b : Nat\nh✝ : a = b\nk✝ : b = a\n⊢ a = b","goals_after":["a b : Nat\nx : a = b\nk✝ : b = a\n⊢ a = b"],"parent":0,"source":"97:3","step":3,"tactic":"rename_i","word":"by-rename-i["}
+{"goal_before":"a b : Nat\nx : a = b\nk✝ : b = a\n⊢ a = b","goals_after":[],"parent":0,"source":"98:5","step":4,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"rf_and","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":3}}
+{"goal_before":"a b : Nat\nh1 : a = b\nh2 : b = a\n⊢ a = b ∧ b = a","goals_after":["case refine_1\na b : Nat\nh1 : a = b\nh2 : b = a\n⊢ a = b","case refine_2\na b : Nat\nh1 : a = b\nh2 : b = a\n⊢ b = a"],"parent":0,"source":"14:25","step":1,"tactic":"refine","word":"by-refine"}
+{"goal_before":"case refine_1\na b : Nat\nh1 : a = b\nh2 : b = a\n⊢ a = b","goals_after":["case refine_2\na b : Nat\nh1 : a = b\nh2 : b = a\n⊢ b = a"],"parent":0,"source":"15:8","step":2,"tactic":"exact","word":"by-exact"}
+{"goal_before":"case refine_2\na b : Nat\nh1 : a = b\nh2 : b = a\n⊢ b = a","goals_after":[],"parent":0,"source":"16:8","step":3,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"rf_and_case","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}
+{"goal_before":"a b : Nat\nh1 : a = b\nh2 : b = a\n⊢ a = b ∧ b = a","goals_after":["case refine_1\na b : Nat\nh1 : a = b\nh2 : b = a\n⊢ a = b","case refine_2\na b : Nat\nh1 : a = b\nh2 : b = a\n⊢ b = a"],"parent":0,"source":"29:19","step":1,"tactic":"refine","word":"by-refine"}
+{"goal_before":"case refine_1\na b : Nat\nh1 : a = b\nh2 : b = a\n⊢ a = b","goals_after":["a b : Nat\nh1 : a = b\nh2 : b = a\n⊢ b = a"],"parent":0,"source":"30:3","step":2,"tactic":"case","word":"by-case:"}
+{"goal_before":"a b : Nat\nh1 : a = b\nh2 : b = a\n⊢ b = a","goals_after":[],"parent":2,"source":"30:29","step":3,"tactic":"exact","word":"by-exact"}
+{"goal_before":"case refine_1\na b : Nat\nh1 : a = b\nh2 : b = a\n⊢ a = b","goals_after":["a b : Nat\nh1 : a = b\nh2 : b = a\n⊢ a = b"],"parent":0,"source":"31:3","step":4,"tactic":"case","word":"by-case:"}
+{"goal_before":"a b : Nat\nh1 : a = b\nh2 : b = a\n⊢ a = b","goals_after":[],"parent":4,"source":"31:29","step":5,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"rf_named","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":5}}
+{"goal_before":"a b : Nat\nh1 : a = b\nh2 : b = a\n⊢ a = b ∧ b = a","goals_after":["case left\na b : Nat\nh1 : a = b\nh2 : b = a\n⊢ a = b","case right\na b : Nat\nh1 : a = b\nh2 : b = a\n⊢ b = a"],"parent":0,"source":"44:36","step":1,"tactic":"refine","word":"by-refine"}
+{"goal_before":"case left\na b : Nat\nh1 : a = b\nh2 : b = a\n⊢ a = b","goals_after":["a b : Nat\nh1 : a = b\nh2 : b = a\n⊢ b = a"],"parent":0,"source":"45:3","step":2,"tactic":"case","word":"by-case:"}
+{"goal_before":"a b : Nat\nh1 : a = b\nh2 : b = a\n⊢ b = a","goals_after":[],"parent":2,"source":"45:26","step":3,"tactic":"exact","word":"by-exact"}
+{"goal_before":"case left\na b : Nat\nh1 : a = b\nh2 : b = a\n⊢ a = b","goals_after":["a b : Nat\nh1 : a = b\nh2 : b = a\n⊢ a = b"],"parent":0,"source":"46:3","step":4,"tactic":"case","word":"by-case:"}
+{"goal_before":"a b : Nat\nh1 : a = b\nh2 : b = a\n⊢ a = b","goals_after":[],"parent":4,"source":"46:25","step":5,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"rf_one","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh1 : a = b\nh2 : b = a\n⊢ a = b ∧ b = a","goals_after":["a b : Nat\nh1 : a = b\nh2 : b = a\n⊢ b = a"],"parent":0,"source":"58:27","step":1,"tactic":"refine","word":"by-refine"}
+{"goal_before":"a b : Nat\nh1 : a = b\nh2 : b = a\n⊢ b = a","goals_after":[],"parent":0,"source":"59:8","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"rf_or","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a = b\n⊢ a = b ∨ b = a","goals_after":["a b : Nat\nh : a = b\n⊢ a = b"],"parent":0,"source":"73:13","step":1,"tactic":"refine","word":"by-refine"}
+{"goal_before":"a b : Nat\nh : a = b\n⊢ a = b","goals_after":[],"parent":0,"source":"74:7","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"rf_natural","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a : Nat\n⊢ a = a","goals_after":[],"parent":0,"source":"84:13","step":1,"tactic":"refine","word":"by-refine"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ex_hole","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a : Nat\n⊢ a = a","goals_after":[],"parent":0,"source":"94:13","step":1,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ap_hole","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a : Nat\n⊢ a ≤ a","goals_after":[],"parent":0,"source":"103:21","step":1,"tactic":"apply","word":"by-apply"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"hv_hole","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a : Nat\n⊢ a ≤ a","goals_after":["a : Nat\nh : a ≤ a\n⊢ a ≤ a"],"parent":0,"source":"113:29","step":1,"tactic":"have","word":"by-have:"}
+{"goal_before":"a : Nat\nh : a ≤ a\n⊢ a ≤ a","goals_after":[],"parent":0,"source":"114:7","step":2,"tactic":"exact","word":"by-exact"}

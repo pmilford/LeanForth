@@ -1,0 +1,16 @@
+\ A wrong twin (plan row TB2, tactic batch 3b; batch-e-wrong.lean): more
+\ names than inaccessible hypotheses: Lean's "too many variable names
+\ provided" (211; Lean logs it and goes on, LeanForth stops there).
+\ Lean: theorem w_rename_many (a b : Nat) (h : a = b) : a = b := by
+\         revert h
+\         intro _
+\         rename_i x y
+theorem w_rename_many
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  by-revert[ h ]
+  by-intro[ _ ]
+  by-rename-i[ x y ]
+end w_rename_many

@@ -1,0 +1,12 @@
+\ A wrong twin (plan row TB2, tactic batch 3b; batch-e-wrong.lean): clear
+\ of several takes the newest first, h, then a, on which the goal
+\ depends: Lean's 442, the goal shown without h.
+\ Lean: theorem w_clear_order (a b : Nat) (h : a = b) : a = a := by
+\         clear a h
+theorem w_clear_order
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a a =
+:= by
+  by-clear[ a h ]
+end w_clear_order

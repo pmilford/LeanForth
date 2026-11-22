@@ -1,0 +1,13 @@
+\ Not supported yet (plan row TB2, tactic batch 3b): a hole left open that
+\ is an application's argument, whose error Lean ends with the
+\ argument's name ("don't know how to synthesize placeholder for
+\ argument `right`"): 99, never accepted. Lean refuses it too.
+\ Lean: theorem x_arg_hole (a b : Nat) (h1 : a = b) : a = b ∧ b = a := by
+\         refine And.intro h1 _
+theorem x_arg_hole
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h1
+  a b = b a = ∧
+:= by
+  ' And.intro ' h1 $ _ $ by-refine
+end x_arg_hole

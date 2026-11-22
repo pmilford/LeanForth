@@ -1,0 +1,11 @@
+\ A wrong twin (plan row TB2, tactic batch 3b; batch-e-wrong.lean): exact's
+\ term leaves its hole open: Lean's placeholder error (461).
+\ Lean: theorem w_exact_hole (a b : Nat) (h : a = b) : a = b := by
+\         exact _
+theorem w_exact_hole
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  _ by-exact
+end w_exact_hole

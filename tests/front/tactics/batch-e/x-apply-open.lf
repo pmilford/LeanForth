@@ -1,0 +1,14 @@
+\ Not supported yet (plan row TB2, tactic batch 3b): apply's term keeps a
+\ hole apply's unification leaves open, which Lean's apply makes a new
+\ goal (otherMVarIds): 99, never accepted.
+\ Lean: theorem x_apply_open (a b : Nat) (h : a = b) : b = a := by
+\         apply Eq.symm _
+\         exact h
+theorem x_apply_open
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a =
+:= by
+  ' Eq.symm _ $ by-apply
+  ' h by-exact
+end x_apply_open

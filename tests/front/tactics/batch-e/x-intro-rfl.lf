@@ -1,0 +1,15 @@
+\ Not supported yet (plan row TB2, tactic batch 3b): rfl among intro's
+\ names (Lean's intro rfl substitutes, plan FE5): 99, never accepted.
+\ Lean: theorem x_intro_rfl (a b : Nat) (h : a = b) : a = b := by
+\         revert h
+\         intro rfl
+\         rfl
+theorem x_intro_rfl
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  by-revert[ h ]
+  by-intro[ rfl ]
+  by-rfl
+end x_intro_rfl

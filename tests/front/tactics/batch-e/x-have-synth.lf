@@ -1,0 +1,15 @@
+\ Not supported yet (plan row TB2, tactic batch 3b): a synthetic hole in
+\ have's value, which Lean's refine makes a new goal: 93, never accepted.
+\ Lean: theorem x_have_synth (a b : Nat) (h : a = b) : a = b := by
+\         have k : a = b := ?_
+\         exact k
+\         exact h
+theorem x_have_synth
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  a b = ?_ by-have: k
+  ' k by-exact
+  ' h by-exact
+end x_have_synth
