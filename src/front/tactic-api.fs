@@ -26,7 +26,15 @@
 \ library: meta-must.fs, app-builder.fs,
 \ telescope.fs and the goal operations of meta-tactic/ (goal, apply,
 \ assumption, constructor, rewrite, elim, rename), and the alternatives'
-\ glue tactic-alts.fs. A tactic file
+\ glue tactic-alts.fs. How values pass (a run word gets its step i):
+\ lf-lift-meta-tactic1 ( i*x i xt -- ) gives xt the values below i and
+\ the main goal, never i, so a goal word that reads the step's arguments
+\ is given i as a value: tactics/delta.fs's
+\   : tdl-run ( i -- ) dup ['] tdl-tac lf-lift-meta-tactic1 ;
+\ with tdl-tac ( i goal -- goal' ); lf-tac-in-record ( i*x i xt -- j*x )
+\ gives xt the values and i too, so there no dup: tactics/change.fs's
+\   : tsh-run ( i -- ) ['] tsh-show lf-tac-in-record ;
+\ with tsh-show ( i -- ) (a dup would leave an i behind). A tactic file
 \ writes no hook and sets rows only for its own kinds
 \ (scripts/check-tactic-plugins.py); docs/development/ADDING_A_TACTIC.md
 \ is the guide.

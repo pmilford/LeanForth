@@ -193,17 +193,20 @@ class Discovery(unittest.TestCase):
             shutil.rmtree(top, ignore_errors=True)
 
     def test_the_project_s_tactics(self):
-        # The tactics of slice a2-iii (branch tactic-lib-a2ii), of tactic batch 1 (plan row
-        # TB1), by-decide (plan row S3, slice S3a) and plan row TB2's first batch (one folder,
-        # batch-a), found from their folders, sorted.
+        # Every folder of tests/front/tactics/ with a test.fs is a unit target and with a
+        # check.py an end-to-end one, sorted: the list is read from the folders, so a new
+        # tactic or batch folder needs no edit here (review of 2026-11-21); the tactics of
+        # slice a2-iii, plan rows TB1 and S3 and TB2's first batch are among them.
         run = tier_fixture.subprocess.run(["make", "-s", "--no-print-directory", "--eval",
                                            "p: ; @echo [$(TACTIC_UNIT_TARGETS)][$(TACTIC_E2E_TARGETS)]", "p"],
                                           cwd=ROOT, env=tier_fixture.make_env(), capture_output=True, text=True)
-        names = ["apply", "assumption", "batch-a", "clear", "constructor", "decide", "exfalso",
-                 "intros", "left", "right"]
+        folders = ROOT / "tests/front/tactics"
+        unit = sorted(p.parent.name for p in folders.glob("*/test.fs"))
+        e2e = sorted(p.parent.name for p in folders.glob("*/check.py"))
+        self.assertTrue({"apply", "assumption", "batch-a", "decide", "exfalso", "intros"} <= set(unit) & set(e2e))
         self.assertEqual(run.stdout.strip(),
-                         "[" + " ".join(f"test-tactic-{n}" for n in names) + "]["
-                         + " ".join(f"test-tactic-{n}-e2e" for n in names) + "]")
+                         "[" + " ".join(f"test-tactic-{n}" for n in unit) + "]["
+                         + " ".join(f"test-tactic-{n}-e2e" for n in e2e) + "]")
 
 
 class RealTree(unittest.TestCase):

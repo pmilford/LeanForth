@@ -90,6 +90,12 @@ pattern row of `tests/test-classes.txt`):
 - `tests/front/check_registry.py --write` after a review: the registry's
   dump gains the new word's lines only.
 
+Run `scripts/pre-tier.sh` and `make cover-changed` early and again as the
+words land, not only before the tier: they take seconds to a minute and
+find the class-table row, the duplicate, the style count or the block no
+unit test runs while it is cheap to fix (tactic batch 1 found two such
+only in its tier and its review).
+
 A batch of tactics (plan row TB2) keeps one test directory,
 `tests/front/tactics/batch-NAME/`, for all of them: one `check.py` passing
 `main` its own Lean twins and golden (`lean=`, `lean_wrong=`, `golden=`,
