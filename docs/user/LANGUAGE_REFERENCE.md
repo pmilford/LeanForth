@@ -1119,6 +1119,25 @@ the same way (`tests/front/tactics/*/check.py`).
   (`tests/front/tactics/clear/w-cl-dep.lf`). One hypothesis a word: Lean's
   `clear h1 h2` is two steps.
 
+**A complete tactic proof.** The examples of the tactic batches below show
+their steps alone; each sits in a theorem like this one, theorem
+`sy_rw_at` of `tests/front/tactics/batch-d/change-at.lf`, whose term
+`tests/front/tactics/batch-d/check.py` finds node for node equal to pinned
+Lean's (batch 3a, tested on its branch). Mathematically: from a = b and
+b ≤ c, a ≤ c.
+
+| LeanForth | Lean | Part |
+| --- | --- | --- |
+| `theorem sy_rw_at` | `theorem sy_rw_at` | start, **name** |
+| `  Nat explicit: a  Nat explicit: b  Nat explicit: c` | `(a b c : Nat)` | three **binders** |
+| `  a b = explicit: h  b c ≤ explicit: h2` | `(h : a = b) (h2 : b ≤ c)` | two **hypotheses** |
+| `  a c ≤` | `: a ≤ c` | **statement** |
+| `:= by` | `:= by` | `:=`, `by` |
+| `  by-symm at: h` | `  symm at h` | h becomes b = a (batch 2b's `symm`, batch 3a's location) |
+| `  by-rw[ ' h ] at: h2` | `  rw [h] at h2` | h2 becomes a ≤ c (batch 3a) |
+| `  ' h2 by-exact` | `  exact h2` | closes the goal |
+| `end sy_rw_at` | | **end** |
+
 **Change, show, swap, specialize, revert, delta, contradiction, trivial,
 absurd.** Nine more ports of Lean's tactics (plan row TB2, batch 1; `swap`
 and `absurd` are Batteries' macros), each compared with
@@ -1184,7 +1203,7 @@ on decide's slice of Init (`--env tests/front/decide-slice.ndjson
   it is `¬ (a ≤ b)` (`ab_pos`). Lean, with Batteries: `absurd h`.
 
 **Tactic batch 2a: have and its family** (plan row TB2, 2026-11-21;
-`src/front/tactics/have.fs`, `replace.fs`; tested on the branch, compared
+`src/front/tactics/have.fs`, `replace.fs`; done, on main 838bb14e, compared
 with pinned Lean node for node by `tests/front/tactics/batch-b/check.py`,
 examples from `tests/front/tactics/batch-b/have.lf` and `let.lf`). Each
 word takes its values before it, as every LeanForth word, and the new
@@ -1222,10 +1241,15 @@ k : a ≤ b, use k.
 
 **Tactic batch 2b** (plan row TB2, 2026-11-21; `src/front/tactics/rwa.fs`,
 `exacts.fs`, `by-cases.fs`, `by-contra.fs`, `symm.fs`, `and-intros.fs`,
-`case.fs`, `rewrite.fs`; tested on the branch, compared with pinned Lean
-node for node by `tests/front/tactics/batch-c/check.py`, examples from
-`tests/front/tactics/batch-c/`). Stack positions: top is the last value
-written.
+`case.fs`, `rewrite.fs`; merged on main 059d9554 and done-checked
+([done check](../development/done-checks/2026-11-22-tb2-batch2b-done.md)),
+compared with pinned Lean node for node by
+`tests/front/tactics/batch-c/check.py`, examples from
+`tests/front/tactics/batch-c/`; `by-exacts[ ]`'s Lean form is Batteries'
+`exacts`, which pinned core Lean cannot run, so its comparison is against
+the equivalent `exact` steps). The `at:` item below is batch 3a, tested on
+its branch (`tests/front/tactics/batch-d/check.py`), not done yet. Stack
+positions: top is the last value written.
 
 - `' r <-` inside `by-rw[ ]` or `by-rewrite[ ]`: the rule r right to left.
   Mathematically, from a = b rewrite b into a. With `h : a = b`,
