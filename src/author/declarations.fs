@@ -119,9 +119,13 @@ end-structure
   >r lf-locals lfa-entry-new lfa-entry-variable r> rot lfa-entry-set ;
 \ A variable gets a word unless it is anonymous or its name is number-like.
 : lfa-named? ( c-addr u name -- flag ) 0<> -rot lfa-number-like? 0= and ;
-\ A binder's name is no syntax word, whose word its variable would hide (78).
+\ A binder's name is no syntax word, whose word its variable would hide
+\ (78); _ stays a name, as Lean's own _ binders (a match's Unit argument)
+\ are written and read back.
+: lfa-reserved-binder? ( c-addr u -- flag )
+  2dup s" _" compare if lf-pf-reserved? else 2drop false then ;
 : lfa-binder-token ( -- c-addr u )
-  lfa-name-token 2dup lf-pf-reserved? 0= lfa-e-reserved-name lfa-must ;
+  lfa-name-token 2dup lfa-reserved-binder? 0= lfa-e-reserved-name lfa-must ;
 : lfa-name-binder ( binder -- )
   >r lfa-binder-token 2dup lfa-binder-name-of dup r> lfa-binder-name !
   2dup-under lfa-named? if lfa-depth 1- lfa-local! else 2drop then ;

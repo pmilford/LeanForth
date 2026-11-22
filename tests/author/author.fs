@@ -52,11 +52,13 @@ T{ s" theorem t PROP := Prop end t" fails -> 1 1 11 }T
 T{ s" theorem t Prop explicit: p P := p end t" fails -> 1 1 28 }T
 \ A binder is never named by a reserved word, a syntax word or a tactic
 \ file's word, which its variable would hide (78, at the name); a name
-\ that only starts like one is a name.
+\ that only starts like one is a name, and so is _, as Lean's own _
+\ binders are written (a match's Unit argument).
 T{ s" theorem t Prop explicit: at: at: := at: end t" fails -> 78 1 26 }T
 T{ s" theorem t Prop implicit: fun Prop := Prop end t" fails -> 78 1 26 }T
 T{ s" theorem t Prop explicit: by-exact by-exact := by-exact end t" fails -> 78 1 26 }T
 T{ s" def f Prop explicit: at Prop := at end f" run -> outcome-ok }T
+T{ s" def f Prop explicit: x Prop explicit: _ Prop := x end f" run -> outcome-ok }T
 
 \ Names that differ only in case: x : X, a variable named prop, the
 \ constants id and Id.
