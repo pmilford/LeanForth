@@ -1418,10 +1418,34 @@ goal and its context, and leave parts of a proof to later steps.
 lines** (plan row TB2, 2026-11-22; `src/front/reader.fs`'s `<< >>`,
 `elab-term.fs`'s port of Lean's elabAnonymousConstructor,
 `src/front/tactics/exists.fs`, `src/author/runner.fs` and `scopes.fs`;
-tested on its branch, compared with pinned Lean node for node by
+on main, done check
+[2026-11-22-tb2-batch3c-done.md](../development/done-checks/2026-11-22-tb2-batch3c-done.md);
+compared with pinned Lean node for node by
 `tests/front/tactics/batch-f/check.py`, examples from
-`tests/front/tactics/batch-f/anon.lf`, `exists.lf` and `lines.lf`; not
-done until its review and done check).
+`tests/front/tactics/batch-f/anon.lf`, `exists.lf` and `lines.lf`).
+
+Two whole theorems (the done checker's own, both accepted; a tactic word
+needs `:= by`, a bare `:=` before it is error 81). A nested "and" from
+three items, the last field taking the rest:
+
+| LeanForth | Lean |
+| --- | --- |
+| `theorem t2` | `theorem t2` |
+| `  Nat explicit: a  Nat explicit: b` | `(a b : Nat)` |
+| `  a b = explicit: h  b a = explicit: k` | `(h : a = b) (k : b = a)` |
+| `  a b = b a = a b = ∧ ∧` | `: a = b ∧ b = a ∧ a = b` |
+| `:= by ⟨ ' h ' k ' h ⟩ by-exact` | `:= by exact ⟨h, k, h⟩` |
+| `end t2` | |
+
+An "if and only if" from its two directions (a = b ↔ b = a):
+
+| LeanForth | Lean |
+| --- | --- |
+| `theorem t3` | `theorem t3` |
+| `  Nat explicit: a  Nat explicit: b` | `(a b : Nat)` |
+| `  a b = b a = ↔` | `: a = b ↔ b = a` |
+| `:= by << ' Eq.symm ' Eq.symm >> by-exact` | `:= by exact ⟨Eq.symm, Eq.symm⟩` |
+| `end t3` | |
 
 - `<< a b >>` is the anonymous constructor: the one constructor of the
   expected type applied to the items. Mathematically, a pair: a proof of
@@ -1480,8 +1504,9 @@ Narrower than Lean (each an answer, never a wrong acceptance): a ⟨ ⟩
 where Lean postpones its elaboration (no expected type, or one that is a
 metavariable's application, for instance an operand of `+`): 132; an
 expected type that is a pi (a negation): 133, where Lean's message is
-"not an inductive type"; an item of another type: 131 where Lean reports
-an application type mismatch; a private constructor: 139; a type longer
+"not an inductive type"; an item of another type: 131, unsupported, with the text "not supported yet: a coercion (plan FE4)", because
+Lean tries a coercion before it reports its application type mismatch and LeanForth has none yet (the theorem is
+not accepted); a private constructor: 139; a type longer
 than 30 characters in the message: Lean indents it on its own line,
 LeanForth keeps it inline. A name in `by-revert[ ]`, `by-clear[ ]` or
 `at[ ]` that is no hypothesis (455) is reported at the list's word, where

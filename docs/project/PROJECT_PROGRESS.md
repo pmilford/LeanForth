@@ -29,7 +29,7 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
-- 2026-11-22, 13:00: plan row TB2's batch 3c is **tested on branch `tb2-batch3c`** and Forth-reviewed
+- 2026-11-22, 14:57: plan row TB2's batch 3c is **done** on main d66c4f28 (done check [2026-11-22-tb2-batch3c-done.md](../development/done-checks/2026-11-22-tb2-batch3c-done.md): the checker's own 8 theorems accepted from the reference alone, 4 wrong variants not accepted; pushed); blocks slice 1 is in work on branch `tb2-blocks1`; the design of case patterns is reviewed and its spellings approved ([TACTIC_PATTERNS.md](../design/TACTIC_PATTERNS.md)). Batch 3c was Forth-reviewed
   ([report](../development/forth-reviews/2026-11-22-tb2-batch3c.md): findings 1-7 and 9-11 fixed on the branch, 8
   recorded as narrower than Lean), not merged, not done-checked, so not done: the anonymous constructor `<< p q >>` (Lean's `⟨p, q⟩`, also written `⟨ p
   q ⟩`; `src/front/elab-term.fs`'s port of elabAnonymousConstructor with Lean's errors 462-467) wherever a term is
