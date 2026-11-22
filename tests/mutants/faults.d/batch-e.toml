@@ -275,7 +275,7 @@ old = '''  ea ea-propagate @ ea ea-expected @ 0< 0= and ea-next-hole? 0= and ;''
 new = '''  ea ea-propagate @ ea ea-expected @ 0< 0= and ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-e/check.py"
 reason = "TB2 3b: the expected type propagated before a hole argument (shouldPropagateExpectedTypeFor)"
-gap = "the hole's type is its binder's domain either way and finalize unifies the same types after it, so no term LeanForth text can write differs; a difference needs a later argument whose elaboration reads the propagated type (a numeral of a type only propagation fixes), which no batch case has"
+equivalent = "review tb2-batch3b B: Lean leaves the propagate flag set when it skips a hole, so the next argument that is no hole propagates the same unification; the hole's own elaboration reads only its type, which is the binder's domain either way, so propagating before the hole or at the next argument gives the same terms"
 
 # ---- mvars.fs
 [[fault]]
@@ -384,6 +384,14 @@ old = '''  dup tng-others? if drop lfa-e-tac-unassigned lf-tac-fail then run-las
 new = '''  run-last tng-placeholder ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: a metavariable that is no hole reported as a hole (not 95)"
+
+[[fault]]
+id = "tb3b-log-oldest"
+file = "src/front/new-goals.fs"
+old = '''  dup tng-others? if drop lfa-e-tac-unassigned lf-tac-fail then run-last tng-placeholder ;'''
+new = '''  dup tng-others? if drop lfa-e-tac-unassigned lf-tac-fail then 0 run@ tng-placeholder ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "review tb2-batch3b 6: the oldest hole's error reported, not the newest (Lean's mvarErrorInfos are newest first)"
 
 [[fault]]
 id = "tb3b-log-arg-placeholder"
@@ -504,8 +512,7 @@ file = "src/front/tactic-core.fs"
 old = '''  swap tb tb-from @ lf-fresh-mvars swap if exit then'''
 new = '''  swap 0 lf-fresh-mvars swap if exit then'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
-reason = "TB2 3b: metavariables made before the step counted as its new goals"
-gap = "no LeanForth tactic leaves a goal whose type holds an older open metavariable (apply refuses one, 99) and no text names an older goal (?: NAME finding one is 139), so no term a step elaborates holds one"
+reason = "TB2 3b: metavariables made before the step counted as its new goals (caught by the test tactic by-old-holes since review tb2-batch3b 5: no text reaches it)"
 
 [[fault]]
 id = "tb3b-tagged-parent-lost"
@@ -587,6 +594,15 @@ old = ''': trz-tac ( i goal -- goal' ) swap lf-tac-arg-names lf-goal-rename-inac
 new = ''': trz-tac ( i goal -- goal' ) nip 0 lf-goal-rename-inaccessibles ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-e/check.py"
 reason = "TB2 3b: by-rename-i[ ] renames nothing"
+
+[[fault]]
+id = "tb3b-sp-goals-dropped"
+file = "src/front/tactics/specialize.fs"
+old = ''': tsp-tac ( i goal -- goals ) swap tsp-holes -rot tsp-replaced run-push lf-tac-must ;'''
+new = ''': tsp-tac ( i goal -- goals ) swap tsp-holes drop 0 -rot tsp-replaced run-push lf-tac-must ;'''
+test = "$GFORTH tests/front/tactics/batch-e/test.fs"
+reason = "review tb2-batch3b 4: by-specialize drops its hole goals (Lean: mvarIds' ++ [main])"
+gap = "no text reaches it: error 136 (a local hypothesis applied to a term, h _, stops in the elaborator, which reads an application's binder kinds from the elaboration data of constants, before by-specialize collects goals; and a function hypothesis cannot be stated), and a goal-API test would elaborate the same term"
 
 [[fault]]
 id = "tb3b-refine-unassigned"

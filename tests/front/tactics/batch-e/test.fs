@@ -182,6 +182,23 @@ T{ aa s" ' Nat.le_refl _ $ by-refine" tactic-ran lf-goals run-count -> 0 0 }T
 T{ ab s" ' Nat.le_refl _ $ by-refine" tactic-ran -> 96 }T
 lf-tac-forget
 
+\ ---- lf-tac-elab-with-holes collects the step's own metavariables only
+\ (filterOldMVars; review tb2-batch3b 5): a test tactic makes ?old, a
+\ synthetic opaque Nat, and starts the step after it; the term _ Eq.refl
+\ against ?old ?old = holds ?old, which is no new goal. (No tactic leaves
+\ such a goal from text: see the gap of tb3b-goals-from-zero before.)
+variable old-goals#
+: old-expected ( -- type ) nat mv-opaque lf-mvar-new made dup lf-mk-eq ;
+: old-step ( type -- type ) lf-mvar-count tb tb-from ! ;
+: old-holes ( i -- goals )
+  0 lf-tac-arg old-expected old-step c" old" false lf-tac-elab-with-holes nip ;
+: old-tac ( i goal -- goals ) swap old-holes run-count old-goals# ! lf-goals1 ;
+: old-run ( i -- ) dup ['] old-tac lf-lift-meta-tactic ;
+tac-shape-term lf-tactic: by-old-holes ' old-run swap lf-tactic-action!
+T{ -1 old-goals# ! s" a a =" st s" _ Eq.refl by-old-holes by-rfl" tactic-ran old-goals# @
+   -> 0 0 }T
+lf-tac-forget
+
 \ ---- lf-mvar-at, lf-mvar-named: the n-th metavariable, the newest of a
 \ tag (assigned or not); none for a tag no metavariable has.
 lf-view-empty lf-mctx-view!
@@ -268,6 +285,14 @@ T{ h1 lf-elab-hole -> 0 false true }T
 T{ 0 ' log0 code1f h1 ' log1 code1f n1 ' log1 code1f -> 0 461 95 }T
 T{ h1 ea-arg-hole! h1 lf-elab-hole -> h1 0 true true }T
 T{ h1 ' log1 code1 -> 99 }T
+lf-tac-forget
+\ Two holes: the newest one's error (Lean's mvarErrorInfos, newest first;
+\ review tb2-batch3b 6), its goal ⊢ Bool, not the older one's ⊢ Nat.
+nat mv-natural lf-mvar-new made constant h2
+s" Bool" lf-mk-const0 mv-natural lf-mvar-new made constant h3
+T{ h2 0 lf-elab-hole+ h3 0 lf-elab-hole+ -> outcome-ok outcome-ok }T
+: log-two ( x -- run ) drop h2 h3 run2 dup lf-tac-log-unassigned ;
+T{ 0 ' log-two code1 s" ⊢ Bool" detail-has? s" ⊢ Nat" detail-has? -> 461 true false }T
 lf-tac-forget
 
 \ ---- lf-with-holes-as-goals: both flags set inside, put back after, a
