@@ -26,7 +26,7 @@ file = "scripts/check-tactic-plugins.py"
 old = '''    return sorted(again), sorted((new & set(used)) - again)'''
 new = '''    return sorted(again), []'''
 test = "python3 tests/scripts/test_check_tactic_plugins.py"
-reason = "TB2 review 2 (b): a new goal-operation word named as a host word other files use (ndrop) confines"
+reason = "TB2 review 2 (b): a new goal-operation word named as a host word other files use (bounds) confines"
 
 [[fault]]
 id = "tb2-plugins-defining-words-not-grown"

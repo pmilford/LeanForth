@@ -15,7 +15,7 @@ text at the merge base with named colon definitions put between its definitions 
 definition of the base token for token the same and in order, comments aside; review of
 2026-11-21) and whose new words shadow nothing (none defined twice in it, none another Forth file
 of src/ defines, none a Forth file of src/ or tests/ uses at the merge base, Gforth's host words
-such as ndrop among them; the defining words are Forth's and Gforth's and the project's own, such
+such as bounds among them; the defining words are Forth's and Gforth's and the project's own, such
 as context-slab:, lfa-code: and lf-tactic:, found as colon definitions that use one), or
 documentation (scripts/test-tier.py's docs tier: Markdown, docs/, ...); and every tactic file it
 adds or changes
@@ -278,7 +278,7 @@ def references(changed, base):
     """The words the Forth files of src/ and tests/ use at the merge base: every file but those
     CHANGED adds, a changed one's text at the base (BASE ( path -- text or None ); without it, the
     worktree's). What a new definition must not take over from the files loaded after it: a
-    Gforth host word such as ndrop, another file's word, one a defining word of its own made."""
+    Gforth host word such as bounds, another file's word, one a defining word of its own made."""
     status = {path: s for s, path in changed}
     found = set()
     for path, toks in corpus().items():

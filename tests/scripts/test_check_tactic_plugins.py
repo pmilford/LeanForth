@@ -176,15 +176,15 @@ class Batches(unittest.TestCase):
         tactic = [("A", "src/front/tactics/new.fs")]
         texts = {"src/front/tactics/new.fs": TACTIC_NEW, GOAL: META_NEW,
                  "src/front/meta-tactic/twice.fs": META_NEW + ": mgo-step ( goal -- goal ) ;\n",
-                 "src/front/meta-tactic/host.fs": META_NEW + ": ndrop ( x*n n -- ) 0 ?do drop loop ;\n",
+                 "src/front/meta-tactic/host.fs": META_NEW + ": bounds ( a u -- a+u a ) over + swap ;\n",
                  "src/front/meta-tactic/slab.fs": META_NEW + "1 cells context-slab: lf-goal-op\n",
                  "src/front/meta-tactic/hook.fs": META_NEW + "' mgo-step is lf-run-hook\n"}
         cases = [
             ("A", GOAL, {"lf-goal-new-op"}, set(), set(), "defines lf-goal-new-op again"),
             ("A", "src/front/meta-tactic/twice.fs", set(), set(), set(), "defines mgo-step again"),
-            # Finding 2 (b): a Gforth host word another file uses (tactic-core.fs's ndrop).
-            ("A", "src/front/meta-tactic/host.fs", set(), {"ndrop", "drop"}, set(),
-             "defines ndrop, which Forth files already use"),
+            # Finding 2 (b): a Gforth host word another file uses (bounds, as leanforth.fs does).
+            ("A", "src/front/meta-tactic/host.fs", set(), {"bounds", "drop"}, set(),
+             "defines bounds, which Forth files already use"),
             # Finding 2 (c): a word the project's defining word context-slab: makes.
             ("A", "src/front/meta-tactic/slab.fs", {"lf-goal-op"}, set(), {"context-slab:"},
              "defines lf-goal-op again"),
@@ -232,7 +232,7 @@ FILES = dict(tier_fixture.FILES)
 FILES["src/main.fs"] = "require ./core/c.fs\nrequire ./front/loaded.fs\nrequire ./front/tactics/all.fs\n"
 FILES["src/front/tactics/all.fs"] = "require ./rfl.fs\n"
 FILES["src/front/tactics/rfl.fs"] = "tac-shape-plain lf-tactic: by-rfl constant tac-k-rfl\n"
-FILES["src/front/runner.fs"] = "variable lf-run-hook\n: lf-run ( x -- ) 1 ndrop ;\n"
+FILES["src/front/runner.fs"] = "variable lf-run-hook\n: lf-run ( a u -- ) bounds 2drop ;\n"
 FILES["src/front/meta-tactic/goal.fs"] = ": lf-goal-op ( -- )\n  dup\n  drop ;\n"
 FILES["tests/front/f.fs"] = "require ../../src/front/alone.fs\nrequire ../../src/main.fs\n"
 
@@ -336,11 +336,11 @@ class Tier(unittest.TestCase):
                 self.repo.git("reset", "-q", "--hard", base)
 
     def test_goal_operation_taking_a_used_word_gets_the_full_tier(self):
-        # Finding 2 (b): a new word named as a Gforth host word another file uses (runner.fs's ndrop).
-        self.tactic_branch({"src/front/meta-tactic/host.fs": ": ndrop ( x*n n -- ) 0 ?do drop loop ;\n"})
+        # Finding 2 (b): a new word named as a Gforth host word another file uses (runner.fs's bounds).
+        self.tactic_branch({"src/front/meta-tactic/host.fs": ": bounds ( a u -- a+u a ) over + swap ;\n"})
         run = self.check()
         self.assertEqual(run.returncode, 3, run.stdout + run.stderr)
-        self.assertIn("defines ndrop, which Forth files already use", run.stdout)
+        self.assertIn("defines bounds, which Forth files already use", run.stdout)
         self.assertEqual(self.plan()["tier"], "full")
 
     def test_no_tactic_added_is_no_tactic_branch(self):

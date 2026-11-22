@@ -100,7 +100,7 @@ definitions between an existing one's definitions: such a branch stays
 confined (the tactic tier) when every definition of an existing goal
 operation stays token for token the same and in order, and no new word is
 defined elsewhere or already used by a Forth file, a Gforth host word such
-as `ndrop` included (`scripts/check-tactic-plugins.py`).
+as `bounds` included (`scripts/check-tactic-plugins.py`).
 
 ## Documentation
 

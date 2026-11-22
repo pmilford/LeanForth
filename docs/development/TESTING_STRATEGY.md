@@ -559,7 +559,7 @@ of `src/` (the front tier too) runs the branch coverage check first
   order, comments aside; a word put inside a definition, a moved one, a new
   constant or `:noname` refuses) and whose new words are defined nowhere
   else in `src/`, not twice, and used by no Forth file of `src/` or `tests/`
-  at the merge base (Gforth's host words, such as `ndrop`, among them; the
+  at the merge base (Gforth's host words, such as `bounds`, among them; the
   defining words are Forth's, Gforth's and the project's own, such as
   `context-slab:` and `lf-tactic:`; plan row TB2 and its review of
   2026-11-21: what loaded before them means what it meant), and
