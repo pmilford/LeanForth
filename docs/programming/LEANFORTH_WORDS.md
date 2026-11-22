@@ -446,7 +446,7 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 78 | invalid | a reserved word: a syntax word cannot name a binder |
 | 80 | unsupported | not supported yet: running this tactic |
 | 81 | invalid | a tactic word belongs in a tactic proof, after := by |
-| 82 | invalid | a block is still open: by-end closes by-induction-with and by-case:, ] closes by-rw[ |
+| 82 | invalid | a block is still open: by-end closes by-induction-with and by-case: |
 | 83 | invalid | no block of this word's kind is open (\| belongs right inside by-induction-with) |
 | 84 | invalid | a header is TAG NAMES... => on one line, after \| or by-case:; names are no words |
 | 85 | invalid | an alternative or a by-case: block needs at least one tactic |
@@ -513,9 +513,15 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 219 | invalid | Invalid rewrite argument: The pattern to be substituted is a metavariable |
 | 220 | invalid | Occurs check failed: Expression |
 | 300 | full | out of room: a Forth stack, the dictionary or the heap, with its THROW code |
-| 458 | invalid | a list of names ends with ] on its line |
+| 458 | invalid | this list is never closed: its ] or >> is missing |
+| 462 | invalid | Invalid `⟨...⟩` notation: The expected type of this term could not be determined |
+| 463 | invalid | Invalid `⟨...⟩` notation: The expected type |
+| 464 | invalid | Invalid `⟨...⟩` notation: The expected type |
+| 465 | invalid | Invalid `⟨...⟩` notation: The expected type |
+| 466 | invalid | Insufficient number of fields for `⟨...⟩` constructor: Constructor |
+| 467 | invalid | Insufficient number of fields for `⟨...⟩` constructor: Constructor |
 | 459 | invalid | by-revert[ and by-clear[ take names of hypotheses up to ] |
-| 460 | invalid | this list takes one name at least |
+| 460 | invalid | this list takes one item at least |
 | 453 | invalid | at[ follows no tactic word that takes a location |
 | 454 | invalid | at[ takes hypothesis names and \|-, or * alone, up to ] |
 | 440 | invalid | Tactic `clear` failed: unknown variable |

@@ -61,10 +61,14 @@ s" assumption" tac-k-assumption lf-tactic-lean!
   hypotheses, `_` an inaccessible one, none allowed: by-intro['s),
   `tac-shape-binders+` (the same, one at least: by-rename-i['s) and
   `tac-shape-hyps` (names of hypotheses the goal has, one at least, `_`
-  and LeanForth words refused: by-revert['s, by-clear['s). A list of
-  names sits between its bracket word and `]`, on the word's line (the
-  owner's rule of 2026-11-22: a list never ends at a line's end; 458 when
-  the line ends first, 459, 460); what follows `]` is the next step. The
+  refused: by-revert['s, by-clear['s); `tac-shape-list+` is
+  `tac-shape-list` with one term at least (by-exists['s, batch 3c). A
+  list sits between its bracket word and `]`, on as many lines as it
+  needs (the owner's rules of 2026-11-22; batch 3c: the shared reader
+  `author/runner.fs`'s `lfa-token-on` reads on, and every list is an
+  author bracket, `author/scopes.fs`); a word that is never its item,
+  `end NAME`, `:=` or the text's end is 458 at the list's word (459,
+  460); what follows `]` is the next step. The
   step's arguments are the values, then the names (`lf-tac-arg`; a name
   is 0 for `_`; `lf-tac-arg-names ( i -- names )` all of them as a run,
   `lf-tac-arg-fvars ( i -- fvars )` getFVarIds of them in the main goal's
@@ -84,7 +88,11 @@ s" assumption" tac-k-assumption lf-tactic-lean!
   term's new open metavariables, with allow? false a natural hole left
   open being Lean's placeholder error, 461; suffix a counted string,
   `c" refine"`, the anonymous goals tagged as Lean's tagUntaggedGoals):
-  `tactics/refine.fs`, `specialize.fs`.
+  `tactics/refine.fs`, `specialize.fs`. Lean's refineCore is
+  `lf-tac-refine ( node goal -- goals )` (tactic-core.fs, batch 3c), for a
+  tactic Lean writes as a macro over refine: `tactics/exists.fs` builds
+  the syntax `⟨e1, .., en, ?_⟩` (syntax.fs's `syn-node-new`, `syn-arg!`,
+  `syn-last!`) at its step's word and refines with it.
   The goal words under it are `new-goals.fs`'s `lf-fresh-mvars`,
   `lf-natural-mvars`, `lf-tac-log-unassigned` and `lf-tag-untagged`.
 - A tactic that takes Lean's location (`at h ⊢`) is registered with a

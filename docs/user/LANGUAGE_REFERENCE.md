@@ -721,7 +721,7 @@ Errors named in the "Function" cells are codes of `src/author/errors.fs`.
 | `->` | `( a b -- t )` | none; kernel form only | takes two types, leaves the function type | `A B ->` is Lean's `A → B`. |
 | `fun` `forall` | `( v -- t )` | none; kernel form only | closes the innermost open binder around the one value above it | A λ (function) or a Π (for all) over that binder; errors 13 no binder open, 12 body not one expression. |
 | `Prop` `Type` `Sort` `^` `var#` `lit#` `proj#` `level+` `level-max` `level-imax` `root:` | see [programming reference](../programming/LEANFORTH_WORDS.md#the-vocabulary) | kernel form only (natural form: error 70) | build kernel expressions and levels | Levels, de Bruijn variables, literals, projections and universe arguments written out. |
-| `**` natural spellings `->`, `fun`, `forall`, `Prop`, `∃`, `let:`, `have:`, `show`, `⟨ ⟩`, `.NAME`, `@`, `++` and more | `( A B -- t )` etc. | designed: [FE2_TERMS.md §2.2](../design/FE2_TERMS.md) | n/a | Today error 70 in natural form; `let:`, `have`, `by` in kernel form are errors 51 and 52 (`_` is built in natural form since tactic batch 3b, [A.2](#a2-the-words); in kernel form it is 52). |
+| `**` natural spellings `->`, `fun`, `forall`, `Prop`, `∃`, `let:`, `have:`, `show`, `.NAME`, `@`, `++` and more | `( A B -- t )` etc. | designed: [FE2_TERMS.md §2.2](../design/FE2_TERMS.md) | n/a | Today error 70 in natural form; `let:`, `have`, `by` in kernel form are errors 51 and 52 (`_` is built in natural form since tactic batch 3b, `<< >>` and `⟨ ⟩` since batch 3c, [D](#d-tactics); in kernel form they are 52 and 70). |
 | `**` `variable`, `section`, `set_option` | `( -- )` | designed: [FE2_TERMS.md §2.2](../design/FE2_TERMS.md) | n/a | Commands, not built. |
 
 ### A.2 The words
@@ -942,7 +942,7 @@ term that results.
 | `$` | `( func value -- func(value) )` | ordinary | pops two (the value on top, the function second), pushes one | One more argument. |
 | `Eq.refl`, `Nat.zero_add`, `congrArg`, ... | `( a -- t )` | ordinary names | as NAME | Any constant of the library named with `--env`; the count of values is its explicit arguments. |
 | `^` | `( c l -- c' )` | ordinary; kernel form only | adds a universe argument to the constant | `Eq.refl 1 ^ Nat $ n $`: explicit universe levels with `^`, every argument with `$`. |
-| `**` `fun`, `⟨ ⟩`, `show`, `▸`, `calc`, `let:` and `have:` in natural form | | designed: [FE2_TERMS.md §2.2](../design/FE2_TERMS.md) | n/a | Proof-term forms, not built. |
+| `**` `fun`, `show`, `▸`, `calc`, `let:` and `have:` in natural form | | designed: [FE2_TERMS.md §2.2](../design/FE2_TERMS.md) | n/a | Proof-term forms, not built (`⟨ ⟩`, written `<< >>`, is built since tactic batch 3c: [D](#d-tactics)). |
 
 ### C.2 The words
 
@@ -1299,7 +1299,8 @@ value written.
   owner 2026-11-22: a list never ends at the end of a line) amends the
   tactic just before it: `by-rw[`, `by-rewrite[`, `by-rwa[`, `by-change`,
   `by-symm`, `by-delta`. A list sits between its bracket word and `]`, on
-  the word's line (458 when the line ends first); `|-` (or `⊢`) among the
+  as many lines as it needs since batch 3c (458 at `at[` when `]` never
+  comes); `|-` (or `⊢`) among the
   names is the goal; `at[ * ]` is read but not supported yet (99). Each
   rule rewrites each hypothesis in turn, then the goal when `|-` is named;
   the hypothesis keeps its name, so a later step names the new one. With
@@ -1357,8 +1358,8 @@ value written.
 pinned Lean node for node by `tests/front/tactics/batch-e/check.py`,
 examples from `tests/front/tactics/batch-e/names.lf` and `holes.lf`). A
 list of names, like a list of rules, sits between its bracket word and
-`]`; unlike rules, names are read as written, on the word's line (458
-when the line ends before `]`), and what follows `]` on the line is the
+`]`; unlike rules, names are read as written (over several lines since
+batch 3c, below), and what follows `]` on the line is the
 next step. Mathematically nothing new: these move hypotheses between the
 goal and its context, and leave parts of a proof to later steps.
 
@@ -1412,6 +1413,98 @@ goal and its context, and leave parts of a proof to later steps.
   `by-specialize` makes a `_` it leaves open a goal before the main one
   (Lean's allowNaturalHoles), which text cannot reach yet: a hypothesis
   applied to a hole is the elaborator's 136.
+
+**Tactic batch 3c: the anonymous constructor, exists and lists over
+lines** (plan row TB2, 2026-11-22; `src/front/reader.fs`'s `<< >>`,
+`elab-term.fs`'s port of Lean's elabAnonymousConstructor,
+`src/front/tactics/exists.fs`, `src/author/runner.fs` and `scopes.fs`;
+tested on its branch, compared with pinned Lean node for node by
+`tests/front/tactics/batch-f/check.py`, examples from
+`tests/front/tactics/batch-f/anon.lf`, `exists.lf` and `lines.lf`; not
+done until its review and done check).
+
+- `<< a b >>` is the anonymous constructor: the one constructor of the
+  expected type applied to the items. Mathematically, a pair: a proof of
+  A ∧ B is a proof of A together with one of B. LeanForth: `<< ' h ' k >>`;
+  Lean: `⟨h, k⟩`. `⟨ a b ⟩` is the same pair of words in Lean's spelling.
+  The items are complete terms one after another, no comma (`' h
+  Eq.symm` is one item); a hypothesis there takes no values, as in
+  `by-rw[ ]`. It works wherever a term is read: `<< ' h ' k >> by-exact`
+  proves `a = b ∧ b = a` from `h : a = b`, `k : b = a` (`an_and`); with
+  more items than fields the last field takes the rest, so `⟨ ' h ' k ' h
+  ⟩` is `⟨h, ⟨k, h⟩⟩` (`an_three`, `an_nested`); `<< a a Eq.refl >>`
+  proves `∃ x, a = x`, written `' Eq a $ Exists` (`an_exists`; Lean
+  `⟨a, Eq.refl a⟩`); `<< >>` proves `True` (`an_true`); the expected type
+  is put through whnf, so `id (A ∧ B)` is And's (`an_id`). Lean's errors:
+  an unknown expected type where nothing can fix it (`<< ' h ' h >>
+  by-have`: 462, "Invalid `⟨...⟩` notation: The expected type of this term
+  could not be determined"); no inductive type (463, Prop, which natural
+  text cannot write yet); no constructor (`False`: 464); several (`a = b
+  ∨ b = a`: 465, with Lean's note); too few items (`<< ' h >>` for `∧`:
+  466, "Constructor `And.intro` has 2 explicit field, but only 1 was
+  provided", Lean's own plural); items for a constructor with no explicit
+  field (`a = b`: 467, `Eq.refl`). The error is reported at the step's
+  word, with `<<`'s place as the second place (Lean reports it at `⟨`).
+  `>>` with no `<<`: 83; a tactic word, `end` or `:=` before `>>`: 458 at
+  `<<`; a binder opened inside: 21.
+- `<< ?_ ?_ >> by-refine` gives the goals Lean's `refine ⟨?_, ?_⟩` gives,
+  tagged `refine_1` and `refine_2` (`an_refine`, `an_case`), and `<< ' h
+  ' k >> by-exact` is Lean's `exact ⟨h, k⟩`: the constructor forms need
+  no word of their own.
+- `by-exists[ e1 .. en ]` is Lean's `exists e1, .., en`: `<< e1 .. en ?_
+  >> by-refine`, then `by-trivial` tried (a failure forgotten). With `h :
+  a = b`, `k : b = a`: `by-exists[ ' h ' k ]` proves `a = b ∧ b = a ∧ a
+  = b` (`ex_and3`; Lean `exists h, k`); `by-exists[ a ]` proves `∃ x, a
+  = x` (`ex_eq`); a goal trivial cannot close stays (`ex_open`). One term
+  at least (460); Lean's errors of the constructor reported at
+  `by-exists[`, as Lean reports them at `exists`.
+- Lists over several lines (the owner's wish of 2026-11-22): every
+  bracket list (`by-rw[ ]`, `by-rewrite[ ]`, `by-rwa[ ]`, `by-exacts[ ]`,
+  `by-exists[ ]`, `by-intro[ ]`, `by-revert[ ]`, `by-clear[ ]`,
+  `by-rename-i[ ]`, `at[ ]`, `<< >>`) may run over lines, each item at its
+  own line and place in errors and in `--steps`; `\` and `( )` comments
+  may stand between the items (`lines.lf`):
+  ```forth
+  by-revert[ h
+             k ]
+  by-intro[ x       \ the first
+            ( a comment ) y ] x by-exact
+  ```
+  A forgotten closing word does not swallow the proof: a LeanForth word
+  that is never an item (in a list of names any but `_` and `*`; in a list
+  of terms a tactic word), `end NAME`, `:=` or the text's end stops the
+  list with 458, "this list is never closed", at the word that opened it.
+
+Narrower than Lean (each an answer, never a wrong acceptance): a ⟨ ⟩
+where Lean postpones its elaboration (no expected type, or one that is a
+metavariable's application, for instance an operand of `+`): 132; an
+expected type that is a pi (a negation): 133, where Lean's message is
+"not an inductive type"; an item of another type: 131 where Lean reports
+an application type mismatch; a private constructor: 139; a type longer
+than 30 characters in the message: Lean indents it on its own line,
+LeanForth keeps it inline. `use` (Mathlib) is not built yet.
+
+A worked theorem, checked with
+`bin/leanforth check --env tests/front/decide-slice.ndjson --elab-data
+tests/front/decide-slice.elab.ndjson FILE.lf`:
+
+```forth
+theorem an_have
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  b a = a b = ∧
+:= by
+  a b = b a = ∧
+  << ' h     \ the left side
+     ' k >>  by-have: x
+  << ' x And.right
+     ' x And.left >> by-exact
+end an_have
+```
+
+Mathematically: from a = b and b = a, the pair (a = b, b = a) gives b = a
+∧ a = b by taking its parts in the other order. Lean: `have x : a = b ∧ b
+= a := ⟨h, k⟩; exact ⟨x.2, x.1⟩`.
 
 A statement's hypothesis is written with a tick when it stands alone,
 `' h by-apply`, because its type is not unfolded to count its arguments
@@ -1468,6 +1561,8 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `_` | `( -- t )` | ordinary (kernel form: 52) | read: a hole node | A hole unification fills (or a goal where the tactic allows one: `by-specialize`). | `_` |
 | `?_` | `( -- t )` | ordinary (kernel form: 52) | read: a synthetic hole node | A new goal of `by-refine`; elsewhere left open (461 in `by-exact`). | `?_` |
 | `?: NAME` | `( -- t )` | parsing: one name after it on its line (2 when none); `_` gives `?_` | read: a synthetic hole node with NAME | A new goal tagged NAME; a NAME any metavariable has, an assigned or closed goal's too: 139. | `?NAME` |
+| `<<` .. `>>`, `⟨` .. `⟩` | `( -- )`, then `( v1 .. vn -- t )` | ordinary; `<<` opens a list (a frame: its words take only its items) that `>>` closes, over lines | read: a node of the items | The anonymous constructor: the expected type's one constructor applied to the items, the rest nested; errors 462-467, 132, 83, 458. | `⟨a, b⟩` |
+| `by-exists[` | `( -- )` | ordinary; opens a term block that `]` closes, one term at least (460) | read: a step whose terms are the values up to `]`. Run: refine with `<< e1 .. en ?_ >>`, then `by-trivial` tried | Gives the witnesses; the goal trivial cannot close stays. | `exists e1, .., en` |
 | `by-exacts[` | `( -- )` | ordinary; opens a term block that `]` closes (no `<-`) | read: a step whose terms are the values up to `]`. Run: `by-exact` of each, then no goal may be left | Closes the goals one term each; a mismatch: 96; a goal left: 89. | `exacts [` (Batteries) |
 | `by-cases: HYP-NAME` | `( p -- )` (top: p) | parsing: one name after it, on its line | read: a step holding p; HYP-NAME a hypothesis word. Run: assigns the main goal `dite p` of two new goals, `pos` (HYP-NAME : p) and `neg` (HYP-NAME : ¬p), which take its place | Splits on whether p holds; p's `Decidable` instance, else `Classical.propDecidable` (the report's axioms then `propext`, `Classical.choice`, `Quot.sound`, which `--strict-axioms` accepts); p no proposition or `_`: 99. | `by_cases HYP-NAME : p` |
 | `by-contra: HYP-NAME` | `( -- )` | parsing: one name after it, on its line | read: a step; HYP-NAME a hypothesis word. Run: `by-contra-core`, then `by-intro:` of HYP-NAME on the same step | Proves the goal p from HYP-NAME : ¬p and the goal `False` (for p = ¬q, HYP-NAME : q); `rfl`: 99. | `by_contra HYP-NAME` (Batteries) |

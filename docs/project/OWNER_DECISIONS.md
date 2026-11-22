@@ -1905,6 +1905,12 @@ Also: partly complete tactics are tracked in [TACTIC_STATUS.md](../development/T
 tactic branch ("be sure to track those carefully"). Batteries and Mathlib tactics are ported from their source; nothing
 of them is loaded at run time.
 
+2026-11-22, later (owner: "we should allow line breaks ... a more vertical structure is better"): a list no longer
+has to close on the line it opens. Every bracket list (names, rules, terms, `<< >>`) reads on into the next lines up
+to its closing word; a forgotten closing word stops at the first word that can never be its item, at `end NAME`, `:=`
+or the text's end, with error 458 at the word that opened the list (plan row TB2, batch 3c). The decision above,
+lists between bracket words, is unchanged.
+
 
 ### Blocks in proof text (2026-11-22)
 

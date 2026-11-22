@@ -16,9 +16,9 @@ core-Lean proof (column "Compared with").
 
 Pieces named in the last column: **A** shapes (done), **B** holes `?_` `_` (done for refine, exact,
 apply and have where unification fills them, batch 3b; the rows say what is left), **C** anonymous
-constructor, **D** locations (done for hypotheses and the goal; written `at[ ]` since batch 3b), **E**
+constructor (done, `<< >>`, batch 3c), **D** locations (done for hypotheses and the goal; written `at[ ]` since batch 3b), **E**
 cases and patterns, **F** blocks, **G** macro word (done), **NL** name lists (done for intro, revert,
-clear and rename_i, batch 3b; a list sits between its bracket word and `]` on one line), **FE2** `→`, `∀`, `fun` in statements
+clear and rename_i, batch 3b; a list sits between its bracket word and `]`, over lines since batch 3c), **FE2** `→`, `∀`, `fun` in statements
 and terms, **REFL** Lean's `@[refl]` lemma set brought over with the elaboration data,
 **NR** names resolved as Lean does everywhere (unknown identifier messages), **LC** a local
 context that can hold one variable at two types (replaceLocalDeclDefEq).
@@ -40,10 +40,10 @@ context that can hold one variable at two types (replaceLocalDeclDefEq).
 | `by-have-goal:` | `have h : T` (Mathlib's `have` without a value) | core `refine` twin | as `by-have:` | | |
 | `' r <-` in `by-rw[ ]` | `rw [← r]` (Lean) | Lean | `<-` on an `↔` rule | 99 | small batch |
 | `by-rw[ ]`, `by-rewrite[ ]` | `rw`, `rewrite` (Lean) | Lean | a rule that leaves new goals or metavariables; a rule naming a definition (equation lemmas); `occs`/config; rw leaving `R x x` for a relation other than `=`, `↔` (Lean leaves the goal) | 99 / 93 | B, FE8, REFL |
-| `at[ ]` | location (Lean) | Lean | `at[ * ]`; a constant's name among the names (Lean: error); a list across lines (458: owner's rule) | 99 / 458 | small batch |
+| `at[ ]` | location (Lean) | Lean | `at[ * ]`; a constant's name among the names (Lean: error) | 99 | small batch |
 | `by-rwa[ ]` | `rwa` (Lean) | Lean | what `by-rw[ ]` and `by-rfl` lack | 93 | REFL |
 | `by-rfl` | `rfl` (Lean) | Lean | `x R x` for a relation other than `=`, `↔` (`@[refl]` lemmas); the `HEq` branch | 93 | REFL |
-| `by-exacts[ ]` | `exacts` (Batteries) | core `exact` steps | none known beyond `by-exact`'s terms | | FE2, C |
+| `by-exacts[ ]` | `exacts` (Batteries) | core `exact` steps | none known beyond `by-exact`'s terms | | FE2 |
 | `by-cases:` | `by_cases` (Lean) | Lean | the unnamed form; instance priorities tied with the classical one; a decidable instance the data left out | no form / 93 | small batch; data |
 | `by-contra:`, `by-contra` | `by_contra` (Batteries) | core twin | the pattern form; `by_contra!` (Mathlib, over `push_neg`) | no form | E; simp family |
 | `by-symm` | `symm` (Lean) | Lean | relations other than `=`, `↔`, `≠`, `HEq`, `∧`, `∨` (`@[symm]` lemmas) | 99 | `@[symm]` set with the data (as REFL) |
@@ -52,11 +52,14 @@ context that can hold one variable at two types (replaceLocalDeclDefEq).
 | `by-intro:`, `by-intro[ ]` | `intro` (Lean) | Lean | patterns; type ascriptions `(h : T)` (several names and bare `intro`: `by-intro[ ]`, batch 3b) | no form | E |
 | `by-intros`, `by-clear`, `by-clear[ ]` | `intros`, `clear` (Lean) | Lean | names for intros (several names for clear: `by-clear[ ]`, batch 3b) | no form | small batch |
 | `by-rename-i[ ]` | `rename_i` (Lean) | Lean | Lean logs "too many variable names provided" and goes on; LeanForth stops (211; both refuse the proof) | 211 | none needed |
-| `by-exact`, `by-apply` | `exact`, `apply` (Lean) | Lean | terms with `fun`, `⟨ ⟩`, nested `by`, coercions; an expected type that unfolds to a function (a negation): 133/136; apply with a hole it leaves open (Lean: a new goal, otherMVarIds); a hole that is an argument left open (Lean's message names the argument); an implicit argument left open (LeanForth's 95, Lean's "don't know how to synthesize implicit argument"); a hole left open in exact (461, Lean's message) reported at the step's word, where Lean reports it at the hole | 93 / 133 / 136 / 99 / 95 (message differs) / 461 (place differs) | FE2, C; otherMVarIds; mvarArgNames |
+| `by-exact`, `by-apply` | `exact`, `apply` (Lean) | Lean | terms with `fun`, nested `by`, coercions; an expected type that unfolds to a function (a negation): 133/136; apply with a hole it leaves open (Lean: a new goal, otherMVarIds); a hole that is an argument left open (Lean's message names the argument); an implicit argument left open (LeanForth's 95, Lean's "don't know how to synthesize implicit argument"); a hole left open in exact (461, Lean's message) reported at the step's word, where Lean reports it at the hole | 93 / 133 / 136 / 99 / 95 (message differs) / 461 (place differs) | FE2; otherMVarIds; mvarArgNames |
 | `by-induction` | `induction` (Lean) | Lean | several targets; `generalizing`, `using`; a hypothesis depending on the target | 99 | E |
 | bullets, `<;>`, `try`, `first`, `all_goals`, `repeat` | (Lean) | | not built | no word | F |
 | `by-refine` | `refine` (Lean) | Lean | a `?: NAME` some metavariable has (findUserName? reuse, 139); a hole argument left open (99) and an implicit argument left open (95, message differs) as exact's; the place of error 461 (a `_` left open, Lean's message and context): LeanForth reports it at the step's word, Lean at the hole; `refine'` not built | 139 / 99 / 95 / 461 (place differs) | mvarArgNames; small batch |
-| `exists`, `use`, `constructor` forms | (Lean; `use` Mathlib) | | not built | no word | C |
+| `<< >>`, `⟨ ⟩` | anonymous constructor `⟨ ⟩` (Lean, Elab/BuiltinNotation.lean:43) | Lean | where Lean postpones it (no expected type, an expected metavariable application, an operand of `+`); an expected pi (Lean: "not an inductive type"); an item of another type (Lean: application type mismatch); a private constructor; a type over 30 characters in the message (Lean indents it); the error's place: LeanForth's step word with `<<` second, Lean's `⟨` | 132 / 133 / 131 / 139 / message differs / place differs | FE2 postponing; coercions FE4; small batch |
+| `by-exists[ ]` | `exists` (Lean, Init/Tactics.lean:1293) | Lean | what `<< >>`, `by-refine` and `by-trivial` lack (trivial's unsupported rules make it unsupported) | as those | as those |
+| constructor forms | `refine ⟨?_, ?_⟩`, `exact ⟨a, b⟩` (Lean) | Lean | none: `<< ?_ ?_ >> by-refine` and `<< a b >> by-exact` (batch 3c) | | |
+| `use` | `use` (Mathlib, Tactic/Use.lean) | | not built: left out of batch 3c (its loop over constructors, the discharger `use_discharger` and `use!`, `(discharger := ...)` together are more than the batch's budget for an exact port) | no word | its own batch |
 | `cases`, `rcases`, `obtain`, `rintro`, `subst`, `injection` | (Lean) | | not built | no word | E |
 | `simp` and its family | (Lean; Mathlib extends) | | not built; needs the `@[simp]` set with the data | no word | own design |
 

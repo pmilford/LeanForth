@@ -12,7 +12,7 @@
 \    93);
 \ 2. malformed input: at[ ] with no name, _, a word, * among names, after
 \    a tactic that takes none, twice, inside a bracket, after a value,
-\    after a block's end, a list with no ] on its line (453, 454, 458, 82, 86);
+\    after a block's end, a list whose ] never comes (453, 454, 458, 86);
 \ 3. stack effects and records: each T{ }T checks the depth; the step's
 \    tac-loc flags, tac-loc# and each name's ID and place, its text's end;
 \    every field of each goal and hypothesis made;
