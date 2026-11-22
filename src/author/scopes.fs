@@ -107,7 +107,7 @@ end-structure
   lfa-code: lfa-e-list-open
 : lfa-bracketed? ( -- flag ) lfa-brackets slab-count 0<> ;
 : lfb ( -- addr ) lfa-brackets slab-last ;   \ the innermost one (unchecked)
-: lfa-list-closer ( -- closer|0 ) lfa-bracketed? if lfb lfb-closer @ else 0 then ;
+: lfa-list-closer ( -- closer|0 ) lfa-bracketed? dup if drop lfb lfb-closer @ then ;
 \ A new one, the innermost (no room for it is full, as for a binder: 65).
 : lfb-new ( -- ) lfa-brackets slab-claim-one ok? lfa-e-binders-full lfa-must drop ;
 : lfb-word! ( -- )
