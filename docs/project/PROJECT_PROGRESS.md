@@ -29,16 +29,17 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
-- 2026-11-22, 13:00: plan row TB2's batch 3c is **tested on branch `tb2-batch3c`** (not done: not yet
-  Forth-reviewed, merged or done-checked): the anonymous constructor `<< p q >>` (Lean's `⟨p, q⟩`, also written `⟨ p
+- 2026-11-22, 13:00: plan row TB2's batch 3c is **tested on branch `tb2-batch3c`** and Forth-reviewed
+  ([report](../development/forth-reviews/2026-11-22-tb2-batch3c.md): findings 1-7 and 9-11 fixed on the branch, 8
+  recorded as narrower than Lean), not merged, not done-checked, so not done: the anonymous constructor `<< p q >>` (Lean's `⟨p, q⟩`, also written `⟨ p
   q ⟩`; `src/front/elab-term.fs`'s port of elabAnonymousConstructor with Lean's errors 462-467) wherever a term is
   read, `<< ?_ ?_ >> by-refine` giving Lean's `refine ⟨?_, ?_⟩` goals; `by-exists[ e1 .. en ]` (Lean's `exists`
   macro, `src/front/tactics/exists.fs` over `tactic-core.fs`'s new `lf-tac-refine`); and bracket lists over several
   lines (the "Later" item "Bracket lists over several lines", owner 2026-11-22, moved here: `src/author/runner.fs`'s
   `lfa-token-on` reads on into the next lines, `scopes.fs`'s brackets report a forgotten closing word as 458 at the
   list's word; OWNER_DECISIONS "Lists sit between bracket words", dated line). `tests/front/tactics/batch-f/check.py`:
-  16 theorems node for node pinned Lean's, 8 wrong twins with Lean's messages, 3 not supported (exit 2); 27 planted
-  faults (26 caught, 1 known gap). Mathlib's `use` is left out (not built; ledger row in
+  16 theorems node for node pinned Lean's, 8 wrong twins with Lean's messages, 3 not supported (exit 2); 33 planted
+  faults (all caught). Mathlib's `use` is left out (not built; ledger row in
   [TACTIC_STATUS.md](../development/TACTIC_STATUS.md)).
 - 2026-11-22, midday: plan row TB2's batch 3b is **done** on main eb6a35e5 (done check [2026-11-22-tb2-batch3b-done.md](../development/done-checks/2026-11-22-tb2-batch3b-done.md): the checker's own 7 theorems accepted from the reference alone, 4 wrong variants refused; pushed, origin/main 316246d1; Forth review [2026-11-22-tb2-batch3b.md](../development/forth-reviews/2026-11-22-tb2-batch3b.md), its findings fixed or recorded, the older one-unit slab claims plan row 9.4.8r): `at[ h1 h2 ]` replaces `at: h1 h2` (owner, OWNER_DECISIONS "Lists sit between bracket words": a list sits between its bracket word and `]`, on its line); name lists `by-intro[ a b ]`, `by-revert[ h k ]`, `by-clear[ h k ]`, `by-rename-i[ x _ ]`; holes `_`, `?_`, `?: NAME` and `t by-refine` (Lean's elabTermWithHoles and refineCore, its goals tagged as Lean's `refine_1`, `refine_2`), `_` filled by unification in `by-exact`, `by-apply` and `by-have:`; `tests/front/tactics/batch-e/check.py`: 15 theorems node for node pinned Lean's, 7 wrong twins with Lean's messages (461 "don't know how to synthesize placeholder"), 5 not supported (exit 2); the ledger rows in [TACTIC_STATUS.md](../development/TACTIC_STATUS.md).
 - 2026-11-22, night: plan row TB2's batch 2b is **done** (done check [2026-11-22-tb2-batch2b-done.md](../development/done-checks/2026-11-22-tb2-batch2b-done.md), on main since 828e62a1: DONE on main 059d9554 on every acceptance item run, marked MIXED only for the stale "on the branch" wording corrected here); `by-exacts[ ]`'s Lean form is Batteries' `exacts`, which pinned core Lean cannot run, so its comparison is against the equivalent `exact` steps. Batch 3a is **tested on branch `tb2-batch3a`** and Forth-reviewed ([report](../development/forth-reviews/2026-11-22-tb2-batch3a.md): findings 1-7 fixed on the branch, among them the shared words `lf-view-named-fvar`, `lf-fvar-user-name`, `lf-lift-target1` and `lf-lift-local1`, rwa closing with the rewrite's own hypothesis, and error 78 for a binder named by a reserved word such as `at:`; findings 8-10 plan tasks in row TB2), not merged, not done-checked, so not done; `GFORTH=... python3 tests/front/tactics/batch-d/check.py` now accepts 20 theorems (rfl through `id` and the reference's worked example added). Next: the merge, then the done check.
