@@ -59,7 +59,7 @@ reason = "TB2 3c: a list of names never goes on into the next line (458 at its w
 [[fault]]
 id = "tb3c-rest-not-run"
 file = "src/author/runner.fs"
-old = ''': lfa-eval-on ( -- ) begin lfa-on? while lfa-line-rest lfa-eval repeat ;'''
+old = ''': lfa-eval-on ( -- ) begin lfa-on? while lfa-eval-rest repeat ;'''
 new = ''': lfa-eval-on ( -- ) ;'''
 test = "$GFORTH tests/front/tactics/batch-f/test.fs"
 reason = "TB2 3c: after a list read on into a line, the rest of that line is never run"
@@ -134,7 +134,7 @@ reason = "TB2 3c: an expected type whose whnfR is a metavariable's application i
 [[fault]]
 id = "tb3c-whnf-mvar-unchecked"
 file = "src/front/elab-term.fs"
-old = '''  dup et-head-mvar? 0= if outcome-ok exit then'''
+old = '''  dup lf-meta-head lf-mvar? 0= if outcome-ok exit then'''
 new = '''  outcome-ok exit'''
 test = "$GFORTH tests/front/tactics/batch-f/test.fs"
 reason = "TB2 3c: an expected type whose whnf is a metavariable's application is 463, not Lean's 462"
@@ -192,7 +192,7 @@ reason = "TB2 3c: a private constructor is used, where Lean checks its accessibi
 [[fault]]
 id = "tb3c-rest-after-error"
 file = "src/front/elab-pending.fs"
-old = ''': lf-elab-rest+ ( c-addr u -- ) ep-free? if ep-rest+ else 2drop then ;'''
+old = ''': lf-elab-rest+ ( c-addr u -- ) ep-free? 0= if 2drop exit then ep-rest+ ;'''
 new = ''': lf-elab-rest+ ( c-addr u -- ) ep-rest+ ;'''
 test = "$GFORTH tests/front/tactics/batch-f/test.fs"
 reason = "TB2 3c: a later error's text is appended to the first error's message"
@@ -225,7 +225,7 @@ reason = "TB2 3c: exists' ⟨es, ?_⟩ has an empty last item (the ?_ lost)"
 [[fault]]
 id = "tb3c-exists-no-trivial"
 file = "src/front/tactics/exists.fs"
-old = '''  dup ['] txs-tac lf-lift-meta-tactic ['] txs-trivial lf-tac-try-lean drop ;'''
+old = '''  dup ['] txs-tac lf-lift-meta-tactic ['] ttr-nested lf-tac-try-lean drop ;'''
 new = '''  dup ['] txs-tac lf-lift-meta-tactic drop ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-f/check.py"
 reason = "TB2 3c: exists leaves the goal trivial closes (Lean's try trivial skipped)"

@@ -197,8 +197,8 @@ end-structure
 : ep-free? ( -- flag ) ep ep-code @ 0= ;
 : ep-rest+ ( c-addr u -- )
   ep ep-rest ep-rest# cell-counted-left min ep ep-rest cell-counted+! ;
-: lf-elab-rest+ ( c-addr u -- ) ep-free? if ep-rest+ else 2drop then ;
-: lf-elab-below! ( xt -- ) ep-free? if ep ep-below ! else drop then ;
+: lf-elab-rest+ ( c-addr u -- ) ep-free? 0= if 2drop exit then ep-rest+ ;
+: lf-elab-below! ( xt -- ) ep-free? 0= if drop exit then ep ep-below ! ;
 : lf-elab-rest ( -- c-addr u ) ep ep-rest cell-count ;
 : lf-elab-below ( -- xt|0 ) ep ep-below @ ;
 : ep-error. ( code -- code ) s" error " lf-elab-note dup lf-elab-n. lf-elab-nl ;

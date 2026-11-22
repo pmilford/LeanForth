@@ -11,7 +11,7 @@
 \ at least as Lean's term,+ (460).
 \ Lean call list: refine -> lf-tac-refine in lf-lift-meta-tactic
 \ (tactic-core.fs); try -> lf-tac-try-lean; trivial -> by-trivial's row
-\ (tactics/trivial.fs, lf-tac-row).
+\ (tactics/trivial.fs's ttr-nested, its row on the step running).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own (the nodes it makes are the syntax store's).
 
@@ -23,15 +23,14 @@ s" exists" tac-k-exists lf-tactic-lean!
 
 \ ⟨ e1, .., en, ?_ ⟩ at the step's word: the hole first, then the node
 \ and its slots (syntax.fs: a node's slots follow it).
-: txs-at ( i -- pos ) lf-tactic-step tac-at @ ;
 : txs-node ( n kind pos -- node ) syn-node-new 0= if outcome-full lf-tac-must then ;
-: txs-hole ( i -- hole ) txs-at 0 swap syn-k-synthetic swap txs-node ;
-: txs-outer ( i -- node ) dup lf-tac-args# 1+ swap txs-at syn-k-anon swap txs-node ;
+: txs-hole ( i -- hole ) lf-tac-step-at 0 swap syn-k-synthetic swap txs-node ;
+: txs-outer ( i -- node )
+  dup lf-tac-args# 1+ swap lf-tac-step-at syn-k-anon swap txs-node ;
 : txs-fill ( i node -- i node )
   over lf-tac-args# 0 ?do 2dup swap i lf-tac-arg i swap syn-arg! loop ;
 : txs-anon ( i -- node ) dup txs-hole swap dup txs-outer txs-fill nip swap syn-last! ;
 : txs-tac ( i goal -- goals ) swap txs-anon swap lf-tac-refine ;
-: txs-trivial ( -- ) tac-k-trivial lf-tac-row ;
 : txs-run ( i -- )
-  dup ['] txs-tac lf-lift-meta-tactic ['] txs-trivial lf-tac-try-lean drop ;
+  dup ['] txs-tac lf-lift-meta-tactic ['] ttr-nested lf-tac-try-lean drop ;
 ' txs-run tac-k-exists lf-tactic-action!

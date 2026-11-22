@@ -73,7 +73,8 @@
 \ lf-tactic-alt! ( xt kind -- ) (the alternatives | right inside a block of
 \ the kind run by xt ( j -- ), Lean's evalAlts; tactic-alts.fs's
 \ lf-alt-run), lf-tactic-alt@ ( kind -- xt|0 ),
-\ lf-tac-step ( -- i ) the step running, lf-tac-main ( -- goal ),
+\ lf-tac-step ( -- i ) the step running, lf-tac-step-at ( i -- pos ) step
+\ i's word's place (tactics/exists.fs's syntax made there), lf-tac-main ( -- goal ),
 \ lf-tac-fail ( code -- ) (an error at the step running, with the goals),
 \ lf-tac-stop ( code -- ) (the same without the goals), lf-tac-must
 \ ( outcome -- ) (a Meta step's failure stops the run), lf-tac-detail
@@ -248,7 +249,7 @@ end-structure
 \ ---- The record (tactic-syntax.fs). Step i's fields; unchecked.
 : lfr-kind ( i -- kind ) lf-tactic-step tac-kind @ ;
 : lfr-parent ( i -- j ) lf-tactic-step tac-parent @ ;
-: lfr-at ( i -- pos ) lf-tactic-step tac-at @ ;
+: lf-tac-step-at ( i -- pos ) lf-tactic-step tac-at @ ;
 \ Where a block's unsolved goals are told: its => when it has one, else
 \ its word (by; a registered word's own, by-exacts['s done: lfr-block-word).
 : lfr-block-at ( i -- pos )
@@ -352,7 +353,7 @@ s" sorry" tac-k-sorry lf-tactic-lean!
 : lfr-with-goals ( -- ) 0 ['] lfr-goals-of lf-tac-detail ;
 \ An error at step j's word and place (an alternative's |, an induction's
 \ word at its block's end), with the goals or without.
-: lf-tac-stop-at ( j code -- ) >r dup lfr-spelling rot lfr-at r> lfa-fail-at ;
+: lf-tac-stop-at ( j code -- ) >r dup lfr-spelling rot lf-tac-step-at r> lfa-fail-at ;
 : lfr-at-step ( code -- ) lf-tac-step swap lf-tac-stop-at ;
 \ (With no step of the record running, a word called directly: at the
 \ current token.)
@@ -494,7 +495,7 @@ defer lf-tac-lean-detail ( term code -- outcome )
 : lfg-word! ( i addr -- ) tlg-word >r lfr-spelling r> 2! ;
 : lfg-fill ( i addr -- )
   2dup lfg-word! 0 over tlg-after# ! over lfr-kind over tlg-kind !
-  swap lfr-at over tlg-at ! lfr-top tfr-log @ swap tlg-parent ! ;
+  swap lf-tac-step-at over tlg-at ! lfr-top tfr-log @ swap tlg-parent ! ;
 : lfg-open ( i -- )
   lfg-on? 0= if drop exit then
   1 trun-log slab-claim ok-then? 0= if 2drop lfg-cut exit then
@@ -552,7 +553,7 @@ defer lf-tac-lean-detail ( term code -- outcome )
 : lfr-part ( -- addr ) trun-parts slab-last ;
 : lf-open-parts ( -- n ) trun-parts slab-count ;
 : lfr-open-part ( goal -- )
-  1 trun-parts slab-claim lfr-must drop lf-tac-step lfr-at lfr-part top-at !
+  1 trun-parts slab-claim lfr-must drop lf-tac-step lf-tac-step-at lfr-part top-at !
   lfr-name+ lfr-must lfr-part top-name 2! lfr-goal+ lfr-must lfr-part top-goal 2! ;
 \ The term: sorryAx.{u} T Bool.false (mkConst, mkApp2).
 : lfr-sorry-term ( type level -- term )

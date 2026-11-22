@@ -302,13 +302,10 @@ end-structure
 : et-settled ( t -- t outcome )
   dup et-whnf-r-mvar? ok-then? 0= if nip no-result exit then
   if drop et-postponed else outcome-ok then ;
-: et-head-mvar? ( t -- flag ) lf-meta-head lf-mvar? ;
 : et-anon-whnf ( t -- t' outcome )
   lf-meta-whnf lf-elab-meta ok-then? 0= if no-result exit then
-  dup et-head-mvar? 0= if outcome-ok exit then
+  dup lf-meta-head lf-mvar? 0= if outcome-ok exit then
   drop lfa-e-anon-unknown lf-elab-fail no-result ;
-: et-anon-type ( expected -- t outcome )
-  et-known ['] et-settled ok-apply ['] et-anon-whnf ok-apply ;
 \ Its inductive type's one constructor.
 : et-type-error ( t code -- -1 outcome ) lf-elab-fail-term no-result ;
 : et-noted ( t code c-addr u -- -1 outcome )
@@ -329,8 +326,11 @@ end-structure
 : et-private? ( name -- flag ) lf-name-root s" _private" lf-name-str-is? ;
 : et-ctor-decl ( name -- c outcome )
   dup et-private? if drop et-unported exit then lf-menv-find lf-elab-meta ;
+\ The steps in turn, each on the result of the one before (the type, then
+\ its whnf, the constructor's name, its declaration).
 : et-anon-ctor ( expected -- c outcome )
-  et-anon-type ['] et-anon-name ok-apply ['] et-ctor-decl ok-apply ;
+  et-known ['] et-settled ok-apply ['] et-anon-whnf ok-apply
+  ['] et-anon-name ok-apply ['] et-ctor-decl ok-apply ;
 \ numExplicitFields.
 : et-params ( c -- p outcome )
   lf-menv-data ?dup if lf-ict-params lf-more-field outcome-ok else et-unported then ;

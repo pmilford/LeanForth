@@ -190,7 +190,8 @@ end-structure
 : lfa-eval ( c-addr u -- ) false lfa-run lfa-run-on ! evaluate ;
 \ The rest of the line being run, after the last token a word read.
 : lfa-line-rest ( -- c-addr u ) lfa-the-line nip lfa-unread-to ;
-: lfa-eval-on ( -- ) begin lfa-on? while lfa-line-rest lfa-eval repeat ;
+: lfa-eval-rest ( -- ) lfa-line-rest lfa-eval ;
+: lfa-eval-on ( -- ) begin lfa-on? while lfa-eval-rest repeat ;
 : lfa-eval-line ( c-addr u -- )
   2dup lfa-line-start lfa-floats! lfa-eval lfa-eval-on lfa-line-end ;
 
