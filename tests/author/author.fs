@@ -556,6 +556,12 @@ T{ victim -> }T
   lfa-error-reset s" x" lfa-line! -1 state ! ['] lfa-line-end catch 0 state ! drop
   lf-author-code ;
 T{ compiling-line-end -> 45 }T
+\ An exception before any word read a token names the line's first token
+\ (lfa-first-token; source.fs's lfa-token-of); a blank line names none.
+: first-token-of ( c-addr u -- c-addr' u' )
+  lfa-error-reset lfa-line! 0 0 lfa-token! lfa-first-token lfa-token ;
+T{ s"   foo bar" first-token-of s" foo" compare -> 0 }T
+T{ s"    " first-token-of nip -> 0 }T
 
 \ Characters a line may not hold (p07): refused at their column before
 \ anything of the line runs (error 46); TAB separates tokens; letters

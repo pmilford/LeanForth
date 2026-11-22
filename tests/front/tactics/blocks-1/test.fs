@@ -223,6 +223,13 @@ T{ hh s" by-probe-block by-probe-log by-end" tactic-ran was-final @ -> 96 false 
 T{ lf-author-final? lf-tac-forget lf-author-final? -> true false }T
 \ lfa-final with no error recorded marks nothing.
 T{ lfa-final lf-author-final? -> false }T
+\ Outside a run: a block of a mode with no flag would take Tactic.run's
+\ recover, true; xt that ends is run as it is; no frame decides an error.
+T{ lfr-fresh lfr-depth lf-mode-done lfr-recover-in -> 0 true }T
+T{ 3 ' 1+ lf-tac-logged -> 4 }T
+T{ 0 lfr-taker -> false }T
+\ lf-tactic: refuses a spelling not by-..., lf-tactic-sign: takes one.
+T{ s" tac-shape-plain lf-tactic: Nat drop" ' evaluate catch >r 2drop r> -> -2 }T
 
 \ ---- 4. A handler (the probe try): a Lean error inside it taken back, the
 \ state put back to its save (two goals again, both then closed by h),
