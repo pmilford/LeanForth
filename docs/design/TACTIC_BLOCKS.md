@@ -1,6 +1,6 @@
 # Tactic blocks: bullets, `<;>`, try, first, all_goals, repeat, `have := by` (piece F)
 
-Status (2026-11-22): **designed; not reviewed, not approved, no code.** Written by the architect agent for plan
+Status (2026-11-22): **designed; the owner approved the spellings (OWNER_DECISIONS "Blocks in proof text"): the bullet is `{ ... }`, which closes itself, and replaces every `· ... by-end` and `by-dot` below; under design review; no code.** Written by the architect agent for plan
 row TB2 (pieces of [TACTIC_STATUS.md](../development/TACTIC_STATUS.md), column "Removed by": F). The owner's page is
 section 0; every new spelling there is the owner's decision. The design review
 ([DESIGN_STAGE_REVIEW.md](../development/DESIGN_STAGE_REVIEW.md)) comes before code. Paths of source files are relative

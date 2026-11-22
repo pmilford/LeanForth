@@ -1905,3 +1905,17 @@ Also: partly complete tactics are tracked in [TACTIC_STATUS.md](../development/T
 tactic branch ("be sure to track those carefully"). Batteries and Mathlib tactics are ported from their source; nothing
 of them is loaded at run time.
 
+
+### Blocks in proof text (2026-11-22)
+
+Owner, 2026-11-22, on the one page of [TACTIC_BLOCKS.md](../design/TACTIC_BLOCKS.md): "I don't like by-dot", then,
+on the recommendations below, "Yes I agree, continue".
+1. Lean's bullet `· tacs` is written `{ tacs }`: Lean's own second syntax for the same block, a bracket pair that
+   closes itself (no `by-end`), free in LeanForth text. No `·` and no `by-dot`.
+2. `t1 <;> t2` keeps Lean's token between the two steps; t2 is one tactic or one block (`<;> { ... }`).
+3. `have h : T := by tacs` is `T by-have-by: h ... by-end` (its own word, so the term is Lean's node for node).
+4. A block opened by a `by-` word closes with `by-end`; braces close themselves.
+5. `by-any-goals`, `by-repeat`, `by-focus` follow the approved pattern of `by-try`, `by-first`, `by-all-goals`.
+6. LeanForth stops at the first error where Lean logs it and goes on; the verdict is the same.
+The design review comes before code; a finding against any of these returns to the owner.
+
