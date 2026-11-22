@@ -429,7 +429,7 @@ hypothesis, a first character that is a digit, or one of `+ - # $ % & '`
 with more text after it, is refused (error 30; error 35 for such a token
 that is no name at all). A binder's name may look like a number: it then
 gets no word, and `n var#` refers to the binder. A binder's name is never a
-reserved word, one of LeanForth's own words (`fun`, `Prop`, `:=`, `at:`,
+reserved word, one of LeanForth's own words (`fun`, `Prop`, `:=`, `at[`, `?_`,
 `by-exact` and every other tactic word: `src/present/print-forth.fs`'s
 list and the tactic files' words), whose word its variable would hide
 (error 78); `_` is the exception, a name as Lean's own `_` binders are (a
@@ -1117,15 +1117,16 @@ the same way (`tests/front/tactics/*/check.py`).
   LeanForth, `' h2 by-clear` then `' h1 by-exact`
   (`tests/front/tactics/clear/cl-hyp.lf`); in Lean, `clear h2` then
   `exact h1`. `' a by-clear` with `h : a ≤ a` is error 441
-  (`tests/front/tactics/clear/w-cl-dep.lf`). One hypothesis a word: Lean's
-  `clear h1 h2` is two steps.
+  (`tests/front/tactics/clear/w-cl-dep.lf`). Several: `by-clear[ h1 h2 ]`
+  (batch 3b, Lean's `clear h1 h2`).
 
 **A complete tactic proof.** The examples of the tactic batches below show
 their steps alone; each sits in a theorem like this one, theorem
 `sy_rw_at` of `tests/front/tactics/batch-d/change-at.lf`, whose term
 `tests/front/tactics/batch-d/check.py` finds node for node equal to pinned
-Lean's (batch 3a, on main). Mathematically: from a = b and
-b ≤ c, a ≤ c.
+Lean's (batch 3a, on main; its locations written `at[ ]` since batch 3b:
+a list sits between a bracket word and `]`). Mathematically: from a = b
+and b ≤ c, a ≤ c.
 
 | LeanForth | Lean | Part |
 | --- | --- | --- |
@@ -1134,8 +1135,8 @@ b ≤ c, a ≤ c.
 | `  a b = explicit: h  b c ≤ explicit: h2` | `(h : a = b) (h2 : b ≤ c)` | two **hypotheses** |
 | `  a c ≤` | `: a ≤ c` | **statement** |
 | `:= by` | `:= by` | `:=`, `by` |
-| `  by-symm at: h` | `  symm at h` | h becomes b = a (batch 2b's `symm`, batch 3a's location) |
-| `  by-rw[ ' h ] at: h2` | `  rw [h] at h2` | h2 becomes a ≤ c (batch 3a) |
+| `  by-symm at[ h ]` | `  symm at h` | h becomes b = a (batch 2b's `symm`, batch 3a's location) |
+| `  by-rw[ ' h ] at[ h2 ]` | `  rw [h] at h2` | h2 becomes a ≤ c (batch 3a) |
 | `  ' h2 by-exact` | `  exact h2` | closes the goal |
 | `end sy_rw_at` | | **end** |
 
@@ -1158,7 +1159,7 @@ on decide's slice of Init (`--env tests/front/decide-slice.ndjson
   for the first goal `T` fits, which it brings to the front: after
   `' And.intro by-apply` on `a ≤ b ∧ b ≤ a`, `b a ≤ by-show` makes
   `case right` the main goal (`sh_second`); Lean: `show b ≤ a`. No goal
-  fits: 444 (one goal) or 445 (several). `by-change` takes `at: h` (below,
+  fits: 444 (one goal) or 445 (several). `by-change` takes `at[ h ]` (below,
   with `by-rwa[`).
 - `by-swap` swaps the first two goals (Lean, with Batteries: `swap`).
   After `' And.intro by-apply`, `by-swap ' h2 by-exact ' h1 by-exact`
@@ -1167,7 +1168,8 @@ on decide's slice of Init (`--env tests/front/decide-slice.ndjson
   hypothesis that mentions it: `h : a ≤ b ⊢ a ≤ b` becomes
   `⊢ a ≤ b → a ≤ b` (`rv_hyp`, then `by-intro: k ' k by-exact`); reverting
   the variable `a` takes `h` too, `⊢ ∀ a, a ≤ b → a ≤ b` (`rv_dep`). Lean:
-  `revert h`. A term that is no hypothesis: 389. One name a word.
+  `revert h`. A term that is no hypothesis: 389. Several names:
+  `by-revert[ h1 h2 ]` (batch 3b, below).
 - `t by-specialize` replaces the hypothesis at the head of `t` by `t`
   itself: Lean's `specialize h x` turns `h : ∀ n, P n` into `h : P x`. In
   LeanForth `' h by-specialize ' h by-exact` (`sp_exact`); a term whose
@@ -1248,9 +1250,10 @@ compared with pinned Lean node for node by
 `tests/front/tactics/batch-c/check.py`, examples from
 `tests/front/tactics/batch-c/`; `by-exacts[ ]`'s Lean form is Batteries'
 `exacts`, which pinned core Lean cannot run, so its comparison is against
-the equivalent `exact` steps). The `at:` item below is batch 3a, on main and
-compared with pinned Lean by `tests/front/tactics/batch-d/check.py`. Stack
-positions: top is the last value written.
+the equivalent `exact` steps). The `at[ ]` item below is batch 3a (written
+`at[ ]` since batch 3b), on main and compared with pinned Lean by
+`tests/front/tactics/batch-d/check.py`. Stack positions: top is the last
+value written.
 
 - `' r <-` inside `by-rw[ ]` or `by-rewrite[ ]`: the rule r right to left.
   Mathematically, from a = b rewrite b into a. With `h : a = b`,
@@ -1265,24 +1268,27 @@ positions: top is the last value written.
   in Lean (`rwa_le`, `rwa_not`, plan row TB2 batch 3a); one of the form
   `x R x` for a relation R other than `=` and `↔` is not supported yet
   (93), since its `@[refl]` lemmas are not known.
-- A trailing `at: h1 h2` (Lean's location `at h1 h2`, plan row TB2 batch
-  3a) amends the tactic just before it: `by-rw[`, `by-rewrite[`,
-  `by-rwa[`, `by-change`, `by-symm`, `by-delta`. The names run to the end
-  of the line; `|-` (or `⊢`) among them is the goal; `at: *` is read but
-  not supported yet (99). Each rule rewrites each hypothesis in turn, then
-  the goal when `|-` is named; the hypothesis keeps its name, so a later
-  step names the new one. With `h : a = b`, `h2 : a ≤ c`:
-  `by-rw[ ' h ] at: h2` then `' h2 by-exact` proves `b ≤ c` (`at_hyp`);
-  Lean: `rw [h] at h2; exact h2`. `by-rwa[ ' h ] at: h2` proves it at once
-  (`rwa_at`; Lean's `rwa [h] at h2`: the hypothesis, rewritten, must have
-  the goal's type, else 456); with several names, `|-` or `*`, Lean's
-  legacy `rw ..; assumption`. `a b = by-change at: h` changes
-  `h : a + 0 = b` (`ch_at`; Lean: `change a = b at h`); `by-symm at: h`
-  turns `h : b = a` into `a = b` (`sy_at`); `' f by-delta at: h` refuses
-  a hypothesis it does not change (448, "... at h") and is not supported
-  yet where it would (99). A name that is no hypothesis: 455, "Unknown
-  identifier"; a constant's name: 99. After a tactic that takes no
-  location: 453; no name, `_`, a word or `*` among names: 454.
+- A trailing `at[ h1 h2 ]` (Lean's location `at h1 h2`, plan row TB2
+  batch 3a; until batch 3b written `at: h1 h2` to the end of the line,
+  owner 2026-11-22: a list never ends at the end of a line) amends the
+  tactic just before it: `by-rw[`, `by-rewrite[`, `by-rwa[`, `by-change`,
+  `by-symm`, `by-delta`. A list sits between its bracket word and `]`, on
+  the word's line (458 when the line ends first); `|-` (or `⊢`) among the
+  names is the goal; `at[ * ]` is read but not supported yet (99). Each
+  rule rewrites each hypothesis in turn, then the goal when `|-` is named;
+  the hypothesis keeps its name, so a later step names the new one. With
+  `h : a = b`, `h2 : a ≤ c`: `by-rw[ ' h ] at[ h2 ] ' h2 by-exact` proves
+  `b ≤ c` (`at_hyp`); Lean: `rw [h] at h2; exact h2`. `by-rwa[ ' h ] at[ h2 ]`
+  proves it at once (`rwa_at`; Lean's `rwa [h] at h2`: the hypothesis,
+  rewritten, must have the goal's type, else 456); with several names,
+  `|-` or `*`, Lean's legacy `rw ..; assumption`. `a b = by-change at[ h ]`
+  changes `h : a + 0 = b` (`ch_at`; Lean: `change a = b at h`);
+  `by-symm at[ h ]` turns `h : b = a` into `a = b` (`sy_at`); `' f by-delta
+  at[ h ]` refuses a hypothesis it does not change (448, "... at h") and
+  is not supported yet where it would (99). A name that is no hypothesis:
+  455, "Unknown identifier"; a constant's name: 99. After a tactic that
+  takes no location: 453; no name, `_`, a word, a token after `*` or `*`
+  after another: 454.
 - `by-exacts[ e1 .. en ]`: `e1 by-exact`, .., `en by-exact`, then no goal
   may be left (89). After `' And.intro by-apply`, `by-exacts[ ' h1 ' h2 ]`
   (`ex_two`); Lean (Batteries): `exacts [h1, h2]`. No `<-` inside (83).
@@ -1316,6 +1322,68 @@ positions: top is the last value written.
   newest hidden hypotheses named NAMES; Lean: `next k => ...`. It is
   `by-case: _ NAMES... =>` (the tag `_` means the main goal, Lean's `case
   _`), and its step is a `by-case:` step in the step log. No goal: 90.
+
+**Tactic batch 3b: lists of names and holes** (plan row TB2, 2026-11-22;
+`src/front/tactics/intro.fs`, `revert.fs`, `clear.fs`, `rename-i.fs`,
+`refine.fs`, the holes in `src/front/reader.fs`, `elab-term.fs` and
+`new-goals.fs`; tested on branch `tb2-batch3b`, not done: compared with
+pinned Lean node for node by `tests/front/tactics/batch-e/check.py`,
+examples from `tests/front/tactics/batch-e/names.lf` and `holes.lf`). A
+list of names, like a list of rules, sits between its bracket word and
+`]`; unlike rules, names are read as written, on the word's line (458
+when the line ends before `]`), and what follows `]` on the line is the
+next step. Mathematically nothing new: these move hypotheses between the
+goal and its context, and leave parts of a proof to later steps.
+
+- `by-intro[ a b c ]` (nothing taken from the stack) introduces the
+  goal's first binders as a, b, c in turn, each a hypothesis word
+  afterwards; `_` an inaccessible one; `by-intro[ ]` one inaccessible
+  (Lean's bare `intro`). After `by-revert[ h k ]`, `by-intro[ x y ] x
+  by-exact` (`nl_intro`); Lean: `intro x y`. Too many names: 94 (the
+  earlier ones done); `rfl`: 99. `by-intro: x` stays for one name.
+- `by-revert[ h k ]` puts the hypotheses back into the goal, with every
+  later one that depends on them, in the context's order: on `h : a = b`,
+  `k : b = a` the goal becomes `a = b → b = a → a = b` (`nl_intro`);
+  Lean: `revert h k`. A name no local has: 455 (before anything is
+  reverted); a constant's name: 99; `_` or a LeanForth word: 459; none:
+  460.
+- `by-clear[ h k ]` removes the hypotheses, newest first whatever the
+  order written, so `k : h = h` goes before `h` (`nl_clear`); Lean:
+  `clear h k`. The goal depends on one: 442 (`w-clear-order.lf`: `a`
+  after `h`); another hypothesis does: 441; a name twice: 440 the second
+  time; errors of names as for `by-revert[`.
+- `by-rename-i[ x y ]` names the newest inaccessible hypotheses, the last
+  name the newest; `_` keeps one inaccessible (`nl_rename`,
+  `nl_rename_hole`); Lean: `rename_i x y`. More names than inaccessible
+  hypotheses: 211 (Lean logs it and goes on); none: 460.
+- Holes in terms: `_` is a hole unification must fill (Lean's `_`), `?_`
+  a new goal (Lean's `?_`) and `?: NAME` a new goal tagged NAME (Lean's
+  `?NAME`; `?: _` is `?_`). Each is a value taking nothing: `_ Eq.refl`
+  is `Eq.refl _`, `' And.intro ?_ $ ?_ $` is `And.intro ?_ ?_`. A hole
+  that is no argument takes no implicit lambda (Lean's
+  blockImplicitLambda); no expected type is propagated to an application
+  before its hole arguments (Lean's shouldPropagateExpectedTypeFor).
+- `t by-refine` (top `t`) closes the goal with t, each `?_` and `?: NAME`
+  of t a new goal in its place, in the order made: `' And.intro ?_ $ ?_ $
+  by-refine ' h1 by-exact ' h2 by-exact` proves `a = b ∧ b = a`
+  (`rf_and`); Lean: `refine And.intro ?_ ?_`. Anonymous new goals are
+  tagged as Lean's: one alone takes the goal's tag, several `refine_1`,
+  `refine_2` after it (`rf_and_case`); `' And.intro ?: left $ ?: right $
+  by-refine` tags them `left` and `right` (`rf_named`). A `_` unification
+  fills is no goal (`_ Eq.refl by-refine`, `rf_natural`); one it leaves:
+  461, Lean's "don't know how to synthesize placeholder" with its context,
+  and 99 when the hole is an argument (Lean's message then names it); an
+  implicit argument left open: 95; t of another type: 96; a NAME a goal
+  has already: 139.
+- `_` in `by-exact`, `by-apply` and `by-have:`'s value: unification fills
+  it (`ex_hole`: `_ Eq.refl by-exact`; `ap_hole`: `' Nat.le_refl _ $
+  by-apply`; `hv_hole`: `a a ≤ ' Nat.le_refl _ $ by-have: h`); `by-exact`
+  with a hole left open is 461 (also `?_`, which exact never makes a goal);
+  `by-apply` with one apply leaves open, and a `?_` in `by-have:`'s value,
+  are not supported yet (99, 93), where Lean makes each a goal.
+  `by-specialize` makes a `_` it leaves open a goal before the main one
+  (Lean's allowNaturalHoles), which text cannot reach yet: a hypothesis
+  applied to a hole is the elaborator's 136.
 
 A statement's hypothesis is written with a tick when it stands alone,
 `' h by-apply`, because its type is not unfolded to count its arguments
@@ -1362,8 +1430,16 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-rewrite[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, no `by-rfl` | The same without the closing `rfl`. | `rewrite [` |
 | `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules (or terms), in order; closes it | Ends the list of `by-rw[`, `by-rewrite[`, `by-rwa[` or `by-exacts[`; with none open, error 83. | `]` |
 | `<-` | `( r -- )` (top: the rule just written) | ordinary; only inside `by-rw[`, `by-rewrite[` or `by-rwa[` (83 elsewhere), after a rule (86) | read: the values so far become the bracket's rules, the last one marked right to left | Rewrites with r from right to left. | `← r` |
-| `by-rwa[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, then `rfl` (reducible) or else `assumption` | Rewrites, then closes the goal; neither closes it: 381; `rfl` failing on a goal that is no `=` (a `≤`, a negation) falls to the hypothesis, as Lean's. With `at: h`, rewrites h and closes the goal with it (456 when its type differs). | `rwa [` |
-| `at:` | `( -- )`, then names to the end of the line | ordinary; right after `by-rw[ ]`, `by-rewrite[ ]`, `by-rwa[ ]`, `by-change`, `by-symm`, `by-delta` (453 elsewhere) | read: the names (and `\|-` or `⊢` for the goal, or `*` alone) become the step's location | Runs the tactic at each hypothesis named, then at the goal when named (455 unknown name; `*`: 99). | `at h ⊢` |
+| `by-rwa[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, then `rfl` (reducible) or else `assumption` | Rewrites, then closes the goal; neither closes it: 381; `rfl` failing on a goal that is no `=` (a `≤`, a negation) falls to the hypothesis, as Lean's. With `at[ h ]`, rewrites h and closes the goal with it (456 when its type differs). | `rwa [` |
+| `at[ HYP-NAME ... ]` | `( -- )` | parsing: names up to `]` on its line (458 when the line ends first); right after `by-rw[ ]`, `by-rewrite[ ]`, `by-rwa[ ]`, `by-change`, `by-symm`, `by-delta` (453 elsewhere) | read: the names (and `\|-` or `⊢` for the goal, or `*` alone) become the step's location | Runs the tactic at each hypothesis named, then at the goal when named (455 unknown name; `*`: 99; no name, a word, `*` among names: 454). | `at h ⊢` |
+| `by-intro[ HYP-NAME ... ]` | `( -- )` | parsing: names up to `]` on its line (458), `_` an inaccessible one, none allowed | read: a step; each name a hypothesis word. Run: `by-intro:`'s step for each name in turn; none: one inaccessible | Introduces the goal's first binders as the names; too many: 94; `rfl`: 99; a LeanForth word: 84. | `intro a b c` |
+| `by-revert[ HYP-NAME ... ]` | `( -- )` | parsing: names of hypotheses up to `]` on its line (459 for `_` or a word; 460 for none) | read: a step. Run: the main goal's locals so named reverted at once, with those depending on them | Puts the hypotheses back into the goal in the context's order; unknown name: 455; a constant: 99. | `revert h k` |
+| `by-clear[ HYP-NAME ... ]` | `( -- )` | as `by-revert[` | read: a step. Run: each named local cleared from the main goal, newest first | Removes the hypotheses; 440, 441, 442 as `by-clear`; names as `by-revert[`. | `clear h k` |
+| `by-rename-i[ HYP-NAME ... ]` | `( -- )` | as `by-intro[`, one name at least (460) | read: a step; each name a hypothesis word. Run: renameInaccessibles of the main goal | Names the newest inaccessible hypotheses; too many names: 211. | `rename_i x y` |
+| `by-refine` | `( t -- )` (top: t) | ordinary | read: a step holding t. Run: elaborates t against the goal, assigns it, its `?_` and `?: NAME` new goals in its place, tagged as Lean's | Closes the goal with t up to its holes; a `_` left open: 461 (99 as an argument); an implicit argument left: 95; a mismatch: 96; a NAME taken: 139. | `refine t` |
+| `_` | `( -- t )` | ordinary (kernel form: 52) | read: a hole node | A hole unification fills (or a goal where the tactic allows one: `by-specialize`). | `_` |
+| `?_` | `( -- t )` | ordinary (kernel form: 52) | read: a synthetic hole node | A new goal of `by-refine`; elsewhere left open (461 in `by-exact`). | `?_` |
+| `?: NAME` | `( -- t )` | parsing: one name after it on its line (2 when none); `_` gives `?_` | read: a synthetic hole node with NAME | A new goal tagged NAME; a NAME some goal has: 139. | `?NAME` |
 | `by-exacts[` | `( -- )` | ordinary; opens a term block that `]` closes (no `<-`) | read: a step whose terms are the values up to `]`. Run: `by-exact` of each, then no goal may be left | Closes the goals one term each; a mismatch: 96; a goal left: 89. | `exacts [` (Batteries) |
 | `by-cases: HYP-NAME` | `( p -- )` (top: p) | parsing: one name after it, on its line | read: a step holding p; HYP-NAME a hypothesis word. Run: assigns the main goal `dite p` of two new goals, `pos` (HYP-NAME : p) and `neg` (HYP-NAME : ¬p), which take its place | Splits on whether p holds; p's `Decidable` instance, else `Classical.propDecidable` (the report's axioms then `propext`, `Classical.choice`, `Quot.sound`, which `--strict-axioms` accepts); p no proposition or `_`: 99. | `by_cases HYP-NAME : p` |
 | `by-contra: HYP-NAME` | `( -- )` | parsing: one name after it, on its line | read: a step; HYP-NAME a hypothesis word. Run: `by-contra-core`, then `by-intro:` of HYP-NAME on the same step | Proves the goal p from HYP-NAME : ¬p and the goal `False` (for p = ¬q, HYP-NAME : q); `rfl`: 99. | `by_contra HYP-NAME` (Batteries) |

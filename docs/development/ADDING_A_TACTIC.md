@@ -56,23 +56,44 @@ s" assumption" tac-k-assumption lf-tactic-lean!
   `tac-shape-rules` (`by-x[ ... ]`: the values up to `]` are the rules,
   by-rw['s; a rule followed by `<-` is right to left, which
   `lf-tac-arg-symm? ( i k -- flag )` tells), `tac-shape-list` (the same
-  bracket of terms, no `<-`: by-exacts['s). The step's arguments are the values, then the names
-  (`lf-tac-arg`; a name is 0 for `_`). Lean's `have k : T := e` is
-  `T e by-have: k`:
+  bracket of terms, no `<-`: by-exacts['s), and the lists of names
+  (plan row TB2, batch 3b): `tac-shape-binders` (`by-x[ a _ b ]`: new
+  hypotheses, `_` an inaccessible one, none allowed: by-intro['s),
+  `tac-shape-binders+` (the same, one at least: by-rename-i['s) and
+  `tac-shape-hyps` (names of hypotheses the goal has, one at least, `_`
+  and LeanForth words refused: by-revert['s, by-clear['s). A list of
+  names sits between its bracket word and `]`, on the word's line (the
+  owner's rule of 2026-11-22: a list never ends at a line's end; 458 when
+  the line ends first, 459, 460); what follows `]` is the next step. The
+  step's arguments are the values, then the names (`lf-tac-arg`; a name
+  is 0 for `_`; `lf-tac-arg-names ( i -- names )` all of them as a run,
+  `lf-tac-arg-fvars ( i -- fvars )` getFVarIds of them in the main goal's
+  context, `lf-tac-name-fvar ( name -- fvar )` one). Lean's `have k : T
+  := e` is `T e by-have: k`, Lean's `revert h k` is `by-revert[ h k ]`:
   ```forth
   tac-shape-decl lf-tactic: by-have: constant tac-k-have
+  tac-shape-hyps lf-tactic: by-revert[ constant tac-k-revert-list
   ```
-  Several names to the end of the line are not a shape: a one-line text
-  writes the next step's values there (`by-intro: h h by-exact`).
+- Holes (mechanism B, batch 3b): `_`, `?_` and `?: NAME` are term nodes
+  (`syntax.fs`'s `syn-k-hole`, `syn-k-synthetic`) that `elab-term.fs`
+  elaborates as Lean's elabHole and elabSyntheticHole. A tactic that
+  takes a term with holes elaborates it with `lf-tac-elab-with-holes (
+  node expected suffix allow? -- e goals )` (`tactic-core.fs`, Lean's
+  elabTermWithHoles: expected -1 for none, suffix a counted string,
+  `c" refine"`; goals the term's new open metavariables, tagged as
+  Lean's tagUntaggedGoals; with allow? false a natural hole left open is
+  Lean's placeholder error, 461): `tactics/refine.fs`, `specialize.fs`.
+  The goal words under it are `new-goals.fs`'s `lf-fresh-mvars`,
+  `lf-natural-mvars`, `lf-tac-log-unassigned` and `lf-tag-untagged`.
 - A tactic that takes Lean's location (`at h ⊢`) is registered with a
   located shape (`tac-shape-at ( shape -- shape )`: `tac-shape-plain-at`,
   `tac-shape-term-at`, and `tac-shape-rules` takes one already); a trailing
-  `at: h1 h2 |-` then amends its step, and any other tactic refuses `at:`
+  `at[ h1 h2 |- ]` then amends its step, and any other tactic refuses `at[`
   (453). Its run word passes its two actions to `lf-with-location ( i*x i
   xt-local xt-target -- i*x )` (Lean's withLocation): xt-local ( i*x fvar
   -- i*x ) for each hypothesis named, resolved by name in the main goal's
   context, then xt-target ( i*x -- i*x ) when the goal is named or no
-  `at:` was written (`tactics/symm.fs`); `lf-at-location ( i xt-local
+  `at[ ]` was written (`tactics/symm.fs`); `lf-at-location ( i xt-local
   xt-target -- )` is the same for actions of step i alone, which
   `lf-lift-target1 ( i xt -- i )` and `lf-lift-local1 ( i fvar xt -- i )`
   make from a goal operation, xt ( i goal -- goal' ) and ( i fvar goal --

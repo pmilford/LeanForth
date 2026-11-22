@@ -13,6 +13,8 @@
 \   head. A count that depends on unfolding a definition stops the run
 \   (error 73) until the elaborator's whnf exists (plan FE1c);
 \ - a number is a numeral (Lean's OfNat), at its own position (form.fs);
+\ - _ , ?_ and ?: NAME are holes (plan row TB2, batch 3b; syntax.fs's
+\   syn-k-hole and syn-k-synthetic), each a value taking none;
 \ - ' NAME is the function NAME, applied to nothing; f a $ applies f to
 \   one more argument (an application made by a name gets it as its next
 \   argument, as Lean's id g x);
