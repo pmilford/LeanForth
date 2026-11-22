@@ -93,3 +93,20 @@ theorem rf_id_iff
 := by
   by-rfl
 end rf_id_iff
+
+\ Three steps over two hypotheses, the worked example of
+\ docs/user/LANGUAGE_REFERENCE.md's tactic batches: symm at h, then rw
+\ with the new h at h2, then the new h2.
+\ Lean: theorem sy_rw_at (a b c : Nat) (h : a = b) (h2 : b ≤ c) : a ≤ c := by
+\         symm at h
+\         rw [h] at h2
+\         exact h2
+theorem sy_rw_at
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  b c ≤ explicit: h2
+  a c ≤
+:= by
+  by-symm at: h
+  by-rw[ ' h ] at: h2
+  ' h2 by-exact
+end sy_rw_at

@@ -75,6 +75,7 @@
 75	1	unused universe parameter: the statement (or a definition's value) must use it
 76	1	malformed elaboration: a term that is no node, or a value unfit for the declaration
 77	5	not supported yet: this step of instantiating metavariables (plan FE1c)
+78	1	a reserved word: a syntax word cannot name a binder
 80	5	not supported yet: running this tactic
 81	1	a tactic word belongs in a tactic proof, after := by
 82	1	a block is still open: by-end closes by-induction-with and by-case:, ] closes by-rw[
