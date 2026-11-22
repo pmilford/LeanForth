@@ -1124,7 +1124,7 @@ the same way (`tests/front/tactics/*/check.py`).
 their steps alone; each sits in a theorem like this one, theorem
 `sy_rw_at` of `tests/front/tactics/batch-d/change-at.lf`, whose term
 `tests/front/tactics/batch-d/check.py` finds node for node equal to pinned
-Lean's (batch 3a, tested on its branch). Mathematically: from a = b and
+Lean's (batch 3a, on main). Mathematically: from a = b and
 b ≤ c, a ≤ c.
 
 | LeanForth | Lean | Part |
@@ -1248,8 +1248,8 @@ compared with pinned Lean node for node by
 `tests/front/tactics/batch-c/check.py`, examples from
 `tests/front/tactics/batch-c/`; `by-exacts[ ]`'s Lean form is Batteries'
 `exacts`, which pinned core Lean cannot run, so its comparison is against
-the equivalent `exact` steps). The `at:` item below is batch 3a, tested on
-its branch (`tests/front/tactics/batch-d/check.py`), not done yet. Stack
+the equivalent `exact` steps). The `at:` item below is batch 3a, on main and
+compared with pinned Lean by `tests/front/tactics/batch-d/check.py`. Stack
 positions: top is the last value written.
 
 - `' r <-` inside `by-rw[ ]` or `by-rewrite[ ]`: the rule r right to left.
