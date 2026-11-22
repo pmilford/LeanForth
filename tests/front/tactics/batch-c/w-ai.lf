@@ -1,0 +1,15 @@
+\ A wrong twin (plan row TB2, tactic batch 2b; batch-c-wrong.lean): the
+\ first goal and_intros leaves is a ≤ b, which h2 : b ≤ a does not prove:
+\ 96.
+\ Lean: theorem w_ai (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) :
+\           a ≤ b ∧ b ≤ a := by
+\         and_intros
+\         exact h2
+theorem w_ai
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1  b a ≤ explicit: h2
+  a b ≤ b a ≤ ∧
+:= by
+  by-and-intros
+  ' h2 by-exact
+end w_ai

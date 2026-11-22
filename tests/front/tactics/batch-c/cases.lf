@@ -1,0 +1,57 @@
+\ p by-cases: h (plan row TB2, tactic batch 2b; batch-c.lean): Lean's
+\ by_cases h : p, the goals pos (h : p) and neg (h : ¬p). (LeanForth's
+\ elaborator takes no expected type that unfolds to a pi, ¬p's, plan FE2,
+\ so the neg goals close by absurd.)
+\ A decidable p: its instance, Nat.decLe a b; no axiom.
+\ Lean: theorem bc_dec (a b : Nat) (h1 : a ≤ b) : a ≤ b := by
+\         by_cases h : a ≤ b
+\         exact h
+\         absurd h
+\         exact h1
+theorem bc_dec
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1
+  a b ≤
+:= by
+  a b ≤ by-cases: h
+  ' h by-exact
+  ' h by-absurd
+  ' h1 by-exact
+end bc_dec
+
+\ The goals' tags: neg first by name, then pos; Nat equality's instance.
+\ Lean: theorem bc_tags (a b : Nat) (h1 : a = b) : a = b := by
+\         by_cases k : a = b
+\         case neg => absurd k; exact h1
+\         case pos => exact k
+theorem bc_tags
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h1
+  a b =
+:= by
+  a b = by-cases: k
+  by-case: neg =>
+    ' k by-absurd
+    ' h1 by-exact
+  by-end
+  by-case: pos =>
+    ' k by-exact
+  by-end
+end bc_tags
+
+\ A proposition with no instance, Nonempty Nat: Classical.propDecidable,
+\ which needs the axiom Classical.choice.
+\ Lean: theorem bc_classical (hp : Nonempty Nat) : Nonempty Nat := by
+\         by_cases h : Nonempty Nat
+\         exact h
+\         absurd h
+\         exact hp
+theorem bc_classical
+  Nat Nonempty explicit: hp
+  Nat Nonempty
+:= by
+  Nat Nonempty by-cases: h
+  ' h by-exact
+  ' h by-absurd
+  ' hp by-exact
+end bc_classical

@@ -26,11 +26,19 @@
 \       as LeanForth's goal words give it: the same with xt ( i*x goal --
 \       goal' ), goal' alone in the main goal's place (a goal word that
 \       closes its goal is run by lf-lift-meta-tactic instead)
-\   lf-goals1 ( goal -- goals )  the goal list [goal] (a new run)
+\   lf-goals1 ( goal -- goals )  the goal list [goal] (a new run);
+\       lf-goals2 ( goal1 goal2 -- goals ) [goal1, goal2]
 \   lf-tac-args# ( i -- n ), lf-tac-arg ( i k -- x ), lf-tac-arg-at ( i k
 \       -- pos )  getArg: how many arguments step i has (names, rules),
 \       its argument k from 0 (a syntax node or a name, 0 for _) and that
-\       argument's place in the text
+\       argument's place in the text; lf-tac-arg-symm? ( i k -- flag )
+\       whether argument k is a rule written right to left (<-, Lean's ←:
+\       rwRule's symm flag, withRWRulesSeq)
+\   lf-tac-row ( kind -- )  kind's run word on the step running
+\       (lf-tac-step): a tactic Lean writes as another one, run on the
+\       same step (lf-tac-eval)
+\   lf-tac-rfl-reducible ( -- )  with_reducible rfl on the step running:
+\       by-rfl's row at reducible transparency (rw's and rwa's closing)
 \   lf-tac-only ( goal -- )  setGoals [goal] (an alternative's or a case's)
 \   lf-tac-with-synth ( i*x xt -- j*x )  Term.withSynthesize (with
 \       synthesizeSyntheticMVarsNoPostponing): xt run with the pending
@@ -176,6 +184,7 @@ end-structure
 \ ---- liftMetaTactic, liftMetaTactic1: xt on the main goal, its goals
 \ (one goal: [goal']) in the main goal's place.
 : lf-goals1 ( goal -- goals ) 0 swap run-push lf-tac-must ;
+: lf-goals2 ( goal1 goal2 -- goals ) swap lf-goals1 swap run-push lf-tac-must ;
 : tcr-main ( i*x xt i -- j*x ) drop tb tb-goal @ swap execute ;
 : tcr-lifted ( i*x xt i -- ) tcr-main lf-replace-main lf-tac-must ;
 : lf-lift-meta-tactic ( i*x i xt -- ) swap ['] tcr-lifted lf-tac-step-run ;
@@ -191,10 +200,16 @@ end-structure
 
 \ ---- getArg, setGoals.
 : lf-tac-args# ( i -- n ) lf-tactic-step tac-count @ ;
-: tcr-arg ( i k -- x pos ) swap lf-tactic-step tac-first @ + lf-tactic-arg ;
+: tcr-arg-index ( i k -- j ) swap lf-tactic-step tac-first @ + ;
+: tcr-arg ( i k -- x pos ) tcr-arg-index lf-tactic-arg ;
 : lf-tac-arg ( i k -- x ) tcr-arg drop ;
 : lf-tac-arg-at ( i k -- pos ) tcr-arg nip ;
+: lf-tac-arg-symm? ( i k -- flag ) tcr-arg-index lf-tactic-arg-symm? ;
 : lf-tac-only ( goal -- ) lf-goals1 lf-goals! lf-tac-must ;
+
+\ ---- A row on the step running; with_reducible rfl.
+: lf-tac-row ( kind -- ) lf-tac-step swap lf-tac-eval ;
+: lf-tac-rfl-reducible ( -- ) tac-k-rfl ['] lf-tac-row lf-with-reducible ;
 
 \ ---- The elaborator's failure: its error, as Lean's throwError gives it.
 : lf-tac-elab-detail ( -- )

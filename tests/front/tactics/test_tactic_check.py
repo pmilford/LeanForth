@@ -78,6 +78,24 @@ class Arguments(unittest.TestCase):
         self.assertEqual(seen, {"lean": "b.lean", "lean_wrong": "b-wrong.lean", "golden": self.golden,
                                 "write": False})
 
+    def test_a_name_may_give_its_axioms(self):
+        self.assertEqual(tactic_check.theorem_axioms("t1"), ("t1", "none"))
+        self.assertEqual(tactic_check.theorem_axioms("t1=propext, Classical.choice"),
+                         ("t1", "propext, Classical.choice"))
+
+    def checked(self, names, out):
+        want = {"t1 type": DUMP.splitlines()[0], "t1 value": DUMP.splitlines()[1]}
+        with mock.patch.object(tactic_check.s2, "run_many",
+                               lambda argvs: iter([done(0, out), done(0, DUMP)])), \
+                mock.patch.object(tactic_check.s2, "check_log", lambda path, lines: None):
+            return tactic_check.check_files([("f.lf", names)], want)
+
+    def test_the_axioms_are_those_the_name_gives(self):
+        self.checked(["t1=propext"], "t1: accepted; axioms: propext\n")
+        with self.assertRaises(tactic_check.Failure) as caught:
+            self.checked(["t1"], "t1: accepted; axioms: propext\n")
+        self.assertIn("t1 not accepted with axioms none", str(caught.exception))
+
     def test_main_reads_the_batch_golden(self):
         self.golden.write_text(DUMP, encoding="utf-8")
         wanted = {}

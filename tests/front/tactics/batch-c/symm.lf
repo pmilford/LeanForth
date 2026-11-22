@@ -1,0 +1,72 @@
+\ by-symm (plan row TB2, tactic batch 2b; batch-c.lean): Lean's symm on
+\ the goal, by Init's @[symm] lemma of its relation.
+\ Lean: theorem sy_eq (a b : Nat) (h : a = b) : b = a := by
+\         symm
+\         exact h
+theorem sy_eq
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a =
+:= by
+  by-symm
+  ' h by-exact
+end sy_eq
+
+\ Lean: theorem sy_iff (a b : Nat) (h : a ≤ b ↔ b ≤ a) : b ≤ a ↔ a ≤ b := by
+\         symm
+\         exact h
+theorem sy_iff
+  Nat explicit: a  Nat explicit: b
+  a b ≤ b a ≤ ↔ explicit: h
+  b a ≤ a b ≤ ↔
+:= by
+  by-symm
+  ' h by-exact
+end sy_iff
+
+\ (closed by assumption: LeanForth's elaborator takes no expected type
+\ that unfolds to a pi, a ≠ b's, plan FE2)
+\ Lean: theorem sy_ne (a b : Nat) (h : a ≠ b) : b ≠ a := by
+\         symm
+\         assumption
+theorem sy_ne
+  Nat explicit: a  Nat explicit: b
+  a b ≠ explicit: h
+  b a ≠
+:= by
+  by-symm
+  by-assumption
+end sy_ne
+
+\ And and Or, Init's other two.
+\ Lean: theorem sy_and (a b : Nat) (h : a ≤ b ∧ b ≤ a) (h2 : b ≤ a ∨ a ≤ b) :
+\           (b ≤ a ∧ a ≤ b) ∧ (a ≤ b ∨ b ≤ a) := by
+\         apply And.intro
+\         symm
+\         exact h
+\         symm
+\         exact h2
+theorem sy_and
+  Nat explicit: a  Nat explicit: b
+  a b ≤ b a ≤ ∧ explicit: h  b a ≤ a b ≤ ∨ explicit: h2
+  b a ≤ a b ≤ ∧ a b ≤ b a ≤ ∨ ∧
+:= by
+  ' And.intro by-apply
+  by-symm
+  ' h by-exact
+  by-symm
+  ' h2 by-exact
+end sy_and
+
+\ HEq: HEq.symm, its four implicit arguments.
+\ Lean: theorem sy_heq (a b : Nat) (h : HEq a b) : HEq b a := by
+\         symm
+\         exact h
+theorem sy_heq
+  Nat explicit: a  Nat explicit: b
+  a b HEq explicit: h
+  b a HEq
+:= by
+  by-symm
+  ' h by-exact
+end sy_heq

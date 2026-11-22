@@ -1,0 +1,11 @@
+\ A wrong twin (plan row TB2, tactic batch 2b; batch-c-wrong.lean): ¬(a ≤
+\ b) is Not applied to one argument, no relation of two: 451.
+\ Lean: theorem w_sy (a b : Nat) (h : ¬a ≤ b) : ¬a ≤ b := by
+\         symm
+theorem w_sy
+  Nat explicit: a  Nat explicit: b
+  a b ≤ ¬ explicit: h
+  a b ≤ ¬
+:= by
+  by-symm
+end w_sy

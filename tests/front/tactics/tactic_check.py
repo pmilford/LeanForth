@@ -4,7 +4,8 @@ slice a2-iii; tests/front/tactics/NAME/check.py calls main with its lists).
 
 1. Each accepted file (FILES) through `bin/leanforth check --env
    tests/front/s2-slice.ndjson --elab-data tests/front/s2-slice.elab.ndjson
-   --steps -`: exit 0, each theorem named accepted with no axiom, the step
+   --steps -`: exit 0, each theorem named accepted with no axiom (a name
+   written NAME=AXIOMS: with the checker's report AXIOMS instead), the step
    log valid by schemas/tactic-steps-1.schema.json (tests/front/check_s2.py's
    check_log), and every theorem's type and value, dumped by
    tests/front/elab-dump.fs, equal to pinned Lean's node for node
@@ -90,6 +91,13 @@ def dump_argv(env, path):
     return [s2.GFORTH, "tests/front/elab-dump.fs", "-e", f's" {path}" {env.dump_word} bye']
 
 
+def theorem_axioms(entry):
+    """A FILES name, NAME or NAME=AXIOMS: the theorem and the axiom report its line must give
+    (none, or the checker's list, as a by_cases over Classical.propDecidable needs)."""
+    name, _, axioms = entry.partition("=")
+    return name, axioms or "none"
+
+
 def check_files(files, want, env=None):
     """Each file's check and dump run side by side (LEANFORTH_TEST_JOBS), read in order."""
     logs = []
@@ -104,9 +112,10 @@ def check_files(files, want, env=None):
             s2.check_log(path, s2.step_lines(out))
         except s2.Failure as exc:
             raise Failure(str(exc)) from exc
-        for name in names:
-            if f"\n{name}: accepted; axioms: none" not in "\n" + out:
-                raise Failure(f"{path}: {name} not accepted with no axiom\n{out}")
+        for entry in names:
+            name, axioms = theorem_axioms(entry)
+            if f"\n{name}: accepted; axioms: {axioms}" not in "\n" + out:
+                raise Failure(f"{path}: {name} not accepted with axioms {axioms}\n{out}")
         lines = s2.dump_lines(path, next(finished))
         if len(lines) != 2 * len(names):
             raise Failure(f"{path}: {len(lines)} dumped lines for {names}")

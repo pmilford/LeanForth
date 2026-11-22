@@ -1,0 +1,13 @@
+\ Not supported yet (plan row TB2, tactic batch 2b): symm on a ≤ b, a
+\ relation with no @[symm] lemma in Init (Lean: "No applicable symmetry
+\ lemma found"; a lemma Mathlib or a user tags is not known): 99.
+\ Lean: theorem x_sy_le (a b : Nat) (h : b ≤ a) : a ≤ b := by
+\         symm
+theorem x_sy_le
+  Nat explicit: a  Nat explicit: b
+  b a ≤ explicit: h
+  a b ≤
+:= by
+  by-symm
+  ' h by-exact
+end x_sy_le

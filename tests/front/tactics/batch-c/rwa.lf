@@ -1,0 +1,51 @@
+\ by-rwa[ ] (plan row TB2, tactic batch 2b; batch-c.lean): Lean's rwa,
+\ rewrite, then with_reducible rfl, else assumption. (by-rfl answers not
+\ supported yet on a relation other than Eq, so these goals are Eq's.)
+\ Lean: theorem ra_basic (a b c : Nat) (h : a = b) (h2 : b = c) : a = c := by
+\         rwa [h]
+theorem ra_basic
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  b c = explicit: h2
+  a c =
+:= by
+  by-rwa[ ' h ]
+end ra_basic
+
+\ rfl closes the goal first (Lean's linter then suggests rw).
+\ Lean: theorem ra_rfl (a b : Nat) (h : a = b) : a = b := by
+\         rwa [h]
+theorem ra_rfl
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  by-rwa[ ' h ]
+end ra_rfl
+
+\ Right to left, and the hypothesis found is the second.
+\ Lean: theorem ra_symm (a b c : Nat) (h : b = a) (h1 : c = a) (h2 : b = c) :
+\           a = c := by
+\         rwa [← h]
+theorem ra_symm
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  b a = explicit: h  c a = explicit: h1  b c = explicit: h2
+  a c =
+:= by
+  by-rwa[ ' h <- ]
+end ra_symm
+
+\ The first of two goals: rwa works on the main one only, the other kept.
+\ Lean: theorem ra_focus (a b c : Nat) (h : a = b) (h2 : b = c) (h3 : a = c) :
+\           a = c ∧ a = c := by
+\         apply And.intro
+\         rwa [h]
+\         exact h3
+theorem ra_focus
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  b c = explicit: h2  a c = explicit: h3
+  a c = a c = ∧
+:= by
+  ' And.intro by-apply
+  by-rwa[ ' h ]
+  ' h3 by-exact
+end ra_focus

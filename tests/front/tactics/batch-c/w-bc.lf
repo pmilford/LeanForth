@@ -1,0 +1,14 @@
+\ A wrong twin (plan row TB2, tactic batch 2b; batch-c-wrong.lean): the
+\ first goal is pos, a ≤ b with h : a ≤ b, which h1 : b ≤ a does not
+\ prove: exact's 96.
+\ Lean: theorem w_bc (a b : Nat) (h1 : b ≤ a) : a ≤ b := by
+\         by_cases h : a ≤ b
+\         exact h1
+theorem w_bc
+  Nat explicit: a  Nat explicit: b
+  b a ≤ explicit: h1
+  a b ≤
+:= by
+  a b ≤ by-cases: h
+  ' h1 by-exact
+end w_bc

@@ -25,7 +25,7 @@
 \ lf-tac-focus, lf-tac-unfocus (tactic-run.fs); apply c ->
 \ lf-lift-meta-tactic, lf-tac-with-synth (tactic-core.fs) and
 \ lf-goal-apply-named; all_goals -> ttr-all (setGoals [g]: lf-tac-only;
-\ getUnsolvedGoals: lf-goals-unsolved); the other rules -> lf-tac-eval of
+\ getUnsolvedGoals: lf-goals-unsolved); the other rules -> lf-tac-row of
 \ their rows.
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: the record ttr (the nesting of trivial inside its own first
@@ -57,7 +57,7 @@ end-structure
 : ttr-true ( -- ) lf-tac-step ['] ttr-true-tac lf-lift-meta-tactic ;
 
 \ ---- apply And.intro <;> trivial: trivial on each goal apply leaves.
-: ttr-nested ( -- ) lf-tac-step tac-k-trivial lf-tac-eval ;
+: ttr-nested ( -- ) tac-k-trivial lf-tac-row ;
 : ttr-goal ( new goal -- new' outcome )
   dup lf-goal-assigned? if drop outcome-ok exit then
   lf-tac-only ttr-nested lf-goals-unsolved lf-tac-must run-cat ;
@@ -67,10 +67,10 @@ end-structure
   lf-tac-unfocus ;
 
 \ ---- The other rules: their rows on the step running.
-: ttr-decide ( -- ) lf-tac-step tac-k-decide lf-tac-eval ;
-: ttr-contradiction ( -- ) lf-tac-step tac-k-contradiction lf-tac-eval ;
-: ttr-rfl ( -- ) lf-tac-step tac-k-rfl lf-tac-eval ;
-: ttr-assumption ( -- ) lf-tac-step tac-k-assumption lf-tac-eval ;
+: ttr-decide ( -- ) tac-k-decide lf-tac-row ;
+: ttr-contradiction ( -- ) tac-k-contradiction lf-tac-row ;
+: ttr-rfl ( -- ) tac-k-rfl lf-tac-row ;
+: ttr-assumption ( -- ) tac-k-assumption lf-tac-row ;
 \ The rules, the first registered deepest: Lean tries the newest first.
 : ttr-rules ( -- )
   ['] ttr-assumption ['] ttr-rfl ['] ttr-contradiction ['] ttr-decide ['] ttr-true

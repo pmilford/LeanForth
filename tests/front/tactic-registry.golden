@@ -153,6 +153,7 @@
 381	1	Tactic `assumption` failed
 382	1	Tactic `constructor` failed: target is not an inductive datatype
 383	1	Tactic `constructor` failed: no applicable constructor found
+450	1	The main goal is
 443	1	'change' tactic failed, pattern
 444	1	'show' tactic failed, pattern
 445	1	'show' tactic failed, no goals unify with the given pattern.
@@ -169,6 +170,7 @@
 388	1	Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors
 447	1	'specialize' requires a term of the form `h x_1 .. x_n` where `h` appears in the local context
 446	1	goal index `2` is out of bounds
+451	1	Symmetry lemmas only apply to binary relations, not
 reserved \ word
 reserved ( word
 reserved theorem word
@@ -216,6 +218,7 @@ reserved kernel-form word
 reserved ' word
 reserved by-induction word
 reserved by-case: word
+reserved by-next word
 reserved by-rfl word
 reserved by-exact word
 reserved by-intro: word
@@ -224,6 +227,7 @@ reserved by-end word
 reserved by-rw[ word
 reserved by-rewrite[ word
 reserved ] word
+reserved <- word
 reserved | word
 reserved => word
 reserved by-sorry word
@@ -251,8 +255,18 @@ reserved <-> word
 reserved ∣ word
 reserved divides word
 reserved by-absurd word
+reserved by-and-intros word
 reserved by-apply word
 reserved by-assumption word
+reserved by-have: word
+reserved by-have word
+reserved by-let: word
+reserved by-suffices: word
+reserved by-have-goal: word
+reserved by-cases: word
+reserved by-contra-core word
+reserved by-contra: word
+reserved by-contra word
 reserved by-change word
 reserved by-show word
 reserved by-clear word
@@ -261,19 +275,17 @@ reserved by-contradiction word
 reserved by-decide word
 reserved by-native-decide word
 reserved by-delta word
+reserved by-exacts[ word
 reserved by-exfalso word
-reserved by-have: word
-reserved by-have word
-reserved by-let: word
-reserved by-suffices: word
-reserved by-have-goal: word
 reserved by-intros word
 reserved by-left word
 reserved by-replace: word
 reserved by-revert word
 reserved by-right word
+reserved by-rwa[ word
 reserved by-specialize word
 reserved by-swap word
+reserved by-symm word
 reserved by-trivial word
 kind 1 by 0 by run
 kind 2 by-rfl 0 rfl run
@@ -287,27 +299,35 @@ kind 9 by-rw[ 0 rw run
 kind 10 by-rewrite[ 0 rewrite run
 kind 11 by-sorry 0 sorry run
 kind 12 by-absurd 0 absurd run
-kind 13 by-apply 0 apply run
-kind 14 by-assumption 0 assumption run
-kind 15 by-change 0 change run
-kind 16 by-show 0 show run
-kind 17 by-clear 0 clear run
-kind 18 by-constructor 0 constructor run
-kind 19 by-contradiction 0 contradiction run
-kind 20 by-decide 0 decide run
-kind 21 by-native-decide 0 native_decide run
-kind 22 by-delta 0 delta run
-kind 23 by-exfalso 0 exfalso run
-kind 24 by-have: 0 have run
-kind 25 by-have 0 have run
-kind 26 by-let: 0 let run
-kind 27 by-suffices: 0 suffices run
-kind 28 by-have-goal: 0 have run
-kind 29 by-intros 0 intros run
-kind 30 by-left 0 left run
-kind 31 by-replace: 0 replace run
-kind 32 by-revert 0 revert run
-kind 33 by-right 0 right run
-kind 34 by-specialize 0 specialize run
-kind 35 by-swap 0 swap run
-kind 36 by-trivial 0 trivial run
+kind 13 by-and-intros 0 and_intros run
+kind 14 by-apply 0 apply run
+kind 15 by-assumption 0 assumption run
+kind 16 by-have: 0 have run
+kind 17 by-have 0 have run
+kind 18 by-let: 0 let run
+kind 19 by-suffices: 0 suffices run
+kind 20 by-have-goal: 0 have run
+kind 21 by-cases: 0 by_cases run
+kind 22 by-contra-core 0 by_contra_core run
+kind 23 by-contra: 0 by_contra run
+kind 24 by-contra 0 by_contra run
+kind 25 by-change 0 change run
+kind 26 by-show 0 show run
+kind 27 by-clear 0 clear run
+kind 28 by-constructor 0 constructor run
+kind 29 by-contradiction 0 contradiction run
+kind 30 by-decide 0 decide run
+kind 31 by-native-decide 0 native_decide run
+kind 32 by-delta 0 delta run
+kind 33 by-exacts[ 0 exacts run
+kind 34 by-exfalso 0 exfalso run
+kind 35 by-intros 0 intros run
+kind 36 by-left 0 left run
+kind 37 by-replace: 0 replace run
+kind 38 by-revert 0 revert run
+kind 39 by-right 0 right run
+kind 40 by-rwa[ 0 rwa run
+kind 41 by-specialize 0 specialize run
+kind 42 by-swap 0 swap run
+kind 43 by-symm 0 symm run
+kind 44 by-trivial 0 trivial run

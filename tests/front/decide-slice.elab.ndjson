@@ -1,4 +1,4 @@
-{"elab_data":{"export_sha256":"821328274b4cb2d89088671c84c98ca7b40ddb01b67033964a11eb4351189bcf","format":"leanforth-elab-data","format_version":"3.2","lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"binder_kinds":18,"class":66,"default_instance":11,"eliminator":4,"instance":98,"instance_left_out":1128,"matcher":128,"projection":117,"reducibility":360,"sunfold":33,"tag":77},"records_sha256":"6f35da0d17cefc9bd8a4b67bdc1f27d3b5c6381d678e54f30a631a9dc4d968ef"}}
+{"elab_data":{"export_sha256":"fe5c894ab01f90b70dd47211bae1be91923de2d82f059f101a43d7da0060cc26","format":"leanforth-elab-data","format_version":"3.2","lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"binder_kinds":18,"class":66,"default_instance":11,"eliminator":4,"instance":98,"instance_left_out":1128,"matcher":133,"projection":118,"reducibility":363,"sunfold":33,"tag":77},"records_sha256":"d3db693c5a442285bccfa5cd99ca5d33ebb6174ed0b87939c12d3d087cec6b12"}}
 {"class":{"name":["Add"],"out_level_params":[],"out_params":[]}}
 {"class":{"name":["Append"],"out_level_params":[],"out_params":[]}}
 {"class":{"name":["Applicative"],"out_level_params":[],"out_params":[]}}
@@ -1350,6 +1350,9 @@
 {"reducibility":{"name":["Char","ofNatAux"],"status":"implicit_reducible"}}
 {"reducibility":{"name":["Char","utf8Size"],"status":"implicit_reducible"}}
 {"reducibility":{"name":["Char","val"],"status":"reducible"}}
+{"reducibility":{"name":["Classical","indefiniteDescription","match_1"],"status":"instance_reducible"}}
+{"reducibility":{"name":["Classical","propDecidable","match_1"],"status":"instance_reducible"}}
+{"reducibility":{"name":["Classical","propDecidable"],"status":"instance_reducible"}}
 {"reducibility":{"name":["Decidable","byCases","match_1"],"status":"instance_reducible"}}
 {"reducibility":{"name":["Decidable","casesOn"],"status":"reducible"}}
 {"reducibility":{"name":["Decidable","decide"],"status":"implicit_reducible"}}
@@ -1752,8 +1755,10 @@
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0}],"discr_names":[null,null],"name":["Bool","Reflects","match_1"],"num_discrs":2,"num_params":0,"u_elim_pos":0}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0}],"discr_names":[null,null],"name":["_private","Init","Prelude",0,"Bool","ne_false_of_eq_true","match_1_1"],"num_discrs":2,"num_params":0,"u_elim_pos":null}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0}],"discr_names":[null,null],"name":["_private","Init","Prelude",0,"Bool","ne_true_of_eq_false","match_1_1"],"num_discrs":2,"num_params":0,"u_elim_pos":null}}
+{"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0}],"discr_names":[null],"name":["Classical","propDecidable","match_1"],"num_discrs":1,"num_params":1,"u_elim_pos":null}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0}],"discr_names":[null],"name":["Decidable","byCases","match_1"],"num_discrs":1,"num_params":1,"u_elim_pos":0}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0}],"discr_names":[null],"name":["Int","neg","match_1"],"num_discrs":1,"num_params":0,"u_elim_pos":0}}
+{"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0}],"discr_names":[null],"name":["_private","Init","Classical",0,"Classical","em","match_1_3"],"num_discrs":1,"num_params":3,"u_elim_pos":null}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0}],"discr_names":[null],"name":["_private","Init","Core",0,"decide_true","match_1_1"],"num_discrs":1,"num_params":0,"u_elim_pos":null}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0}],"discr_names":[null],"name":["_private","Init","Data","Nat","Basic",0,"Nat","not_le_of_gt","match_1_1"],"num_discrs":1,"num_params":2,"u_elim_pos":null}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0}],"discr_names":[null],"name":["_private","Init","Data","Nat","Basic",0,"Nat","zero_lt_sub_of_lt","match_1_1"],"num_discrs":1,"num_params":2,"u_elim_pos":null}}
@@ -1805,6 +1810,7 @@
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":1,"num_overlaps":0}],"discr_names":[null],"name":["_private","Init","Prelude",0,"Nonempty","elim","match_1_1"],"num_discrs":1,"num_params":1,"u_elim_pos":null}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0}],"discr_names":[null,null],"name":["Int","add","match_1"],"num_discrs":2,"num_params":0,"u_elim_pos":0}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0}],"discr_names":[null,null],"name":["instDecidableIff","match_1"],"num_discrs":2,"num_params":2,"u_elim_pos":null}}
+{"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0}],"discr_names":[null,null],"name":["_private","Init","Classical",0,"Classical","em","match_1_1"],"num_discrs":2,"num_params":3,"u_elim_pos":null}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0}],"discr_names":[null,null],"name":["instDecidableAnd","match_1"],"num_discrs":2,"num_params":2,"u_elim_pos":null}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0}],"discr_names":[null,null],"name":["instDecidableOr","match_3"],"num_discrs":2,"num_params":2,"u_elim_pos":null}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0},{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0}],"discr_names":[null,null],"name":["_private","Init","Prelude",0,"decide_eq_false","match_1_1"],"num_discrs":2,"num_params":1,"u_elim_pos":null}}
@@ -1821,7 +1827,9 @@
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0},{"has_unit_thunk":true,"num_fields":0,"num_overlaps":0}],"discr_names":[null],"name":["Lean","Data","AC","removeNeutrals","loop","match_3"],"num_discrs":1,"num_params":0,"u_elim_pos":0}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0}],"discr_names":[null,null],"name":["ByteArray","push","match_1"],"num_discrs":2,"num_params":0,"u_elim_pos":0}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0}],"discr_names":[null,null],"name":["Nat","div","go","match_1"],"num_discrs":2,"num_params":1,"u_elim_pos":0}}
+{"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0}],"discr_names":[null],"name":["Classical","indefiniteDescription","match_1"],"num_discrs":1,"num_params":2,"u_elim_pos":null}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0}],"discr_names":[null],"name":["Lean","Grind","Ring","OfSemiring","sub","match_1"],"num_discrs":1,"num_params":1,"u_elim_pos":1}}
+{"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0}],"discr_names":[null],"name":["_private","Init","Core",0,"And","symm","match_1_1"],"num_discrs":1,"num_params":2,"u_elim_pos":null}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0}],"discr_names":[null],"name":["_private","Init","Core",0,"Lean","injEq_helper","match_1_1"],"num_discrs":1,"num_params":2,"u_elim_pos":null}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0}],"discr_names":[null],"name":["_private","Init","Data","List","Basic",0,"List","instLawfulBEq","match_1"],"num_discrs":1,"num_params":6,"u_elim_pos":null}}
 {"matcher":{"alt_infos":[{"has_unit_thunk":false,"num_fields":2,"num_overlaps":0}],"discr_names":[null],"name":["_private","Init","Data","Nat","Basic",0,"Nat","add_le_add_left","match_1_1"],"num_discrs":1,"num_params":2,"u_elim_pos":null}}
@@ -1979,6 +1987,7 @@
 {"projection":{"ctor":["Sub","mk"],"from_class":true,"idx":0,"name":["Sub","sub"],"num_params":1}}
 {"projection":{"ctor":["Subsingleton","intro"],"from_class":true,"idx":0,"name":["Subsingleton","allEq"],"num_params":1}}
 {"projection":{"ctor":["Subtype","mk"],"from_class":false,"idx":0,"name":["Subtype","val"],"num_params":2}}
+{"projection":{"ctor":["Subtype","mk"],"from_class":false,"idx":1,"name":["Subtype","property"],"num_params":2}}
 {"projection":{"ctor":["ToString","mk"],"from_class":true,"idx":0,"name":["ToString","toString"],"num_params":1}}
 {"projection":{"ctor":["Trans","mk"],"from_class":true,"idx":0,"name":["Trans","trans"],"num_params":6}}
 {"projection":{"ctor":["UInt32","ofBitVec"],"from_class":false,"idx":0,"name":["UInt32","toBitVec"],"num_params":0}}

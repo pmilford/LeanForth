@@ -1,0 +1,13 @@
+\ Not supported yet (plan row TB2, tactic batch 2b): by_cases h : a with
+\ a : Nat, no proposition (Lean: an application type mismatch): 99.
+\ Lean: theorem x_bc_type (a b : Nat) (h1 : a ≤ b) : a ≤ b := by
+\         by_cases h : a
+theorem x_bc_type
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1
+  a b ≤
+:= by
+  a by-cases: h
+  ' h1 by-exact
+  ' h1 by-exact
+end x_bc_type

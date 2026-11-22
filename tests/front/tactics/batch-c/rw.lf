@@ -1,0 +1,50 @@
+\ Right-to-left rules, ' r <- inside by-rw[ ] and by-rewrite[ ] (plan row
+\ TB2, tactic batch 2b; tests/front/tactics/batch-c/batch-c.lean): Lean's
+\ rw [← r], the rule's proof made Eq.symm r.
+\ Lean: theorem rs_hyp (a b : Nat) (h : a = b) : b + 0 = a := by
+\         rw [Nat.add_zero, ← h]
+theorem rs_hyp
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b 0 + a =
+:= by
+  by-rw[ ' Nat.add_zero ' h <- ]
+end rs_hyp
+
+\ A lemma applied, right to left: a = a + 0 rewrites a to a + 0.
+\ Lean: theorem rs_lemma (a b : Nat) (h : a + 0 = b) : a = b := by
+\         rw [← Nat.add_zero a]
+\         exact h
+theorem rs_lemma
+  Nat explicit: a  Nat explicit: b
+  a 0 + b = explicit: h
+  a b =
+:= by
+  by-rw[ ' Nat.add_zero a $ <- ]
+  ' h by-exact
+end rs_lemma
+
+\ Two rules, the second right to left.
+\ Lean: theorem rs_two (a b c : Nat) (h1 : a = b) (h2 : c = b) : a = c := by
+\         rw [h1, ← h2]
+theorem rs_two
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h1  c b = explicit: h2
+  a c =
+:= by
+  by-rw[ ' h1 ' h2 <- ]
+end rs_two
+
+\ by-rewrite[ (no rfl after it), right to left first, then left to right.
+\ Lean: theorem rs_rewrite (a b c : Nat) (h : a = b) (h2 : c = a) (h3 : c ≤ c) :
+\           a ≤ b := by
+\         rewrite [← h, ← h2]
+\         exact h3
+theorem rs_rewrite
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  c a = explicit: h2  c c ≤ explicit: h3
+  a b ≤
+:= by
+  by-rewrite[ ' h <- ' h2 <- ]
+  ' h3 by-exact
+end rs_rewrite

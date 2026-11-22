@@ -1,0 +1,14 @@
+\ A wrong twin (plan row TB2, tactic batch 2b; batch-c-wrong.lean):
+\ exacts [h2, h1], the terms in the wrong order: exact's 96.
+\ Lean: theorem w_ex_type (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) :
+\           a ≤ b ∧ b ≤ a := by
+\         apply And.intro
+\         exacts [h2, h1]
+theorem w_ex_type
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1  b a ≤ explicit: h2
+  a b ≤ b a ≤ ∧
+:= by
+  ' And.intro by-apply
+  by-exacts[ ' h2 ' h1 ]
+end w_ex_type

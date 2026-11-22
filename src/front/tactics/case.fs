@@ -14,6 +14,9 @@
 \   editor's character diff, Meta/Hint.lean's readableDiff over
 \   Util/Diff.lean's histogram LCS, whose ties follow a hash map's order):
 \   not printed (plan 8.6).
+\ - The tag _ (Lean's case _, and by-next: Lean's next, Init/Tactics.lean:
+\   348, the macro case _ NAMES => tac): getMainGoal, the first unsolved
+\   goal (none: error 90, Lean's "no goals to be solved").
 \ - Its hypotheses renamed by the names given (meta-tactic/rename.fs's
 \   lf-goal-rename-inaccessibles: error 211).
 \ - The goal's tag made anonymous (setTag), the goal list that goal alone,
@@ -47,8 +50,10 @@ end-structure
 : tcs-first ( xt -- k true | false ) tc tcs-goals @ run-count ['] tcs-hit? find-index ;
 : tcs-exact-or-suffix ( -- k true | false )
   ['] lf-name-same? tcs-first ?dup if exit then ['] lf-name-suffix-of? tcs-first ;
-: tcs-find ( -- k true | false )
+: tcs-tagged ( -- k true | false )
   tcs-exact-or-suffix ?dup if exit then ['] lf-name-prefix-of? tcs-first ;
+\ The tag _ (0; by-next's): getMainGoal, the first unsolved goal (none: 90).
+: tcs-find ( -- k true | false ) tcs-tag if tcs-tagged else lf-tac-main drop 0 true then ;
 
 \ ---- notFound: the message and its note or hint.
 \ (tcs-named? reads k alone: under find-index and count-index, x stays

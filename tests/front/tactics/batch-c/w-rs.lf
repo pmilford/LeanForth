@@ -1,0 +1,11 @@
+\ A wrong twin (plan row TB2, tactic batch 2b; batch-c-wrong.lean):
+\ rw [← h] with h : a = b looks for b, which a + 0 = a lacks: 215.
+\ Lean: theorem w_rs (a b : Nat) (h : a = b) : a + 0 = a := by
+\         rw [← h]
+theorem w_rs
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a 0 + a =
+:= by
+  by-rw[ ' h <- ]
+end w_rs

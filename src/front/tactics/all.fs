@@ -3,8 +3,11 @@
 \ list unless it is sorted, has no repeat and names every tactic file).
 \ src/main.fs loads it; a tactic registers itself as it loads.
 require ./absurd.fs
+require ./and-intros.fs
 require ./apply.fs
 require ./assumption.fs
+require ./by-cases.fs
+require ./by-contra.fs
 require ./case.fs
 require ./change.fs
 require ./clear.fs
@@ -13,6 +16,7 @@ require ./contradiction.fs
 require ./decide.fs
 require ./delta.fs
 require ./exact.fs
+require ./exacts.fs
 require ./exfalso.fs
 require ./have.fs
 require ./induction.fs
@@ -24,6 +28,8 @@ require ./revert.fs
 require ./rewrite.fs
 require ./rfl.fs
 require ./right.fs
+require ./rwa.fs
 require ./specialize.fs
 require ./swap.fs
+require ./symm.fs
 require ./trivial.fs

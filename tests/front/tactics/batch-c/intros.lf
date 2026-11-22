@@ -1,0 +1,93 @@
+\ by-and-intros and by-next (plan row TB2, tactic batch 2b; batch-c.lean):
+\ Lean's and_intros (repeat' refine And.intro ?_ ?_, over every goal) and
+\ next (case _).
+\ Lean: theorem ai_two (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) :
+\           a ≤ b ∧ b ≤ a := by
+\         and_intros
+\         exact h1
+\         exact h2
+theorem ai_two
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1  b a ≤ explicit: h2
+  a b ≤ b a ≤ ∧
+:= by
+  by-and-intros
+  ' h1 by-exact
+  ' h2 by-exact
+end ai_two
+
+\ Nested, depth first: the goals refine_1, refine_2.refine_1,
+\ refine_2.refine_2.
+\ Lean: theorem ai_nested (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) (h3 : a ≤ a) :
+\           a ≤ b ∧ b ≤ a ∧ a ≤ a := by
+\         and_intros
+\         exact h1
+\         exact h2
+\         exact h3
+theorem ai_nested
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1  b a ≤ explicit: h2  a a ≤ explicit: h3
+  a b ≤ b a ≤ a a ≤ ∧ ∧
+:= by
+  by-and-intros
+  ' h1 by-exact
+  ' h2 by-exact
+  ' h3 by-exact
+end ai_nested
+
+\ Every goal, each in turn: left split, right not an And, kept.
+\ Lean: theorem ai_all (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) :
+\           (a ≤ b ∧ b ≤ a) ∧ a ≤ b := by
+\         apply And.intro
+\         and_intros
+\         exact h1
+\         exact h2
+\         exact h1
+theorem ai_all
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1  b a ≤ explicit: h2
+  a b ≤ b a ≤ ∧ a b ≤ ∧
+:= by
+  ' And.intro by-apply
+  by-and-intros
+  ' h1 by-exact
+  ' h2 by-exact
+  ' h1 by-exact
+end ai_all
+
+\ next: the main goal, by by-next and by by-case: _.
+\ Lean: theorem nx_basic (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) :
+\           a ≤ b ∧ b ≤ a := by
+\         apply And.intro
+\         next => exact h1
+\         case _ => exact h2
+theorem nx_basic
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1  b a ≤ explicit: h2
+  a b ≤ b a ≤ ∧
+:= by
+  ' And.intro by-apply
+  by-next =>
+    ' h1 by-exact
+  by-end
+  by-case: _ =>
+    ' h2 by-exact
+  by-end
+end nx_basic
+
+\ next k names the newest inaccessible hypothesis k.
+\ Lean: theorem nx_name (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         revert h
+\         intro _
+\         next k => exact k
+theorem nx_name
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  ' h by-revert
+  by-intro: _
+  by-next k =>
+    ' k by-exact
+  by-end
+end nx_name

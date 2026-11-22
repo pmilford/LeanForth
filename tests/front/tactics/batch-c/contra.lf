@@ -1,0 +1,64 @@
+\ by-contra: h, by-contra and by-contra-core (plan row TB2, tactic batch
+\ 2b; batch-c.lean, which copies Batteries' macros by_contra_core,
+\ by_contra and absurd): Batteries' by_contra.
+\ A negation ¬(a ≤ b): k : a ≤ b, the goal False (the change alternative).
+\ Lean: theorem bk_not (a b : Nat) (h : ¬a ≤ b) : ¬a ≤ b := by
+\         by_contra k
+\         absurd k
+\         assumption
+theorem bk_not
+  Nat explicit: a  Nat explicit: b
+  a b ≤ ¬ explicit: h
+  a b ≤ ¬
+:= by
+  by-contra: k
+  ' k by-absurd
+  by-assumption
+end bk_not
+
+\ A decidable goal: Decidable.byContradiction, k : ¬(a ≤ b).
+\ Lean: theorem bk_dec (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         by_contra k
+\         absurd k
+\         exact h
+theorem bk_dec
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  by-contra: k
+  ' k by-absurd
+  ' h by-exact
+end bk_dec
+
+\ A proposition with no instance, Nonempty Nat: Classical.byContradiction
+\ (the axiom Classical.choice); no name: this.
+\ Lean: theorem bk_classical (h : Nonempty Nat) : Nonempty Nat := by
+\         by_contra
+\         absurd this
+\         exact h
+theorem bk_classical
+  Nat Nonempty explicit: h
+  Nat Nonempty
+:= by
+  by-contra
+  ' this by-absurd
+  ' h by-exact
+end bk_classical
+
+\ a ≠ b is ¬(a = b) at reducible transparency: the change alternative.
+\ Lean: theorem bk_ne (a b : Nat) (h : a ≠ b) : a ≠ b := by
+\         by_contra_core
+\         intro k
+\         absurd k
+\         assumption
+theorem bk_ne
+  Nat explicit: a  Nat explicit: b
+  a b ≠ explicit: h
+  a b ≠
+:= by
+  by-contra-core
+  by-intro: k
+  ' k by-absurd
+  by-assumption
+end bk_ne

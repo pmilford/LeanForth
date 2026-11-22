@@ -657,17 +657,19 @@ lf-tac-forget
 \ Lean's text: no occurrence 215, a motive not type correct 216 (pa : P
 \ b in @Eq (a = b) h h), a dependent one 217 (the term Eq.refl a, whose
 \ type holds a), no equality 218 (a value, a proof), a pattern that is a
-\ metavariable 219; not supported yet, 99: an Iff, symm, an instance
-\ binder; an assigned goal invalid. Every frame and the current view put
+\ metavariable 219; symm (right to left, Lean's ←), its 215 and 219; not
+\ supported yet, 99: an Iff either way, an instance binder; an assigned
+\ goal invalid. Every frame and the current view put
 \ back. A rewrite inside an open frame of its own slab (a nested call)
 \ leaves the outer frame's fields as they were, also when it fails.
 lf-author-begin
 nat s" a" binder constant fa   nat s" b" binder constant fb
 fa fb lf-mk-eq s" h" binder constant fhab
-\ (the rules of the failing cases below: t : True, hm : ?m = b,
-\ hi : True <-> True, hx : [x : Nat] -> a = b)
+\ (the rules of the failing cases below: t : True, hm : ?m = b, hn : b =
+\ ?m, hi : True <-> True, hx : [x : Nat] -> a = b)
 s" True" lf-mk-const0 s" t" binder constant ft
 nat mv-natural lf-mvar-new made fb lf-mk-eq s" hm" binder constant fhm
+fb nat mv-natural lf-mvar-new made lf-mk-eq s" hn" binder constant fhn
 s" Iff" lf-mk-const0 s" True" lf-mk-const0 lf-mk-app s" True" lf-mk-const0 lf-mk-app
   s" hi" binder constant fhi
 nat fa fb lf-mk-eq s" x" lf-binder-instance pi-named s" hx" binder constant fhx
@@ -734,10 +736,27 @@ lf-tac-forget
 T{ g-aa fhm rw-of lf-author-code rw-put-back? -> lf-author-throw 219 true }T
 T{ s" in this equality" detail-has? -> true }T
 lf-tac-forget
-\ 99: an Iff (True <-> True), symm, an instance binder ([x : Nat] -> a = b).
+\ 99: an Iff (True <-> True), either way, an instance binder ([x : Nat]
+\ -> a = b).
 T{ g-aa fhi rw-of lf-author-code rw-put-back? -> lf-author-throw 99 true }T
 lf-tac-forget
-T{ g-aa aa fhab true rw-code lf-author-code rw-put-back? -> lf-author-throw 99 true }T
+T{ g-aa aa fhi true rw-code lf-author-code rw-put-back? -> lf-author-throw 99 true }T
+lf-tac-forget
+\ symm (Lean's ←): b = b by h : a = b right to left is a = a, the proof
+\ congrArg's of (b = b) = (a = a) with Eq.symm h last (heq, its sides
+\ swapped); a = a has no b: 215 with the pattern b; hn : b = ?m right to
+\ left has the pattern ?m: 219, its equation as swapped, ?m = b.
+fb fb lf-mk-eq goal-of constant g-bb
+: rw-bb ( -- new proof ) g-bb dup lf-goal-type fhab true lf-goal-rewrite drop ;
+: bb-aa? ( new -- flag ) aa lf-meta-eqv made ;
+: bb-typed? ( proof -- flag ) lf-infer! fb fb lf-mk-eq aa lf-mk-eq lf-meta-eqv made ;
+: bb-symm? ( proof -- flag ) lf-term-second@ 4 s" Eq.symm" lf-meta-app-of? ;
+T{ rw-bb dup bb-typed? swap bb-symm? rot bb-aa? rw-put-back? -> true true true true }T
+T{ g-aa aa fhab true rw-code lf-author-code rw-put-back? -> lf-author-throw 215 true }T
+T{ s\" b\nin the target expression\n  a = a" detail-has? -> true }T
+lf-tac-forget
+T{ g-aa aa fhn true rw-code lf-author-code rw-put-back? -> lf-author-throw 219 true }T
+T{ s" = b" detail-has? s" in this equality" detail-has? -> true true }T
 lf-tac-forget
 T{ g-aa fhx rw-of lf-author-code rw-put-back? -> lf-author-throw 99 true }T
 lf-tac-forget

@@ -18,6 +18,16 @@
 \         ' run-word tac-k-assumption lf-tactic-action!
 \       A tactic that Lean writes as another one run first (replace runs
 \       have) runs that row on its own step: lf-tac-eval ( i kind -- ).
+\   lf-tactic-seq: ( kind1 .. kindn n shape "spelling" -- kind )  a
+\       tactic Lean writes as a macro of other tactics run one after the
+\       other (t1; t2): a new tactic word as lf-tactic: makes it, whose run
+\       word runs kind1's row, then kind2's, .. kindn's, each on the new
+\       step (lf-tac-eval), so each reads the step's own arguments (n at
+\       least 1, each kind a row already, else the load aborts). Usage
+\       (tactics/by-contra.fs, Batteries' by_contra h, the macro
+\       by_contra_core; rintro h):
+\         tac-k-by-contra-core tac-k-intro 2 tac-shape-name
+\           lf-tactic-seq: by-contra: constant tac-k-by-contra
 \ The rest of the interface is the words of the files below: the
 \ general library (lib/lib.fs, and lib/find.fs's find-index,
 \ find-last-index and count-index), the row
@@ -44,7 +54,8 @@
 \ is the guide.
 \ Untrusted: a tactic only builds a term for the kernel to check.
 \ State: none of its own (the rows, the words and the reserved list it
-\ adds to are set while the modules load and read-only afterwards).
+\ adds to, and a macro's kinds in the dictionary, are set while the
+\ modules load and read-only afterwards).
 
 require ../lib/lib.fs
 require ../lib/find.fs
@@ -92,3 +103,17 @@ require ./tactic-alts.fs
 : lf-tactic: ( shape "spelling" -- kind )
   >in @ parse-name tap-row rot over lf-tactic-shape! >r
   tap-again ['] lfa-w-tactic lfa-word >in ! ['] tap-read lfa-natural! r> ;
+
+\ ---- Macros: rows run in order on one step. The kinds are kept in the
+\ dictionary, n then kindn first, and the run word made for them is a
+\ nameless word that hands their address to tap-seq-run.
+: tap-seq-kind ( kind -- kind )
+  dup lf-tactic-row? 0= abort" lf-tactic-seq: not a tactic kind" ;
+: tap-seq-kinds ( kind1..kindn n -- addr )
+  dup 0> 0= abort" lf-tactic-seq: no tactic"
+  align here over , swap 0 ?do swap tap-seq-kind , loop ;
+: tap-nth ( addr j -- kind ) over @ swap - cells + @ ;   \ the j-th to run, from 0
+: tap-seq-run ( i addr -- ) dup @ 0 ?do 2dup i tap-nth lf-tac-eval loop 2drop ;
+: tap-seq-xt ( addr -- xt ) >r :noname r> postpone literal postpone tap-seq-run postpone ; ;
+: lf-tactic-seq: ( kind1..kindn n shape "spelling" -- kind )
+  >r tap-seq-kinds tap-seq-xt r> lf-tactic: tuck lf-tactic-action! ;

@@ -10,10 +10,13 @@
 \   by-rw[ r1 .. rn ], by-rewrite[ r1 .. rn ]   the values built between
 \     the brackets are the rules, in order (none is allowed, as in Lean);
 \     every value is a rule: a hypothesis there takes no values, and one
-\     applied is written with $ (ih k $ is Lean's rw [ih k]);
+\     applied is written with $ (ih k $ is Lean's rw [ih k]); <- right
+\     after a rule makes it right to left (Lean's rw [← h]: ' h <-);
 \   | TAG NAMES... =>   an alternative of the by-induction-with block it is
 \     right inside, up to the next | or the block's by-end;
-\   by-case: TAG NAMES... =>   a case block, up to its by-end;
+\   by-case: TAG NAMES... =>   a case block, up to its by-end (TAG _ the
+\     main goal, Lean's case _); by-next NAMES... => the same with the tag
+\     _ (Lean's next, a macro of case _: its step is a by-case: step);
 \   by-end   closes the innermost by-induction-with or by-case: block;
 \   =>   ends a header; anywhere else it is an error.
 \ The shape, each failure an error at the word's line and column (codes
@@ -26,7 +29,11 @@
 \ hypothesis takes is known only once its tactic runs, so ih k by-exact
 \ is 86, k ih by-exact 87); a header's tokens on its line, its tag and
 \ names names and no words (84), the tag not _ or @TAG and no second tag
-\ (72: Lean's wildcard, @ and | a | b forms, plan FE5); an alternative or
+\ (72: Lean's wildcard alternative, @ and | a | b forms, plan FE5;
+\ by-case:'s tag may be _, Lean's case _); <- only right after a rule
+\ inside a bracket of rules (83
+\ outside one, 86 with no rule before it, as Lean's parser wants a term
+\ after ←); an alternative or
 \ case block holds a tactic (85, at the word that ends it, and its => as
 \ the second place, where Lean's parser reports it); by-end, ] and | only
 \ where their block is open (83); end NAME with every block closed (82,
@@ -55,8 +62,9 @@
 \ form, FE1g-7, carries it); tac-shape, the shape its word was read by
 \ (below; 0 for by, a header and by-induction-with).
 \ Argument fields: targ-x, the syntax node of a term (by-exact's,
-\ by-induction's, a rule) or the name ID of a hypothesis (0 for _), and
-\ targ-at, its position. Positions are author/source.fs's. The parent
+\ by-induction's, a rule) or the name ID of a hypothesis (0 for _),
+\ targ-at, its position, and targ-symm, true for a rule written right to
+\ left (<-, Lean's ←). Positions are author/source.fs's. The parent
 \ links are the stack of open blocks, so nesting is limited only by the
 \ heap. Only positions are kept, not the text: reading a block again
 \ (FE5's combinators) is the runner's to arrange (plan FE1g-3).
@@ -67,7 +75,9 @@
 \ becomes reachable from the text.
 \ Words: lf-tactic-proof? ( -- flag ), lf-tactic-count ( -- n ),
 \ lf-tactic-step ( i -- addr ) (unchecked, valid until the next step),
-\ lf-tactic-arg ( j -- x pos ) (unchecked), the kinds and fields above;
+\ lf-tactic-arg ( j -- x pos ) (unchecked), lf-tactic-arg-symm? ( j --
+\ flag ) (unchecked: argument j a rule written right to left), the kinds
+\ and fields above;
 \ lf-tactic-proof-end ( -- ), deferred: what end NAME does with a proof
 \ read whole, its by block closed (the runner's, tactic-run.fs).
 \ State: one context record, tac-read (the innermost open block, where
@@ -111,6 +121,7 @@ end-structure
 begin-structure /targ
   field: targ-x
   field: targ-at
+  field: targ-symm      \ a rule written right to left (<-)
 end-structure
 \ Forth's interpreter runs the text a word at a time and the data stack
 \ holds the author's values, so what one word leaves for the next lives
@@ -165,6 +176,7 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 : lf-tactic-count ( -- n ) tac-steps store-count @ ;
 : lf-tactic-step ( i -- addr ) lft-rec ;
 : lf-tactic-arg ( j -- x pos ) tac-args store-slot dup targ-x @ swap targ-at @ ;
+: lf-tactic-arg-symm? ( j -- flag ) tac-args store-slot targ-symm @ ;
 \ A new step of kind at the current token, in the open block, its text
 \ from where the step before ended, its arguments to come.
 : lft-blank ( addr -- addr ) dup /tac erase -1 over tac-to ! -1 over tac-arrow ! ;
@@ -172,17 +184,19 @@ action-of lfa-declaration-fresh constant lft-fresh-before
   lfa-here over tac-at ! lft-read-from over tac-from ! lft-open over tac-parent ! ;
 : lft-new ( kind -- i )
   tac-steps lft-claim >r lft-blank lft-where targ# over tac-first ! tac-kind ! r> ;
-: lft-arg+ ( i x pos -- i )
-  tac-args lft-claim drop tuck targ-at ! targ-x ! 1 over lft-rec tac-count +! ;
+\ A new argument record, its fields 0 (a rule left to right).
+: lft-arg-new ( -- addr ) tac-args lft-claim drop dup /targ erase ;
+: lft-arg+ ( i x pos -- i ) lft-arg-new tuck targ-at ! targ-x ! 1 over lft-rec tac-count +! ;
 
 \ Term arguments: the values v1 .. vn, as syntax nodes, are step i's next
-\ n arguments, in order (the last value is on top).
+\ n arguments, in order (the last value is on top), after those it has.
 : lft-blanks ( i n -- i ) 0 ?do 0 0 lft-arg+ loop ;
 : lft-term! ( v j -- )
   swap lfn>syntax dup syn-at@ rot tac-args store-slot tuck targ-at ! targ-x ! ;
 : lft-fill ( v1 .. vn first n -- )
   ?dup if over + 1- do i lft-term! -1 +loop else drop then ;
-: lft-terms ( v1 .. vn i n -- ) tuck lft-blanks lft-rec tac-first @ swap lft-fill ;
+: lft-arg-next ( i -- j ) lft-rec dup tac-first @ swap tac-count @ + ;
+: lft-terms ( v1 .. vn i n -- ) over lft-arg-next >r tuck lft-blanks drop r> swap lft-fill ;
 
 \ The open block.
 : lft-kind ( -- kind ) lft-open lft-rec tac-kind @ ;
@@ -230,7 +244,10 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 \   tac-shape-term-this ( n -- shape )  n values, and the hypothesis
 \       this (Lean's name when none is given: have := e);
 \   tac-shape-rules  by-x[ ... ]: no value; the word opens a bracket whose
-\       values up to ] are its rules, in order (by-rw['s).
+\       values up to ] are its rules, in order (by-rw['s), each one left to
+\       right or, followed by <-, right to left;
+\   tac-shape-list  by-x[ ... ]: the same, its values terms (no <-:
+\       Lean's exacts [e1, e2]).
 \ Arguments, in order: the values, then the names. Several names to the
 \ end of the line are not a shape yet: a one-line text writes the next
 \ tactic's values there (by-intro: h h by-exact).
@@ -259,8 +276,11 @@ end-structure
 \ T e word: name, have's and let's.
 2 1 tac-shape-term-names constant tac-shape-decl
 0 0 ' lft-build-rules lft-shape constant tac-shape-rules
-\ Whether the open block is a word's rules.
-: lft-bracket? ( -- flag ) lft-open lft-shape@ tac-shape-rules = ;
+0 0 ' lft-build-rules lft-shape constant tac-shape-list
+\ Whether the open block is a word's bracket, and one of rules.
+: lft-bracket-shape? ( shape -- flag ) dup tac-shape-rules = swap tac-shape-list = or ;
+: lft-bracket? ( -- flag ) lft-open lft-shape@ lft-bracket-shape? ;
+: lft-rules? ( -- flag ) lft-open lft-shape@ tac-shape-rules = ;
 
 \ Before a tactic word: in a tactic proof, outside by-rw[ ] (the error
 \ names the word, and by-rw[ as the second place), no binder open.
@@ -299,12 +319,20 @@ end-structure
 : lft-w-rewrite ( -- ) tac-k-rewrite tac-shape-rules lft-read-as ;
 : lft-term-step ( t kind -- i ) lft-tactic-new tuck 1 lft-terms ;
 : lft-w-with ( t -- ) 1 lft-tactic tac-k-with lft-term-step lft-opened ;
-\ ] : the rules are the values built since the bracket's word (by-rw[).
+\ ] : the rules are the values built since the bracket's word (by-rw[),
+\ after those a <- took.
 : lft-in-bracket ( -- )
   lft-in-proof lft-bracket? lfa-e-tac-closer lfa-must lfa-same-binders ;
 : lft-rules ( v1 .. vn -- ) lfa-above lft-open swap lft-terms ;
 : lft-w-bracket-end ( v1 .. vn -- )
   lft-in-bracket lft-rules lft-past lft-close lft-from! ;
+\ <- : the values so far the bracket's rules, the last one right to left
+\ (Lean's ←, rwRule's symm flag): in a bracket of rules (83), after a
+\ rule (86).
+: lft-symm! ( -- ) true lft-open lft-arg-next 1- tac-args store-slot targ-symm ! ;
+: lft-in-rules ( -- ) lft-in-bracket lft-rules? lfa-e-tac-closer lfa-must ;
+: lft-w-symm ( v1 .. vn -- )
+  lft-in-rules lfa-above 0> lfa-e-tac-values lfa-must lft-rules lft-symm! ;
 
 \ Headers: TAG NAMES... => on the opener's line. A line that ends first
 \ stops the run at the last token read (=> is missing).
@@ -324,8 +352,12 @@ end-structure
   begin lft-header-token 2dup lft-arrow? 0= while lft-name repeat 2drop ;
 : lft-entries! ( i -- i ) lfa-entry# over lft-rec tac-entries ! ;
 : lft-tag! ( i -- i ) lft-header-token lft-tag over lft-rec tac-name ! ;
+\ by-case:'s tag may be _ (Lean's case _: the main goal), kept as 0.
+: lft-case-tag ( c-addr u -- name ) 2dup lft-hole? if 2drop 0 else lft-tag then ;
+: lft-case-tag! ( i -- i ) lft-header-token lft-case-tag over lft-rec tac-name ! ;
 : lft-arrow! ( i -- i ) lfa-here over lft-rec tac-arrow ! ;
-: lft-header ( kind -- ) lft-new lft-entries! lft-tag! lft-names lft-arrow! lft-opened ;
+: lft-headed ( i -- ) lft-names lft-arrow! lft-opened ;
+: lft-header ( kind -- ) lft-new lft-entries! lft-tag! lft-headed ;
 
 \ A block of names ends at pos: it held a tactic, and its names go. An
 \ empty one stops the run at the word that ends it, with its => as the
@@ -338,7 +370,11 @@ end-structure
 : lft-alt-end ( -- ) lft-kind tac-k-alt = if lft-read-from lft-names-end then ;
 : lft-in-with ( -- ) lft-kind tac-k-with = lfa-e-tac-closer lfa-must ;
 : lft-w-bar ( -- ) lft-ready 0 lft-takes lft-alt-end lft-in-with tac-k-alt lft-header ;
-: lft-w-case ( -- ) 0 lft-tactic lft-inner+ tac-k-case lft-header ;
+: lft-case-new ( -- i ) 0 lft-tactic lft-inner+ tac-k-case lft-new lft-entries! ;
+: lft-w-case ( -- ) lft-case-new lft-case-tag! lft-headed ;
+\ by-next NAMES... => : Lean's next, the macro case _ NAMES => (Init/
+\ Tactics.lean:348), a by-case: step whose tag is _ (0).
+: lft-w-next ( -- ) lft-case-new lft-headed ;
 : lft-block-end ( kind -- )
   case tac-k-with of lft-past lft-close endof tac-k-case of lft-past lft-names-end endof
     lfa-e-tac-closer lfa-fail endcase ;
@@ -396,9 +432,11 @@ defer lf-tactic-proof-end ( -- )
 ' lft-w-induction lfa-natural! by-induction
 ' lft-w-with lfa-natural! by-induction-with
 ' lft-w-case lfa-natural! by-case:
+' lft-w-next lfa-natural! by-next
 ' lft-w-bar lfa-natural! |
 ' lft-w-arrow lfa-natural! =>
 ' lft-w-by-end lfa-natural! by-end
 ' lft-w-rw lfa-natural! by-rw[
 ' lft-w-rewrite lfa-natural! by-rewrite[
 ' lft-w-bracket-end lfa-natural! ]
+' lft-w-symm lfa-natural! <-

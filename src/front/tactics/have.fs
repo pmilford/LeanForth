@@ -108,8 +108,7 @@ s" have" tac-k-have-goal lf-tactic-lean!
   2>r dup 2r@ thg-proof tuck 2r> rot lf-goal-assert ;
 : thg-intro ( goal' name -- goal2 )
   tb tb-name ! tb tb-name 0 1 tb tb-x lf-goal-intro-n ;
-: thg-goals ( p goal2 -- goals ) swap lf-goals1 swap run-push lf-tac-must ;
 : thg-tac ( i goal -- goals )
-  1 thv-named over >r thg-type thg-assert r> thg-intro thg-goals ;
+  1 thv-named over >r thg-type thg-assert r> thg-intro lf-goals2 ;
 : thg-run ( i -- ) dup ['] thg-tac lf-lift-meta-tactic ;
 ' thg-run tac-k-have-goal lf-tactic-action!

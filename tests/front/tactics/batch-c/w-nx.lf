@@ -1,0 +1,16 @@
+\ A wrong twin (plan row TB2, tactic batch 2b; batch-c-wrong.lean): next
+\ takes the main goal, a ≤ b, which h2 : b ≤ a does not prove: 96.
+\ Lean: theorem w_nx (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) :
+\           a ≤ b ∧ b ≤ a := by
+\         apply And.intro
+\         next => exact h2
+theorem w_nx
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1  b a ≤ explicit: h2
+  a b ≤ b a ≤ ∧
+:= by
+  ' And.intro by-apply
+  by-next =>
+    ' h2 by-exact
+  by-end
+end w_nx

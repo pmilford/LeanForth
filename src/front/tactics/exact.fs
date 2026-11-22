@@ -8,6 +8,8 @@
 \ (meta-tactic/goal.fs).
 \ Lean call list: closeMainGoalUsing -> lf-close-main-goal-using;
 \ elabTermEnsuringType -> lf-tac-elab-ensuring; the term -> lf-tac-arg.
+\ tex-exact ( i k -- ) is exact of step i's argument k, for a tactic Lean
+\ writes over exact (by-exacts[, tactics/exacts.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own. Its kind is the runner's tac-k-exact (a fixed
 \ kind, scripts/check-tactic-plugins.py's ownership table).
@@ -15,5 +17,7 @@
 require ../tactic-api.fs
 
 : tex-term ( node type tag -- e ) drop lf-tac-elab-ensuring ;
-: tex-run ( i -- ) dup 0 lf-tac-arg swap ['] tex-term lf-close-main-goal-using ;
+\ exact of step i's term k (by-exacts[ runs it for each of its terms).
+: tex-exact ( i k -- ) over swap lf-tac-arg swap ['] tex-term lf-close-main-goal-using ;
+: tex-run ( i -- ) 0 tex-exact ;
 ' tex-run tac-k-exact lf-tactic-action!

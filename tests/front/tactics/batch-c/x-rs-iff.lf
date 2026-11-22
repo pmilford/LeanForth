@@ -1,0 +1,14 @@
+\ Not supported yet (plan row TB2, tactic batch 2b): rw [← h] with h an
+\ Iff, which Lean turns into an equation by propext (not ported): 99,
+\ never accepted.
+\ Lean: theorem x_rs_iff (a b : Nat) (h : a ≤ b ↔ b ≤ a) (h2 : a ≤ b) : b ≤ a := by
+\         rw [← h]
+\         exact h2
+theorem x_rs_iff
+  Nat explicit: a  Nat explicit: b
+  a b ≤ b a ≤ ↔ explicit: h  a b ≤ explicit: h2
+  b a ≤
+:= by
+  by-rw[ ' h <- ]
+  ' h2 by-exact
+end x_rs_iff

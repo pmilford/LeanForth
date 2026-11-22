@@ -82,3 +82,10 @@ Ne
 Lean.Omega.IntList.instHMulInt
 Vector.instHMul
 of_decide_eq_false
+Classical.propDecidable
+Ne.symm
+HEq.symm
+And.symm
+Or.symm
+Decidable.byContradiction
+Classical.byContradiction

@@ -10,7 +10,10 @@
 \       left; a binder of no known kind unsupported); an Eq (matchEq?,
 \       app-builder.fs's lf-match-eq?: whnf when it is none), else error
 \       218 with Lean's text (heq, whether it is a proof or a value, its
-\       type); a pattern lhs headed by a metavariable 219; e instantiated
+\       type); with symm? true (Lean's ←) heq made Eq.symm.{u} α lhs rhs
+\       heq (app-builder.fs's lf-mk-eq-symm, mkEqSymm), its type rhs = lhs
+\       (lf-mk-eq) and the sides swapped, α kept; a pattern lhs headed by
+\       a metavariable 219 (its equation as swapped); e instantiated
 \       and lhs abstracted (kabstract.fs's kabstract at reducible
 \       transparency, in the elaborator's flags): no occurrence 215 with
 \       the pattern, the target and the goal; new the abstracted e with
@@ -22,7 +25,7 @@
 \       heq, u1 and u2 the levels of α and T, e's type; goals the new
 \       metavariables still unassigned, a run (Lean's newMVarIds). goal
 \       is not assigned. Not supported yet (99, slice LA): an Iff (propext),
-\       symm? true, an instance binder (postprocessAppMVars); Lean's
+\       either way, an instance binder (postprocessAppMVars); Lean's
 \       otherMVarIds (getMVarsNoDelayed of heq), appendParentTag and
 \       binderNameHint are not ported (the caller refuses new goals).
 \ Errors are thrown as authoring errors at the step running
@@ -62,7 +65,7 @@ require ./goal.fs
 begin-structure /mrw
   field: mrw-goal        \ the goal
   field: mrw-e           \ the target
-  field: mrw-symm        \ symm? (not supported yet)
+  field: mrw-symm        \ symm?: right to left (Lean's ←)
   field: mrw-heq         \ the rule's proof, applied to its new metavariables
   field: mrw-htype       \ its type
   field: mrw-mvars       \ the new metavariables, a run
@@ -104,14 +107,20 @@ end-structure
   mrw mrw-htype @ dup mrw-iff? if lfa-e-tac-form lf-tac-stop then
   lf-match-eq? 0= if ['] mrw-value. lfa-e-tac-not-eq mrw-typed-stop then
   mrw mrw-rhs ! mrw mrw-lhs ! mrw mrw-alpha ! ;
-: mrw-symm-refused ( -- ) mrw mrw-symm @ if lfa-e-tac-form lf-tac-stop then ;
+\ symm (Rewrite.lean:93-97): heq made Eq.symm heq (mkEqSymm), its type
+\ rhs = lhs (mkEq) and the sides swapped; α stays the equation's.
+: mrw-sides ( -- lhs rhs ) mrw mrw-lhs @ mrw mrw-rhs @ ;
+: mrw-swap ( -- ) mrw-sides mrw mrw-lhs ! mrw mrw-rhs ! ;
+: mrw-reversed ( -- )
+  mrw mrw-heq @ lf-mk-eq-symm mrw mrw-heq ! mrw-sides swap lf-mk-eq mrw mrw-htype ! mrw-swap ;
+: mrw-symmetric ( -- ) mrw mrw-symm @ if mrw-reversed then ;
 \ A pattern whose head is a metavariable (219).
 : mrw-lhs. ( x -- outcome )
   drop s"  (" lf-pp-emit mrw mrw-lhs @ lf-tac-inline. s" ) in this equality" lf-pp-emit ;
 : mrw-pattern-ok ( -- )
   mrw mrw-lhs @ lf-meta-head-args drop lf-mvar? 0= if exit then
   ['] mrw-lhs. lfa-e-tac-mvar-pattern mrw-typed-stop ;
-: mrw-equation ( -- ) mrw-telescope mrw-matched mrw-symm-refused mrw-pattern-ok ;
+: mrw-equation ( -- ) mrw-telescope mrw-matched mrw-symmetric mrw-pattern-ok ;
 
 \ ---- kabstract, at reducible transparency: no occurrence is 215. A
 \ message framed: the term, what xt prints, the goal.

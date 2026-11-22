@@ -1,0 +1,12 @@
+\ A wrong twin (plan row TB2, tactic batch 2b; batch-c-wrong.lean): rwa
+\ [h] leaves b = c, which rfl and assumption (h2 : c = b) do not close:
+\ assumption's error, 381.
+\ Lean: theorem w_ra (a b c : Nat) (h : a = b) (h2 : c = b) : a = c := by
+\         rwa [h]
+theorem w_ra
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  c b = explicit: h2
+  a c =
+:= by
+  by-rwa[ ' h ]
+end w_ra

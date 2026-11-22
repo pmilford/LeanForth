@@ -1,0 +1,13 @@
+\ A wrong twin (plan row TB2, tactic batch 2b; batch-c-wrong.lean): after
+\ by_contra k the goal is False, which h : a ≤ b does not prove: 96.
+\ Lean: theorem w_bk (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         by_contra k
+\         exact h
+theorem w_bk
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  by-contra: k
+  ' h by-exact
+end w_bk

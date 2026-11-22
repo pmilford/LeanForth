@@ -3,7 +3,8 @@
 \ library by plan 9.4.8l-I, commit C3), after Lean 4.35.0's Elab/Tactic/
 \ Rewrite.lean (evalRewriteSeq, withRWRulesSeq, rewriteTarget,
 \ elabRewrite, finishElabRewrite) and Init/Tactics.lean's rw macro.
-\ - by-rewrite[: each rule in order on the main goal, in its own step
+\ - by-rewrite[: each rule in order on the main goal (a rule followed by
+\   <- right to left: Lean's ← h, withRWRulesSeq's symm), in its own step
 \   record and the goal's context, inside Term.withSynthesize
 \   (tactic-core.fs's lf-tac-with-synth): a rule naming a definition,
 \   whose equation theorems Lean would use, is not supported yet (99,
@@ -15,7 +16,7 @@
 \   goals), not supported yet (99, slice LA); replaceTargetEq (meta-
 \   tactic/goal.fs) and the new goal in the main goal's place.
 \ - by-rw[: the same, then try (with_reducible rfl): by-rfl's row
-\   (lf-tac-eval) at reducible transparency, a Lean error undone and
+\   (lf-tac-rfl-reducible) at reducible transparency, a Lean error undone and
 \   forgotten (lf-tac-try-lean), anything else thrown on.
 \ Errors at the by-rw[ word with the rule's place second, as Lean gives
 \ them at the rule: the refusals here and every error of
@@ -23,10 +24,11 @@
 \ second place, as an elaboration error is).
 \ Lean call list: getArg -> lf-tac-arg, lf-tac-arg-at; Term.withSynthesize
 \ -> lf-tac-with-synth; elabTerm stx none true -> lf-tac-elab-term;
-\ occursCheck -> lf-mvar-occurs?; MVarId.rewrite -> lf-goal-rewrite;
+\ occursCheck -> lf-mvar-occurs?; the rule's symm flag ->
+\ lf-tac-arg-symm?; MVarId.rewrite -> lf-goal-rewrite;
 \ replaceTargetEq -> lf-goal-replace-target-eq; replaceMainGoal ->
 \ lf-replace-main; try (with_reducible rfl) -> lf-tac-try-lean,
-\ lf-with-reducible, lf-tac-eval.
+\ lf-tac-rfl-reducible.
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own. Its kinds are the runner's tac-k-rewrite and
 \ tac-k-rw (fixed kinds, scripts/check-tactic-plugins.py's ownership
@@ -53,10 +55,13 @@ require ../tactic-api.fs
   tb tb-goal @ over lf-mvar-occurs? lf-tac-must 0= if exit then
   dup ['] lf-tac-indented. lf-tac-detail over lfa-e-tac-occurs trw-stop ;
 
-\ ---- MVarId.rewrite of the target, its errors at the rule.
+\ ---- MVarId.rewrite of the target, right to left for a rule written
+\ with <- (Lean's ←, symm), its errors at the rule.
+: trw-symm? ( k -- flag ) lf-tac-step swap lf-tac-arg-symm? ;
+: trw-call ( heq symm? -- new proof goals code )
+  2>r tb tb-goal @ tb tb-want @ 2r> ['] lf-goal-rewrite catch ;
 : trw-rewrite ( k heq -- new proof goals )
-  swap >r >r tb tb-goal @ tb tb-want @ r> false ['] lf-goal-rewrite catch
-  ?dup if >r 2drop 2drop r> r> trw-placed then r> drop ;
+  over trw-symm? rot >r trw-call ?dup if >r 2drop 2drop r> r> trw-placed then r> drop ;
 : trw-inner ( k -- k new proof goals )
   dup dup trw-elaborated trw-occurs-free trw-rewrite ;
 \ finishElabRewrite: new goals, or another metavariable left in the
@@ -73,7 +78,6 @@ require ../tactic-api.fs
 : trw-rules ( i -- ) dup lf-tac-args# 0 ?do i over trw-rule loop drop ;
 
 \ ---- try (with_reducible rfl).
-: trw-rfl ( -- ) lf-tac-step tac-k-rfl ['] lf-tac-eval lf-with-reducible ;
-: trw-w-rw ( i -- ) trw-rules ['] trw-rfl lf-tac-try-lean drop ;
+: trw-w-rw ( i -- ) trw-rules ['] lf-tac-rfl-reducible lf-tac-try-lean drop ;
 ' trw-rules tac-k-rewrite lf-tactic-action!
 ' trw-w-rw tac-k-rw lf-tactic-action!

@@ -1,0 +1,37 @@
+\ by-exacts[ ] (plan row TB2, tactic batch 2b; batch-c.lean, which copies
+\ Batteries' exacts): exact each term, then done.
+\ Lean: theorem ex_two (a b : Nat) (h1 : a ≤ b) (h2 : b ≤ a) :
+\           a ≤ b ∧ b ≤ a := by
+\         apply And.intro
+\         exacts [h1, h2]
+theorem ex_two
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h1  b a ≤ explicit: h2
+  a b ≤ b a ≤ ∧
+:= by
+  ' And.intro by-apply
+  by-exacts[ ' h1 ' h2 ]
+end ex_two
+
+\ No term: done alone, after the goal is closed.
+\ Lean: theorem ex_none (a b : Nat) (h : a ≤ b) : a ≤ b := by
+\         exact h
+\         exacts []
+theorem ex_none
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤
+:= by
+  ' h by-exact
+  by-exacts[ ]
+end ex_none
+
+\ A term applied.
+\ Lean: theorem ex_app (a : Nat) : a ≤ a := by
+\         exacts [Nat.le_refl a]
+theorem ex_app
+  Nat explicit: a
+  a a ≤
+:= by
+  by-exacts[ ' Nat.le_refl a $ ]
+end ex_app

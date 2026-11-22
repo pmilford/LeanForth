@@ -249,10 +249,9 @@ end-structure
 : lfr-parent ( i -- j ) lf-tactic-step tac-parent @ ;
 : lfr-at ( i -- pos ) lf-tactic-step tac-at @ ;
 \ Where a block's unsolved goals are told: its => when it has one, else
-\ its word (by).
+\ its word (by; a registered word's own, by-exacts['s done: lfr-block-word).
 : lfr-block-at ( i -- pos )
   lf-tactic-step dup tac-arrow @ dup 0< if drop tac-at @ else nip then ;
-: lfr-block-word ( i -- c-addr u ) lfr-kind tac-k-by = if s" by" else s" =>" then ;
 
 \ ---- The rows (tactic plug-in design 3.1): per kind (tactic-syntax.fs's
 \ 1 to 11, then those lf-tactic: registers, up to lfr-kinds), its step's
@@ -356,6 +355,9 @@ s" sorry" tac-k-sorry lf-tactic-lean!
 : lf-tac-fail ( code -- ) lfr-with-goals lfr-fail ;
 : lf-tac-fail-at ( j code -- ) lfr-with-goals lf-tac-stop-at ;
 : lf-tac-stop ( code -- ) lfr-fail ;
+: lfr-block-word ( i -- c-addr u )
+  dup lfr-kind lf-tactic-shape@ if lfr-spelling exit then
+  lfr-kind tac-k-by = if s" by" else s" =>" then ;
 : lfr-block-fail ( i code -- ) >r dup lfr-block-word rot lfr-block-at r> lfa-fail-at ;
 \ An outcome other than ok stops the run: the run's own stores (no room
 \ 88, else 92), or a Meta step (no room for terms 60, fuel 91; rejected,

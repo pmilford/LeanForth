@@ -194,6 +194,7 @@ require ./library.fs
 lfa-natural-words + - * / % = ≠ < > ≤ <= ≥ >= ¬ ∧ /\ ∨ \/ ↔ <-> ∣ divides
 ' lfa-w-tactic lfa-word-both by-induction
 ' lfa-w-tactic lfa-word-both by-case:
+' lfa-w-tactic lfa-word-both by-next
 ' lfa-w-tactic lfa-word-both by-rfl
 ' lfa-w-tactic lfa-word-both by-sorry
 ' lfa-w-tactic lfa-word-both by-exact
@@ -203,5 +204,6 @@ lfa-natural-words + - * / % = ≠ < > ≤ <= ≥ >= ¬ ∧ /\ ∨ \/ ↔ <-> ∣
 ' lfa-w-tactic lfa-word-both by-rw[
 ' lfa-w-tactic lfa-word-both by-rewrite[
 ' lfa-w-tactic lfa-word-both ]
+' lfa-w-tactic lfa-word-both <-
 ' lfa-w-tactic lfa-word-both |
 ' lfa-w-tactic lfa-word-both =>

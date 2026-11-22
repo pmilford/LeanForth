@@ -1,0 +1,12 @@
+\ Not supported yet (plan row TB2, tactic batch 2b): rwa on a goal a ≤ c
+\ after the rewrite, where with_reducible rfl meets a relation other
+\ than Eq (by-rfl's @[refl] lemmas are plan FE5): 93, never accepted.
+\ Lean: theorem x_ra_le (a b c : Nat) (h : a = b) (h2 : b ≤ c) : a ≤ c := by
+\         rwa [h]
+theorem x_ra_le
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  b c ≤ explicit: h2
+  a c ≤
+:= by
+  by-rwa[ ' h ]
+end x_ra_le
