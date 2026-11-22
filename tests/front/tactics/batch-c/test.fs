@@ -177,8 +177,8 @@ T{ false ' msy-fit code0 true ' msy-fit code0 -> 99 0 }T
 lf-tac-forget
 \ getSymmLems' table: each relation's lemma, none for LE.le.
 : lemma-of ( c-addr u -- c-addr' u' true | false ) lf-mk-const0 msy-lemma ;
-T{ s" Eq" lemma-of >r s" Eq.symm" compare r> -> 0 true }T
-T{ s" Or" lemma-of >r s" Or.symm" compare r> -> 0 true }T
+: lemma-is? ( c-addr u c-addr' u' -- flag ) 2swap lemma-of if compare 0= else 2drop false then ;
+T{ s" Eq" s" Eq.symm" lemma-is? s" Or" s" Or.symm" lemma-is? -> true true }T
 T{ s" LE.le" lemma-of -> false }T
 T{ msy-pairs# 0 msy-pair 2drop s" Eq" compare -> 6 0 }T
 
