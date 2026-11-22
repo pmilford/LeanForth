@@ -1356,10 +1356,11 @@
   "tokens": 6
  },
  "aca78af72b77": {
-  "copies": 8,
+  "copies": 9,
   "kind": "shape",
   "members": [
    "src/core/level-scope.fs:lf-lscope-context-valid?",
+   "src/front/app-builder.fs:abl-eq-of-not",
    "src/front/defeq-delta.fs:dd-packed-step",
    "src/front/elab-data.fs:ed-wrapped?",
    "src/front/mvars.fs:mv-free?",
@@ -1368,7 +1369,7 @@
    "src/present/print-analysis.fs:lf-pp-applied?",
    "src/program/ir-reader.fs:ir-more?"
   ],
-  "reason": "false positive: the short-circuit test `a if b else false then` (a && b), eight times with eight different tests and continuations in eight files; a word taking b's xt would be no shorter and would run an EXECUTE on every call (cleanup-families-2)",
+  "reason": "false positive: the short-circuit test `a if b else false then` (a && b), nine times with nine different tests and continuations in nine files; a word taking b's xt would be no shorter and would run an EXECUTE on every call (cleanup-families-2)",
   "tokens": 6
  },
  "ace13d66ceec": {

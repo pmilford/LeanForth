@@ -40,8 +40,8 @@ reason = "TB2: matchNot? without matchHelper?'s whnf retry (a ≠ b is no negati
 [[fault]]
 id = "tb2-match-ne-no-not"
 file = "src/front/app-builder.fs"
-old = '''  dup 3 s" Ne" lf-meta-app-of? if abl-args3 true else abl-not-eq then ;'''
-new = '''  dup 3 s" Ne" lf-meta-app-of? if abl-args3 true else false then ;'''
+old = '''  dup 3 s" Ne" lf-meta-app-of? if abl-args3 true else abl-eq-of-not then ;'''
+new = '''  dup 3 s" Ne" lf-meta-app-of? if abl-args3 true else drop false then ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: matchNe? without its matchNot? then matchEq? case (¬ a = b is no disequality then)"
 
@@ -65,8 +65,8 @@ reason = "TB2: replaceTargetDefEq's second test (both types instantiated) skippe
 [[fault]]
 id = "tb2-rtd-no-id"
 file = "src/front/meta-tactic/goal.fs"
-old = '''  over mtg-goal-new over lf-goal-type lf-instantiate! over swap lf-mk-expected-type-hint'''
-new = '''  over mtg-goal-new dup'''
+old = '''  over lf-goal-fresh over lf-goal-type lf-instantiate! over swap lf-mk-expected-type-hint'''
+new = '''  over lf-goal-fresh dup'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: the goal assigned the new goal itself, not @id target goal' (mkExpectedTypeHint)"
 
@@ -116,10 +116,26 @@ reason = "TB2: revertAfter reverts fvar itself too"
 [[fault]]
 id = "tb2-assert-no-value"
 file = "src/front/meta-tactic/assert.fs"
-old = '''  >r rot lf-goal-not-assigned -rot mat-pi over lf-goal-fresh tuck r> lf-mk-app'''
-new = '''  >r rot lf-goal-not-assigned -rot mat-pi over lf-goal-fresh tuck r> drop dup'''
+old = '''  >r rot lf-goal-not-assigned -rot mat-goal-pi over lf-goal-fresh tuck r> lf-mk-app'''
+new = '''  >r rot lf-goal-not-assigned -rot mat-goal-pi over lf-goal-fresh tuck r> drop dup'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: assert's goal assigned the new goal, not the new goal applied to the value"
+
+[[fault]]
+id = "tb2-assert-pi-target-dropped"
+file = "src/front/meta-tactic/assert.fs"
+old = ''': mat-goal-pi ( goal name type -- goal pi ) rot dup >r lf-goal-type mat-pi r> swap ;'''
+new = ''': mat-goal-pi ( goal name type -- goal pi ) rot dup >r lf-goal-type nip nip r> swap ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2 review 4: assert's new goal of the old target, not (name : type) -> target"
+
+[[fault]]
+id = "tb2-replace-names-shifted"
+file = "src/front/meta-tactic/assert.fs"
+old = ''': mat-name! ( addr j -- addr ) 2dup cells + swap mat-own@ swap ! ;'''
+new = ''': mat-name! ( addr j -- addr ) 2dup 1- cells + swap mat-own@ swap ! ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2 review 4: each reverted local's name written one cell early, over the new hypothesis's"
 
 [[fault]]
 id = "tb2-replace-no-clear"
@@ -189,16 +205,16 @@ reason = "TB2: a theorem's name leaves the term as it is, where Lean would put t
 [[fault]]
 id = "tb2-delta-revisit-ignored"
 file = "src/front/meta-tactic/delta.fs"
-old = ''': mdl-revisited? ( arg image -- flag ) lf-annot-strip lf-term-lam? if mdl-head? else drop false then ;'''
-new = ''': mdl-revisited? ( arg image -- flag ) 2drop false ;'''
+old = '''  lf-annot-strip lf-term-lam? if mdl-head? else drop false then ;'''
+new = '''  2drop false ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2 review 3: an argument of name with a lambda image is put in, leaving a redex Lean expands"
 
 [[fault]]
 id = "tb2-delta-revisit-any-lambda"
 file = "src/front/meta-tactic/delta.fs"
-old = ''': mdl-revisited? ( arg image -- flag ) lf-annot-strip lf-term-lam? if mdl-head? else drop false then ;'''
-new = ''': mdl-revisited? ( arg image -- flag ) lf-annot-strip lf-term-lam? nip ;'''
+old = '''  lf-annot-strip lf-term-lam? if mdl-head? else drop false then ;'''
+new = '''  lf-annot-strip lf-term-lam? nip ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2 review 3: any lambda argument refused, though Lean keeps one not of name ((fun x => x) a)"
 
@@ -230,8 +246,8 @@ reason = "TB2: h : x ≠ y closes the goal without x and y defeq"
 [[fault]]
 id = "tb2-cn-empty-skipped"
 file = "src/front/meta-tactic/contradiction.fs"
-old = '''  dup mcd-type mcd-candidate? if lfa-e-tac-form lf-tac-fail then ;'''
-new = '''  ;'''
+old = '''  if exit then dup mcd-type mcd-candidate? if lfa-e-tac-form lf-tac-fail then ;'''
+new = '''  drop ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: an indexed family passed over where Lean tries cases (a wrong verdict is possible)"
 
@@ -270,10 +286,34 @@ reason = "TB2: an implementation detail used as a hypothesis"
 [[fault]]
 id = "tb2-cn-heq-not-equation"
 file = "src/front/meta-tactic/contradiction.fs"
-old = '''  dup mcd-type lf-match-heq? 0= if exit then nip rot drop true mcd-equation! mcd-ctors ;'''
-new = '''  dup mcd-type lf-match-heq? 0= if exit then nip rot drop mcd-ctors ;'''
+old = '''  dup mcd-type lf-match-heq? 0= if false exit then nip rot drop mcd-ctors true ;'''
+new = '''  dup mcd-type lf-match-heq? 0= if false exit then nip rot drop mcd-ctors false ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: an HEq hypothesis not marked (isHEq), so the empty-type rule runs on it"
+
+[[fault]]
+id = "tb2-cn-eq-not-equation"
+file = "src/front/meta-tactic/contradiction.fs"
+old = '''  dup mcd-type lf-match-eq? 0= if false exit then rot drop mcd-ctors true ;'''
+new = '''  dup mcd-type lf-match-eq? 0= if false exit then rot drop mcd-ctors false ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2 review 5: an Eq hypothesis not marked (isEq), so the empty-type rule runs on Eq, an indexed family"
+
+[[fault]]
+id = "tb2-cn-heq-never-tried"
+file = "src/front/meta-tactic/contradiction.fs"
+old = ''': mcd-equation ( k -- k flag ) mcd-eq dup if exit then drop mcd-heq ;'''
+new = ''': mcd-equation ( k -- k flag ) mcd-eq ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2 review 5: no HEq test after a local that is no Eq (HEq of two constructors passes unseen)"
+
+[[fault]]
+id = "tb2-cn-decide-before-flag"
+file = "src/front/meta-tactic/contradiction.fs"
+old = '''  swap mcd-decide if 2drop true exit then swap mcd-empty drop false ;'''
+new = '''  swap mcd-decide if 2drop true exit then nip false mcd-empty drop false ;'''
+test = "$GFORTH tests/front/tactics/batch-a/test.fs"
+reason = "TB2 review 5: rule 6 forgets the equation flag the rules before it found"
 
 [[fault]]
 id = "tb2-cn-bit-skipped"

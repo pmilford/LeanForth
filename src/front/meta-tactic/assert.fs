@@ -56,10 +56,10 @@ require ./goal.fs
 require ./revert.fs
 
 \ ---- MVarId.assert: (name : type) -> target, goal assigned goal' val.
-: mat-pi ( goal name type -- goal pi )
-  2 pick lf-goal-type lf-term-pi lf-made! swap lf-binder-named ;
+: mat-pi ( name type target -- pi ) lf-term-pi lf-made! swap lf-binder-named ;
+: mat-goal-pi ( goal name type -- goal pi ) rot dup >r lf-goal-type mat-pi r> swap ;
 : lf-goal-assert ( goal name type val -- goal' )
-  >r rot lf-goal-not-assigned -rot mat-pi over lf-goal-fresh tuck r> lf-mk-app
+  >r rot lf-goal-not-assigned -rot mat-goal-pi over lf-goal-fresh tuck r> lf-mk-app
   lf-mvar-assign lf-must ;
 
 \ ---- assertAfter and replace: a frame per call open.
@@ -97,8 +97,8 @@ end-structure
 : mat-own ( local -- name|0 )
   dup lf-local-flags lf-local-inaccessible and if drop 0 else lf-local-name then ;
 : mat-own@ ( j -- name|0 ) mat-k + mat-view swap lf-view-local mat-own ;
-: mat-names ( addr -- addr )
-  mat mat-name @ over ! mat mat-n @ 0 ?do i 1+ dup mat-own@ swap cells 2 pick + ! loop ;
+: mat-name! ( addr j -- addr ) 2dup cells + swap mat-own@ swap ! ;
+: mat-names ( addr -- addr ) mat mat-name @ over ! mat mat-n @ 0 ?do i 1+ mat-name! loop ;
 : mat-binders ( -- n ) mat mat-n @ 1+ ;
 : mat-xs ( addr -- xs ) mat-binders cells + ;
 : mat-revert ( -- goal1 ) mat mat-goal @ mat mat-fvar @ lf-goal-revert-after drop ;

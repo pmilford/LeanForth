@@ -80,7 +80,6 @@ require ./assumption.fs
 
 begin-structure /mcd
   field: mcd-goal        \ the goal
-  field: mcd-equation    \ the local's type is an equation or HEq (isEq, isHEq)
 end-structure
 /mcd context-slab: mcd-frames
 : mcd ( -- frame ) mcd-frames slab-last ;
@@ -124,12 +123,13 @@ end-structure
 : mcd-ctors ( a b -- )
   mcd-ctor? 0= if drop exit then swap mcd-ctor? 0= if drop exit then
   lf-name-same? 0= if lfa-e-tac-form lf-tac-fail then ;
-: mcd-equation! ( flag -- ) mcd mcd-equation ! ;
-: mcd-eq ( k -- k )
-  false mcd-equation! dup mcd-type lf-match-eq? 0= if exit then
-  rot drop true mcd-equation! mcd-ctors ;
-: mcd-heq ( k -- k )
-  dup mcd-type lf-match-heq? 0= if exit then nip rot drop true mcd-equation! mcd-ctors ;
+\ Each answers whether the local's type is an equation (isEq, isHEq), for
+\ rule 6; an Eq is never an HEq, so the HEq test runs only when no Eq.
+: mcd-eq ( k -- k eq? )
+  dup mcd-type lf-match-eq? 0= if false exit then rot drop mcd-ctors true ;
+: mcd-heq ( k -- k heq? )
+  dup mcd-type lf-match-heq? 0= if false exit then nip rot drop mcd-ctors true ;
+: mcd-equation ( k -- k flag ) mcd-eq dup if exit then drop mcd-heq ;
 
 \ ---- 5. decide p reduces to false.
 : mcd-closed? ( t -- flag )
@@ -153,14 +153,15 @@ end-structure
 : mcd-candidate? ( t -- flag )
   lf-whnf-d! lf-meta-app-head lf-match-const-induct 0= if false exit then
   mcd-data dup lf-ity-ctors@ nip 0= swap lf-ity-indices cells + @ 0> or ;
-: mcd-empty ( k -- k )
-  mcd mcd-equation @ if exit then
-  dup mcd-type mcd-candidate? if lfa-e-tac-form lf-tac-fail then ;
+: mcd-empty ( k equation? -- k )
+  if exit then dup mcd-type mcd-candidate? if lfa-e-tac-form lf-tac-fail then ;
 
 \ ---- The locals, oldest first; nestedFalseElim before them.
+: mcd-last ( k equation? -- flag )
+  swap mcd-decide if 2drop true exit then swap mcd-empty drop false ;
 : mcd-rules ( k -- flag )
   mcd-not-pair if drop true exit then mcd-bit mcd-ne if drop true exit then
-  mcd-eq mcd-heq mcd-decide if drop true exit then mcd-empty drop false ;
+  mcd-equation mcd-last ;
 : mcd-local? ( x k -- x flag ) dup lf-local-detail-at? if drop false else mcd-rules then ;
 : mcd-locals ( -- flag )
   0 lf-mctx-view lf-view-count ['] mcd-local? find-index dup if nip then ;

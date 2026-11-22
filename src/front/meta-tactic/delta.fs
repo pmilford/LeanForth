@@ -94,7 +94,8 @@ end-structure
 \ any other binary node over its parts' images; a leaf itself. An
 \ argument that is name applied, its image a lambda (under annotations,
 \ as headBeta looks), is the revisit not ported: unsupported.
-: mdl-revisited? ( arg image -- flag ) lf-annot-strip lf-term-lam? if mdl-head? else drop false then ;
+: mdl-revisited? ( arg image -- flag )
+  lf-annot-strip lf-term-lam? if mdl-head? else drop false then ;
 : mdl-image ( arg -- image outcome )
   dup mdl-dw dw-image tuck mdl-revisited? if outcome-unsupported else outcome-ok then ;
 : mdl-image! ( k -- outcome ) mdl-args slab-at dup @ mdl-image >r swap ! r> ;

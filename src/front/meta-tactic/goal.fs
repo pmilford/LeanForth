@@ -157,12 +157,11 @@ require ../telescope.fs
 
 \ ---- replaceTargetEq: goal' new in goal's context with goal's tag, goal
 \ assigned Eq.mpr.{u} target new (mkExpectedPropHint h (mkEq target new)) goal'.
-: mtg-goal-new ( type goal -- goal' )
-  dup lf-goal-tag swap lf-goal-view lf-goal-new lf-must ;
-: mtg-fresh ( goal new -- goal goal' ) over lf-goal-not-assigned mtg-goal-new ;
 \ mkFreshExprSyntheticOpaqueMVar type tag in goal's context, the goal
 \ words' new goal (here and meta-tactic/assert.fs's).
-: lf-goal-fresh ( type goal -- goal' ) mtg-goal-new ;
+: lf-goal-fresh ( type goal -- goal' )
+  dup lf-goal-tag swap lf-goal-view lf-goal-new lf-must ;
+: mtg-fresh ( goal new -- goal goal' ) over lf-goal-not-assigned lf-goal-fresh ;
 \ Whether local k of the current context is an implementation detail
 \ (isImplementationDetail: revert's and contradiction's test).
 : lf-local-detail-at? ( k -- flag ) lf-mctx-view swap lf-view-local lf-local-detail? ;
@@ -185,7 +184,7 @@ require ../telescope.fs
 : mtg-elim ( goal -- goal f )
   dup lf-goal-type lf-instantiate! s" False.elim" mtg-at-level ;
 : mtg-false ( goal f -- goal goal' f )
-  over s" False" lf-mk-const0 swap mtg-goal-new swap ;
+  over s" False" lf-mk-const0 swap lf-goal-fresh swap ;
 : lf-goal-exfalso ( goal -- goal' )
   lf-goal-not-assigned mtg-elim mtg-false over lf-mk-app mtg-assign ;
 
@@ -419,7 +418,7 @@ end-structure
 : mtg-inst-same? ( goal new -- goal new' flag )
   lf-instantiate! over lf-goal-type lf-instantiate! over mtg-same? ;
 : mtg-hinted ( goal new -- goal' )
-  over mtg-goal-new over lf-goal-type lf-instantiate! over swap lf-mk-expected-type-hint
+  over lf-goal-fresh over lf-goal-type lf-instantiate! over swap lf-mk-expected-type-hint
   mtg-assign ;
 : lf-goal-replace-target-defeq ( goal new -- goal' )
   over lf-goal-not-assigned drop mtg-unchanged? if drop exit then

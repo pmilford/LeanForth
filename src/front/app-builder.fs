@@ -144,11 +144,10 @@ abl-most cells context-record: abl-cells
 \ scratch tier open, as in a test over an export, keeps its binder in
 \ its own record, which no builder writes): those stay unrecorded, and a
 \ telescope refuses an unrecorded pi's kind (telescope.fs).
-: abl-named ( t name -- t )
+: lf-binder-named ( t name -- t )
   over lf-term-input? if drop exit then
   ?dup if over swap lf-binder-default lf-pres-binder! lf-must then ;
-: lf-binder-named ( t name -- t ) abl-named ;   \ the same, for the goal operations
-: abl-lam-x ( dom body -- e ) lf-term-lam lf-made! s" x" lfa-intern abl-named ;
+: abl-lam-x ( dom body -- e ) lf-term-lam lf-made! s" x" lfa-intern lf-binder-named ;
 
 \ ---- mkEq, mkEqRefl, mkEqSymm, mkEqTrans, mkExpectedPropHint.
 : abl-typed ( a c-addr u -- a c' )   \ c.{u} T, T a's type of level u
@@ -183,8 +182,8 @@ abl-most cells context-record: abl-cells
 : abl-from-arg ( h -- α f h1 ) dup 0 abl-arg over 4 abl-arg rot 5 abl-arg ;
 : abl-from-fun ( h -- α' f' h1 )   \ α' := ∀ x : α, β x; f' := fun f : α' => f a
   dup 0 abl-arg over 1 abl-arg abl-bvar0 abl-beta1 lf-term-pi lf-made! s" x" lfa-intern
-  abl-named over 5 abl-arg abl-bvar0 swap lf-mk-app over swap lf-term-lam lf-made!
-  s" f" lfa-intern abl-named rot 4 abl-arg ;
+  lf-binder-named over 5 abl-arg abl-bvar0 swap lf-mk-app over swap lf-term-lam lf-made!
+  s" f" lfa-intern lf-binder-named rot 4 abl-arg ;
 : abl-congr-arg? ( h -- α f h1 true | h false )
   dup 6 s" congrArg" lf-meta-app-of? if abl-from-arg true exit then
   dup 6 s" congrFun" lf-meta-app-of? if abl-from-fun true exit then false ;
@@ -331,14 +330,12 @@ end-structure
 : abl-peel ( t -- a f ) dup lf-term-second@ swap lf-term-first@ ;
 : abl-args3 ( t -- x y z ) abl-peel abl-peel lf-term-second@ swap rot ;
 : abl-args4 ( t -- w x y z ) abl-peel abl-peel abl-peel lf-term-second@ swap 2swap swap ;
-: abl-not-eq ( t -- α a b true | t false )
-  dup lf-match-not? 0= if false exit then
-  lf-match-eq? 0= if false exit then 3 roll drop true ;
-: abl-ne-at ( t -- α a b true | t false )
-  dup 3 s" Ne" lf-meta-app-of? if abl-args3 true else abl-not-eq then ;
+: abl-eq-of-not ( t -- α a b true | false )
+  lf-match-not? if lf-match-eq? else false then ;
 \ (matchHelper?'s retry on t after whnf finds nothing more here: whnf
 \ unfolds Ne, and matchNot? retries after whnf itself.)
-: lf-match-ne? ( t -- α a b true | false ) abl-ne-at dup 0= if nip then ;
+: lf-match-ne? ( t -- α a b true | false )
+  dup 3 s" Ne" lf-meta-app-of? if abl-args3 true else abl-eq-of-not then ;
 : abl-heq-at ( t -- α a β b true | t false )
   dup 4 s" HEq" lf-meta-app-of? if abl-args4 true else false then ;
 : lf-match-heq? ( t -- α a β b true | false ) ['] abl-heq-at abl-helper ;

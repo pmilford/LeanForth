@@ -13,7 +13,7 @@ reason = "TB1: exfalso's False.elim always at level 0, whatever the target's sor
 [[fault]]
 id = "tb1-exfalso-tag-dropped"
 file = "src/front/meta-tactic/goal.fs"
-old = '''  over s" False" lf-mk-const0 swap mtg-goal-new swap ;'''
+old = '''  over s" False" lf-mk-const0 swap lf-goal-fresh swap ;'''
 new = '''  over s" False" lf-mk-const0 0 rot lf-goal-view lf-goal-new lf-must swap ;'''
 test = "$GFORTH tests/front/tactics/exfalso/test.fs"
 reason = "TB1: exfalso's new goal loses the main goal's tag (Lean's refine gives its one new goal the main goal's tag)"

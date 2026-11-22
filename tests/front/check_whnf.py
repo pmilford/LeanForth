@@ -333,7 +333,7 @@ BUILDS = [
           "fu fv fw fk 6 lf-mk-app-n lf-mk-congr-arg"),
     # Fusing two identities gives fun x : Nat => x, a node the slice already
     # has (an input node keeps its own binder record: app-builder.fs's
-    # abl-named leaves it unrecorded).
+    # lf-binder-named leaves it unrecorded).
     build("do mkCongrArg (mkLambda `y .default nat (mkBVar 0)) "
           "(← mkCongrArg (mkLambda `y .default nat (mkBVar 0)) e)",
           "nat 0 bv lam nat 0 bv lam fe lf-mk-congr-arg lf-mk-congr-arg"),

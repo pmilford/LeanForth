@@ -420,8 +420,8 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 38,
-  "shuffles": 14,
-  "words": 101
+  "shuffles": 13,
+  "words": 99
  },
  "src/front/assign-check.fs": {
   "globals": 0,
@@ -547,9 +547,9 @@
   "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 10,
-  "shuffles": 14,
-  "words": 155
+  "rstack": 8,
+  "shuffles": 12,
+  "words": 151
  },
  "src/front/expr-remap.fs": {
   "globals": 0,

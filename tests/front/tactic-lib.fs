@@ -265,6 +265,24 @@ T{ ' refl-zero lf-tr-all lf-meta-at 2 s" Eq.refl" lf-meta-app-of? -> true }T
 nat0 zero zero lf-mk-eq s" h" binder constant fh
 : dependent ( -- code ) refl-fun fh ['] lf-mk-congr-arg catch dup if nip nip then ;
 T{ dependent -> -4204 }T
+\ congrArg? fuses a nested congrArg into fun x => Nat.succ (Nat.succ x),
+\ its binder named x; and congrFun w k (u v : Nat → Nat, w : u = v) into
+\ congrArg of fun x => Nat.succ (x k), x of the pi ∀ x : Nat, Nat named x
+\ (app-builder.fs's lf-binder-named; the terms against pinned Lean are
+\ check_whnf.py's).
+: succ-c ( -- c ) s" Nat.succ" lf-mk-const0 ;
+: congr-f ( h -- f ) 4 6 lf-meta-nth-arg ;
+: named-x? ( binder -- flag ) binder? 2drop s" x" name= ;
+T{ succ-c succ-c fh lf-mk-congr-arg lf-mk-congr-arg dup 6 s" congrArg" lf-meta-app-of?
+   swap congr-f dup lf-term-lam? swap named-x? -> true true true }T
+: lv1 ( -- u ) 0 lf-level-succ 0= abort" level" ;
+fresh-pi s" u" binder constant cu  fresh-pi s" v" binder constant cv
+cu cv lf-mk-eq s" w" binder constant cw  nat s" k" binder constant ck
+: congr-fun ( -- h )
+  s" congrFun" lv1 lv1 2 lf-mk-const nat lf-mk-app nat nat lf-term-lam lf-made! lf-mk-app
+  cu lf-mk-app cv lf-mk-app cw lf-mk-app ck lf-mk-app ;
+T{ succ-c congr-fun lf-mk-congr-arg congr-f dup named-x? swap lf-term-first@ named-x?
+   -> true true }T
 T{ nat dup lf-whnf-r! = -> true }T
 
 \ ---- 5. Slice 9.4.8l-I's shared words (plan 9.4.8l-I).

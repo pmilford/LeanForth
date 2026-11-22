@@ -328,8 +328,8 @@ reason = "a2-i review F10: Expr.eq? (lf-eq?) gives α and a swapped, so every bu
 [[fault]]
 id = "lib-congr-fun-wrong-h"
 file = "src/front/app-builder.fs"
-old = '''  s" f" lfa-intern abl-named rot 4 abl-arg ;'''
-new = '''  s" f" lfa-intern abl-named rot 5 abl-arg ;'''
+old = '''  s" f" lfa-intern lf-binder-named rot 4 abl-arg ;'''
+new = '''  s" f" lfa-intern lf-binder-named rot 5 abl-arg ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
 reason = "a2-i review F2: congrArg? takes congrFun's argument a for its proof h (AppBuilder.lean:199); check_whnf.py's Nat.succ over congrFun w k expects congrArg of w"
 
