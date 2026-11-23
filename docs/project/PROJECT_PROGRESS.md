@@ -266,6 +266,13 @@ status changes when this date is older than them. Stages are those of the
   Windows 11 itself (today: Linux and WSL) and on macOS, or name another Forth system for each where Gforth does not
   serve, with the install scripts, the test suite and the pinned-Lean comparisons run there and the differences
   (paths, line ends, the job pool, memory limits) recorded.
+- Parallel running, from the review of 2026-11-23 ([PARALLEL_REVIEW.md](../development/PARALLEL_REVIEW.md); none
+  started; the owner decides the order): the default of `--jobs` (1 today; 10 workers are 5.5 times faster on
+  Init); the kernel faster on one thread, first the environment re-validated at every gate (about 15% of checking
+  time); busy and waiting seconds in `--resources`; the tactic tests through one snapshot of their slice; a cheaper
+  or parallel feed of the workers; the library kept loaded between texts (plan PD21); the re-entrancy test extended
+  to elaboration and tactics; the export parsed on several threads; then a text's declarations elaborated in
+  parallel.
 - Carry on to the next theorem after an error (2026-11-22, from the done check of blocks slice 1; not started): a
   file's first error ends the run today, so a wrong theorem hides the verdicts of the correct ones beside it, where
   Lean reports every theorem; the declaration-level part of "log and carry on, as Lean".
