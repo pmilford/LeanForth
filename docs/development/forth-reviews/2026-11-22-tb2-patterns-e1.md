@@ -308,3 +308,16 @@ Fixed on branch `tb2-patterns-e1` (2026-11-22) unless a plan row is named.
 | 11 | Plan row 9.4.8t and slice E2's text. |
 | 12 | Fixed in `1a2c6ec7` (D.8, TACTIC_STATUS, what 76 means here) and `8573b9a3` (x-not-inductive.lf's note). |
 | 13 | 13a, 13b, 13c (`lf-goal-with4` deleted; goal.fs's `lf-goal-within`), 13e and 13f fixed in `2cefe728`; 13d plan row 9.4.8t and slice E2's text. |
+
+## Re-check of the fixes (2026-11-22)
+
+The independent re-check of the fix commits (diffs read, stacks traced, 14 probes on LeanForth and pinned Lean)
+verified the root fix of finding 1 (`et-var` resolves a statement variable through the goal's context: shadowing,
+a hypothesis reverted and re-introduced, blocks, have-by and term-mode proofs all answer as Lean; removing have.fs's
+guard was safe), finding 2, the replacements of findings 5 to 7 and the named subgoal accessors, and that every
+fault's text occurs once. Two blocking items, fixed in `f8e58392`: B1, two copies of `lf-run+!` left (`rcs-finish`,
+`mea-alt`); B2, the coverage reason for cases.fs:86 was false (the fallback to `Nat.casesOn` is reached on
+s2-slice; `tests/front/tactic-lib.fs` now tests it and the baseline entry fell to 3). Four notes go to slice E2
+with plan row 9.4.8t: N1, 76's message for an unknown variable should be Lean's "Unknown identifier"; N2,
+`et-vars` stores free variables nothing reads; N3, a `run-quad@` for the task and subgoal copies; N4,
+`lfa-has-word?` over `lfa-word-of`. Verdict: merge once B1 and B2 are fixed and the tier passes.
