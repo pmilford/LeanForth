@@ -29,6 +29,7 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
+- 2026-11-22, 17:46: plan row TB2's tactic blocks, slice 1, are **done** on main 00d6dbf5 (done check [2026-11-22-tb2-blocks1-done.md](../development/done-checks/2026-11-22-tb2-blocks1-done.md): the checker's own 7 theorems accepted from the reference alone, 6 wrong variants not accepted; pushed, origin/main f4b67864); pattern slice E1 (`by-obtain[ ]`, `by-rcases[ ]`) is in work on branch `tb2-patterns-e1`. Earlier the same day:
 - 2026-11-22, 15:58: plan row TB2's tactic blocks, slice 1 (piece F, design
   [TACTIC_BLOCKS.md](../design/TACTIC_BLOCKS.md)), are **tested on branch `tb2-blocks1` and Forth-reviewed**
   ([report](../development/forth-reviews/2026-11-22-tb2-blocks1.md): merge after fixes; findings 2, 4-9 and the
@@ -203,6 +204,15 @@ status changes when this date is older than them. Stages are those of the
   version then current, with the matching Mathlib, and measure the port effort (kernel and import against the new
   export format, the front end's ported functions, every tactic's twins); a tool that lists the tactic files whose
   cited Lean, Batteries or Mathlib source changed between two pins comes first.
+- A Lean to LeanForth translator and a LeanForth to Lean translator (owner, 2026-11-22; long term, not started,
+  not specified): automatic translation of source text, statements and tactic proofs, in both directions. Today
+  only checked terms print as LeanForth text, and every tactic test's Lean twin is written by hand. Notes for the
+  specification: LeanForth to Lean can be driven by the table of words the ledger already holds, and would generate
+  the twins; Lean to LeanForth is best done by Lean itself parsing the source and printing its syntax tree as
+  LeanForth words, and is useful once most tactics exist.
+- Carry on to the next theorem after an error (2026-11-22, from the done check of blocks slice 1; not started): a
+  file's first error ends the run today, so a wrong theorem hides the verdicts of the correct ones beside it, where
+  Lean reports every theorem; the declaration-level part of "log and carry on, as Lean".
 - Run the twins of Batteries and Mathlib tactics inside the built Mathlib checkout, on the tactic itself, where
   today they run on core Lean in an equivalent form (2026-11-22; not started).
 - Lean-beam for connecting AI tools to LeanForth (owner, 2026-11-21; long term, not started): investigate it, and

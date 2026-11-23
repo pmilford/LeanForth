@@ -1539,11 +1539,23 @@ Mathematically: from a = b and b = a, the pair (a = b, b = a) gives b = a
 TB2, piece F, 2026-11-22; design
 [TACTIC_BLOCKS.md](../design/TACTIC_BLOCKS.md), the owner's spellings of
 OWNER_DECISIONS.md "Blocks in proof text"; `src/front/tactics/blocks.fs`,
-`have.fs`, the runner's block modes in `src/front/tactic-run.fs`; written
-and tested on branch `tb2-blocks1`, compared with pinned Lean node for
+`have.fs`, the runner's block modes in `src/front/tactic-run.fs`; on
+main, done check
+[2026-11-22-tb2-blocks1-done.md](../development/done-checks/2026-11-22-tb2-blocks1-done.md);
+compared with pinned Lean node for
 node by `tests/front/tactics/blocks-1/check.py`, examples from
-`tests/front/tactics/blocks-1/braces.lf`, `have-by.lf` and `focus.lf`;
-not done-checked yet). A block is a group of tactics that works on part
+`tests/front/tactics/blocks-1/braces.lf`, `have-by.lf` and `focus.lf`).
+Three things a first proof with blocks meets (the done checker met each):
+the statement and its hypotheses are written as in "A complete tactic
+proof" above, and a three-part "and" A ∧ (B ∧ C), Lean's `A ∧ B ∧ C`, is
+`A B C ∧ ∧` (`A B ∧ C ∧` is (A ∧ B) ∧ C); in `' Eq.symm ' h $` the
+function is second and its value on top, `$ ( func value -- func(value) )`,
+so `' h ' Eq.symm $` is another term; and a wrong term inside a block is
+refused as anywhere else, with 96 (type mismatch) or, where Lean would
+first try a coercion, with 131 "not supported yet: a coercion" (exit 2,
+not accepted). A run stops at a file's first error: no later theorem of
+the file is reported, and the library's declarations print before the
+file's own theorems. A block is a group of tactics that works on part
 of the proof. A brace `{ ... }` closes itself; a block a `by-` word opens
 closes with `by-end`. Blocks nest and may run over lines.
 
