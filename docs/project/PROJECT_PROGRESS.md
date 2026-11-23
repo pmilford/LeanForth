@@ -211,8 +211,11 @@ status changes when this date is older than them. Stages are those of the
   the twins; Lean to LeanForth is best done by Lean itself parsing the source and printing its syntax tree as
   LeanForth words, and is useful once most tactics exist.
 - A large recent Lean proof as the translators' test (owner, 2026-11-22; long term, not started): translate the
-  proof the owner names (he said "the recent Riemann hypothesis proof"; the reference is to be confirmed, since a
-  search on 2026-11-22 found a formal statement in Mathlib and unverified claims, no accepted proof) to LeanForth
+  Lean formalization of the 2026 proof of the Riemann hypothesis and of GRH for Dirichlet L-functions (owner's
+  reference: <https://github.com/leanprover-community/riemann-hypothesis>, a community mirror of Alpöge's submission
+  of 2026-11-20, written for Lean 4.33.1, published without a license; its README says Lean's kernel, nanoda and
+  Comparator accept `src/Main.lean` with the axioms propext, Quot.sound and Classical.choice only, and that a full
+  build takes hours) to LeanForth
   and check it, translate it back to Lean and check it there, and measure the machine each needs (time and memory in
   Lean and in LeanForth). Three separate tests: the exported proof checked by the kernel (possible today for any
   Lean project that builds), the source translated and elaborated by LeanForth's front end (needs the tactics it
