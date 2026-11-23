@@ -895,6 +895,14 @@
   "shuffles": 0,
   "words": 2
  },
+ "src/front/tactics/blocks.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 0
+ },
  "src/front/tactics/by-contra.fs": {
   "globals": 3,
   "long lines": 0,

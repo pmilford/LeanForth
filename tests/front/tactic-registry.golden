@@ -154,6 +154,7 @@
 467	1	lean	Insufficient number of fields for `⟨...⟩` constructor: Constructor
 459	1	-	by-revert[ and by-clear[ take names of hypotheses up to ]
 460	1	-	this list takes one item at least
+468	1	-	<;> follows no tactic of its block (t1 <;> t2)
 453	1	-	at[ follows no tactic word that takes a location
 454	1	-	at[ takes hypothesis names and |-, or * alone, up to ]
 440	1	lean	Tactic `clear` failed: unknown variable
@@ -289,6 +290,8 @@ reserved by-apply word
 reserved by-assumption word
 reserved { word
 reserved by-focus word
+reserved by-all-goals word
+reserved <;> word
 reserved by-have: word
 reserved by-have word
 reserved by-let: word
@@ -344,41 +347,43 @@ kind 14 by-apply 0 apply run
 kind 15 by-assumption 0 assumption run
 kind 16 { 0 braces run
 kind 17 by-focus 0 focus run
-kind 18 by-have: 0 have run
-kind 19 by-have 0 have run
-kind 20 by-let: 0 let run
-kind 21 by-suffices: 0 suffices run
-kind 22 by-have-goal: 0 have run
-kind 23 by-have-by: 0 have run
-kind 24 by-cases: 0 by_cases run
-kind 25 by-intro[ 0 intro run
-kind 26 by-contra-core 0 by_contra_core run
-kind 27 by-contra: 0 by_contra run
-kind 28 by-contra 0 by_contra run
-kind 29 by-change 0 change run
-kind 30 by-show 0 show run
-kind 31 by-clear 0 clear run
-kind 32 by-clear[ 0 clear run
-kind 33 by-constructor 0 constructor run
-kind 34 by-contradiction 0 contradiction run
-kind 35 by-decide 0 decide run
-kind 36 by-native-decide 0 native_decide run
-kind 37 by-delta 0 delta run
-kind 38 by-exacts[ 0 exacts run
-kind 39 by-exfalso 0 exfalso run
-kind 40 by-trivial 0 trivial run
-kind 41 by-exists[ 0 exists run
-kind 42 by-intros 0 intros run
-kind 43 by-left 0 left run
-kind 44 by-obtain[ 0 obtain run
-kind 45 by-rcases[ 0 rcases run
-kind 46 by-refine 0 refine run
-kind 47 by-rename-i[ 0 rename_i run
-kind 48 by-replace: 0 replace run
-kind 49 by-revert 0 revert run
-kind 50 by-revert[ 0 revert run
-kind 51 by-right 0 right run
-kind 52 by-rwa[ 0 rwa run
-kind 53 by-specialize 0 specialize run
-kind 54 by-swap 0 swap run
-kind 55 by-symm 0 symm run
+kind 18 by-all-goals 0 all_goals run
+kind 19 <;> 0 and_then run
+kind 20 by-have: 0 have run
+kind 21 by-have 0 have run
+kind 22 by-let: 0 let run
+kind 23 by-suffices: 0 suffices run
+kind 24 by-have-goal: 0 have run
+kind 25 by-have-by: 0 have run
+kind 26 by-cases: 0 by_cases run
+kind 27 by-intro[ 0 intro run
+kind 28 by-contra-core 0 by_contra_core run
+kind 29 by-contra: 0 by_contra run
+kind 30 by-contra 0 by_contra run
+kind 31 by-change 0 change run
+kind 32 by-show 0 show run
+kind 33 by-clear 0 clear run
+kind 34 by-clear[ 0 clear run
+kind 35 by-constructor 0 constructor run
+kind 36 by-contradiction 0 contradiction run
+kind 37 by-decide 0 decide run
+kind 38 by-native-decide 0 native_decide run
+kind 39 by-delta 0 delta run
+kind 40 by-exacts[ 0 exacts run
+kind 41 by-exfalso 0 exfalso run
+kind 42 by-trivial 0 trivial run
+kind 43 by-exists[ 0 exists run
+kind 44 by-intros 0 intros run
+kind 45 by-left 0 left run
+kind 46 by-obtain[ 0 obtain run
+kind 47 by-rcases[ 0 rcases run
+kind 48 by-refine 0 refine run
+kind 49 by-rename-i[ 0 rename_i run
+kind 50 by-replace: 0 replace run
+kind 51 by-revert 0 revert run
+kind 52 by-revert[ 0 revert run
+kind 53 by-right 0 right run
+kind 54 by-rwa[ 0 rwa run
+kind 55 by-specialize 0 specialize run
+kind 56 by-swap 0 swap run
+kind 57 by-symm 0 symm run

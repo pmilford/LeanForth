@@ -133,11 +133,12 @@
   "tokens": 11
  },
  "138dbe7926b2": {
-  "copies": 2,
+  "copies": 3,
   "kind": "shape",
   "members": [
    "src/cli/leanforth.fs:count-command",
-   "src/program/ir-run.fs:irx-block"
+   "src/program/ir-run.fs:irx-block",
+   "src/front/tactic-syntax.fs:lft-block-end"
   ],
   "reason": "false positive: a two-way choice on a flag or a field between two different words",
   "tokens": 7
@@ -531,12 +532,13 @@
   "tokens": 14
  },
  "4ade1c7c68a9": {
-  "copies": 3,
+  "copies": 4,
   "kind": "shape",
   "members": [
    "src/author/export.fs:lfx-reached",
    "src/core/reach.fs:lr-visit",
-   "src/core/reach.fs:lr-level-visit"
+   "src/core/reach.fs:lr-level-visit",
+   "src/front/tactic-run.fs:lfr-then-end"
   ],
   "reason": "false positive: the guarded test `dup a? if b else drop false then` (or with 2dup/2drop) of two different words",
   "tokens": 7
@@ -1346,7 +1348,7 @@
   "tokens": 6
  },
  "aca78af72b77": {
-  "copies": 9,
+  "copies": 10,
   "kind": "shape",
   "members": [
    "src/core/level-scope.fs:lf-lscope-context-valid?",
@@ -1357,7 +1359,8 @@
    "src/kernel/environment.fs:lf-env-skipped?",
    "src/present/binder-table.fs:lf-pres-current",
    "src/present/print-analysis.fs:lf-pp-applied?",
-   "src/program/ir-reader.fs:ir-more?"
+   "src/program/ir-reader.fs:ir-more?",
+   "src/front/tactic-syntax.fs:lft-alt?"
   ],
   "reason": "false positive: the short-circuit test `a if b else false then` (a && b), nine times with nine different tests and continuations in nine files; a word taking b's xt would be no shorter and would run an EXECUTE on every call (cleanup-families-2)",
   "tokens": 6

@@ -423,7 +423,6 @@ end-structure
 : lft-settled ( -- ) lft-one? if lft-then-close then ;
 : lft-settle ( -- ) lft-one? lft-holding? and if lft-then-close then ;
 : lft-ready ( -- ) lft-poised lft-settle ;
-: lft-closing ( -- ) lft-poised lft-settled ;
 \ Right inside a block of bars comes an alternative; a tactic there is
 \ Lean's pre-tactic (induction t with tac | ...), not supported yet.
 : lft-not-pre ( -- ) lft-bars? if lfa-e-tactic lfa-fail then ;
@@ -438,6 +437,8 @@ end-structure
 : lft-count ( found want -- ) 2dup = if 2drop exit then lft-count-code lfa-fail ;
 : lft-takes ( want -- ) >r lfa-above r> lft-count false lft-hyp! ;
 : lft-tactic ( want -- ) lft-ready lft-not-pre lft-takes ;
+\ Before a closer (}, by-end, |): the then-block closed (lft-settled), no value.
+: lft-closing ( -- ) lft-poised lft-settled 0 lft-takes ;
 
 \ Tactics. A word is read by its shape (lf-tactic: keeps a registered
 \ word's in its row): the values above the frame checked before the
@@ -512,7 +513,7 @@ end-structure
 \ An alternative ends with its last tactic, at the next | or by-end.
 : lft-alt-end ( -- ) lft-alt? if lft-read-from lft-names-end then ;
 : lft-in-with ( -- ) lft-bars? lfa-e-tac-closer lfa-must ;
-: lft-w-bar ( -- ) lft-closing 0 lft-takes lft-alt-end lft-in-with tac-k-alt lft-header ;
+: lft-w-bar ( -- ) lft-closing lft-alt-end lft-in-with tac-k-alt lft-header ;
 : lft-case-new ( -- i ) 0 lft-tactic lft-inner+ tac-k-case lft-headed-new ;
 : lft-w-case ( -- ) lft-case-new lft-case-tag! lft-headed ;
 \ by-next NAMES... => : Lean's next, the macro case _ NAMES => (Init/
@@ -563,7 +564,7 @@ end-structure
 : lft-closer-at ( -- ) lft-open-at lfa-e-tac-closer lfa-fail-see ;
 : lft-in-brace ( -- ) lft-open-flags tac-block-self and 0= if lft-closer-at then ;
 : lft-brace-close ( -- ) lft-past lft-open lft-arrow! lft-rec true lft-close-names ;
-: lft-w-brace-end ( -- ) lft-closing 0 lft-takes lft-in-brace lft-brace-close lft-from! ;
+: lft-w-brace-end ( -- ) lft-closing lft-in-brace lft-brace-close lft-from! ;
 \ by-end at a block a word opened: 83 at none (the proof's by) and at a
 \ brace (its { second); else the block's end, its names cut when its
 \ shape says so.
@@ -572,8 +573,7 @@ end-structure
   lft-open-flags dup 0<> lfa-e-tac-closer lfa-must lft-not-brace
   lft-past swap tac-block-cuts and lft-block-close ;
 : lft-block-end ( -- ) lft-bars? if lft-past lft-close else lft-word-end then ;
-: lft-w-by-end ( -- )
-  lft-closing 0 lft-takes lft-alt-end lft-block-end lft-from! ;
+: lft-w-by-end ( -- ) lft-closing lft-alt-end lft-block-end lft-from! ;
 : lft-w-arrow ( -- ) lft-in-proof lfa-e-tac-header lfa-fail ;
 
 \ Locations (plan row TB2, tactic batch 3a, written at[ ... ] since

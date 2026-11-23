@@ -24,10 +24,10 @@ reason = "TB2 blocks 2: the first then-block of a <;> b <;> c puts the goals asi
 [[fault]]
 id = "tb2b2-settle-before-brace"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-w-brace-end ( -- ) lft-closing 0 lft-takes lft-in-brace lft-brace-close lft-from! ;'''
+old = ''': lft-w-brace-end ( -- ) lft-closing lft-in-brace lft-brace-close lft-from! ;'''
 new = ''': lft-w-brace-end ( -- ) lft-poised 0 lft-takes lft-in-brace lft-brace-close lft-from! ;'''
 test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
-reason = "TB2 blocks 2: } does not settle the then-block before it, so it finds no brace open: blocks-2 test.fs's { by-constructor <;> by-assumption } is 83, not 0"
+reason = "TB2 blocks 2: } does not settle the then-block before it, so it finds no brace open: blocks-2 test.fs's { ' h by-exact <;> } is 83, not 85 (and { by-constructor <;> by-assumption } 83, not 0)"
 
 [[fault]]
 id = "tb2b2-pass-not-kept"
