@@ -165,7 +165,8 @@ is elaborated yet:
 | `T e by-have: NAME`, `e by-have`, `T e by-let: NAME`, `T e by-suffices: NAME`, `T by-have-goal: NAME`, `T e by-replace: NAME` | `( T e -- )`, `( e -- )`, `( T e -- )`, `( T e -- )`, `( T -- )`, `( T e -- )` | ports of Lean's `have NAME : T := e`, `have := e` (NAME `this`), `let NAME : T := e`, `suffices NAME : T from e`, Mathlib's `have NAME : T` and Lean's `replace NAME : T := e` (tactic batch 2a, plan row TB2; `src/front/tactics/have.fs`, `replace.fs`, on `src/front/meta-tactic/assert.fs`); NAME read after the word on its line (2 when missing, 84 a word): no codes of their own: 96 e not of type T (or not of the goal's, suffices), 130 T no type, 99 NAME `_` or a value naming a hypothesis the goal no longer has, 93 a type or value leaving a metavariable open |
 | `by-intro: NAME`, `t by-exact`, `by-rfl`, run | | as Lean's `intro`, `exact` and `rfl` (plan FE1g-4, `src/front/tactics/intro.fs`, `exact.fs`, `rfl.fs`): 94 no binder to introduce, 95 a metavariable left unassigned, 96 a type mismatch, 97 two sides not definitionally equal, 98 a term the goal cannot take, 99 a case not supported yet (`intro rfl`, a `let`, a binder of no known kind, an instance binder; implicit and strict-implicit binders are introduced, plan row TB1), 93 a step of the Meta layer not ported yet |
 | `\| TAG NAMES… =>`, `by-case: TAG NAMES… =>` | `( -- )` | an alternative of the `by-induction-with` it is right inside (up to the next `\|` or `by-end`), a case block (up to its `by-end`); the header on one line, its names hypotheses of the block |
-| `by-end` | `( -- )` | closes the innermost `by-induction-with` or `by-case:` |
+| `by-end` | `( -- )` | closes the innermost `by-induction-with`, `by-case:`, `by-focus` or `by-have-by:` (83 with a brace innermost, the `{` second; 85 an empty `by-` block) |
+| `{` … `}`, `by-focus` … `by-end`, `T by-have-by: NAME` … `by-end` | `( -- )`, `( -- )`, `( T -- )` | blocks (plan row TB2, blocks slice 1; `src/front/tactics/blocks.fs`, `have.fs`, the runner's modes `lf-mode-done`, `lf-mode-focus`, `lf-mode-nested`): Lean's bullet `·` and `{ }` (the first goal alone, none left at `}`: 89 at `}`; none to take: 90; names given inside cut at `}`), `focus` (the goals left before the others; names kept) and `have NAME : T := by …` (T's proof on a new untagged goal, its unsolved goals 89 at the word, always reported; names inside cut, NAME kept; `_` 99); `}` with no brace innermost 83, `{`/`}` as a name 84, as a binder 78 |
 | `by-rw[`, `by-rewrite[` … `]` | `( -- )`, `( r1 .. rn -- )` | the values built between the brackets are the rules, in order; a hypothesis there takes no values (applied with `$`: `ih k $`) |
 | `t by-induction`, `t by-induction-with`, `\|`, run | | as Lean's `induction t` and `induction t with \| …` (plan S2, `src/front/tactics/induction.fs` on the tactic library's `meta-tactic/elim.fs` and `tactic-alts.fs`, since plan 9.4.8l I): `t` a variable of an inductive type, the eliminator the data's (`Nat.recAux`) or `T.rec`; each alternative takes its case's goal, names its explicit fields and runs as a block; 205 no inductive type, 206 a name of no case, 207 a case not written, 208 too many names, 209 a mutual or nested type, 212 the motive's type, 213 a name written twice, 99 a form not ported (a target that is no variable, hypotheses that depend on it, index targets, instance binders); `by-case:` stays 80 (plan S2 merge B) |
 | `by-rewrite[ r … ]`, `by-rw[ r … ]`, run | | as Lean's `rewrite [r, …]` and `rw [r, …]` (plan S2, `src/front/tactics/rewrite.fs` on the tactic library's `meta-tactic/rewrite.fs`, `lf-goal-rewrite`, since plan 9.4.8l I; on `kabstract.fs` and `meta-check.fs`): each rule a hypothesis or a theorem, its equation's left side abstracted wherever it occurs (`kabstract` at reducible transparency), the motive type-checked, `Eq.mpr` and `congrArg` as Lean builds them; `by-rw[` then tries `rfl` at reducible transparency; 215 no occurrence, 216 a motive not type correct, 217 a dependent motive, 218 no equation, 219 a metavariable pattern, 220 the occurs check, 99 a form not ported (a definition as a rule, `Iff`, an instance binder, a rule's argument left to a new goal) |
@@ -197,9 +198,15 @@ statement's type in their context; until then error 71), the entry
 `lf-tactic-fuel! ( n -- )` and `lf-tactic-fuel-default ( -- )`, the row
 setter `lf-tactic-action! ( xt kind -- )` that later steps use while
 loading, the words a tactic's action uses (`lf-tac-main`, `lf-tac-fail`,
-`lf-tac-focus`, `lf-tac-unfocus`, `lf-tac-done`, `lf-tac-block`), the
+`lf-tac-focus`, `lf-tac-unfocus`, `lf-tac-done`, `lf-tac-block`,
+`lf-tac-focused`), the block modes and recover flag (plan row TB2,
+blocks slice 1: `lf-block-mode`, `lf-tactic-mode!`, `lf-tac-recover?`,
+`lf-tac-no-recover`, `lf-tac-log-fail`, `lf-tac-logged`), the
 saved states (`lf-tac-save`, `lf-tac-restore`, `lf-tac-commit`,
-`lf-tac-try`, `lf-tac-forget`) and the open parts (`lf-open-parts`,
+`lf-tac-try`, `lf-tac-forget`; try and first catch only an error whose
+code is Lean's own, author/errors.fs's `lf-author-lean?`, registered
+with the outcome `lfa-lean`, and not made final, `lf-author-final?`:
+`lf-tac-lean-error?`) and the open parts (`lf-open-parts`,
 `lf-open-parts.`); the tactic library (`src/front/tactic-core.fs`) adds
 `lf-tac-elab ( node expected -- term outcome )`, the term elaborator's
 hook plan FE1e fills (Lean's `Tactic.elabTerm`), `lf-tac-defeq ( t s --

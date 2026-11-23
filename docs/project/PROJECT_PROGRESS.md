@@ -29,6 +29,17 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
+- 2026-11-22, 15:58: plan row TB2's tactic blocks, slice 1 (piece F, design
+  [TACTIC_BLOCKS.md](../design/TACTIC_BLOCKS.md)), are **tested on branch `tb2-blocks1`**, not reviewed, not merged,
+  not done-checked, so not done. First the hole of error 92 on main is closed: each error code says whether it is
+  Lean's own error (`lfa-lean`), and only such a code is caught by the tactics that try alternatives (`by-rfl`,
+  `by-trivial`, `by-exists[ ]`, `by-absurd`, `by-contra:`, rw's closing `rfl`, `by-rwa[ ]`, `by-show`); the runner's
+  own refusals pass every try. Then braces `{ tacs }` (Lean's bullet `·`), `by-focus ... by-end` (Lean's `focus`) and
+  `T by-have-by: h ... by-end` (Lean's `have h : T := by ...`), on frames with modes, Lean's recover flag and one
+  CATCH in the runner. `GFORTH=... python3 tests/front/tactics/blocks-1/check.py`: 12 theorems node for node pinned
+  Lean's on decide's slice, 6 wrong twins with Lean's messages, 1 reading error, 1 not supported (exit 2); 21
+  planted faults (all caught). Where Lean logs an error and goes on, LeanForth stops at it (the same verdict). Next:
+  the Forth review, the merge, the done check; then slice 2 (`<;>`, `by-all-goals`).
 - 2026-11-22, 14:57: plan row TB2's batch 3c is **done** on main d66c4f28 (done check [2026-11-22-tb2-batch3c-done.md](../development/done-checks/2026-11-22-tb2-batch3c-done.md): the checker's own 8 theorems accepted from the reference alone, 4 wrong variants not accepted; pushed); blocks slice 1 is in work on branch `tb2-blocks1`; the design of case patterns is reviewed and its spellings approved ([TACTIC_PATTERNS.md](../design/TACTIC_PATTERNS.md)). Batch 3c was Forth-reviewed
   ([report](../development/forth-reviews/2026-11-22-tb2-batch3c.md): findings 1-7 and 9-11 fixed on the branch, 8
   recorded as narrower than Lean), not merged, not done-checked, so not done: the anonymous constructor `<< p q >>` (Lean's `⟨p, q⟩`, also written `⟨ p

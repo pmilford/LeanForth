@@ -1,7 +1,13 @@
 # Tactic blocks: braces, `<;>`, try, first, all_goals, repeat, `have := by` (piece F)
 
 Status (2026-11-22): **designed and reviewed; the owner approved the spellings (OWNER_DECISIONS "Blocks in proof
-text"); no code yet.** Second version, by the architect agent, after the independent design review
+text"). Slice 1 written and tested on its branch `tb2-blocks1`** (the hole of error 92 fixed, the modes and the
+loop, `{ }`, `by-focus`, `by-have-by:`; `tests/front/tactics/blocks-1/`; not reviewed or done-checked yet; where it
+differs from this text: modes are made by `lf-block-mode ( ... -- mode )` and kept as constants, as shapes are; a
+final error is a flag of the error record, `lfa-final`, not a THROW code of its own; `{ }` is read, as Lean's parser
+reads it, and fails when run; the done, nested and focus modes are in `tactic-run.fs`, which needs them for its own
+kinds, so `tactic-blocks.fs` waits for slice 2). Slices 2 and 3: not started. Second version, by the architect
+agent, after the independent design review
 ([2026-11-22-tactic-blocks.md](../development/design-reviews/2026-11-22-tactic-blocks.md): approve with changes, all
 eleven findings applied, see "Review response"). Plan row TB2, piece F of
 [TACTIC_STATUS.md](../development/TACTIC_STATUS.md). Paths of source files are relative to `src/front/` or the

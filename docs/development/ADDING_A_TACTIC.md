@@ -95,6 +95,29 @@ s" assumption" tac-k-assumption lf-tactic-lean!
   `syn-last!`) at its step's word and refines with it.
   The goal words under it are `new-goals.fs`'s `lf-fresh-mvars`,
   `lf-natural-mvars`, `lf-tac-log-unassigned` and `lf-tag-untagged`.
+- Blocks (plan row TB2, blocks slice 1; design
+  [TACTIC_BLOCKS.md](../design/TACTIC_BLOCKS.md)): a word whose steps
+  after it form its block is registered with `n k flags tac-shape-block
+  ( -- shape )` (n values, k names, then the block up to `by-end`;
+  `tac-block-cuts`: the names given inside it go at its end;
+  `tac-block-self`: it closes itself at `}`), its run word opens the
+  runner's frame with `lf-tac-block ( i rest -- )` or, over the main goal
+  alone, `lf-tac-focused ( i -- )` (Lean's focus: 90 with no goal, before
+  the frame is pushed), and its row names the frame's mode with
+  `lf-tactic-mode! ( mode kind -- )`: `lf-mode-done` (the default: Lean's
+  closeUsingOrAdmit, no goal left at its end, 89), `lf-mode-nested`
+  (Term.runTactic: a fresh recover, its unsolved goals always reported)
+  or `lf-mode-focus` (the goals left before the others); a new mode is
+  `lf-block-mode ( open-xt end-xt fail-xt|0 flags -- mode )` with the
+  flags `lfr-admits`, `lfr-no-recover`, `lfr-fresh-recover`
+  (`tactics/blocks.fs`; `tactics/have.fs`'s `by-have-by:`). A tactic Lean
+  writes as a sign, not a `by-` word, registers with `lf-tactic-sign:`
+  (`{`). An error of Lean's logged class (throwOrLogError, a term that
+  does not elaborate) is raised with `lf-tac-log-fail ( code -- )` or
+  `lf-tac-logged ( i*x xt -- j*x )`: final while the block recovers
+  (`lf-tac-recover? ( -- flag )`), else thrown; `lf-tac-no-recover ( i*x
+  xt -- j*x )` runs xt as Lean's withoutRecover (try's and first's
+  alternatives but the last).
 - A tactic that takes Lean's location (`at h ⊢`) is registered with a
   located shape (`tac-shape-at ( shape -- shape )`: `tac-shape-plain-at`,
   `tac-shape-term-at`, and `tac-shape-rules` takes one already); a trailing

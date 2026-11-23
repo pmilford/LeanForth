@@ -1535,6 +1535,90 @@ Mathematically: from a = b and b = a, the pair (a = b, b = a) gives b = a
 ∧ a = b by taking its parts in the other order. Lean: `have x : a = b ∧ b
 = a := ⟨h, k⟩; exact ⟨x.2, x.1⟩`.
 
+**Tactic blocks, slice 1: braces, `by-focus`, `by-have-by:`** (plan row
+TB2, piece F, 2026-11-22; design
+[TACTIC_BLOCKS.md](../design/TACTIC_BLOCKS.md), the owner's spellings of
+OWNER_DECISIONS.md "Blocks in proof text"; `src/front/tactics/blocks.fs`,
+`have.fs`, the runner's block modes in `src/front/tactic-run.fs`; written
+and tested on branch `tb2-blocks1`, compared with pinned Lean node for
+node by `tests/front/tactics/blocks-1/check.py`, examples from
+`tests/front/tactics/blocks-1/braces.lf`, `have-by.lf` and `focus.lf`;
+not done-checked yet). A block is a group of tactics that works on part
+of the proof. A brace `{ ... }` closes itself; a block a `by-` word opens
+closes with `by-end`. Blocks nest and may run over lines.
+
+- `{ tacs }` is Lean's bullet `· tacs` (and Lean's own `{ tacs }`): the
+  first goal alone, the tactics, and at `}` no goal may be left; the
+  other goals come back after it. Mathematically: one case of a proof
+  with several parts, finished before the next. With `h : a = b`, `k : b
+  = a`: `by-constructor { ' h by-exact } { ' k by-exact }` proves `a = b
+  ∧ b = a` (`br_and`); Lean: `constructor` / `· exact h` / `· exact k`.
+  A goal left at `}`: 89, "unsolved goals", at `}` as Lean's; `{` with
+  no goal: 90 at `{` (Lean at `}`); `{ }` is read, as Lean's parser reads
+  it, and is 89 over a goal. Names given inside a brace go at its `}`, so
+  two braces may both name a hypothesis `x` (`br_names`). A brace may
+  stand in an alternative's or a case's block: `| zero => { by-constructor
+  { by-rfl } { by-rfl } }` (`br_ind`), `by-case: right => { ' k by-exact }
+  by-end` (`br_case`).
+- `by-focus tacs by-end` is Lean's `focus tacs`: the first goal alone, the
+  tactics; the goals they leave come back first, before the others, and
+  none need be closed (`fo_open`: `by-constructor by-focus a b = ' h
+  by-have: x by-end ' x by-exact ' k by-exact`; Lean: `constructor` /
+  `focus` / `  have x : a = b := h` / `exact x` / `exact k`). No goal: 90.
+  Names given inside stay after `by-end`.
+- `T by-have-by: h tacs by-end` is Lean's `have h : T := by tacs`:
+  mathematically, an intermediate claim T with its own proof. The tactics
+  prove T from the goal's hypotheses (h is not one of them), then the
+  goal goes on with h : T. With `h : a = b`: `b a = by-have-by: k ' Eq.symm
+  ' h $ by-exact by-end ' k by-exact` proves `b = a` (`hb_symm`; Lean:
+  `have k : b = a := by exact Eq.symm h` / `exact k`). Goals left at
+  `by-end`: 89 at `by-have-by:` (Lean's at `by`), always reported, as
+  Lean's; `_` as the name: 99 (not supported yet). Names given inside the
+  block go at its `by-end`; h stays.
+- Closers: `}` with no brace open (83), at an alternative, a case or a
+  `by-` block (83, that block's place second); `by-end` in a brace (83,
+  the `{` second); `end NAME` with a brace open (82, the `{` second); `|`
+  inside a brace (83); an empty `by-focus` or `by-have-by:` (85); `{` and
+  `}` are no names (84) and name no binder (78); `{` right inside
+  `by-induction-with`, before its first `|`, is Lean's pre-tactic, not
+  supported yet (72).
+
+A worked theorem with nested braces and a have-by, checked with
+`bin/leanforth check --env tests/front/decide-slice.ndjson --elab-data
+tests/front/decide-slice.elab.ndjson FILE.lf` (`hb_inner` of
+`have-by.lf`):
+
+```forth
+theorem hb_inner
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  b a = a b = ∧
+:= by
+  a b = b a = ∧ by-have-by: j
+    by-constructor
+    { a b = ' h by-have: x  ' x by-exact }
+    { ' k by-exact }
+  by-end
+  ' And.intro ' And.right ' j $ $ ' And.left ' j $ $ by-exact
+end hb_inner
+```
+
+Mathematically: first the claim j : a = b ∧ b = a, proved part by part
+(the left part through an intermediate x : a = b), then b = a ∧ a = b
+from j's parts in the other order. Lean: `have j : a = b ∧ b = a := by` /
+`  constructor` / `  · have x : a = b := h` / `    exact x` / `  · exact
+k` / `exact And.intro (And.right j) (And.left j)`.
+
+Narrower than Lean (each an answer, never a wrong acceptance): where Lean
+logs an error, admits the goal and goes on (a brace's or an alternative's
+`closeUsingOrAdmit`, a term that does not elaborate, a have-by's unsolved
+goals), LeanForth stops at that first error; the verdict is the same,
+rejected, but Lean may report further errors that LeanForth does not
+(the owner's decision 6). The place of 90 for `{` with no goal is `{`,
+Lean's is `}`; have-by's unsolved goals are told at `by-have-by:`, Lean's
+at `by`. `try`, `first`, `<;>`, `all_goals`, `any_goals` and `repeat` are
+slices 2 and 3 of the design, not built yet.
+
 A statement's hypothesis is written with a tick when it stands alone,
 `' h by-apply`, because its type is not unfolded to count its arguments
 (error 73).
@@ -1575,7 +1659,10 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-induction-with` | `( t -- )` | ordinary; opens a block that `by-end` closes | read: a block step holding t. Run: as `by-induction`, each case taken by an alternative | Induction on t with the cases written as alternatives. | `induction t with` |
 | `\| CASE-TAG HYP-NAME ... =>` | `( -- )` | parsing: tokens of its line up to `=>`; only right inside `by-induction-with` (error 83 elsewhere) | read: an alternative block; the names become hypotheses until the alternative ends. Run: introduces the case's fields and runs the block | One alternative of an induction. CASE-TAG is the name of the case (`zero`, `succ`); each HYP-NAME becomes a new word for one of the case's variables or hypotheses (`k`, `ih` in `\| succ k ih =>`) until the alternative ends. The alternative ends at the next `\|` or at `by-end`. | `\| tag names =>` |
 | `=>` | | read only by `\|` and `by-case:` as their terminator; run alone it is error 84 | none | Ends an alternative's header. | `=>` |
-| `by-end` | `( -- )` | ordinary | read: closes the innermost `by-induction-with` or `by-case:` block | Closes the block; with none open, error 83. | indentation |
+| `by-end` | `( -- )` | ordinary | read: closes the innermost `by-induction-with`, `by-case:`, `by-focus` or `by-have-by:` block | Closes the block; with none open, or a brace innermost (the `{` second), error 83; an empty `by-focus` or `by-have-by:` block: 85. | indentation |
+| `{` .. `}` | `( -- )` | ordinary; `{` opens a block that its own `}` closes, over lines; may nest | read: a block step; names given inside it go at `}`. Run: the first goal alone, the block, no goal left at `}`, the other goals back | Works on the first goal alone and must close it (Lean's bullet); a goal left: 89 at `}`; no goal: 90; `}` with no brace innermost: 83 (the open block second). | `· tacs`, `{ tacs }` |
+| `by-focus` | `( -- )` | ordinary; opens a block that `by-end` closes | read: a block step; names given inside it stay. Run: the first goal alone, the block, then the goals it leaves before the others | Works on the first goal alone without having to close it; no goal: 90. | `focus` |
+| `by-have-by: HYP-NAME` | `( T -- )` | parsing: one name after it, on its line; opens a block that `by-end` closes | read: a block step holding T; HYP-NAME a hypothesis word after the block, names given inside it go at `by-end`. Run: a new goal T, untagged, in the main goal's context, the main goal assigned `have HYP-NAME : T := ?p; ?g` (?g in its place), then the block on ?p alone | Proves the claim T by its own tactics, then goes on with HYP-NAME : T; goals left at `by-end`: 89 (always reported); T no type: 130; `_`: 99. | `have HYP-NAME : T := by tacs` |
 | `by-rw[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: a block step. Run: rewrites the goal with each rule, then tries `by-rfl` | Starts a list of rewrite rules; every value built until `]` is a rule. | `rw [` |
 | `by-rewrite[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, no `by-rfl` | The same without the closing `rfl`. | `rewrite [` |
 | `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules (or terms), in order; closes it | Ends the list of `by-rw[`, `by-rewrite[`, `by-rwa[`, `by-exacts[` or `by-exists[`; with none open, error 83; with a `<<` open inside the list, 458 at `<<` (its `>>` is missing). | `]` |
@@ -1604,7 +1691,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-decide` | `( -- )` | ordinary | read: a step. Run: assigns the main goal `of_decide_eq_true P I h` after `Decidable.decide P I` reduced to `true`, removes the goal | Proves a closed decidable statement (`2 + 2 = 4`, `10 < 20`, `¬`, `∧`, `∨`, Bool equality) by evaluation; false: error 250; a free variable in the goal: 251; a metavariable: 252; evaluation stuck: 253; no `Decidable` instance: 122; an exponent above 256, or a `let` in a goal with a free variable: 93 (not supported yet). | `decide` |
 | `**` `by-omega` | `( -- )` | designed | n/a | Linear arithmetic over `Nat` and `Int`. | `omega` |
 | `by-native-decide` | `( -- )` | ordinary; always refused, not supported (error 254, exit 2): it rests on `Lean.ofReduceBool` | read: a step. Run: error 254 | Never proves anything: Lean's `native_decide` trusts the compiler through an axiom LeanForth does not accept. | `native_decide` |
-| `**` `by-try`, `by-first`, `<;>` | | combinators; sketched in FE1G §4 and S2 §3 (the trail), no word fixed | n/a | n/a | `try`, `first`, `<;>` |
+| `**` `by-try`, `by-first`, `<;>`, `by-all-goals`, `by-any-goals`, `by-repeat` | | combinators; designed (TACTIC_BLOCKS.md, slices 2 and 3), the spellings the owner's | n/a | n/a | `try`, `first`, `<;>`, `all_goals`, `any_goals`, `repeat` |
 | `**` `by-alt: CASE-TAG HYP-NAME ... =>` | | an open question of the design: spelling alternatives without `\|` | n/a | n/a | `\| tag names =>` |
 | `**` `by-refine`, `by-subst` and others | | named in FE2 §3/FE5 as later tactics; no spelling is fixed (plan row TB2 lists the batches) | n/a | n/a | `refine`, `subst`, ... |
 
