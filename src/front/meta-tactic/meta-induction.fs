@@ -23,6 +23,9 @@
 \       lf-rinfo-minors ( info -- n ) the minor premises (the binders but
 \       the parameters, the motive, the indices and the major);
 \       lf-rinfo-levels# ( info -- n ), lf-rinfo-level ( info k -- pos )
+\   lf-goal-with4 ( goal x y z xt -- i*x )  mvarId.withContext do
+\       checkNotAssigned ...: xt ( goal x y z -- i*x ) in goal's context
+\       (Meta induction's and cases')
 \   lf-subgoal@ ( subgoals i k -- x )  cell k of subgoal i (0 its goal,
 \       1 its fields, 2 its substitution, 3 its constructor)
 \   lf-target-arity ( t -- n )  getTargetArity (Induction.lean:19): t's
@@ -202,6 +205,8 @@ end-structure
 : mid-info@ ( -- info ) mid mid-info @ ;
 : mid-goal@ ( -- goal ) mid mid-goal @ ;
 : mid-out+ ( x -- ) mid mid-out lf-run+! ;
+: lf-goal-with4 ( goal x y z xt -- i*x )
+  >r 2over drop lf-goal-not-assigned r> lf-with-goal ;
 : lf-subgoal@ ( subgoals i k -- x ) swap 4 * + run@ ;
 \ The major's type through whnf (whnfUntil I: no type of a free variable
 \ is reduced further once headed by an inductive type), headed by I.

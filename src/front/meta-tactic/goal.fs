@@ -8,9 +8,6 @@
 \       (Util.lean:65); an assigned goal is thrown invalid: no tactic of
 \       LeanForth's is handed one (lf-main-goal skips them), so it is a
 \       fault, not Lean's message
-\   lf-goal-with4 ( goal x y z xt -- i*x )  mvarId.withContext do
-\       checkNotAssigned ...: xt ( goal x y z -- i*x ) in goal's context
-\       (Meta induction's and cases')
 \   lf-goal-replace-target-eq ( goal new h -- goal' )  MVarId.replaceTargetEq
 \       (Replace.lean:21-32): a new synthetic opaque goal of type new with
 \       goal's tag in goal's context; goal assigned
@@ -183,9 +180,6 @@ require ../telescope.fs
 \ ---- checkNotAssigned.
 : lf-goal-not-assigned ( goal -- goal )
   dup lf-goal-assigned? if outcome-invalid lf-must then ;
-\ withContext after checkNotAssigned, for a goal word of four inputs.
-: lf-goal-with4 ( goal x y z xt -- i*x )
-  >r 2over drop lf-goal-not-assigned r> lf-with-goal ;
 
 \ ---- replaceTargetEq: goal' new in goal's context with goal's tag, goal
 \ assigned Eq.mpr.{u} target new (mkExpectedPropHint h (mkEq target new)) goal'.

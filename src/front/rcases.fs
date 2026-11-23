@@ -233,7 +233,7 @@ end-structure
 : rcs-find ( ctor kr -- m true | false )
   rcs-r# swap ?do dup i 0 rcs-r@ lf-name-same? if drop i true unloop exit then loop
   drop false ;
-: rcs-sub@ ( i k -- x ) rcs rcs-subs @ -rot lf-subgoal@ ;
+: rcs-sub@ ( i k -- x ) >r rcs rcs-subs @ swap r> lf-subgoal@ ;
 : rcs-new+ ( x -- ) rcs rcs-new lf-run+! ;
 \ The constructor's patterns zipped with the subgoal's fields, then the rest.
 : rcs-zip+ ( run j -- run' )
@@ -249,7 +249,7 @@ end-structure
   dup 3 rcs-sub@ rcs rcs-kr @ rcs-find if dup 1+ rcs rcs-kr ! rcs-sub-task exit then
   rcs-r# rcs rcs-kr ! drop ;
 \ The new tasks pushed last first, so the first subgoal is matched next.
-: rcs-new@ ( t k -- x ) rcs rcs-new @ -rot lf-subgoal@ ;
+: rcs-new@ ( t k -- x ) >r rcs rcs-new @ swap r> lf-subgoal@ ;
 : rcs-push ( t -- ) >r r@ 0 rcs-new@ r@ 1 rcs-new@ r@ 2 rcs-new@ r> 3 rcs-new@ rcs-task+ ;
 : rcs-pushed ( -- ) rcs rcs-new @ run-count 4 / begin ?dup while 1- dup rcs-push repeat ;
 : rcs-split-in ( node s -- )
