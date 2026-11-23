@@ -130,19 +130,24 @@ T{ gn s" x" nm run1 2 lf-goal-intro-names drop dup 1 s" x" named? over 1 hidden?
 T{ gn 0 0 lf-goal-intro-names -> gn 0 }T
 
 \ ---- 3. lf-recursor-info: from the declaration's type.
-: info. ( info -- args params major indices minors levels# )
-  dup lf-rinfo-args over lf-rinfo-params 2 pick lf-rinfo-major 3 pick lf-rinfo-indices
-  4 pick lf-rinfo-minors 5 pick lf-rinfo-levels# 6 roll drop ;
+: head3 ( info -- args params major ) dup lf-rinfo-args over lf-rinfo-params rot lf-rinfo-major ;
+: tail3 ( info -- indices minors levels# )
+  dup lf-rinfo-indices over lf-rinfo-minors rot lf-rinfo-levels# ;
 s" And.casesOn" decl lf-recursor-info constant i-and
-T{ i-and info. i-and lf-rinfo-decl s" And.casesOn" decl = -> 5 2 3 0 1 1 true }T
+T{ i-and head3 -> 5 2 3 }T
+T{ i-and tail3 -> 0 1 1 }T
+T{ i-and lf-rinfo-decl s" And.casesOn" decl = -> true }T
 T{ i-and lf-rinfo-type s" And" nm lf-name-same? i-and 0 lf-rinfo-level -> true -1 }T
 s" Nat.casesAuxOn" decl lf-recursor-info constant i-aux
-T{ i-aux info. i-aux 0 lf-rinfo-level -> 4 0 1 0 2 1 -1 }T
+T{ i-aux head3 -> 4 0 1 }T
+T{ i-aux tail3 i-aux 0 lf-rinfo-level -> 0 2 1 -1 }T
 \ Exists eliminates into Prop: its one level is Exists's own, index 0.
 s" Exists.casesOn" decl lf-recursor-info constant i-ex
-T{ i-ex info. i-ex 0 lf-rinfo-level -> 5 2 3 0 1 1 0 }T
+T{ i-ex head3 -> 5 2 3 }T
+T{ i-ex tail3 i-ex 0 lf-rinfo-level -> 0 1 1 0 }T
 s" Or.casesOn" decl lf-recursor-info constant i-or
-T{ i-or info. -> 6 2 3 0 2 0 }T
+T{ i-or head3 -> 6 2 3 }T
+T{ i-or tail3 -> 0 2 0 }T
 \ Eq.casesOn has an index (E4's); a theorem is no recursor: 99.
 T{ s" Eq.casesOn" decl lf-recursor-info lf-rinfo-indices -> 1 }T
 : info-code ( d -- code ) ['] lf-recursor-info catch dup if nip then authored ;
@@ -159,31 +164,35 @@ ia ib lf-mk-eq ib ia lf-mk-eq and-of s" h" binder constant ih
 ib ia lf-mk-eq tagged constant gi
 gi ih s" And.casesOn" decl 0 lf-goal-induction constant subs-and
 \ One minor premise: the parent's tag; the fields hidden; h cleared.
-: sub@ ( subs i k -- x ) swap 4 * + run@ ;
-T{ subs-and run-count subs-and 0 3 sub@ subs-and 0 1 sub@ run-count -> 4 0 2 }T
-subs-and 0 0 sub@ constant gi1
+T{ subs-and lf-subgoals# subs-and 0 lf-subgoal-ctor -> 1 0 }T
+T{ subs-and 0 lf-subgoal-fields run-count -> 2 }T
+subs-and 0 lf-subgoal-goal constant gi1
 T{ gi1 s" t" tag? gi1 view# gi1 2 hidden? gi1 3 hidden? gi open? -> true 4 true true false }T
-T{ subs-and 0 2 sub@ ih lf-fsubst-get lf-meta-fvar? -> true }T
+T{ subs-and 0 lf-subgoal-subst ih lf-fsubst-get lf-meta-fvar? -> true }T
 T{ gi ih s" And.casesOn" decl 0 ' lf-goal-induction code4 -> thrown-invalid }T
 \ Two minor premises (Or): tags t.inl and t.inr; cases puts the
 \ constructors and maps h to each one applied.
 ia ib lf-mk-eq ib ia lf-mk-eq or-of s" k" binder constant ik
 ib ia lf-mk-eq tagged constant go
 go ik s" x" nm run1 run1 false lf-goal-cases constant subs-or
-T{ subs-or run-count subs-or 0 0 sub@ s" t.inl" tag? subs-or 1 0 sub@ s" t.inr" tag? -> 8 true true }T
-T{ subs-or 0 3 sub@ s" Or.inl" nm lf-name-same? subs-or 1 3 sub@ s" Or.inr" nm lf-name-same?
-   -> true true }T
-T{ subs-or 0 0 sub@ dup view# 1- s" x" named? subs-or 1 0 sub@ dup view# 1- hidden? -> true true }T
-T{ subs-or 0 2 sub@ ik lf-fsubst-get lf-meta-head s" Or.inl" lf-meta-const-named? -> true }T
+: or-goal ( i -- goal ) subs-or swap lf-subgoal-goal ;
+: or-ctor? ( i c-addr u -- flag ) rot subs-or swap lf-subgoal-ctor -rot nm lf-name-same? ;
+T{ subs-or lf-subgoals# 0 or-goal s" t.inl" tag? 1 or-goal s" t.inr" tag? -> 2 true true }T
+T{ 0 s" Or.inl" or-ctor? 1 s" Or.inr" or-ctor? -> true true }T
+T{ 0 or-goal dup view# 1- s" x" named? 1 or-goal dup view# 1- hidden? -> true true }T
+T{ subs-or 0 lf-subgoal-subst ik lf-fsubst-get lf-meta-head s" Or.inl" lf-meta-const-named?
+   -> true }T
 \ Nat with nat-aux?: Nat.casesAuxOn (0 and n + 1); without it Nat.casesOn.
 fresh
 nat s" n" binder constant cn
 cn cn lf-mk-eq goal constant gc
 gc cn 0 true lf-goal-cases constant subs-nat
-T{ subs-nat run-count subs-nat 0 0 sub@ lf-goal-type lf-meta-args2 nip s" Nat.zero" lf-meta-const-named? -> 8 false }T
+T{ subs-nat lf-subgoals# -> 2 }T
+T{ subs-nat 0 lf-subgoal-goal lf-goal-type lf-meta-args2 nip s" Nat.zero" lf-meta-const-named?
+   -> false }T
 T{ gc lf-instantiate! lf-meta-head s" Nat.casesAuxOn" lf-meta-const-named? -> false }T
-cn cn lf-mk-eq goal cn 0 false lf-goal-cases drop
-T{ subs-nat 1 3 sub@ s" Nat.succ" nm lf-name-same? -> true }T
+cn cn lf-mk-eq goal cn 0 false lf-goal-cases constant subs-nat0
+T{ subs-nat0 1 lf-subgoal-ctor s" Nat.succ" nm lf-name-same? -> true }T
 \ An indexed family (Eq) and no inductive type: 99, the goal left open.
 fresh
 nat s" a" binder constant qa
@@ -196,8 +205,9 @@ T{ ge qn 0 true ' lf-goal-cases code4 ge open? -> 99 true }T
 \ A dependent reverted and introduced again in each goal, mapped by the
 \ substitution: e : a = b depends on b.
 qa qb lf-mk-eq goal qb 0 true lf-goal-cases constant subs-dep
-T{ subs-dep 1 2 sub@ qe lf-fsubst-get dup lf-meta-fvar? swap qe = -> true false }T
-T{ subs-dep 1 0 sub@ dup view# 2 - s" e" named? subs-dep 1 0 sub@ view# -> true 4 }T
+T{ subs-dep 1 lf-subgoal-subst qe lf-fsubst-get dup lf-meta-fvar? swap qe = -> true false }T
+subs-dep 1 lf-subgoal-goal constant gdep
+T{ gdep dup view# 2 - s" e" named? gdep view# -> true 4 }T
 
 \ ---- 5. lf-goal-generalize: a name given, else a hidden x.
 fresh

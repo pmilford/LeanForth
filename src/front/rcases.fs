@@ -174,13 +174,16 @@ end-structure
   pat-alts rcs-list rcs rcs-alts ! 0 rcs rcs-k ! 0 rcs rcs-names ! 0 rcs rcs-r !
   rcs-ctors@ 0 ?do i over cell-at@ i rcs-last? rcs-one-ctor loop drop ;
 
-\ ---- Tasks: four cells each on the stack run.
+\ ---- Tasks: rcs-task-cells each on the stack run (a goal, its
+\ substitution, its clears, its pairs still to match).
+4 constant rcs-task-cells
 : rcs-task+ ( goal fs clears pending -- )
   >r >r >r rcs rcs-tasks @ swap lf-run+ r> lf-run+ r> lf-run+ r> lf-run+ rcs rcs-tasks ! ;
-: rcs-task@ ( k -- x ) >r rcs rcs-tasks @ dup run-count 4 - r> + run@ ;
+: rcs-top ( -- run k ) rcs rcs-tasks @ dup run-count rcs-task-cells - ;
+: rcs-task@ ( k -- x ) >r rcs-top r> + run@ ;
 : rcs-pop ( -- goal fs clears pending )
   0 rcs-task@ 1 rcs-task@ 2 rcs-task@ 3 rcs-task@
-  rcs rcs-tasks @ dup run-count 4 - run-take lf-must rcs rcs-tasks ! ;
+  rcs-top run-take lf-must rcs rcs-tasks ! ;
 : rcs-again ( -- ) rcs rcs-goal @ rcs rcs-fs @ rcs rcs-clears @ rcs rcs-rest @ rcs-task+ ;
 \ A triple: a pattern reference and its target.
 : rcs-triple+ ( run node s e -- run' ) >r rcs-pair+ r> lf-run+ ;
@@ -234,7 +237,7 @@ end-structure
 : rcs-find ( ctor kr -- m true | false )
   rcs-r# swap ?do dup i 0 rcs-r@ lf-name-same? if drop i true unloop exit then loop
   drop false ;
-: rcs-sub@ ( i k -- x ) >r rcs rcs-subs @ swap r> lf-subgoal@ ;
+: rcs-sub ( i -- subgoals i ) rcs rcs-subs @ swap ;
 : rcs-new+ ( x -- ) rcs rcs-new lf-run+! ;
 \ The constructor's patterns zipped with the subgoal's fields, then the rest.
 : rcs-zip+ ( run j -- run' )
@@ -244,18 +247,21 @@ end-structure
   rcs rcs-zfs ! rcs rcs-zps ! 0 rcs-zip# 0 ?do i rcs-zip+ loop rcs rcs-rest @
   run-cat lf-must ;
 : rcs-sub-task ( i m -- )
-  1 rcs-r@ over 1 rcs-sub@ rcs-zip >r dup 0 rcs-sub@ rcs-new+ rcs rcs-fs @ swap 2 rcs-sub@
-  lf-fsubst-append rcs-new+ rcs rcs-clears @ rcs-new+ r> rcs-new+ ;
+  1 rcs-r@ over rcs-sub lf-subgoal-fields rcs-zip >r dup rcs-sub lf-subgoal-goal rcs-new+
+  rcs rcs-fs @ swap rcs-sub lf-subgoal-subst lf-fsubst-append rcs-new+
+  rcs rcs-clears @ rcs-new+ r> rcs-new+ ;
+: rcs-past ( m -- ) 1+ rcs rcs-kr ! ;   \ the cursor past entry m
 : rcs-align ( i -- )
-  dup 3 rcs-sub@ rcs rcs-kr @ rcs-find if dup 1+ rcs rcs-kr ! rcs-sub-task exit then
+  dup rcs-sub lf-subgoal-ctor rcs rcs-kr @ rcs-find if dup rcs-past rcs-sub-task exit then
   rcs-r# rcs rcs-kr ! drop ;
 \ The new tasks pushed last first, so the first subgoal is matched next.
-: rcs-new@ ( t k -- x ) >r rcs rcs-new @ swap r> lf-subgoal@ ;
+: rcs-new@ ( t k -- x ) swap rcs-task-cells * + rcs rcs-new @ swap run@ ;
 : rcs-push ( t -- ) >r r@ 0 rcs-new@ r@ 1 rcs-new@ r@ 2 rcs-new@ r> 3 rcs-new@ rcs-task+ ;
-: rcs-pushed ( -- ) rcs rcs-new @ run-count 4 / begin ?dup while 1- dup rcs-push repeat ;
+: rcs-pushed ( -- )
+  rcs rcs-new @ run-count rcs-task-cells / begin ?dup while 1- dup rcs-push repeat ;
 : rcs-split-in ( node s -- )
   rcs-check rcs-process rcs-cases 0 rcs rcs-new ! 0 rcs rcs-kr !
-  rcs rcs-subs @ run-count 4 / 0 ?do i rcs-align loop rcs-pushed ;
+  rcs rcs-subs @ lf-subgoals# 0 ?do i rcs-align loop rcs-pushed ;
 : rcs-split ( node s -- ) rcs rcs-goal @ ['] rcs-split-in lf-with-goal ;
 
 \ ---- A task: its first pair matched (rcasesCore), the rest after it.

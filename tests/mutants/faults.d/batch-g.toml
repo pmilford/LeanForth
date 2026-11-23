@@ -49,8 +49,8 @@ reason = "TB2 E1: the last field takes one pattern, not the rest as a tuple (ob_
 [[fault]]
 id = "tasks-in-text-order"
 file = "src/front/rcases.fs"
-old = ''': rcs-pushed ( -- ) rcs rcs-new @ run-count 4 / begin ?dup while 1- dup rcs-push repeat ;'''
-new = ''': rcs-pushed ( -- ) rcs rcs-new @ run-count 4 / 0 ?do i rcs-push loop ;'''
+old = '''  rcs rcs-new @ run-count rcs-task-cells / begin ?dup while 1- dup rcs-push repeat ;'''
+new = '''  rcs rcs-new @ run-count rcs-task-cells / 0 ?do i rcs-push loop ;'''
 test = "$GFORTH tests/front/tactics/batch-g/test.fs"
 reason = "TB2 E1: a split's last subgoal is matched first, so the goals come out in reverse (test.fs's x | y text; check.py's w-order would be accepted)"
 

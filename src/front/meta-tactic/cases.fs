@@ -75,11 +75,11 @@ end-structure
   mcs mcs-d @ lf-menv-name s" casesOn" lfa-intern-part lf-menv-find? 0= if
   lf-tac-unported then ;
 : mcs-arity ( n -- ) mcs-params# mcs-indices# + <> if lf-tac-unported then ;
+: mcs-inductive ( type -- ) lf-meta-head-args >r
+  lf-match-const-induct 0= if lf-tac-unported then mcs mcs-d ! r> mcs-arity ;
 : mcs-context ( major -- )
   s" Eq" mcs-has s" HEq" mcs-has dup mcs mcs-major ! lf-infer! lf-whnf! dup mcs mcs-type !
-  lf-meta-head-args >r lf-match-const-induct 0= if lf-tac-unported then mcs mcs-d ! r>
-  mcs-arity
-  mcs-cases-on drop mcs-indices# if lf-tac-unported then ;
+  mcs-inductive mcs-cases-on drop mcs-indices# if lf-tac-unported then ;
 
 \ ---- inductionCasesOn: Nat.casesAuxOn for Nat when asked, else I.casesOn.
 : mcs-nat? ( -- flag ) mcs mcs-d @ lf-menv-name s" Nat" lfa-intern lf-name-same? ;
@@ -90,6 +90,7 @@ end-structure
 
 \ ---- toCasesSubgoals: constructor i applied, the major mapped to it.
 : mcs-ctor ( i -- name ) mcs-data lf-ity-ctors@ drop cell-at@ ;
+: mcs-ctor+ ( i -- ) mcs-ctor mcs+ ;
 : mcs-head ( name -- e ) mcs mcs-type @ lf-meta-head lf-const-levels lf-mk-const-id ;
 : mcs-param ( e k -- e' ) mcs mcs-type @ swap lf-meta-app-arg lf-mk-app ;
 : mcs-field ( e x -- e' outcome ) lf-mk-app outcome-ok ;
@@ -97,14 +98,18 @@ end-structure
   swap mcs-head mcs-params# 0 ?do i mcs-param loop swap ['] mcs-field run-each lf-must ;
 : mcs-subst ( fs e -- fs' ) >r mcs mcs-major @ lf-fsubst-erase mcs mcs-major @
   r> lf-fsubst-insert ;
-: mcs-goal+ ( s i -- s i fields ) 2dup 0 lf-subgoal@ mcs+ 2dup 1 lf-subgoal@ dup mcs+ ;
+: mcs-goal+ ( s i -- s i fields )
+  2dup lf-subgoal-goal mcs+ 2dup lf-subgoal-fields dup mcs+ ;
 : mcs-one ( s i -- s )
-  mcs-goal+ >r 2dup 2 lf-subgoal@ over mcs-ctor r> mcs-ctor-app mcs-subst mcs+ mcs-ctor
-  mcs+ ;
+  mcs-goal+ >r 2dup lf-subgoal-subst over mcs-ctor r> mcs-ctor-app mcs-subst mcs+
+  mcs-ctor+ ;
 : mcs-each ( subgoals -- subgoals' )
-  dup run-count 4 / 0 ?do i mcs-one loop drop mcs mcs-out @ ;
-: mcs-run ( goal major names nat-aux? -- subgoals ) rot mcs-context mcs-split mcs-each ;
-: mcs-in ( goal major names nat-aux? -- subgoals ) mcs-frames ['] mcs-run lf-with-record ;
+  dup lf-subgoals# 0 ?do i mcs-one loop drop mcs mcs-out @ ;
+\ In goal's context, once it is checked not assigned.
+: mcs-body ( names nat-aux? major goal -- subgoals )
+  swap mcs-context -rot mcs-split mcs-each ;
+: mcs-framed ( goal major names nat-aux? -- subgoals )
+  2swap swap ['] mcs-body lf-goal-within ;
 : lf-goal-cases ( goal major names nat-aux? -- subgoals )
-  ['] mcs-in lf-goal-with4 ;
+  mcs-frames ['] mcs-framed lf-with-record ;
 base !   \ the BASE this file was loaded with
