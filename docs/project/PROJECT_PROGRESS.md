@@ -29,6 +29,13 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
+- 2026-11-22, 20:30: plan row TB2's case patterns, slice E1, are **tested on branch `tb2-patterns-e1` and
+  Forth-reviewed** ([review](../development/forth-reviews/2026-11-22-tb2-patterns-e1.md): findings 1-7, 9, 12 and
+  13a-c, e-f fixed on the branch, among them a statement variable the goal's context lacks now refused (76, Lean's
+  "Unknown identifier") for every tactic, the crash on an empty tuple, the branch coverage check passing and the
+  copies of its shared words replaced across src/front; 8, 10, 11 and 13d plan row 9.4.8t, in slice E2); 22
+  theorems node for node pinned Lean's, 6 wrong twins, 20 planted faults (18 caught, 2 known equivalent); not
+  merged, not done. Next: its tier, merge and done check. Earlier the same day:
 - 2026-11-22, 19:02: plan row TB2's case patterns, slice E1 (piece E, design
   [TACTIC_PATTERNS.md](../design/TACTIC_PATTERNS.md)), are **tested on branch `tb2-patterns-e1`**: `' h
   by-obtain[ << x hx >> ]` and `' h by-rcases[ a | b ]` (Lean's obtain and rcases) with names, `_`, `-`, tuples,
