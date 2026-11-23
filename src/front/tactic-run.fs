@@ -199,7 +199,8 @@ begin-structure /tfr      \ an open block
   field: tfr-save         \ a save its mode took (a handler's), else -1
   field: tfr-recover      \ Lean's recover flag inside it
   field: tfr-held         \ the goals a <;> chain in it set aside (a run), else -1
-  field: tfr-todo         \ a per-goal block's goals not reached yet (a run)
+  field: tfr-todo         \ a per-goal block's goals at its open (a run)
+  field: tfr-at           \ the place in them of the first goal not reached yet
   field: tfr-acc          \ and the goals its passes left (a run)
 end-structure
 /tfr context-slab: trun-frames
@@ -561,7 +562,8 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 \ open takes every goal (getGoals) and starts the first pass; each end
 \ keeps the goals the pass left, in order (tfr-acc), and starts the
 \ next (lf-tac-again: the steps from the first); a pass runs on the next
-\ goal not assigned when reached (lf-goals-next-open), alone the list;
+\ goal not assigned when reached (lf-goals-next-open, from the place
+\ tfr-at: a walk by place that claims nothing), alone the list;
 \ with none left the goals kept are the goals (none at the open: no
 \ pass, lfr-skip, its steps all looked at). Lean logs
 \ a pass's error when recover is true, admits its goal and aborts at the
@@ -581,12 +583,14 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 : lfr-skip ( frame -- ) lf-tactic-count swap tfr-next ! ;
 : lfr-only ( goal -- ) 0 swap run-push lfr-must lfr-goals! ;
 : lfr-acc+ ( frame -- ) dup tfr-acc @ lfr-unsolved run-cat lfr-must swap tfr-acc ! ;
-: lfr-pass-on ( frame todo goal -- ) lfr-only over tfr-todo ! lf-tac-again ;
+: lfr-pass-on ( frame k goal -- ) lfr-only over tfr-at ! lf-tac-again ;
 : lfr-passes-done ( frame -- true ) tfr-acc @ lfr-goals! true ;
+: lfr-todo@ ( frame -- list k ) dup tfr-todo @ swap tfr-at @ ;
 : lfr-next-pass ( frame -- done? )
-  dup tfr-todo @ lf-goals-next-open if lfr-pass-on false else lfr-passes-done then ;
+  dup lfr-todo@ lf-goals-next-open if lfr-pass-on false else lfr-passes-done then ;
 : lfr-pass-end ( frame -- done? ) dup lfr-acc+ lfr-next-pass ;
-: lfr-goals-take ( frame -- frame ) lf-goals over tfr-todo ! 0 over tfr-acc ! ;
+: lfr-goals-take ( frame -- frame )
+  lf-goals over tfr-todo ! 0 over tfr-acc ! 0 over tfr-at ! ;
 : lfr-goals-open ( frame -- )
   lfr-goals-take dup lfr-next-pass if lfr-skip else drop then ;
 : lfr-goals-end ( frame -- ) lfr-pass-end drop ;

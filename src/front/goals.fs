@@ -39,11 +39,11 @@
 \ - lf-replace-main ( list -- outcome ): replaceMainGoal, the list in
 \   place of the first goal; lf-goals-append ( list -- outcome ):
 \   appendGoals, the list after the goals.
-\ - lf-goals-next-open ( list -- list' goal true | false ): the goals
-\   after the list's first goal not assigned, and that goal, or false
-\   when every goal is (all_goals' walk, BuiltinTactic.lean:233-234: for
-\   each goal, unless it is assigned when reached; a valid list,
-\   unchecked as run@).
+\ - lf-goals-next-open ( list k -- k' goal true | false ): the list's
+\   first goal not assigned at or after place k, and the place after it,
+\   or false when every goal from k is (all_goals' walk, BuiltinTactic.
+\   lean:233-234: for each goal, unless it is assigned when reached; a
+\   valid list and 0 <= k, unchecked as run@; it makes no run).
 \ Outcomes: ok; invalid as above and for a goal that is no live
 \ metavariable, a list that names no run; full when a store or the heap
 \ has no room; unsupported where an instantiation is (lf-depends-on?).
@@ -52,7 +52,6 @@
 \ State: the record pst in the checker context (ADR 0009).
 
 require ../lib/lib.fs
-require ../lib/find.fs
 require ../lib/runs.fs
 require ./lctx-views.fs
 require ./mvars.fs
@@ -134,19 +133,20 @@ end-structure
 : lf-goals-unsolved ( -- list outcome )
   lf-goals ['] lf-goal-unassigned? run-filter ok-then? if dup gl-set outcome-ok else
   no-result then ;
-\ The place of the first goal not assigned, or the count.
-: gl-open-at? ( list i -- list flag ) over swap run@ lf-goal-unassigned? ;
-: gl-first-open ( list -- k )
-  dup run-count tuck ['] gl-open-at? find-index if nip then ;
+\ The place at or after k of the first goal not assigned, or the count.
+: gl-in? ( list k -- list k flag ) 2dup swap run-count < ;
+: gl-assigned-at? ( list k -- list k flag ) 2dup run@ lf-goal-assigned? ;
+: gl-open-at ( list k -- list k' )
+  begin gl-in? while gl-assigned-at? while 1+ repeat then ;
+: gl-first-open ( list -- k ) 0 gl-open-at nip ;
 : gl-main ( list -- goal outcome )
   dup run-count 0= if drop -1 outcome-invalid exit then
   dup gl-set 0 run@ outcome-ok ;
 : lf-main-goal ( -- goal outcome )
   lf-goals dup gl-first-open run-after ['] gl-main ok-apply ;
-\ (k is below the count, so both run-afters answer ok.)
-: gl-from ( list k -- list' goal ) run-after drop dup 1 run-after drop swap 0 run@ ;
-: lf-goals-next-open ( list -- list' goal true | false )
-  dup gl-first-open 2dup swap run-count < if gl-from true else 2drop false then ;
+\ A walk by place: it makes no run, so it has no failure.
+: lf-goals-next-open ( list k -- k' goal true | false )
+  gl-open-at gl-in? if tuck run@ swap 1+ swap true else 2drop false then ;
 : gl-tail ( -- list outcome )
   lf-goals dup run-count 0= if drop -1 outcome-invalid else 1 run-after then ;
 : gl-set-ok ( list outcome -- outcome ) ok-then? if gl-set outcome-ok then ;

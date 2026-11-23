@@ -246,6 +246,15 @@ tgoal constant gd  tgoal constant ge  tgoal constant gf
 T{ list-de lf-goals! 0 gf run-push made lf-replace-main lf-goals cells. -> outcome-ok outcome-ok gf ge }T
 T{ 0 gd run-push made lf-goals-append lf-goals cells. -> outcome-ok gf ge gd }T
 T{ 0 lf-goals! 0 lf-replace-main lf-goals 99 lf-goals-append -> outcome-ok outcome-invalid 0 outcome-invalid }T
+\ The walk by place (all_goals', review tb2-blocks2 finding 1): from
+\ place k the first goal not assigned and the place after it, none from
+\ k false; it makes no run. ga and gb are assigned, gd and ge not.
+0 ga run-push made gd run-push made gb run-push made ge run-push made constant agbe
+T{ agbe 0 gl-open-at nip agbe 2 gl-open-at nip agbe 4 gl-open-at nip -> 1 3 4 }T
+T{ agbe gl-first-open 0 gl-first-open 0 gd run-push made gl-first-open -> 1 0 0 }T
+T{ runs-cells agbe 0 lf-goals-next-open agbe 2 lf-goals-next-open runs-cells
+   -> runs-cells 2 gd true 4 ge true runs-cells }T
+T{ agbe 4 lf-goals-next-open 0 0 lf-goals-next-open -> false false }T
 T{ list-de lf-goals! lf-pst-reset lf-goals lf-pst-root -> outcome-ok 0 -1 }T
 T{ list-de lf-goals! lf-mctx-reset lf-goals -> outcome-ok 0 }T
 

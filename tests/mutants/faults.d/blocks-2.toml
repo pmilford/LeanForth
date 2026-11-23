@@ -130,10 +130,10 @@ reason = "TB2 blocks 2: a per-goal block over no goal runs its steps once anyway
 [[fault]]
 id = "tb2b2-todo-kept"
 file = "src/front/tactic-run.fs"
-old = ''': lfr-pass-on ( frame todo goal -- ) lfr-only over tfr-todo ! lf-tac-again ;'''
-new = ''': lfr-pass-on ( frame todo goal -- ) lfr-only nip lf-tac-again ;'''
+old = ''': lfr-pass-on ( frame k goal -- ) lfr-only over tfr-at ! lf-tac-again ;'''
+new = ''': lfr-pass-on ( frame k goal -- ) lfr-only drop lf-tac-again ;'''
 test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
-reason = "TB2 blocks 2: the goals not reached are not advanced, so a pass that leaves its goal open runs on it again: blocks-2 test.fs's by-all-goals by-probe by-end runs until the fuel ends (91), not twice"
+reason = "TB2 blocks 2: the place of the goals not reached is not advanced, so a pass that leaves its goal open runs on it again: blocks-2 test.fs's by-all-goals by-probe by-end runs until the fuel ends (91), not twice (and the fake frame's tfr-at after lfr-pass-on is 0, not 3)"
 
 [[fault]]
 id = "tb2b2-then-no-admits"
@@ -154,18 +154,34 @@ reason = "TB2 blocks 2: an error inside by-all-goals under recover is not final:
 [[fault]]
 id = "tb2b2-assigned-run"
 file = "src/front/goals.fs"
-old = '''  dup gl-first-open 2dup swap run-count < if gl-from true else 2drop false then ;'''
-new = '''  dup run-count if 0 gl-from true else drop false then ;'''
+old = '''  gl-open-at gl-in? if tuck run@ swap 1+ swap true else 2drop false then ;'''
+new = '''  gl-in? if tuck run@ swap 1+ swap true else 2drop false then ;'''
 test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
 reason = "TB2 blocks 2: a goal assigned when reached is run on: blocks-2 test.fs's hx text runs by-rfl on the witness's goal Nat after rfl assigned it, not 0 with one pass"
 
 [[fault]]
 id = "tb2b2-rest-from-goal"
 file = "src/front/goals.fs"
-old = ''': gl-from ( list k -- list' goal ) run-after drop dup 1 run-after drop swap 0 run@ ;'''
-new = ''': gl-from ( list k -- list' goal ) run-after drop dup swap 0 run@ ;'''
+old = '''  gl-open-at gl-in? if tuck run@ swap 1+ swap true else 2drop false then ;'''
+new = '''  gl-open-at gl-in? if tuck run@ true else 2drop false then ;'''
 test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
-reason = "TB2 blocks 2: the goals not reached keep the goal just taken, so a pass that leaves its goal open runs on it again: blocks-2 test.fs's by-all-goals by-probe by-end runs until the fuel ends (91), not twice"
+reason = "TB2 blocks 2: the place after the goal taken is that goal's own, so a pass that leaves its goal open runs on it again: blocks-2 test.fs's by-all-goals by-probe by-end runs until the fuel ends (91), not twice"
+
+[[fault]]
+id = "tb2b2-at-not-reset"
+file = "src/front/tactic-run.fs"
+old = '''  lf-goals over tfr-todo ! 0 over tfr-acc ! 0 over tfr-at ! ;'''
+new = '''  lf-goals over tfr-todo ! 0 over tfr-acc ! ;'''
+test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
+reason = "review tb2-blocks2 finding 1: a per-goal block's walk starts at the place a frame before it left, not 0: blocks-2 test.fs's fake frame after lfr-goals-take keeps tfr-at 7, not 0"
+
+[[fault]]
+id = "tb2b2-acc-refusal-dropped"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-acc+ ( frame -- ) dup tfr-acc @ lfr-unsolved run-cat lfr-must swap tfr-acc ! ;'''
+new = ''': lfr-acc+ ( frame -- ) dup tfr-acc @ lfr-unsolved run-cat drop swap tfr-acc ! ;'''
+test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
+reason = "review tb2-blocks2 finding 1: a refused claim of the goals a pass left goes on as a list: blocks-2 test.fs's slab sweep of the run records gives another answer than full (the heap sweep does not reach this claim)"
 
 # ---- Plan row 9.4.8s: the fixed blocks on block shapes (tactic-syntax.fs, tactic-run.fs)
 [[fault]]

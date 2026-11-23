@@ -13,11 +13,17 @@
 \   new as on its first run (the normal run made them all before), and
 \   the scratch rolled back after each run (core/scratch-marks.fs: the
 \   terms, levels, references and the local context's new entries).
+\ - slab-sweep: with room for j units in a slab (sweep-slab-xt), every
+\   j from 1 until the run gives its answer: the slab given back with the
+\   limit j before each run, so that each claim past j is refused (a
+\   heap sweep refuses only the claims that grow a slab), and its old
+\   limit after the sweep. The run must empty the slab at its start.
 \ Each run must give the scenario's answer, x equal up to its nodes'
 \ identities (term-eqv.fs's lf-meta-eqv) or the same cell, or end full:
 \ a refusal never becomes another answer. Both give ( fulls bad ), the
 \ runs that ended full and those that gave another answer; swept? holds
-\ for some full and none bad. Used by tests/front/whnf.fs and infer.fs.
+\ for some full and none bad. Used by tests/front/whnf.fs and infer.fs;
+\ slab-sweep by tests/front/tactics/blocks-2/test.fs.
 \ Include after heap-watch.fs and before the test loads its input (a
 \ module loaded later grows the checker context, which the input's marks
 \ do not follow). State: test-only variables; single-threaded.
@@ -67,4 +73,16 @@ create sweep-mark /lf-scratch allot
   sweep-mark lf-scratch-rollback ok? 0= abort" room-run: rollback" ;
 : room-sweep ( e xt -- fulls bad )
   sweep-normal -1 begin 1+ dup room-run until drop sweep-result ;
+
+\ A slab given back to the heap, empty, with room for j units.
+variable sweep-slab-xt    \ ( -- slab ) the slab a slab sweep limits
+: sweep-slab-limit ( j slab -- )
+  dup slab-unit -rot dup slab-free slab-init ok? 0= abort" sweep-slab-limit" ;
+: sweep-slab ( -- slab ) sweep-slab-xt @ execute ;
+\ True when the run gave its answer.
+: slab-run ( j -- done? )
+  sweep-slab sweep-slab-limit sweep-run dup outcome-full <> >r sweep-tally r> ;
+: slab-sweep ( e xt -- fulls bad )
+  sweep-slab slab-limit >r sweep-normal 0 begin 1+ dup slab-run until drop
+  r> sweep-slab sweep-slab-limit sweep-result ;
 : swept? ( fulls bad -- flag ) 0= swap 0> and ;

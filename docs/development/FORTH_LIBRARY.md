@@ -1164,14 +1164,17 @@ to 8): 7 ns an index at 10 indices and 4 to 5 ns at 10^6 on `gforth`, 3
 to 6 ns and 2 to 3 ns on `gforth-fast`. *Callers*: the authoring finds
 of a declaration, level and constant reference (`author/constants.fs`,
 `build.fs`; sizes: the declarations, levels and references of the run's
-store), the first open goal (`front/goals.fs`), a metavariable mark
-(`mvars.fs`), a matcher alternative (`whnf.fs`). The search for a node
+store), a metavariable mark (`mvars.fs`), a matcher alternative
+(`whnf.fs`). The first open goal (`front/goals.fs`) no longer uses it:
+all_goals' walk searches from a place k, so `gl-open-at` walks from k
+(review tb2-blocks2 finding 1, 2026-11-23). The search for a node
 to share no longer scans with it: a hash index replaced the scan of the
 whole term store (`build.fs`, review reuse-front-a finding 1, 2026-11-18).
 *Sizes on a real run* (`leanforth check --snapshot` of Init with
 `tests/front/ps-add-comm.lf`, counted 2026-11-18): `lfa-decl-named?` 20
-searches of at most 7 declarations (4.45 on average), `gl-open-at?` 33
-searches of 1 goal; the other callers were not reached by that text.
+searches of at most 7 declarations (4.45 on average), and goals.fs's
+first open goal (since replaced, above) 33 searches of 1 goal; the other
+callers were not reached by that text.
 Tested in `tests/lib/lib.fs` (both engines); fault
 `rfa-find-index-off-by-one`.
 

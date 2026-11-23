@@ -213,10 +213,17 @@ T{ 0 probes ! hk s" by-constructor by-all-goals by-probe by-assumption by-end" t
    probes @ -> 0 2 }T
 \ lf-goals-next-open: an empty list has none; lf-tac-again: the steps
 \ from the first again, no goals held.
-T{ 0 lf-goals-next-open -> false }T
+T{ 0 0 lf-goals-next-open -> false }T
 create fake-frame /tfr allot
 T{ 5 fake-frame tfr-step ! 9 fake-frame tfr-next ! 7 fake-frame tfr-held !
    fake-frame lf-tac-again fake-frame tfr-next @ fake-frame tfr-held @ -> 6 -1 }T
+\ The walk's place (review tb2-blocks2 finding 1): the open takes it
+\ from 0, a pass on goal x at place k keeps k and has the goals [x]; the
+\ next pass looks from k.
+T{ 7 fake-frame tfr-at ! fake-frame lfr-goals-take fake-frame tfr-at @ -> fake-frame 0 }T
+T{ fake-frame 3 77 lfr-pass-on fake-frame tfr-at @ fake-frame tfr-next @ lf-goals run-count
+   lf-goals 0 run@ -> 3 6 1 77 }T
+T{ 41 fake-frame tfr-todo ! 1 fake-frame tfr-at ! fake-frame lfr-todo@ -> 41 1 }T
 \ A macro's rule raising a logged error under recover: final, the macro
 \ ends there (the older rule never runs); inside a block that does not
 \ recover it is an ordinary failure and the older rule runs (Lean's
@@ -273,8 +280,14 @@ T{ budget-swept? -> true }T
 lf-tac-forget
 
 \ ---- 5. Every heap allocation refused in turn (the frames' and saves'
-\ slabs given back first): the answer or full.
+\ slabs given back first), and every run record claim refused in turn
+\ (room for j records: a pass's run claims, lfr-only, lfr-acc+ and the
+\ hold among them; review tb2-blocks2 finding 1; each text empties the
+\ runs at its start, reader.fs): the answer or full.
 : blocks-anew ( -- ) trun-frames sweep-slab-anew trun-saves sweep-slab-anew ;
+lf-lib-private order+
+' rn-recs sweep-slab-xt !
+order-
 ' blocks-anew sweep-slabs-xt !
 : full-code? ( code -- flag ) dup if lf-author-outcome outcome-full = then ;
 : text-full ( c-addr u c-addr' u' -- code outcome )
@@ -285,6 +298,8 @@ lf-tac-forget
 : p-chain ( x -- code outcome )
   drop h4 s" by-constructor <;> by-constructor <;> ' h by-exact" text-full ;
 T{ 0 ' p-then heap-sweep swept? 0 ' p-all heap-sweep swept? 0 ' p-chain heap-sweep swept?
+   -> true true true }T
+T{ 0 ' p-then slab-sweep swept? 0 ' p-all slab-sweep swept? 0 ' p-chain slab-sweep swept?
    -> true true true }T
 lf-tac-forget
 .( blocks-2 test.fs: all tests passed) cr
