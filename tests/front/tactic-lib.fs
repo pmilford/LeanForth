@@ -809,6 +809,9 @@ T{ 0 g9 run-push made lf-goals! -> outcome-ok }T
 \ tactic-move-c4 L6.)
 T{ fn9 true s" Nat.recAux" elim-name? fn9 false s" Nat.casesOn" elim-name? -> true true }T
 T{ fl9 true s" List.rec" elim-name? -> true }T
+\ Meta cases asked for Nat's auxiliary eliminator on an export without it
+\ (this slice has no Nat.casesAuxOn) falls back to Nat.casesOn: two goals.
+T{ fn9 fn9 lf-mk-eq goal-of fn9 0 true lf-goal-cases lf-subgoals# -> 2 }T
 : elim-code-of ( target induction? -- code ) ['] lf-elim-for catch dup if nip nip then ;
 : elim-code ( target -- code ) true elim-code-of ;
 T{ fp9 elim-code lf-author-code -> lf-author-throw 205 }T

@@ -248,8 +248,7 @@ end-structure
 : mea-alt-tag ( -- tag )
   mea mea-tag @ mea-info@ mea-next lf-elim-alt-name lf-name-append-tag ;
 : mea-alt ( pi -- arg )
-  lf-term-first@ mea-alt-tag lf-mctx-view lf-goal-new lf-must
-  mea mea-alts @ over lf-run+ mea mea-alts ! ;
+  lf-term-first@ mea-alt-tag lf-mctx-view lf-goal-new lf-must dup mea mea-alts lf-run+! ;
 : mea-arg ( pi k -- arg )
   dup mea-info@ mel-motive-at = if drop mea-motive-arg exit then
   dup mea-info@ mel-target-at = if drop mea-target-arg exit then

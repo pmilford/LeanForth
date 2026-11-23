@@ -203,8 +203,8 @@ end-structure
   drop ;
 : rcs-finish-in ( goal -- goal' ) dup rcs-erased rcs-cleared ;
 : rcs-finish ( -- )
-  rcs rcs-goal @ dup ['] rcs-finish-in lf-with-goal rcs rcs-goals @ swap lf-run+ rcs
-  rcs-goals ! ;
+  rcs rcs-goal @ dup ['] rcs-finish-in lf-with-goal
+  rcs rcs-goals lf-run+! ;
 
 \ ---- A split (rcasesCore's last case), in the task's goal's context:
 \ the target a free variable (470) of an inductive type (471; Quot 99).

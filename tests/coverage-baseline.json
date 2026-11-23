@@ -438,8 +438,8 @@
   },
   "src/front/meta-tactic/cases.fs": {
    "blocks": 64,
-   "never_run": 4,
-   "reason": "unreachable: new file (plan TB2, slice E1); cases.fs:71 Eq or HEq missing from the export (mcs-has): every test export holds both; cases.fs:72 an inductive type with no data (mcs-data): the library mode the tactics run in decodes every one (meta-env.fs's me-lib-data); cases.fs:76 a major's type not applied to all its parameters and indices (mcs-arity): a free variable's type through whnf is its inductive type fully applied; cases.fs:86 the fallback when the export lacks Nat.casesAuxOn (mcs-recursor): decide-slice, the unit tests' export, holds it"
+   "never_run": 3,
+   "reason": "unreachable: new file (plan TB2, slice E1); cases.fs:71 Eq or HEq missing from the export (mcs-has): every test export holds both; cases.fs:72 an inductive type with no data (mcs-data): the library mode the tactics run in decodes every one (meta-env.fs's me-lib-data); cases.fs:76 a major's type not applied to all its parameters and indices (mcs-arity): a free variable's type through whnf is its inductive type fully applied"
   },
   "src/front/meta-tactic/constructor.fs": {
    "blocks": 49,
