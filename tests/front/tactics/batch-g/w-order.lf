@@ -1,0 +1,11 @@
+\ Wrong twin (batch-g-wrong.lean's w_order): the first goal is inl's,
+\ which has h1, not h2: the second goal proved first fails.
+theorem w_order
+  Nat explicit: a  Nat explicit: b
+  a b = b a = ∨ explicit: h
+  b a = a b = ∨
+:= by
+  ' h by-rcases[ h1 | h2 ]
+  ' Or.inl ' h2 $ by-exact
+  ' Or.inr ' h1 $ by-exact
+end w_order

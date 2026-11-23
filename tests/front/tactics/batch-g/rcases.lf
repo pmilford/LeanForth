@@ -1,0 +1,78 @@
+\ by-rcases[ ] (plan row TB2, piece E, slice E1; Lean's rcases e with
+\ pat, Elab/Tactic/RCases.lean's evalRCases; batch-g.lean).
+
+\ Two alternatives: a goal each, in constructor order.
+\ Lean: theorem rc_or (a b : Nat) (h : a = b ∨ b = a) : b = a ∨ a = b := by
+\         rcases h with h1 | h2
+\         exact Or.inr h1
+\         exact Or.inl h2
+theorem rc_or
+  Nat explicit: a  Nat explicit: b
+  a b = b a = ∨ explicit: h
+  b a = a b = ∨
+:= by
+  ' h by-rcases[ h1 | h2 ]
+  ' Or.inr ' h1 $ by-exact
+  ' Or.inl ' h2 $ by-exact
+end rc_or
+
+\ Three alternatives on a ∨ (b ∨ c): the last constructor takes the rest.
+\ Lean: theorem rc_three (a b c : Nat) (h : a = b ∨ b = c ∨ c = a) :
+\           c = a ∨ b = c ∨ a = b := by
+\         rcases h with h1 | h2 | h3
+\         exact Or.inr (Or.inr h1)
+\         exact Or.inr (Or.inl h2)
+\         exact Or.inl h3
+theorem rc_three
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = b c = c a = ∨ ∨ explicit: h
+  c a = b c = a b = ∨ ∨
+:= by
+  ' h by-rcases[ h1 | h2 | h3 ]
+  ' Or.inr ' Or.inr ' h1 $ $ by-exact
+  ' Or.inr ' Or.inl ' h2 $ $ by-exact
+  ' Or.inl ' h3 $ by-exact
+end rc_three
+
+\ Alternatives inside a tuple: a bar binds tighter than a space.
+\ Lean: theorem rc_or_and (a b c : Nat) (h : (a = b ∨ b = a) ∧ c = c) : b = a ∨ a = b := by
+\         rcases h with ⟨h1 | h2, h3⟩
+\         exact Or.inr h1
+\         exact Or.inl h2
+theorem rc_or_and
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = b a = ∨ c c = ∧ explicit: h
+  b a = a b = ∨
+:= by
+  ' h by-rcases[ << h1 | h2 h3 >> ]
+  ' Or.inr ' h1 $ by-exact
+  ' Or.inl ' h2 $ by-exact
+end rc_or_and
+
+\ Nat through Nat.casesAuxOn: the goals are 0 = 0 and n + 1 = n + 1.
+\ Lean: theorem rc_nat (n : Nat) : n = n := by
+\         rcases n with _ | n
+\         rfl
+\         rfl
+theorem rc_nat
+  Nat explicit: n
+  n n =
+:= by
+  ' n by-rcases[ _ | n ]
+  by-rfl
+  by-rfl
+end rc_nat
+
+\ ( ... ) is Forth's comment, also inside a pattern: ( a | b ) is not
+\ read, so the pattern is << h1 h2 >>.
+\ Lean: theorem rc_comment (a b : Nat) (h : a = b ∧ b = a) : b = a := by
+\         rcases h with ⟨h1, h2⟩
+\         exact h2
+theorem rc_comment
+  Nat explicit: a  Nat explicit: b
+  a b = b a = ∧ explicit: h
+  b a =
+:= by
+  ' h by-rcases[ ( a | b ) << h1 h2 >> ]
+  ' h2 by-exact
+end rc_comment

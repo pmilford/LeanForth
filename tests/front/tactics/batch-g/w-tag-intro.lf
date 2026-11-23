@@ -1,0 +1,11 @@
+\ Wrong twin (batch-g-wrong.lean's w_tag_intro): a split of one
+\ constructor keeps the parent's tag (Induction.lean:84), so there is no
+\ case intro; Lean refuses it, and so does LeanForth.
+theorem w_tag_intro
+  Nat explicit: a  Nat explicit: b
+  a b = b a = ∧ explicit: h
+  b a =
+:= by
+  ' h by-obtain[ << hab hba >> ]
+  by-case: intro => ' hba by-exact by-end
+end w_tag_intro

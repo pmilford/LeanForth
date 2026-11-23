@@ -1,0 +1,11 @@
+\ Not supported yet (99): a split of an indexed family, here Eq (Meta
+\ cases' generalizeIndices and unifyEqs, plan row TB2 slice E4). Lean:
+\ obtain ⟨⟩ := h.
+theorem x_indexed
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a =
+:= by
+  ' h by-obtain[ << >> ]
+  ' h ' Eq.symm $ by-exact
+end x_indexed

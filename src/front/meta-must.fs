@@ -9,6 +9,11 @@
 \                                     word followed by lf-must
 \   lf-made! ( flag -- )              a term store's false thrown as full
 \   lf-run+ ( run x -- run' )         run-push's throwing face (lib/runs.fs)
+\   lf-menv-find? ( name -- d true | false ) Environment.find? (and
+\                                     contains): false when no declaration
+\                                     has the name, any other failure
+\                                     (no room, a declaration not decoded)
+\                                     thrown
 \   lf-whnf! lf-whnf-r! lf-whnf-d! ( e -- e' )  whnf, whnfR, whnfD
 \   lf-infer! ( e -- type )           inferType
 \   lf-level! ( type -- level )       getLevel
@@ -212,11 +217,11 @@ end-structure
 \ ---- matchConstInduct: a head's declaration, when it is an inductive type.
 : mm-inductive ( d -- d true | false )
   dup lf-menv-kind lf-kind-inductive = dup 0= if nip then ;
-: mm-declared ( name -- d true | false )
+: lf-menv-find? ( name -- d true | false )
   lf-menv-find dup outcome-invalid = if 2drop false exit then lf-must true ;
 : lf-match-const-induct ( f -- d true | false )
   dup lf-term-const? 0= if drop false exit then
-  lf-const-name mm-declared dup if drop mm-inductive then ;
+  lf-const-name lf-menv-find? dup if drop mm-inductive then ;
 
 \ ---- A call's working record: a frame per call open on the slab, so
 \ that a call inside another has its own (slice LA item 5), freed on both

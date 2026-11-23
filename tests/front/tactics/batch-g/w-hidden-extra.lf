@@ -1,0 +1,14 @@
+\ Wrong twin (batch-g-wrong.lean's w_hidden_extra): right✝, hidden by
+\ the obtain, is reverted and introduced again by the split on b and
+\ stays hidden, so right names the binder right : c = c, which is not
+\ the goal 0 = a.
+theorem w_hidden_extra
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  c c = explicit: right  a b = b a = ∧ explicit: h
+  b a =
+:= by
+  ' h by-obtain[ << hab _ >> ]
+  ' b by-rcases[ _ | d ]
+  ' right by-exact
+  ' right by-exact
+end w_hidden_extra

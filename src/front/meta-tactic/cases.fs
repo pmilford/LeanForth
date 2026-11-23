@@ -66,14 +66,13 @@ end-structure
 : mcs+ ( x -- ) mcs mcs-out @ swap lf-run+ mcs mcs-out ! ;
 
 \ ---- mkCasesContext?: the environment's names, the major's type.
-: mcs-find ( name -- d true | false ) lf-menv-find ok? dup 0= if nip then ;
-: mcs-named ( c-addr u -- d true | false ) lfa-intern mcs-find ;
+: mcs-named ( c-addr u -- d true | false ) lfa-intern lf-menv-find? ;
 : mcs-has ( c-addr u -- ) mcs-named 0= if lf-tac-unported then drop ;
 : mcs-data ( -- addr ) mcs mcs-d @ lf-menv-data ?dup 0= if lf-tac-unported then ;
 : mcs-params# ( -- n ) mcs-data lf-ity-params lf-more-field ;
 : mcs-indices# ( -- n ) mcs-data lf-ity-indices lf-more-field ;
 : mcs-cases-on ( -- d )
-  mcs mcs-d @ lf-menv-name s" casesOn" lfa-intern-part mcs-find 0= if lf-tac-unported then ;
+  mcs mcs-d @ lf-menv-name s" casesOn" lfa-intern-part lf-menv-find? 0= if lf-tac-unported then ;
 : mcs-arity ( n -- ) mcs-params# mcs-indices# + <> if lf-tac-unported then ;
 : mcs-context ( major -- )
   s" Eq" mcs-has s" HEq" mcs-has dup mcs mcs-major ! lf-infer! lf-whnf! dup mcs mcs-type !

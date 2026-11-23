@@ -1,0 +1,10 @@
+\ Not supported yet (99): rfl in a pattern (substEq, plan row TB2 slice
+\ E2). Lean: obtain ⟨w, rfl⟩ := h.
+theorem x_rfl
+  Nat explicit: a
+  ' Eq a $ Exists explicit: h
+  ' Eq a $ Exists
+:= by
+  ' h by-obtain[ << w rfl >> ]
+  ' h by-exact
+end x_rfl

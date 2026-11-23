@@ -1,0 +1,59 @@
+\ Goal order and tags (plan row TB2, piece E, slice E1; design
+\ TACTIC_PATTERNS.md section 3; batch-g.lean): rcases goes depth first,
+\ each split's subgoals in constructor order before the rest of the
+\ pattern, and tags them parent.constructor (probe p4).
+
+\ The goals in Lean's order: inl.inl, inl.inr, inr.inl, inr.inr.
+\ Lean: theorem od_depth (a b c d : Nat) (h : (a = b ∨ b = a) ∧ (c = d ∨ d = c)) :
+\           b = a ∨ a = b := by
+\         rcases h with ⟨h1 | h2, h3 | h4⟩
+\         exact Or.inr h1
+\         exact Or.inr h1
+\         exact Or.inl h2
+\         exact Or.inl h2
+theorem od_depth
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  Nat explicit: d
+  a b = b a = ∨ c d = d c = ∨ ∧ explicit: h
+  b a = a b = ∨
+:= by
+  ' h by-rcases[ << h1 | h2 h3 | h4 >> ]
+  ' Or.inr ' h1 $ by-exact
+  ' Or.inr ' h1 $ by-exact
+  ' Or.inl ' h2 $ by-exact
+  ' Or.inl ' h2 $ by-exact
+end od_depth
+
+\ The same goals found by their tags, in another order.
+\ Lean: theorem od_tags (a b c d : Nat) (h : (a = b ∨ b = a) ∧ (c = d ∨ d = c)) :
+\           b = a ∨ a = b := by
+\         rcases h with ⟨h1 | h2, h3 | h4⟩
+\         case inr.inr => exact Or.inl h2
+\         case inl.inl => exact Or.inr h1
+\         case inr.inl => exact Or.inl h2
+\         case inl.inr => exact Or.inr h1
+theorem od_tags
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  Nat explicit: d
+  a b = b a = ∨ c d = d c = ∨ ∧ explicit: h
+  b a = a b = ∨
+:= by
+  ' h by-rcases[ << h1 | h2 h3 | h4 >> ]
+  by-case: inr.inr => ' Or.inl ' h2 $ by-exact by-end
+  by-case: inl.inl => ' Or.inr ' h1 $ by-exact by-end
+  by-case: inr.inl => ' Or.inl ' h2 $ by-exact by-end
+  by-case: inl.inr => ' Or.inr ' h1 $ by-exact by-end
+end od_tags
+
+\ One constructor keeps the parent's tag (Induction.lean:84): after the
+\ split of a conjunction the goal is still case t's own (here none), so
+\ case _ finds it.
+\ Lean: theorem od_one (a b : Nat) (h : a = b ∧ b = a) : b = a := by
+\         obtain ⟨hab, hba⟩ := h
+\         case _ => exact hba
+theorem od_one
+  Nat explicit: a  Nat explicit: b
+  a b = b a = ∧ explicit: h
+  b a =
+:= by
+  ' h by-obtain[ << hab hba >> ]
+  by-case: _ => ' hba by-exact by-end
+end od_one

@@ -1,0 +1,10 @@
+\ Wrong twin (batch-g-wrong.lean's w_clear_used): - clears its target,
+\ here the hypothesis h itself, so h is no longer there to name.
+theorem w_clear_used
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  ' h by-rcases[ - ]
+  ' h by-exact
+end w_clear_used

@@ -1,0 +1,108 @@
+\ by-obtain[ ] (plan row TB2, piece E, slice E1; Lean's obtain pat := e,
+\ Elab/Tactic/RCases.lean's evalObtain; batch-g.lean).
+
+\ A conjunction split; its fields named.
+\ Lean: theorem ob_and (a b : Nat) (h : a = b ∧ b = a) : b = a := by
+\         obtain ⟨hab, hba⟩ := h
+\         exact hba
+theorem ob_and
+  Nat explicit: a  Nat explicit: b
+  a b = b a = ∧ explicit: h
+  b a =
+:= by
+  ' h by-obtain[ << hab hba >> ]
+  ' hba by-exact
+end ob_and
+
+\ An existential: the witness and its proof (⟨ ⟩ is the same bracket).
+\ Lean: theorem ob_exists (a : Nat) (h : Exists (Eq a)) : Exists (Eq a) := by
+\         obtain ⟨w, hw⟩ := h
+\         exact ⟨w, hw⟩
+theorem ob_exists
+  Nat explicit: a
+  ' Eq a $ Exists explicit: h
+  ' Eq a $ Exists
+:= by
+  ' h by-obtain[ ⟨ w hw ⟩ ]
+  << w ' hw >> by-exact
+end ob_exists
+
+\ More patterns than fields: the last field takes the rest, ⟨h1, ⟨h2, h3⟩⟩.
+\ Lean: theorem ob_nested (a b c : Nat) (h : a = b ∧ b = c ∧ c = a) : c = a := by
+\         obtain ⟨h1, h2, h3⟩ := h
+\         exact h3
+theorem ob_nested
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = b c = c a = ∧ ∧ explicit: h
+  c a =
+:= by
+  ' h by-obtain[ << h1 h2 h3 >> ]
+  ' h3 by-exact
+end ob_nested
+
+\ Fewer patterns than fields: the second field takes _, inaccessible.
+\ Lean: theorem ob_fewer (a b c : Nat) (h : a = b ∧ b = c) : a = b := by
+\         obtain ⟨h1⟩ := h
+\         exact h1
+theorem ob_fewer
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = b c = ∧ explicit: h
+  a b =
+:= by
+  ' h by-obtain[ << h1 >> ]
+  ' h1 by-exact
+end ob_fewer
+
+\ - clears the field (and what depends on it) at the end.
+\ Lean: theorem ob_clear (a b : Nat) (h : a = b ∧ b = a) : b = a := by
+\         obtain ⟨-, h2⟩ := h
+\         exact h2
+theorem ob_clear
+  Nat explicit: a  Nat explicit: b
+  a b = b a = ∧ explicit: h
+  b a =
+:= by
+  ' h by-obtain[ << - h2 >> ]
+  ' h2 by-exact
+end ob_clear
+
+\ A term is generalized first (an inaccessible x), then split.
+\ Lean: theorem ob_term (a b : Nat) (h : a = b) (k : b = a) : b = a := by
+\         obtain ⟨p, q⟩ := And.intro h k
+\         exact q
+theorem ob_term
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  b a =
+:= by
+  ' And.intro ' h $ ' k $ by-obtain[ << p q >> ]
+  ' q by-exact
+end ob_term
+
+\ A name on a term: the generalized variable takes it.
+\ Lean: theorem ob_term_name (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         obtain x := And.intro h k
+\         exact x
+theorem ob_term_name
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  ' And.intro ' h $ ' k $ by-obtain[ x ]
+  ' x by-exact
+end ob_term_name
+
+\ A name on a hypothesis does nothing; the pattern may run over lines.
+\ Lean: theorem ob_name (a b : Nat) (h : a = b) : a = b := by
+\         obtain x := h
+\         exact h
+theorem ob_name
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  ' h by-obtain[
+    x
+  ]
+  ' h by-exact
+end ob_name

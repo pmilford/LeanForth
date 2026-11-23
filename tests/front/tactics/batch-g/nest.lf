@@ -1,0 +1,59 @@
+\ Nested alternatives (plan row TB2, piece E, slice E1; design
+\ TACTIC_PATTERNS.md section 2, "Translation, both ways"; batch-g.lean).
+\ Lean's (x | y) | z is written << x | y >> | z, Lean's x | (y | z) is
+\ x | y | z or x | << y | z >>, and on (p ∨ q) ∨ r the two differ.
+
+\ << x | y >> | z on (p ∨ q) ∨ r: the left disjunct split again.
+\ Lean: theorem ns_left (a b c : Nat) (h : (a = b ∨ b = c) ∨ c = a) :
+\           a = b ∨ b = c ∨ c = a := by
+\         rcases h with (x | y) | z
+\         exact Or.inl x
+\         exact Or.inr (Or.inl y)
+\         exact Or.inr (Or.inr z)
+theorem ns_left
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = b c = ∨ c a = ∨ explicit: h
+  a b = b c = c a = ∨ ∨
+:= by
+  ' h by-rcases[ << x | y >> | z ]
+  ' Or.inl ' x $ by-exact
+  ' Or.inr ' Or.inl ' y $ $ by-exact
+  ' Or.inr ' Or.inr ' z $ $ by-exact
+end ns_left
+
+\ x | y | z on (p ∨ q) ∨ (r ∨ s): x takes the left disjunct whole, and
+\ the right one the alternatives y | z.
+\ Lean: theorem ns_flat (a b c : Nat) (h : (a = b ∨ b = c) ∨ (c = a ∨ a = c)) :
+\           (a = b ∨ b = c) ∨ (c = a ∨ a = c) := by
+\         rcases h with x | y | z
+\         exact Or.inl x
+\         exact Or.inr (Or.inl y)
+\         exact Or.inr (Or.inr z)
+theorem ns_flat
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = b c = ∨ c a = a c = ∨ ∨ explicit: h
+  a b = b c = ∨ c a = a c = ∨ ∨
+:= by
+  ' h by-rcases[ x | y | z ]
+  ' Or.inl ' x $ by-exact
+  ' Or.inr ' Or.inl ' y $ $ by-exact
+  ' Or.inr ' Or.inr ' z $ $ by-exact
+end ns_flat
+
+\ x | << y | z >> on p ∨ (q ∨ r): the same goals as x | y | z.
+\ Lean: theorem ns_right (a b c : Nat) (h : a = b ∨ b = c ∨ c = a) :
+\           c = a ∨ b = c ∨ a = b := by
+\         rcases h with x | (y | z)
+\         exact Or.inr (Or.inr x)
+\         exact Or.inr (Or.inl y)
+\         exact Or.inl z
+theorem ns_right
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = b c = c a = ∨ ∨ explicit: h
+  c a = b c = a b = ∨ ∨
+:= by
+  ' h by-rcases[ x | << y | z >> ]
+  ' Or.inr ' Or.inr ' x $ $ by-exact
+  ' Or.inr ' Or.inl ' y $ $ by-exact
+  ' Or.inl ' z $ by-exact
+end ns_right

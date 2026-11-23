@@ -1,0 +1,14 @@
+\ Not supported yet (136): ¬ (a = b) is a function type through whnfD,
+\ not an inductive type (Lean: "Tactic `rcases` failed: `h : a = b →
+\ False` is not an inductive datatype", RCases.lean:309; LeanForth's
+\ 471), but the message's type is a binder whose kind the declaration's
+\ type does not give (plan S5), so the run stops unsupported, never
+\ accepted. test.fs reaches 471 with a type it can print.
+theorem x_not_inductive
+  Nat explicit: a  Nat explicit: b
+  a b = ¬ explicit: h
+  a a =
+:= by
+  ' h by-rcases[ << x y >> ]
+  by-rfl
+end x_not_inductive

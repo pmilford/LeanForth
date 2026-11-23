@@ -1,0 +1,22 @@
+\ Hidden names stay hidden (plan row TB2, piece E, slice E1; design
+\ TACTIC_PATTERNS.md section 3, review 2; batch-g.lean): a split reverts
+\ the locals that depend on its target and introduces them again with
+\ their names and the inaccessible flag (Lean's introNP), so right✝ is
+\ right✝ in both goals, found by assumption, never by its name
+\ (w-hidden-extra.lf).
+
+\ Lean: theorem hd_kept (a b c : Nat) (right : c = c) (h : a = b ∧ b = a) : b = a := by
+\         obtain ⟨hab, _⟩ := h
+\         rcases b with _ | d
+\         assumption
+\         assumption
+theorem hd_kept
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  c c = explicit: right  a b = b a = ∧ explicit: h
+  b a =
+:= by
+  ' h by-obtain[ << hab _ >> ]
+  ' b by-rcases[ _ | d ]
+  by-assumption
+  by-assumption
+end hd_kept

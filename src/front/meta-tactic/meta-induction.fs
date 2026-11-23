@@ -158,11 +158,15 @@ end-structure
   mri-params mri-levels mri mri-out @ ;
 : lf-recursor-info ( d -- info ) mri-frames ['] mri-run lf-with-record ;
 
-\ ---- getTargetArity: pis counted, a head-beta redex reduced.
+\ ---- getTargetArity: pis counted; at a head-beta redex, its function's
+\ body counted on (its reduct's count whenever the argument puts no pi at
+\ the head, as never for a motive fun x => T applied to a constructor;
+\ a redex under the pis has the fields' bound variables in its argument,
+\ which instantiate1 would have to lift: not ported, so not reduced).
 : mid-redex? ( t -- flag ) dup lf-meta-app? if lf-meta-app-head lf-term-lam? else drop false then ;
 : mid-arity-step ( n t -- n' t' flag )
   dup lf-term-pi? if lf-term-second@ swap 1+ swap true exit then
-  dup mid-redex? if lf-meta-head-beta lf-must true else false then ;
+  dup mid-redex? if lf-meta-app-head lf-term-second@ true else false then ;
 : lf-target-arity ( t -- n ) 0 swap begin mid-arity-step 0= until drop ;
 
 \ ---- MVarId.induction: a frame per call (lf-with-record).
@@ -208,23 +212,30 @@ end-structure
 : mid-levels ( -- u1 .. un n )
   mid-info@ lf-rinfo-levels# dup 0 ?do mid-info@ i lf-rinfo-level mid-ulevel swap loop ;
 : mid-const ( -- e ) mid-info@ lf-rinfo-decl lf-menv-name mid-levels lf-mk-const-id ;
-: mid-param ( t e k -- t e' ) >r over r> lf-meta-app-arg lf-mk-app ;
-: mid-params ( e -- e' )
-  mid mid-major @ mid-itype swap mid-info@ lf-rinfo-params 0 ?do i mid-param loop nip ;
 : mid-motive ( -- lam )
   mid mid-major @ lf-infer! mid-goal@ lf-goal-type lf-instantiate! mid mid-major 1
   lf-meta-abstract lf-must lf-term-lam lf-made! dup s" x" lfa-intern lf-binder-default
   lf-pres-binder! lf-must ;
-: mid-prefix ( -- )
-  mid-prop-only mid-const mid-params mid-motive lf-mk-app dup mid mid-rec ! lf-infer!
-  mid mid-rtype ! ;
-
-\ ---- finalize: each binder after the motive, the major or a minor premise.
+\ The recursor applied, its type instantiated binder by binder (whnfForall,
+\ instantiate1: Lean's inferType of the application would also
+\ beta-reduce the motive's applications in the minor premises' types,
+\ whose arguments under the fields' pis hold bound variables that
+\ instantiate1 does not lift; the fields' goals are head-beta reduced as
+\ introN makes them, so goals and term are Lean's).
 : mid-pi ( -- pi ) mid mid-rtype @ lf-meta-whnf-forall lf-must dup mid mid-rtype ! ;
-: mid-more? ( -- flag ) mid-pi lf-term-pi? mid mid-pos @ mid-info@ lf-rinfo-args < and ;
 : mid-apply ( x -- )
   mid mid-rec @ over lf-mk-app mid mid-rec ! mid mid-rtype @ lf-term-second@ swap
   lf-meta-instantiate1 lf-must mid mid-rtype ! 1 mid mid-pos +! ;
+: mid-app ( x -- ) mid-pi lf-term-pi? 0= if lf-tac-unported then mid-apply ;
+: mid-params ( -- )
+  mid mid-major @ mid-itype mid-info@ lf-rinfo-params 0 ?do dup i lf-meta-app-arg mid-app loop
+  drop ;
+: mid-prefix ( -- )
+  mid-prop-only mid-const dup mid mid-rec ! lf-infer! mid mid-rtype ! mid-params mid-motive
+  mid-app ;
+
+\ ---- finalize: each binder after the motive, the major or a minor premise.
+: mid-more? ( -- flag ) mid-pi lf-term-pi? mid mid-pos @ mid-info@ lf-rinfo-args < and ;
 : mid-major! ( -- ) mid mid-major @ mid-apply true mid mid-done ! ;
 \ A minor premise's goal: its domain, the tag Induction.lean:84 gives.
 : mid-tag ( pi -- tag )
