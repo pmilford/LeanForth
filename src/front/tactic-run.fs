@@ -524,7 +524,7 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 \ run's, true. lf-tac-recover?: inside the top block, false outside a run.
 : lfr-recover-at ( k -- flag ) dup 0< if drop true else lfr-frame tfr-recover @ then ;
 : lfr-inherited ( -- flag ) lfr-depth 1- lfr-recover-at ;
-: lf-tac-recover? ( -- flag ) lfr-depth if lfr-inherited else false then ;
+: lf-tac-recover? ( -- flag ) lfr-depth 0<> lfr-inherited and ;
 : lfr-kept-in ( mode -- flag ) lfr-no-recover lfr-mode-flag? 0= lfr-inherited and ;
 : lfr-recover-in ( mode -- flag )
   dup lfr-fresh-recover lfr-mode-flag? swap lfr-kept-in or ;

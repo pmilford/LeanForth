@@ -179,8 +179,8 @@ reason = "TB2 blocks 1 review 4: a brace with no goal told at its { (Lean's with
 [[fault]]
 id = "tb2b1-brace-names-kept"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-brace-close ( -- ) lft-open lft-arrow! lft-rec lft-cut-names lft-past lft-close ;'''
-new = ''': lft-brace-close ( -- ) lft-open lft-arrow! lft-rec drop lft-past lft-close ;'''
+old = ''': lft-brace-close ( -- ) lft-past lft-open lft-arrow! lft-rec true lft-close-names ;'''
+new = ''': lft-brace-close ( -- ) lft-past lft-open lft-arrow! lft-rec false lft-close-names ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
 reason = "TB2 blocks 1: names given inside a brace stay after its }: blocks-1 test.fs's x after } reads as the hypothesis, not error 1"
 

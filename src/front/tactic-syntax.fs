@@ -441,8 +441,8 @@ end-structure
 : lft-held ( addr -- addr )
   dup tac-inner @ 0> if exit then dup tac-arrow @ lfa-e-tac-empty lfa-fail-see ;
 : lft-cut-names ( addr -- ) tac-entries @ lfa-entries-cut ;
-: lft-block-close ( pos cut? -- )
-  lft-open lft-rec lft-held swap if lft-cut-names else drop then lft-close ;
+: lft-close-names ( pos addr cut? -- ) if lft-cut-names else drop then lft-close ;
+: lft-block-close ( pos cut? -- ) lft-open lft-rec lft-held swap lft-close-names ;
 : lft-names-end ( pos -- ) true lft-block-close ;
 \ An alternative ends with its last tactic, at the next | or by-end.
 : lft-alt-end ( -- ) lft-kind tac-k-alt = if lft-read-from lft-names-end then ;
@@ -485,7 +485,7 @@ end-structure
 \ unsolved goals are told, as Lean's withRef stx[2]), and its names go.
 : lft-closer-at ( -- ) lft-open-at lfa-e-tac-closer lfa-fail-see ;
 : lft-in-brace ( -- ) lft-open-flags tac-block-self and 0= if lft-closer-at then ;
-: lft-brace-close ( -- ) lft-open lft-arrow! lft-rec lft-cut-names lft-past lft-close ;
+: lft-brace-close ( -- ) lft-past lft-open lft-arrow! lft-rec true lft-close-names ;
 : lft-w-brace-end ( -- ) lft-ready 0 lft-takes lft-in-brace lft-brace-close lft-from! ;
 \ by-end at a block a word opened: 83 at none (the proof's by) and at a
 \ brace (its { second); else the block's end, its names cut when its
