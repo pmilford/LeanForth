@@ -301,6 +301,12 @@ status changes when this date is older than them. Stages are those of the
      primitives, for now measured only (which two or three would pay, and how much), not built.
   5. Later: a cheaper or parallel feed of the workers; the export parsed on several threads; a text's declarations
      elaborated in parallel.
+- Formalized law as inputs (owner, 2026-11-23; long term, not started, nothing read yet): review
+  <https://lexifina.com/blog/formalizing-all-us-case-law-in-lean> and the other formalizations of law in Lean,
+  among them United States tax law and California tax law, and say which are practical to run on the owner's
+  machine (10 threads, 39 GB) with LeanForth: for each, its source and license, its Lean and Mathlib versions, its
+  size (files, declarations, export size), what its checks claim, and the measured or estimated time and memory of
+  a LeanForth check of its export; the large-export item above sets the limit.
 - Carry on to the next theorem after an error (2026-11-22, from the done check of blocks slice 1; not started): a
   file's first error ends the run today, so a wrong theorem hides the verdicts of the correct ones beside it, where
   Lean reports every theorem; the declaration-level part of "log and carry on, as Lean".
