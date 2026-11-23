@@ -133,7 +133,8 @@ T{ tac-k-brace lfr-holder? tac-k-have-by lfr-holder? tac-k-rfl lfr-holder? tac-k
 \ text, } at 15, its text to 16, its tactic from past {), and a have-by's.
 T{ hh s" { ' h by-exact }" tactic-ran -> 0 }T
 T{ lf-tactic-count 1 step@ dup tac-kind @ over tac-parent @ rot tac-inner @ -> 3 tac-k-brace 0 1 }T
-T{ 1 step@ dup tac-arrow @ swap tac-to @ 1 at-of tuck - >r - r> -> 15 16 }T
+: from-brace ( pos -- n ) 1 at-of - ;
+T{ 1 step@ tac-arrow @ from-brace 1 step@ tac-to @ from-brace -> 15 16 }T
 T{ 1 step@ tac-from @ 0 at-of - 2 step@ tac-from @ 1 at-of - -> 2 1 }T
 T{ 1 step@ dup tac-name @ over tac-count @ rot tac-word @ -> 0 0 0 }T
 T{ 1 step@ dup tac-shape @ tac-k-brace lf-tactic-shape@ = swap tac-loc @ -> true 0 }T
@@ -229,7 +230,8 @@ T{ lfr-fresh lfr-depth lf-mode-done lfr-recover-in -> 0 true }T
 T{ 3 ' 1+ lf-tac-logged -> 4 }T
 T{ 0 lfr-taker -> false }T
 \ lf-tactic: refuses a spelling not by-..., lf-tactic-sign: takes one.
-T{ s" tac-shape-plain lf-tactic: Nat drop" ' evaluate catch >r 2drop r> -> -2 }T
+: evaluated ( c-addr u -- code ) ['] evaluate catch dup if nip nip then ;
+T{ s" tac-shape-plain lf-tactic: Nat drop" evaluated -> -2 }T
 
 \ ---- 4. A handler (the probe try): a Lean error inside it taken back, the
 \ state put back to its save (two goals again, both then closed by h),

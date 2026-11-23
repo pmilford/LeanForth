@@ -74,8 +74,8 @@ reason = "TB2 blocks 1: a block opened while recover is false (and a no-recover 
 [[fault]]
 id = "tb2b1-log-fail-thrown"
 file = "src/front/tactic-run.fs"
-old = ''': lf-tac-logged ( i*x xt -- j*x ) lf-tac-recover? if lfr-finally else execute then ;'''
-new = ''': lf-tac-logged ( i*x xt -- j*x ) execute ;'''
+old = ''': lf-tac-logged ( i*x xt -- j*x ) catch lf-tac-recover? lfr-mark throw ;'''
+new = ''': lf-tac-logged ( i*x xt -- j*x ) catch false lfr-mark throw ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
 reason = "TB2 blocks 1: Lean's logged class made an ordinary throw: blocks-1 test.fs's by-probe-log at the proof's level is not final"
 
@@ -122,8 +122,8 @@ reason = "TB2 blocks 1: a loop from a base takes an error to a frame below its b
 [[fault]]
 id = "tb2b1-shaped-not-holder"
 file = "src/front/tactic-run.fs"
-old = '''  dup lfr-fixed-block? if drop true else lfr-shaped-block? then ;'''
-new = '''  lfr-fixed-block? ;'''
+old = ''': lfr-holder? ( kind -- flag ) dup lfr-fixed-block? swap lfr-shaped-block? or ;'''
+new = ''': lfr-holder? ( kind -- flag ) lfr-fixed-block? ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
 reason = "TB2 blocks 1: the record check refuses a step inside a shaped block: every brace text of blocks-1 test.fs is 92"
 

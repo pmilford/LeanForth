@@ -599,7 +599,7 @@ end-structure
 \ tactic-run.fs's loop) never takes it back, as Lean never takes back an
 \ error it logged (plan row TB2, blocks slice 1); nothing with none
 \ recorded. lf-author-final? tells; the reset clears it.
-: lfa-final ( -- ) lf-author-code if true lfa-error lfa-err-final ! then ;
+: lfa-final ( -- ) lf-author-code 0<> lfa-error lfa-err-final ! ;
 : lf-author-final? ( -- flag ) lfa-error lfa-err-final @ ;
 \ A second position for the message, and a number.
 : lfa-see! ( pos -- ) lfa-error lfa-err-see ! ;

@@ -502,7 +502,9 @@ end-structure
   dup tfr-step @ lfr-ending lf-tac-done tfr-rest @ lfr-goals! ;
 \ An authoring error xt throws made final (author/errors.fs's lfa-final):
 \ no handler takes it back.
-: lfr-finally ( i*x xt -- j*x ) catch dup lf-author-throw = if lfa-final then throw ;
+\ (lfr-mark: an authoring error's THROW code, made final when flag.)
+: lfr-mark ( code flag -- code ) over lf-author-throw = and if lfa-final then ;
+: lfr-finally ( i*x xt -- j*x ) catch true lfr-mark throw ;
 : lfr-nested-end ( frame -- ) ['] lfr-done-end lfr-finally ;
 : lfr-focus-end ( frame -- ) tfr-rest @ lf-tac-unfocus ;
 ' drop ' lfr-done-end 0 lfr-admits lf-block-mode constant lf-mode-done
@@ -518,7 +520,7 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 : lfr-inherited ( -- flag ) lfr-depth if lfr-top tfr-recover @ else true then ;
 : lfr-kept-in ( mode -- flag ) lfr-no-recover lfr-mode-flag? 0= lfr-inherited and ;
 : lfr-recover-in ( mode -- flag )
-  dup lfr-fresh-recover lfr-mode-flag? if drop true else lfr-kept-in then ;
+  dup lfr-fresh-recover lfr-mode-flag? swap lfr-kept-in or ;
 : lfr-mode-of ( i -- mode ) lfr-kind lfr-row trow-mode @ ?dup 0= if lf-mode-done then ;
 : lfr-moded ( mode recover addr -- addr )
   tuck tfr-recover ! -1 over tfr-save ! tuck tfr-mode ! ;
@@ -544,7 +546,7 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 \ the term elaborator's errToSorry, ElabTerm.lean:31-39): xt's error made
 \ final when the top block recovers (Lean logs it and goes on; LeanForth
 \ stops there, the same verdict), else thrown as any other.
-: lf-tac-logged ( i*x xt -- j*x ) lf-tac-recover? if lfr-finally else execute then ;
+: lf-tac-logged ( i*x xt -- j*x ) catch lf-tac-recover? lfr-mark throw ;
 : lf-tac-log-fail ( code -- ) ['] lf-tac-stop lf-tac-logged ;
 : lfr-inside? ( b j -- flag )
   dup lf-tactic-count < if lfr-parent swap < 0= else 2drop false then ;
@@ -622,8 +624,7 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 \ are known to come before their steps.
 : lfr-fixed-block? ( kind -- flag )
   dup tac-k-by = over tac-k-with = or over tac-k-alt = or swap tac-k-case = or ;
-: lfr-holder? ( kind -- flag )
-  dup lfr-fixed-block? if drop true else lfr-shaped-block? then ;
+: lfr-holder? ( kind -- flag ) dup lfr-fixed-block? swap lfr-shaped-block? or ;
 : lfr-alt-right? ( i p -- flag ) lfr-kind tac-k-with = swap lfr-kind tac-k-alt = = ;
 \ p is j or a block around j: j's parents walked while they come after p.
 : lfr-ancestor? ( p j -- flag ) begin 2dup < while lfr-parent repeat = ;
