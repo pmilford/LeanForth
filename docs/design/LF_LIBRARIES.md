@@ -207,6 +207,7 @@ Rewrite 300, lemma intake 45); SP1c about 1,330 (700 Lean: congruence 385, prepr
 | `apply`, `exact`, `refine` | `lf-tac-elab-for-apply`, `lf-tac-elab-ensuring`, `lf-tac-collecting-goals` | — | `lf-goal-apply`, `lf-close-main-goal-using` | — |
 | `constructor` | — | — | `lf-goal-constructor` | — |
 | `cases`, `induction` | targets and `using` by `lf-tac-elab-term` | — | `ElimApp`, `evalAlts` (`meta-tactic/elim.fs`); later `cases`, `subst`, `injection` | eliminators (7) |
+| `obtain`, `rcases` (TB2 E1, branch `tb2-patterns-e1`) | the target by `lf-tac-elab-arg`, generalized by `lf-goal-generalize` | — | Meta `induction` (`meta-tactic/meta-induction.fs`: `lf-recursor-info`, `lf-goal-induction`, `lf-subgoal@`), Meta `cases` without indices (`cases.fs`'s `lf-goal-cases`), `FVarSubst` (`fvar-subst.fs`), `lf-goal-revert-kept`, `lf-goal-intro-kept`, `lf-goal-intro-names`, `generalize.fs`; the walk `rcases.fs`'s `lf-rcases`, the reader `pattern-syntax.fs` | case patterns |
 
 ### 4.2 Changes to the present tactic library, flagged now
 

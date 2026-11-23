@@ -29,6 +29,12 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
+- 2026-11-22, 19:02: plan row TB2's case patterns, slice E1 (piece E, design
+  [TACTIC_PATTERNS.md](../design/TACTIC_PATTERNS.md)), are **tested on branch `tb2-patterns-e1`**: `' h
+  by-obtain[ << x hx >> ]` and `' h by-rcases[ a | b ]` (Lean's obtain and rcases) with names, `_`, `-`, tuples,
+  alternatives and Nat, on new tactic-library words (Meta induction, Meta cases without indices, generalize, the
+  substitution map, revert and intro keeping hidden names hidden); 21 theorems node for node pinned Lean's
+  (`tests/front/tactics/batch-g/`); not Forth-reviewed, not merged, not done. Next: its Forth review.
 - 2026-11-22, 17:46: plan row TB2's tactic blocks, slice 1, are **done** on main 00d6dbf5 (done check [2026-11-22-tb2-blocks1-done.md](../development/done-checks/2026-11-22-tb2-blocks1-done.md): the checker's own 7 theorems accepted from the reference alone, 6 wrong variants not accepted; pushed, origin/main f4b67864); pattern slice E1 (`by-obtain[ ]`, `by-rcases[ ]`) is in work on branch `tb2-patterns-e1`. Earlier the same day:
 - 2026-11-22, 15:58: plan row TB2's tactic blocks, slice 1 (piece F, design
   [TACTIC_BLOCKS.md](../design/TACTIC_BLOCKS.md)), are **tested on branch `tb2-blocks1` and Forth-reviewed**

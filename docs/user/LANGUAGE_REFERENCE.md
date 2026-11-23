@@ -1697,6 +1697,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `?: NAME` | `( -- t )` | parsing: one name after it on its line (2 when none); `_` gives `?_` | read: a synthetic hole node with NAME | A new goal tagged NAME; a NAME any metavariable has, an assigned or closed goal's too: 139. | `?NAME` |
 | `<<` .. `>>`, `⟨` .. `⟩` | `( -- )`, then `( v1 .. vn -- t )` | ordinary; `<<` opens a list (a frame: its words take only its items) that `>>` closes, over lines | read: a node of the items | The anonymous constructor: the expected type's one constructor applied to the items, the rest nested; errors 462-467, 132, 83, 458. | `⟨a, b⟩` |
 | `by-exists[` | `( -- )` | ordinary; opens a term block that `]` closes, one term at least (460) | read: a step whose terms are the values up to `]`. Run: refine with `<< e1 .. en ?_ >>`, then `by-trivial` tried | Gives the witnesses; the goal trivial cannot close stays. | `exists e1, .., en` |
+| `by-obtain[` `by-rcases[` | `( e -- )` | ordinary; reads one pattern up to `]` itself (472-474, 458, 72) | read: a step whose value is e and whose pattern items follow, postfix. Run: e generalized unless a hypothesis, then split as the pattern says (470, 471; 99 for rfl and indexed families) | Takes e apart and names its pieces ([D.8](#d8-by-obtain-by-rcases-case-patterns)). | `obtain pat := e`, `rcases e with pat` |
 | `by-exacts[` | `( -- )` | ordinary; opens a term block that `]` closes (no `<-`) | read: a step whose terms are the values up to `]`. Run: `by-exact` of each, then no goal may be left | Closes the goals one term each; a mismatch: 96; a goal left: 89. | `exacts [` (Batteries) |
 | `by-cases: HYP-NAME` | `( p -- )` (top: p) | parsing: one name after it, on its line | read: a step holding p; HYP-NAME a hypothesis word. Run: assigns the main goal `dite p` of two new goals, `pos` (HYP-NAME : p) and `neg` (HYP-NAME : ¬p), which take its place | Splits on whether p holds; p's `Decidable` instance, else `Classical.propDecidable` (the report's axioms then `propext`, `Classical.choice`, `Quot.sound`, which `--strict-axioms` accepts); p no proposition or `_`: 99. | `by_cases HYP-NAME : p` |
 | `by-contra: HYP-NAME` | `( -- )` | parsing: one name after it, on its line | read: a step; HYP-NAME a hypothesis word. Run: `by-contra-core`, then `by-intro:` of HYP-NAME on the same step | Proves the goal p from HYP-NAME : ¬p and the goal `False` (for p = ¬q, HYP-NAME : q); `rfl`: 99. | `by_contra HYP-NAME` (Batteries) |
@@ -2093,6 +2094,115 @@ Lean: `decide`, `native_decide`. Not built yet (`**`): `by-omega` (plan
 S4), and the combinators `by-try`, `by-first`, `<;>`, mentioned in
 [FE1G_TACTICS.md](../design/FE1G_TACTICS.md) §3 and §5 without a fixed
 spelling.
+
+### D.8 `by-obtain[ ]`, `by-rcases[ ]`: case patterns
+
+Plan row TB2, piece E, slice E1 (design
+[TACTIC_PATTERNS.md](../design/TACTIC_PATTERNS.md); tested on its branch,
+not merged). `e by-obtain[ pat ]` is Lean's `obtain pat := e` and `e
+by-rcases[ pat ]` Lean's `rcases e with pat`: the value first, then one
+pattern up to `]`. The value is a hypothesis (`' h`) or any term (`' foo
+' a $`), which is first generalized to a new variable, named as the
+pattern when the pattern is a name, else a hidden `x✝`. The pattern
+takes the value apart, constructor by constructor, and names the
+pieces.
+
+**A pattern** is Lean's pattern without commas and without parentheses:
+
+| Item | Meaning |
+|---|---|
+| `x` | a name for this piece (a hypothesis of the goals that follow) |
+| `_` | the piece keeps the constructor's own name, hidden (`left✝`) |
+| `-` | the piece and every hypothesis that depends on it are cleared when the goal is finished |
+| `<< p1 .. pn >>` or `⟨ p1 .. pn ⟩` | one constructor's fields, in order; the last field takes the patterns left over; missing ones are `_` |
+| `p1 \| p2 \| ..` | alternatives: a goal per constructor, in order; the last constructor takes the alternatives left over |
+
+A bar binds tighter than a space: `<< a b | c d >>` is three fields `a`,
+`b | c`, `d` (Lean's `⟨a, b | c, d⟩`). Inside the bracket a bar is the
+pattern's, also at the start of a line. `( ... )` is Forth's comment
+everywhere, also inside a pattern: `( a | b )` is not read at all.
+
+**Translation, both ways**:
+
+| Lean | LeanForth |
+|---|---|
+| `obtain ⟨x, hx⟩ := h` | `' h by-obtain[ << x hx >> ]` |
+| `obtain ⟨x, hx⟩ := foo a` | `' foo ' a $ by-obtain[ << x hx >> ]` |
+| `rcases h with a \| b` (or `(a \| b)`) | `' h by-rcases[ a \| b ]` |
+| `⟨a, b \| c, d⟩` (or `⟨a, (b \| c), d⟩`) | `<< a b \| c d >>` |
+| `a \| (b \| c)` | `a \| b \| c` or `a \| << b \| c >>` |
+| `(a \| b) \| c` | `<< a \| b >> \| c` |
+| `⟨a \| b⟩` | `<< a \| b >>` |
+| `rcases n with _ \| n` | `' n by-rcases[ _ \| n ]` |
+
+Going back to Lean: an element `a | b` is `a | b` at the top of rcases
+and inside a tuple, and `<< a | b >>` as an alternative is `(a | b)`. On
+`(p ∨ q) ∨ r`, `<< a | b >> | c` and `a | b | c` differ: the first splits
+`p ∨ q` again, the second names it `a` and gives `r` the alternatives
+`b | c` (`nest.lf`).
+
+**Goals** come depth first: each split's goals in constructor order, the
+rest of the pattern matched in each before the next. A split of a type
+with two constructors or more tags its goals `parent.ctor` (`inl`,
+`inr.inl`, `succ`); with one constructor (∧, ∃) the goal keeps its tag,
+so there is no case `intro` (`w-tag-intro.lf`, Lean's "Case tag `intro`
+not found."). A Nat splits by `Nat.casesAuxOn`, so its goals read `0`
+and `n + 1`. The hypotheses that depend on what is split are reverted and
+come back in each goal under their names, a hidden one hidden still
+(`hidden.lf`, `w-hidden-extra.lf`).
+
+The same theorem three ways, an ∃ taken apart:
+- mathematics: from h : ∃ w, a = w follow a witness w and a proof a = w;
+- LeanForth (`obtain.lf`'s `ob_exists`):
+  ```forth
+  theorem ob_exists
+    Nat explicit: a
+    ' Eq a $ Exists explicit: h
+    ' Eq a $ Exists
+  := by
+    ' h by-obtain[ ⟨ w hw ⟩ ]
+    << w ' hw >> by-exact
+  end ob_exists
+  ```
+- Lean: `obtain ⟨w, hw⟩ := h; exact ⟨w, hw⟩`.
+
+Alternatives, three ways:
+- mathematics: a = b ∨ b = a gives b = a ∨ a = b, by cases;
+- LeanForth (`rcases.lf`'s `rc_or`):
+  ```forth
+  theorem rc_or
+    Nat explicit: a  Nat explicit: b
+    a b = b a = ∨ explicit: h
+    b a = a b = ∨
+  := by
+    ' h by-rcases[ h1 | h2 ]
+    ' Or.inr ' h1 $ by-exact
+    ' Or.inl ' h2 $ by-exact
+  end rc_or
+  ```
+- Lean: `rcases h with h1 | h2; exact Or.inr h1; exact Or.inl h2`.
+
+Run either with `bin/leanforth check --env tests/front/decide-slice.ndjson
+--elab-data tests/front/decide-slice.elab.ndjson FILE.lf`.
+
+**Errors.** Lean's: 470 "Tactic `rcases` failed: `e` is not a free
+variable", 471 "Tactic `rcases` failed: `e : T` is not an inductive
+datatype". The reader's: 472 a bar with nothing before it, after
+another bar or before a closer; 473 a closer that is not the open
+bracket's (`>>` for `⟨`, `]` with a tuple open); 474 none or more than
+one pattern at the top (Lean's `rcases h with a b` is a parse error);
+458 a LeanForth word inside the pattern (its `]` is missing); 72 a token
+beginning with `@`.
+
+**Narrower than Lean** (each refused, never accepted): `rfl` in a
+pattern (99, slice E2); a split of an indexed family such as `a = b` or
+`a ≤ b` (99, slice E4); a quotient (99); typed pieces `(h : T)`, `@pat`,
+several targets and `obtain pat : T` have no form yet (slice E5); a
+recursor whose parameters are not the major type's first arguments
+(99); a hypothesis named in a goal that lacks it is LeanForth's 76 and a
+cleared statement variable 98 where Lean says "Unknown identifier" (plan
+NR); 471's message on a function type needs binder kinds (136, plan
+FE2).
 
 ---
 

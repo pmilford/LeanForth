@@ -1478,6 +1478,13 @@ an empty run, 21 of one cell) and 59 `run-filter` calls over 38 cells
 answer and one subgoal left at a time. Goal lists hold the open goals of
 a tactic proof (the tests' longest: a handful).
 
+*Optional cells* (2026-11-22, plan row TB2 piece E1): `run@0 ( run i --
+x )` is cell i, or 0 for i at or past the end (constant time, no
+record made), for a list of optional items: introN's given names
+(`meta-tactic/goal.fs`'s `lf-goal-intro-names`, a few names a goal) and
+Meta induction's alternatives' names (`meta-induction.fs`, one run per
+constructor, two on the tests' Or).
+
 *A run as a stack* (2026-11-21, review tb2-batch2b 1): `run-push` puts
 a cell on top, `run-last ( run -- x )` reads it (unchecked, as `run@`)
 and `run-drop-last ( run -- run' outcome )` is `run-take` of all but the

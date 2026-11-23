@@ -62,7 +62,12 @@ s" assumption" tac-k-assumption lf-tactic-lean!
   `tac-shape-binders+` (the same, one at least: by-rename-i['s) and
   `tac-shape-hyps` (names of hypotheses the goal has, one at least, `_`
   refused: by-revert['s, by-clear['s); `tac-shape-list+` is
-  `tac-shape-list` with one term at least (by-exists['s, batch 3c). A
+  `tac-shape-list` with one term at least (by-exists['s, batch 3c);
+  `tac-shape-pattern` (`src/front/pattern-syntax.fs`, plan row TB2 piece
+  E) one value, then a case pattern up to `]`, its items postfix in the
+  step's arguments with their spans (`lf-tac-arg-span`), by-obtain['s
+  and by-rcases['s; a reader of its own is a shape made with
+  `tac-shape-new ( n k build-xt -- shape )`. A
   list sits between its bracket word and `]`, on as many lines as it
   needs (the owner's rules of 2026-11-22; batch 3c: the shared reader
   `author/runner.fs`'s `lfa-token-on` reads on, and every list is an

@@ -1,6 +1,6 @@
 # Case patterns: obtain, rcases, rintro, subst, cases, injection (piece E)
 
-Status (2026-11-22): **second version, after the independent review ([report](../development/design-reviews/2026-11-22-tactic-patterns.md), approve with changes; all applied, see the end); no code.** Plan row TB2, piece E. LeanForth paths are
+Status (2026-11-22): **second version, after the independent review ([report](../development/design-reviews/2026-11-22-tactic-patterns.md), approve with changes; all applied, see the end); slice E1 tested on branch `tb2-patterns-e1` (not reviewed, not merged), E2-E5 no code.** E1 departs from section 5 in three places: its tests run on decide's slice of Init, which holds every declaration E1 needs (the `patterns-slice` export is left to E2, whose Eq.rec, noConfusion and HEq lemmas need it); the reader's LeanForth words inside a pattern end the list as every list's do (458, not 84); and a recursor's type is instantiated binder by binder (whnfForall, instantiate1) rather than inferred, since inferType's beta reduction of the motive under the fields' binders would need loose bound variables lifted (not ported), the goals and terms being Lean's either way. Plan row TB2, piece E. LeanForth paths are
 relative to `src/front/`, Lean's to the pinned toolchain's `src/lean/`. All of it is untrusted front-end code: a
 tactic only builds a term; only the kernel accepts a proof.
 
