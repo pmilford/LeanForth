@@ -21,7 +21,7 @@ speed before parallelism adds more.
 
 **What LeanForth is and is not (2026-11-12).** LeanForth today is only the checking half of Lean (the kernel): it re-checks proof terms that Lean produced and exported (NDJSON), including all of Lean's `Init`. It has none of Lean's front end, the larger half: no elaborator (implicit arguments, numerals, unification), no type classes or coercions, no tactics, no pattern matching or recursion compilation, no evaluation. So it cannot yet turn a written theorem into a proof; Lean does all of that before the export. LeanForth text is checked by the kernel since 2026-11-12 (plan 8.2.1a, c, d); there is no program verifier: for the clamp word LeanForth re-checks the proofs Lean wrote (plan 5.5.1, branch `program-551`). The front end is plan phase 8 ([PLAN_DRAFT.md](PLAN_DRAFT.md)), being re-planned from 2026-11-12.
 
-## Now, next, later (updated 2026-11-22)
+## Now, next, later (updated 2026-11-23)
 
 The single list of what is being worked on (owner, 2026-11-12; replaces the near-term queue of
 [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md), stale since 2026-11-03). `scripts/push.sh` refuses to push plan
@@ -29,6 +29,12 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
+- 2026-11-23, 00:47: plan row TB2's tactic blocks, slice 2, are **tested on branch `tb2-blocks2` and
+  Forth-reviewed** ([review](../development/forth-reviews/2026-11-22-tb2-blocks2.md)): findings 1, 2, 4 and 5
+  fixed on the branch (a per-goal block walks its goals by place and claims nothing, so a refused run claim
+  ends full; `lib/runs.fs`'s `run-one`; the block shape flags read by one word each); finding 3, a refusal path
+  on main that breaks its stack effect, is plan row 9.4.8u. Not merged, not done. Next: its tier, merge and
+  done check. Earlier:
 - 2026-11-22, 23:11: plan row TB2's tactic blocks, slice 2 (piece F, design
   [TACTIC_BLOCKS.md](../design/TACTIC_BLOCKS.md)), are **tested on branch `tb2-blocks2`**: `t1 <;> t2` (Lean's
   `t1 <;> t2`: t1 on the first goal alone, t2 on each goal it leaves, chains left associative, t2 one tactic or one
