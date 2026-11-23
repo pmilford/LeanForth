@@ -33,7 +33,10 @@ T{ run -> outcome-ok }T
 \ full, or is absorbed (the run still elaborates the same theorem, which
 \ the kernel then checks): never another outcome. The absorbed ones are
 \ pinned by count, so a step that starts to swallow a refusal (tryClear's
-\ full read as "cannot clear", review re-check M4) changes the count.
+\ full read as "cannot clear", review re-check M4) changes the count:
+\ 2 while rw's definition lookup (tactics/rewrite.fs's trw-definition?)
+\ read a lookup refused for room as "not a definition", 1 since it uses
+\ lf-menv-find? (review of TB2 E1, finding 7).
 variable absorbed   variable bad
 : refused-at ( k -- outcome fired? )
   heap-refusals ! run heap-refusals @ 0= 0 heap-refusals ! ;
@@ -41,7 +44,7 @@ variable absorbed   variable bad
   dup outcome-full = if drop exit then ok? if 1 absorbed +! else 1 bad +! then ;
 : each-refused ( -- k ) 0 begin 1+ dup refused-at while tally repeat drop ;
 T{ 0 absorbed ! 0 bad ! each-refused 1000 > bad @ -> true 0 }T
-T{ absorbed @ -> 2 }T
+T{ absorbed @ -> 1 }T
 T{ run -> outcome-ok }T
 
 \ ---- 2. The elaboration fuel at each limit.

@@ -195,7 +195,7 @@ end-structure
 \ getMVarsNoDelayed e: not ported; e instantiated must hold no open metavariable.
 : ap-alone ( -- )
   ap ap-e @ lf-instantiate! lf-has-open-mvar?
-  if lfa-e-tac-form lf-tac-fail then ;
+  if lf-tac-unported then ;
 
 \ ---- reorderGoals nonDependentFirst, then headBetaType.
 : ap-sought? ( n leaf -- n flag )   \ metavariable n (in the walk: throws nothing)
@@ -206,7 +206,7 @@ end-structure
 : ap-dependent? ( mvar -- flag )
   ap-goals slab-count 0 ?do dup i ap-goal@ ap-names? if drop true unloop exit then loop
   drop false ;
-: ap-push ( run mvar -- run ) lf-goal-head-beta-type run-push lf-must ;
+: ap-push ( run mvar -- run ) lf-goal-head-beta-type lf-run+ ;
 : ap-in? ( dependent? k -- flag ) ap-goal@ ap-dependent? = ;
 : ap-those ( run dependent? -- run )
   ap-goals slab-count 0 ?do dup i ap-in? if swap i ap-goal@ ap-push swap then loop drop ;

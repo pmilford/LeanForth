@@ -19,7 +19,7 @@
 require ../tactic-api.fs
 
 : tin-rfl? ( name -- flag ) dup if s" rfl" lfa-intern = else drop false then ;
-: tin-name ( i k -- name ) lf-tac-arg dup tin-rfl? if lfa-e-tac-form lf-tac-fail then ;
+: tin-name ( i k -- name ) lf-tac-arg dup tin-rfl? if lf-tac-unported then ;
 \ introStep of step i's name k.
 : tin-one ( i k -- i ) over swap tin-name over -1 swap lf-tac-intro1 ;
 : tin-run ( i -- ) 0 tin-one drop ;

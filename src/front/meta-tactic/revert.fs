@@ -86,7 +86,7 @@ end-structure
 : mrv-depends? ( fvar -- flag ) mrv-out# ['] mrv-dep? find-index mrv-found ;
 : mrv-reverted? ( fvar -- flag ) dup mrv-asked? if drop true else mrv-depends? then ;
 : mrv-plain ( k -- k ) dup lf-local-detail-at? if outcome-unsupported lf-must then ;
-: mrv-push ( fvar -- ) mrv mrv-out @ swap run-push lf-must mrv mrv-out ! ;
+: mrv-push ( fvar -- ) mrv mrv-out lf-run+! ;
 : mrv-local ( k -- )
   dup lf-mctx-fvar mrv-reverted? if mrv-plain lf-mctx-fvar mrv-push else drop then ;
 : mrv-in-view ( i -- )
@@ -124,7 +124,7 @@ end-structure
 
 \ ---- revertAfter: the locals after fvar, a run.
 : mrv-fvar+ ( run view i -- run' view )
-  over swap lf-view-fvar rot swap run-push lf-must swap ;
+  over swap lf-view-fvar rot swap lf-run+ swap ;
 : mrv-tail ( view k -- run ) 0 -rot over lf-view-count swap ?do i mrv-fvar+ loop drop ;
 : mrv-after ( goal fvar -- goal run )
   over lf-goal-view tuck swap lf-view-find lf-found 1+ mrv-tail ;

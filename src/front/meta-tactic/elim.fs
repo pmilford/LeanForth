@@ -50,6 +50,13 @@
 \       lf-mk-lambda-fvars: x named and of the kind of the target's local),
 \       its type defeq the motive's (else error 212 with the motive, its
 \       type and the motive's, Lean's text), the motive assigned
+\   Shared with Meta induction and cases (meta-induction.fs, cases.fs):
+\   lf-decl-telescope ( d -- info concl ) a run of d and its type's
+\       binders, and the conclusion past them (forallTelescope);
+\       lf-bvar-binder ( n bvar -- k ) the binder that a bound variable
+\       of the conclusion names, of n; lf-decl-suffix ( d c-addr u -- d' )
+\       the declaration named d's name then the part (C.rec, C.casesOn):
+\       none, not supported (99), an environment that lacks it
 \ Errors are thrown as authoring errors at the step running
 \ (tactic-run.fs's lf-tac-stop and lf-tac-fail), Meta failures as
 \ outcomes (meta-must.fs). Not ported: generalizeVars and index targets
@@ -171,9 +178,10 @@ require ./goal.fs
   dup lf-menv-data ?dup 0= if lfa-e-tac-meta lf-tac-fail then
   dup lf-ity-all@ nip 1 <> if drop over ['] mel-mutual. mel-unsupported then
   lf-ity-nested lf-more-field if over ['] mel-nested. mel-unsupported then ;
-: mel-rec ( d induction? -- d' )
-  >r lf-menv-name r> if s" rec" else s" casesOn" then lfa-intern-part lf-menv-find
-  lf-must ;
+\ The declaration named d's name then part: none, not supported (99).
+: lf-decl-suffix ( d c-addr u -- d' )
+  rot lf-menv-name -rot lfa-intern-part lf-menv-find? 0= if lf-tac-unported then ;
+: mel-rec ( d induction? -- d' ) if s" rec" else s" casesOn" then lf-decl-suffix ;
 : mel-checked ( t d induction? -- t d ) if mel-simple then ;
 \ The inductive type of the target's type, its refusals checked (205
 \ throws with the flag's tactic named).
@@ -188,14 +196,15 @@ require ./goal.fs
 : mel-shape? ( concl -- flag )   \ a bound variable applied to one
   dup lf-meta-head-args 1 = swap lf-term-bvar? and swap lf-term-second@ lf-term-bvar?
   and ;
-: mel-at ( info bvar -- info k ) lf-term-first@ over mel-binders swap - 1- ;
+: lf-bvar-binder ( n bvar -- k ) lf-term-first@ - 1- ;
+: mel-at ( info bvar -- info k ) over mel-binders swap lf-bvar-binder ;
 : mel-ends ( info concl -- info' )
-  dup mel-shape? 0= if lfa-e-tac-form lf-tac-fail then
+  dup mel-shape? 0= if lf-tac-unported then
   tuck lf-term-first@ mel-at lf-run+ swap lf-term-second@ mel-at lf-run+ ;
 : mel-special? ( info k -- flag )   \ the motive's binder or the target's
   2dup swap mel-motive-at = >r swap mel-target-at = r> or ;
 : mel-kind ( info k -- kind )
-  swap lf-elim-decl swap lf-menv-kind@ 0= if lfa-e-tac-form lf-tac-fail then ;
+  swap lf-elim-decl swap lf-menv-kind@ 0= if lf-tac-unported then ;
 : mel-alt? ( info k -- flag )   \ explicit, neither the motive nor the target
   2dup mel-special? if 2drop false exit then mel-kind lf-binder-default = ;
 : mel-alt+ ( info pi k -- info' )
@@ -206,9 +215,9 @@ require ./goal.fs
 : mel-alts ( info -- info' )
   dup lf-elim-decl lf-menv-type over mel-binders 0 ?do
     tuck i mel-binder swap lf-term-second@ loop drop ;
-: mel-head ( d -- info concl )   \ d and how many binders, and the conclusion
+: lf-decl-telescope ( d -- info concl )   \ d and how many binders, and the conclusion
   0 over lf-run+ swap lf-menv-type lf-meta-forall-body# rot swap lf-run+ swap ;
-: lf-elim-info ( d -- info ) mel-head mel-ends mel-alts ;
+: lf-elim-info ( d -- info ) lf-decl-telescope mel-ends mel-alts ;
 
 \ ---- mkElimApp: a frame per call (lf-with-record), in the current context.
 begin-structure /mea
@@ -227,9 +236,9 @@ end-structure
   lf-term-first@ mv-opaque lf-mvar-new lf-must dup mea mea-motive ! ;
 : mea-target-arg ( pi -- arg )
   lf-term-first@ mea mea-target @ lf-infer! lf-tac-defeq lf-must 0= if
-    lfa-e-tac-form lf-tac-fail then mea mea-target @ ;
+    lf-tac-unported then mea mea-target @ ;
 : mea-implicit ( pi k -- arg )
-  mea-info@ swap mel-kind lf-binder-instance = if lfa-e-tac-form lf-tac-fail then
+  mea-info@ swap mel-kind lf-binder-instance = if lf-tac-unported then
   lf-term-first@ mv-natural lf-mvar-new lf-must ;
 \ The next alternative (one per explicit binder, in order) is at k.
 : mea-next ( -- k ) mea mea-alts @ run-count ;

@@ -76,7 +76,7 @@ s" have" tac-k-have-by lf-tactic-lean!
 lf-mode-nested tac-k-have-by lf-tactic-mode!
 
 \ ---- The declaration: its name (_ not supported yet), type and value.
-: thv-name ( i k -- name ) lf-tac-arg dup 0= if lfa-e-tac-form lf-tac-fail then ;
+: thv-name ( i k -- name ) lf-tac-arg dup 0= if lf-tac-unported then ;
 \ A term elaborated: no metavariable left open (93); a name the context
 \ lacks (cleared) is refused as it is elaborated (elab-term.fs's et-var
 \ and et-hyp, 76; Lean's unknown identifier).

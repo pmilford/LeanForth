@@ -47,7 +47,7 @@ end-structure
 
 \ ---- The stack of goals to visit (run-push, run-last, run-drop-last),
 \ and the goals kept. The run held at addr, then goal.
-: mrp-onto ( addr goal -- ) over @ swap run-push lf-must swap ! ;
+: mrp-onto ( addr goal -- ) swap lf-run+! ;
 : mrp-push1 ( goal -- ) mrp mrp-todo swap mrp-onto ;
 : mrp-push ( goals -- )
   dup run-count begin ?dup while 1- 2dup run@ mrp-push1 repeat drop ;

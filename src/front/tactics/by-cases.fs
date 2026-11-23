@@ -30,7 +30,7 @@ s" by_cases" tac-k-by-cases lf-tactic-lean!
 
 \ A proposition (else not supported yet, 99; by-contra-core's too).
 : tbs-prop ( p -- p )
-  dup lf-meta-is-prop lf-tac-must 0= if lfa-e-tac-form lf-tac-fail then ;
+  dup lf-meta-is-prop lf-tac-must 0= if lf-tac-unported then ;
 : tbs-args ( i goal -- goal name p inst )
   swap dup 1 thv-name swap thv-untyped tbs-prop dup lf-decidable-instance ;
 : tbs-tac ( i goal -- goals ) tbs-args lf-goal-by-cases lf-goals2 ;

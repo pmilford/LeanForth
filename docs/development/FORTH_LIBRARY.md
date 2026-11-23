@@ -1485,6 +1485,13 @@ record made), for a list of optional items: introN's given names
 Meta induction's alternatives' names (`meta-induction.fs`, one run per
 constructor, two on the tests' Or).
 
+*Pairs* (2026-11-22, review of TB2 E1, finding 5): `run-pair@ ( run k --
+x y )` reads pair k of a run of pairs, cells 2k and 2k+1 (unchecked, as
+`run@`; constant time, no record made). Its callers: `rcases.fs`'s
+pattern lists (a reference per element, a few elements a pattern) and
+`meta-tactic/generalize.fs`'s targets (an expression and a name each,
+one target in every rcases call).
+
 *A run as a stack* (2026-11-21, review tb2-batch2b 1): `run-push` puts
 a cell on top, `run-last ( run -- x )` reads it (unchecked, as `run@`)
 and `run-drop-last ( run -- run' outcome )` is `run-take` of all but the

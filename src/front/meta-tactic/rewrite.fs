@@ -86,7 +86,7 @@ end-structure
 \ Lean synthesizes it (postprocessAppMVars, slice LA).
 : mrw-mvar+ ( heq mvar kind -- heq' )
   lf-binder-instance = if lfa-e-tac-form lf-tac-stop then
-  mrw mrw-mvars @ over run-push lf-must mrw mrw-mvars ! lf-mk-app ;
+  dup mrw mrw-mvars lf-run+! lf-mk-app ;
 : mrw-telescope ( -- )
   mrw mrw-heq @ dup lf-infer! lf-instantiate! -1 ['] mrw-mvar+
   lf-forall-meta-telescope-reducing mrw mrw-htype ! mrw mrw-heq ! ;

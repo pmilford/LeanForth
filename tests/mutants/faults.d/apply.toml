@@ -118,7 +118,7 @@ reason = "review tactic-a2ii B2 (its approx-off): isDefEqApply without approxDef
 [[fault]]
 id = "apply-elab-mvar-ok"
 file = "src/front/tactic-core.fs"
-old = ''': tcr-not-mvar ( e -- e ) dup lf-mvar? if lfa-e-tac-form lf-tac-fail then ;'''
+old = ''': tcr-not-mvar ( e -- e ) dup lf-mvar? if lf-tac-unported then ;'''
 new = ''': tcr-not-mvar ( e -- e ) ;'''
 test = "$GFORTH tests/front/tactics/apply/test.fs"
 reason = "review tactic-a2ii B1 (its elab-mvar-ok): a term still a metavariable is applied, where Lean synthesizes first (not ported: error 99)"

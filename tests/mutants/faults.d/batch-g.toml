@@ -150,3 +150,11 @@ old = '''  lfa-binder lfa-binder-name @ et-hyp ;'''
 new = '''  dup et-vars slab-at @ swap lfa-binder lfa-binder-name @ lf-mctx-view swap lf-view-named-fvar if nip then outcome-ok ;'''
 test = "$GFORTH tests/front/tactics/batch-g/test.fs"
 reason = "TB2 E1 review 1: a statement variable the goal's context lacks is taken as the binder's own free variable, so a split's cleared h is accepted as a later target (test.fs's p01 and p19 texts; check.py's w-stale-target, w-stale-blank)"
+
+[[fault]]
+id = "trw-room-read-as-absent"
+file = "src/front/tactics/rewrite.fs"
+old = '''  syn-a@ lfa-decl-name lf-menv-find? dup if drop lf-menv-kind lf-kind-definition = then ;'''
+new = '''  syn-a@ lfa-decl-name lf-menv-find ok-then? if lf-menv-kind lf-kind-definition = else drop false then ;'''
+test = "$GFORTH tests/front/s2-sweeps.fs"
+reason = "TB2 E1 review 7: rw's definition lookup refused for room is read as \"not a definition\" and the refusal is absorbed (s2-sweeps.fs's absorbed count, 1, becomes 2)"

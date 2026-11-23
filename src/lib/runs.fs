@@ -17,7 +17,9 @@
 \   copy when run2 begins where run1 ends.
 \ - run-count ( run -- n ), run@ ( run i -- x ) (unchecked: a valid run,
 \   0 <= i < n), run-valid? ( run -- flag ); run@0 ( run i -- x ) cell
-\   i, or 0 for i at or past the end (a valid run, 0 <= i).
+\   i, or 0 for i at or past the end (a valid run, 0 <= i); run-pair@
+\   ( run k -- x y ) cells 2k and 2k+1, pair k of a run of pairs
+\   (unchecked, as run@: 0 <= 2k+1 < n).
 \ - A run as a stack, its top the last cell: run-push, run-last ( run --
 \   x ) (unchecked, as run@: a valid run of one cell or more) and
 \   run-drop-last ( run -- run' outcome ), the run less its last cell (no
@@ -110,6 +112,8 @@ lf-lib set-current
 : run-last ( run -- x ) dup run-count 1- run@ ;
 \ Cell i, or 0 past the run's end (a list of optional items: names).
 : run@0 ( run i -- x ) 2dup swap run-count < if run@ else 2drop 0 then ;
+\ Pair k of a run of pairs: cells 2k and 2k+1.
+: run-pair@ ( run k -- x y ) 2* swap rn-first@ + dup rn-cell @ swap 1+ rn-cell @ ;
 : run-drop-last ( run -- run' outcome )
   dup run-valid? if dup run-count 1- run-take else drop -1 outcome-invalid then ;
 lf-lib-private set-current

@@ -837,9 +837,10 @@ T{ fs9 elim-code lf-author-code s" a nested inductive type" detail-has? -> lf-au
 T{ s" Hint: Consider using the `cases` tactic instead" detail-has? -> true }T
 lf-tac-forget
 \ (cases takes a nested type, as Lean's getElimNameInfo does: never 209;
-\ the slice holds no Lean.Syntax.casesOn, so its lookup is refused, the
-\ library's invalid)
-T{ fs9 false elim-code-of -> -4201 }T
+\ the slice holds no Lean.Syntax.casesOn, so its lookup is refused, not
+\ supported: elim.fs's lf-decl-suffix)
+T{ fs9 false elim-code-of lf-author-code -> lf-author-throw 99 }T
+lf-tac-forget
 \ getElimExprInfo: Nat.rec {motive} (zero) (succ) (t): zero with no field,
 \ succ with two, both explicit; Eq.refl's conclusion is no motive applied
 \ to a target (99).

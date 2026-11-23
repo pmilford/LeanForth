@@ -246,7 +246,7 @@ reason = "TB2: h : x ≠ y closes the goal without x and y defeq"
 [[fault]]
 id = "tb2-cn-empty-skipped"
 file = "src/front/meta-tactic/contradiction.fs"
-old = '''  if exit then dup mcd-type mcd-candidate? if lfa-e-tac-form lf-tac-fail then ;'''
+old = '''  if exit then dup mcd-type mcd-candidate? if lf-tac-unported then ;'''
 new = '''  drop ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: an indexed family passed over where Lean tries cases (a wrong verdict is possible)"
@@ -254,8 +254,8 @@ reason = "TB2: an indexed family passed over where Lean tries cases (a wrong ver
 [[fault]]
 id = "tb2-cn-ctor-same"
 file = "src/front/meta-tactic/contradiction.fs"
-old = '''  lf-name-same? 0= if lfa-e-tac-form lf-tac-fail then ;'''
-new = '''  lf-name-same? if lfa-e-tac-form lf-tac-fail then ;'''
+old = '''  lf-name-same? 0= if lf-tac-unported then ;'''
+new = '''  lf-name-same? if lf-tac-unported then ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: the constructor test inverted (same constructors refused, different passed on)"
 
@@ -270,7 +270,7 @@ reason = "TB2: decide's rule closes the goal whatever decide p reduces to"
 [[fault]]
 id = "tb2-cn-nested-skipped"
 file = "src/front/meta-tactic/contradiction.fs"
-old = '''  mcd-target ['] mcd-elim? lf-term-holds? lf-must if lfa-e-tac-form lf-tac-fail then ;'''
+old = '''  mcd-target ['] mcd-elim? lf-term-holds? lf-must if lf-tac-unported then ;'''
 new = '''  ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: nestedFalseElim, not ported, passed over instead of not supported"
@@ -318,7 +318,7 @@ reason = "TB2 review 5: rule 6 forgets the equation flag the rules before it fou
 [[fault]]
 id = "tb2-cn-bit-skipped"
 file = "src/front/meta-tactic/contradiction.fs"
-old = '''  dup mcd-type 2 s" Nat.hasNotBit" lf-meta-app-of? if lfa-e-tac-form lf-tac-fail then ;'''
+old = '''  dup mcd-type 2 s" Nat.hasNotBit" lf-meta-app-of? if lf-tac-unported then ;'''
 new = '''  ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: Nat.hasNotBit, not ported, passed over instead of not supported"

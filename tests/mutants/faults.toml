@@ -20917,7 +20917,7 @@ reason = "review C2 of 2026-11-18: a failed try leaves the induction blocks it o
 [[fault]]
 id = "tac-rw-mvars-not-kept"
 file = "src/front/meta-tactic/rewrite.fs"
-old = '''  mrw mrw-mvars @ over run-push lf-must mrw mrw-mvars ! lf-mk-app ;'''
+old = '''  dup mrw mrw-mvars lf-run+! lf-mk-app ;'''
 new = '''  lf-mk-app ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "rw's new metavariables not kept (since plan 9.4.8l-I C3 a run in the call's frame, no saved state of their own): a binder the rewrite leaves unassigned is no new goal, so rw goes on where Lean opens a goal (or LeanForth refuses, 99)"

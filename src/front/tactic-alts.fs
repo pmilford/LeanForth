@@ -148,7 +148,7 @@ end-structure
 \ cleared.
 : tal-k@ ( -- k ) tal tal-k @ ;
 : tal-kind ( f -- kind )
-  tal-info@ tal-k@ lf-elim-alt-kinds rot tuck > 0= if lfa-e-tac-form lf-tac-fail then
+  tal-info@ tal-k@ lf-elim-alt-kinds rot tuck > 0= if lf-tac-unported then
   cells + @ ;
 : tal-explicit? ( f -- flag ) tal-kind lf-binder-default = ;
 : tal-fields ( -- n ) tal-info@ tal-k@ lf-elim-alt-fields ;

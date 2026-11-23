@@ -184,7 +184,7 @@ end-structure
 \ it, the pi's domain made type (isDefEq first, unequal not supported),
 \ replaceTargetDefEq, introNP 1 with its own name (0 when inaccessible).
 : mat-revert1 ( -- goal1 )
-  mat mat-goal @ 0 mat mat-old @ run-push lf-must lf-goal-revert
+  mat mat-goal @ 0 mat mat-old @ lf-run+ lf-goal-revert
   1 <> outcome-unsupported and lf-must ;
 : mat-checked ( pi -- pi )
   mat mat-type @ over lf-term-first@ lf-tac-defeq lf-must

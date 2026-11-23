@@ -34,7 +34,7 @@ tac-shape-term-at lf-tactic: by-delta constant tac-k-delta
 s" delta" tac-k-delta lf-tactic-lean!
 
 : tdl-name ( node -- name )
-  dup syn-kind@ syn-k-const <> if lfa-e-tac-form lf-tac-fail then syn-a@ lfa-decl-name ;
+  dup syn-kind@ syn-k-const <> if lf-tac-unported then syn-a@ lfa-decl-name ;
 : tdl-array ( name -- )   \ the array of names as Lean prints it
   s"  [" lf-pp-emit lf-pp-name s" ]" lf-pp-emit ;
 : tdl-names. ( name -- outcome ) tdl-array outcome-ok ;
@@ -54,7 +54,7 @@ s" delta" tac-k-delta lf-tactic-lean!
   lf-meta-eqv lf-tac-must ;
 : tdl-local ( i fvar goal -- goal' )
   -rot tdl-unchanged? if ['] tdl-at. lf-tac-inline lfa-e-delta lf-tac-ex then
-  lfa-e-tac-form lf-tac-fail ;
+  lf-tac-unported ;
 : tdl-at-local ( i fvar -- i ) ['] tdl-local lf-lift-local1 ;
 : tdl-run ( i -- ) ['] tdl-at-local ['] tdl-at-target lf-at-location ;
 ' tdl-run tac-k-delta lf-tactic-action!

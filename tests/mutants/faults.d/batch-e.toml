@@ -349,7 +349,7 @@ reason = "TB2 3b: every new metavariable is a goal, held by the term or not"
 [[fault]]
 id = "tb3b-fresh-unpushed"
 file = "src/front/new-goals.fs"
-old = '''  >r over r@ tng-holds? r> swap if lf-mvar-at run-push lf-must else drop then ;'''
+old = '''  >r over r@ tng-holds? r> swap if lf-mvar-at lf-run+ else drop then ;'''
 new = '''  >r over r@ tng-holds? r> swap if drop else drop then ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: no new metavariable collected"
@@ -357,7 +357,7 @@ reason = "TB2 3b: no new metavariable collected"
 [[fault]]
 id = "tb3b-delayed-allowed"
 file = "src/front/new-goals.fs"
-old = '''  dup ['] lf-mvar-delayed? lf-term-holds? lf-must if lfa-e-tac-form lf-tac-fail then ;'''
+old = '''  dup ['] lf-mvar-delayed? lf-term-holds? lf-must if lf-tac-unported then ;'''
 new = '''  dup ['] lf-mvar-delayed? lf-term-holds? lf-must drop ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: a delayed-assigned metavariable's pending holes are missed (not 99)"
@@ -398,7 +398,7 @@ reason = "review tb2-batch3b 6: the oldest hole's error reported, not the newest
 [[fault]]
 id = "tb3b-log-arg-placeholder"
 file = "src/front/new-goals.fs"
-old = '''  dup lf-elab-hole drop nip if drop lfa-e-tac-form lf-tac-fail then'''
+old = '''  dup lf-elab-hole drop nip if drop lf-tac-unported then'''
 new = '''  dup lf-elab-hole drop 2drop'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: an argument hole answers Lean's message without the argument's name (not 99)"
@@ -552,7 +552,7 @@ reason = "TB2 3b: every hypothesis by-intro[ ] introduces takes the first name"
 [[fault]]
 id = "tb3b-intro-rfl"
 file = "src/front/tactics/intro.fs"
-old = ''': tin-name ( i k -- name ) lf-tac-arg dup tin-rfl? if lfa-e-tac-form lf-tac-fail then ;'''
+old = ''': tin-name ( i k -- name ) lf-tac-arg dup tin-rfl? if lf-tac-unported then ;'''
 new = ''': tin-name ( i k -- name ) lf-tac-arg ;'''
 test = "$GFORTH tests/front/tactics/batch-e/test.fs"
 reason = "TB2 3b: intro rfl introduces a hypothesis named rfl (not 99)"

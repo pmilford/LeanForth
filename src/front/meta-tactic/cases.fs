@@ -53,6 +53,7 @@ require ../meta-must.fs
 require ../app-builder.fs
 require ../fvar-subst.fs
 require ./goal.fs
+require ./elim.fs
 require ./meta-induction.fs
 
 begin-structure /mcs
@@ -71,9 +72,7 @@ end-structure
 : mcs-data ( -- addr ) mcs mcs-d @ lf-menv-data ?dup 0= if lf-tac-unported then ;
 : mcs-params# ( -- n ) mcs-data lf-ity-params lf-more-field ;
 : mcs-indices# ( -- n ) mcs-data lf-ity-indices lf-more-field ;
-: mcs-cases-on ( -- d )
-  mcs mcs-d @ lf-menv-name s" casesOn" lfa-intern-part lf-menv-find? 0= if
-  lf-tac-unported then ;
+: mcs-cases-on ( -- d ) mcs mcs-d @ s" casesOn" lf-decl-suffix ;
 : mcs-arity ( n -- ) mcs-params# mcs-indices# + <> if lf-tac-unported then ;
 : mcs-inductive ( type -- ) lf-meta-head-args >r
   lf-match-const-induct 0= if lf-tac-unported then mcs mcs-d ! r> mcs-arity ;

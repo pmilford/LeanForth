@@ -91,7 +91,7 @@ reason = "TB2 3a: with no at[ the goal is no location (Lean's targets #[] true)"
 [[fault]]
 id = "tb3a-loc-all-ignored"
 file = "src/front/tactic-core.fs"
-old = ''': tlc-all ( -- ) tlc tlc-step @ lf-tac-loc-all? if lfa-e-tac-form lf-tac-fail then ;'''
+old = ''': tlc-all ( -- ) tlc tlc-step @ lf-tac-loc-all? if lf-tac-unported then ;'''
 new = ''': tlc-all ( -- ) ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
 reason = "TB2 3a: at[ * ] runs as no location at all instead of 99"
@@ -107,7 +107,7 @@ reason = "TB2 3a: a location name read from the step's own arguments (a rule)"
 [[fault]]
 id = "tb3a-loc-constant-unknown"
 file = "src/front/tactic-core.fs"
-old = '''  dup tcr-constant? if lfa-e-tac-form lf-tac-fail then'''
+old = '''  dup tcr-constant? if lf-tac-unported then'''
 new = '''  '''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
 reason = "TB2 3a: a constant's name answers Unknown identifier (rejected where Lean says 389)"
@@ -319,7 +319,7 @@ reason = "TB2 3a: delta at h that changes nothing answers 99, not Lean's 448"
 [[fault]]
 id = "tb3a-delta-local-accepted"
 file = "src/front/tactics/delta.fs"
-old = '''  lfa-e-tac-form lf-tac-fail ;'''
+old = '''  lf-tac-unported ;'''
 new = '''  drop ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
 reason = "TB2 3a: delta at h that would change h keeps the goal (accepted with h unchanged)"
@@ -432,7 +432,7 @@ reason = "TB2 3a review: delta at h answers 448 where h changes and 99 where it 
 [[fault]]
 id = "tb3a-change-revert-none"
 file = "src/front/meta-tactic/assert.fs"
-old = '''  mat mat-goal @ 0 mat mat-old @ run-push lf-must lf-goal-revert'''
+old = '''  mat mat-goal @ 0 mat mat-old @ lf-run+ lf-goal-revert'''
 new = '''  mat mat-goal @ 0 lf-goal-revert'''
 test = "$GFORTH tests/front/tactics/batch-d/test.fs"
 reason = "TB2 3a review: change at h reverts nothing, so every change at h is unsupported"

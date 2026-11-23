@@ -105,6 +105,7 @@ require ../fvar-subst.fs
 require ./goal.fs
 require ./revert.fs
 require ./assert.fs
+require ./elim.fs
 
 
 \ ---- RecursorInfo: its six head cells, then a cell per level parameter.
@@ -122,23 +123,22 @@ require ./assert.fs
 
 \ mkRecursorInfoCore: a frame per call, d, its binders and conclusion.
 begin-structure /mri
-  field: mri-d           \ the declaration
-  field: mri-n           \ its type's binders
-  field: mri-concl       \ its conclusion: the motive applied
-  field: mri-out         \ the information so far, a run
+  field: mri-concl       \ the conclusion: the motive applied
+  field: mri-out         \ the information so far, a run (d, its binders first)
 end-structure
 /mri context-slab: mri-frames
 : mri ( -- frame ) mri-frames slab-last ;
 : mri+ ( x -- ) mri mri-out lf-run+! ;
 : mri-info ( -- info ) mri mri-out @ ;
 \ Binder k's pi of d's type; a bound variable's binder seen from depth n.
-: mri-pi ( k -- pi ) mri mri-d @ lf-menv-type swap 0 ?do lf-term-second@ loop ;
-: mri-at ( n bvar -- k )
-  dup lf-term-bvar? 0= if lf-tac-unported then lf-term-first@ - 1- ;
+: mri-d ( -- d ) mri-info lf-rinfo-decl ;
+: mri-n ( -- n ) mri-info lf-rinfo-args ;
+: mri-pi ( k -- pi ) mri-d lf-menv-type swap 0 ?do lf-term-second@ loop ;
+: mri-at ( n bvar -- k ) dup lf-term-bvar? 0= if lf-tac-unported then lf-bvar-binder ;
 : mri-args# ( -- m ) mri mri-concl @ lf-meta-args# ;
-: mri-motive ( -- k ) mri mri-n @ mri mri-concl @ lf-meta-head mri-at ;
+: mri-motive ( -- k ) mri-n mri mri-concl @ lf-meta-head mri-at ;
 : mri-major ( -- k ) mri-args# 0= if lf-tac-unported then
-  mri mri-n @ mri mri-concl @ lf-term-second@ mri-at ;
+  mri-n mri mri-concl @ lf-term-second@ mri-at ;
 \ The major's type, I applied: I's constant, and parameter k its argument k.
 : mri-itype ( -- t ) mri-info lf-rinfo-major mri-pi lf-term-first@ ;
 : mri-iconst ( -- const )
@@ -166,11 +166,8 @@ end-structure
 : mri-ilevel ( name -- k ) mri-iconst swap over lf-const-levels#
   ['] mri-ilevel? find-index 0= if lf-tac-unported then nip ;
 : mri-univ ( name -- pos ) dup mri-motive-level? if drop -1 else mri-ilevel then ;
-: mri-levels ( -- )
-  mri mri-d @ lf-menv-params 0 ?do i over cell-at@ mri-univ mri+ loop drop ;
-: mri-start ( d -- )
-  dup mri mri-d ! dup mri+ lf-menv-type lf-meta-forall-body# dup mri mri-n ! mri+
-  mri mri-concl ! ;
+: mri-levels ( -- ) mri-d lf-menv-params 0 ?do i over cell-at@ mri-univ mri+ loop drop ;
+: mri-start ( d -- ) lf-decl-telescope mri mri-concl ! mri mri-out ! ;
 : mri-run ( d -- info )
   mri-start mri-motive mri+ mri-major mri+ mri-args# 1- mri+ mri-iconst lf-const-name mri+
   mri-params mri-levels mri-info ;

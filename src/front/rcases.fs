@@ -131,14 +131,13 @@ end-structure
 : rcs-list ( node s kind -- list ) >r over rcs-kind r> = if rcs-container else
   rcs-single then ;
 : rcs-len ( list -- n ) run-count 2 - 2/ ;
-: rcs-pair@ ( run k -- node s ) 2* 2dup run@ -rot 1+ run@ ;   \ pair k of a run
-: rcs-elem ( list j -- node s ) 1+ rcs-pair@ ;   \ past the list's head pair
+: rcs-elem ( list j -- node s ) 1+ run-pair@ ;   \ past the list's head pair
 : rcs-elem0 ( list j -- node s ) 2dup swap rcs-len < if rcs-elem else 2drop -1 -1 then ;
 : rcs-rest-of ( list j -- node s ) over 0 run@ -rot swap 1 run@ + ;
 
 \ ---- processConstructor: a name and a pattern per field.
-: rcs-field+ ( name node s -- )
-  rot rcs rcs-ns @ swap lf-run+ rcs rcs-ns ! rcs rcs-ps @ -rot rcs-pair+ rcs rcs-ps ! ;
+: rcs-ps+ ( x -- ) rcs rcs-ps lf-run+! ;
+: rcs-field+ ( name node s -- ) rot rcs rcs-ns lf-run+! swap rcs-ps+ rcs-ps+ ;
 : rcs-default ( -- ) 0 -1 -1 rcs-field+ ;
 : rcs-take ( -- node s ) rcs rcs-h @ rcs rcs-hk @ rcs-elem0 1 rcs rcs-hk +! ;
 : rcs-next ( -- ) rcs-take 2dup rcs-name -rot rcs-field+ ;
@@ -166,9 +165,8 @@ end-structure
 : rcs-next-alt ( -- list )
   rcs rcs-alts @ rcs rcs-k @ rcs-elem0 pat-tuple rcs-list 1 rcs rcs-k +! ;
 : rcs-alt ( last? -- ) rcs-many? if rcs-rest-alts else rcs-next-alt then rcs rcs-h ! ;
-: rcs-r+ ( name ns ps -- )
-  >r rcs rcs-names @ swap lf-run+ rcs rcs-names ! rcs rcs-r @ swap lf-run+ r> lf-run+ rcs
-  rcs-r ! ;
+: rcs-r! ( x -- ) rcs rcs-r lf-run+! ;
+: rcs-r+ ( name ns ps -- ) rot rcs-r! rcs-r! rcs rcs-names lf-run+! ;
 : rcs-one-ctor ( name last? -- ) rcs-alt dup rcs-ctor rcs-r+ ;
 : rcs-process ( node s -- )
   pat-alts rcs-list rcs rcs-alts ! 0 rcs rcs-k ! 0 rcs rcs-names ! 0 rcs rcs-r !
@@ -177,8 +175,9 @@ end-structure
 \ ---- Tasks: rcs-task-cells each on the stack run (a goal, its
 \ substitution, its clears, its pairs still to match).
 4 constant rcs-task-cells
+: rcs-tasks+ ( x -- ) rcs rcs-tasks lf-run+! ;
 : rcs-task+ ( goal fs clears pending -- )
-  >r >r >r rcs rcs-tasks @ swap lf-run+ r> lf-run+ r> lf-run+ r> lf-run+ rcs rcs-tasks ! ;
+  2swap swap rcs-tasks+ rcs-tasks+ swap rcs-tasks+ rcs-tasks+ ;
 : rcs-top ( -- run k ) rcs rcs-tasks @ dup run-count rcs-task-cells - ;
 : rcs-task@ ( k -- x ) >r rcs-top r> + run@ ;
 : rcs-pop ( -- goal fs clears pending )
@@ -240,7 +239,7 @@ end-structure
 : rcs-new+ ( x -- ) rcs rcs-new lf-run+! ;
 \ The constructor's patterns zipped with the subgoal's fields, then the rest.
 : rcs-zip+ ( run j -- run' )
-  dup >r rcs rcs-zps @ swap rcs-pair@ rcs rcs-zfs @ r> run@ rcs-triple+ ;
+  dup >r rcs rcs-zps @ swap run-pair@ rcs rcs-zfs @ r> run@ rcs-triple+ ;
 : rcs-zip# ( -- n ) rcs rcs-zfs @ run-count rcs rcs-zps @ run-count 2/ min ;
 : rcs-zip ( ps fields -- pending )
   rcs rcs-zfs ! rcs rcs-zps ! 0 rcs-zip# 0 ?do i rcs-zip+ loop rcs rcs-rest @

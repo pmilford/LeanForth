@@ -58,8 +58,7 @@ require ../meta-tactic/assert.fs
 : trw-node ( k -- node ) lf-tac-step swap lf-tac-arg ;
 : trw-definition? ( node -- flag )
   dup syn-kind@ syn-k-const <> if drop false exit then
-  syn-a@ lfa-decl-name lf-menv-find ok-then? if lf-menv-kind lf-kind-definition = else
-    drop false then ;
+  syn-a@ lfa-decl-name lf-menv-find? dup if drop lf-menv-kind lf-kind-definition = then ;
 : trw-elaborated ( k -- heq )
   dup trw-node trw-definition? if lfa-e-tac-form trw-stop then
   trw-node -1 true lf-tac-elab-term ;

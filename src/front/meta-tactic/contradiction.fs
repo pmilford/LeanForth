@@ -87,7 +87,7 @@ end-structure
 : mcd-close ( e -- true ) mcd mcd-goal @ swap lf-mvar-assign lf-must true ;
 : mcd-fvar ( k -- fvar ) lf-mctx-fvar ;
 : mcd-type ( k -- t ) mcd-fvar lf-fvar-type ;
-\ A rule not ported: lfa-e-tac-form lf-tac-fail (99, with the goals).
+\ A rule not ported: lf-tac-unported (99, with the goals).
 
 \ ---- 1. h : ¬p and h' : p.
 : mcd-partner ( k p -- k e true | k false )
@@ -99,7 +99,7 @@ end-structure
 
 \ ---- 2. Nat.hasNotBit (refutableHasNotBit?): not ported.
 : mcd-bit ( k -- k )
-  dup mcd-type 2 s" Nat.hasNotBit" lf-meta-app-of? if lfa-e-tac-form lf-tac-fail then ;
+  dup mcd-type 2 s" Nat.hasNotBit" lf-meta-app-of? if lf-tac-unported then ;
 
 \ ---- 3. h : x ≠ y, x and y defeq: absurd T (Eq.refl x) h.
 : mcd-absurd ( hp hnp -- true ) mcd-target -rot lf-mk-absurd mcd-close ;
@@ -113,7 +113,7 @@ end-structure
 : mcd-lit-ctor ( lit -- name )
   lf-term-second@ if s" Nat.succ" else s" Nat.zero" then lfa-intern ;
 : mcd-ctor-const ( const -- name true | false )
-  lf-const-name dup lf-menv-find ok-then? 0= if 2drop false exit then
+  lf-const-name dup lf-menv-find? 0= if drop false exit then
   lf-menv-kind lf-kind-constructor = dup 0= if nip then ;
 : mcd-ctor-at ( e -- name true | false )
   dup lf-lit-leaf? if mcd-lit-ctor true exit then
@@ -122,7 +122,7 @@ end-structure
   dup mcd-ctor-at if nip true exit then lf-whnf! mcd-ctor-at ;
 : mcd-ctors ( a b -- )
   mcd-ctor? 0= if drop exit then swap mcd-ctor? 0= if drop exit then
-  lf-name-same? 0= if lfa-e-tac-form lf-tac-fail then ;
+  lf-name-same? 0= if lf-tac-unported then ;
 \ Each answers whether the local's type is an equation (isEq, isHEq), for
 \ rule 6; an Eq is never an HEq, so the HEq test runs only when no Eq.
 : mcd-eq ( k -- k eq? )
@@ -149,12 +149,12 @@ end-structure
   s" Bool.false" lf-meta-const-named? 0= if drop false exit then mcd-refuted ;
 
 \ ---- 6. An empty inductive type or an indexed family: cases, not ported.
-: mcd-data ( d -- data ) lf-menv-data ?dup 0= if lfa-e-tac-form lf-tac-fail 0 then ;
+: mcd-data ( d -- data ) lf-menv-data ?dup 0= if lf-tac-unported 0 then ;
 : mcd-candidate? ( t -- flag )
   lf-whnf-d! lf-meta-app-head lf-match-const-induct 0= if false exit then
   mcd-data dup lf-ity-ctors@ nip 0= swap lf-ity-indices cells + @ 0> or ;
 : mcd-empty ( k equation? -- k )
-  if exit then dup mcd-type mcd-candidate? if lfa-e-tac-form lf-tac-fail then ;
+  if exit then dup mcd-type mcd-candidate? if lf-tac-unported then ;
 
 \ ---- The locals, oldest first; nestedFalseElim before them.
 : mcd-last ( k equation? -- flag )
@@ -167,7 +167,7 @@ end-structure
   0 lf-mctx-view lf-view-count ['] mcd-local? find-index dup if nip then ;
 : mcd-elim? ( leaf -- flag ) s" False.elim" lf-meta-const-named? ;
 : mcd-nested ( -- )
-  mcd-target ['] mcd-elim? lf-term-holds? lf-must if lfa-e-tac-form lf-tac-fail then ;
+  mcd-target ['] mcd-elim? lf-term-holds? lf-must if lf-tac-unported then ;
 : mcd-failed ( -- ) mcd mcd-goal @ lfa-e-contradiction lf-tac-ex ;
 : mcd-run ( -- ) mcd-nested mcd-locals 0= if mcd-failed then ;
 : mcd-framed ( goal -- ) dup mcd mcd-goal ! ['] mcd-run lf-with-goal ;

@@ -46,7 +46,7 @@ begin-structure /ttr
 end-structure
 /ttr context-record: ttr
 32 constant ttr-most
-: ttr-room ( -- ) ttr ttr-depth @ ttr-most < 0= if lfa-e-tac-form lf-tac-fail then ;
+: ttr-room ( -- ) ttr ttr-depth @ ttr-most < 0= if lf-tac-unported then ;
 : ttr-deeper ( xt -- ) ttr-room 1 ttr ttr-depth +! catch -1 ttr ttr-depth +! throw ;
 
 \ ---- apply c: c a constant of no universe parameter.

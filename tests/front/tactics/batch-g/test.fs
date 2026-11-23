@@ -317,5 +317,12 @@ lf-tac-forget
   s" ' And.intro ' h $ ' k $ by-obtain[ << p q >> ] ' q by-exact" text-full ;
 T{ 0 ' p-obtain heap-sweep swept? 0 ' p-rcases heap-sweep swept? -> true true }T
 T{ 0 ' p-nat heap-sweep swept? 0 ' p-term heap-sweep swept? -> true true }T
+\ Contradiction's constructor lookup (rule 4, lf-menv-find?) with every
+\ heap allocation of the run refused in turn: its answer (99) or full,
+\ never Lean's failure (449) of a lookup read as "no constructor".
+: sz ( -- c-addr u ) s" Nat explicit: a ' Nat.succ a $ ' Nat.zero = explicit: h False" ;
+T{ sz s" by-contradiction" tactic-ran -> 99 }T
+: p-ctor ( x -- code outcome ) drop sz s" by-contradiction" text-full ;
+T{ 0 ' p-ctor heap-sweep swept? -> true }T
 lf-tac-forget
 .( batch-g test.fs: all tests passed) cr

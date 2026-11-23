@@ -641,8 +641,8 @@ reason = "C4: getCustomEliminator? never consulted, so Nat's induction takes Nat
 [[fault]]
 id = "lib-elim-cases-rec"
 file = "src/front/meta-tactic/elim.fs"
-old = '''  >r lf-menv-name r> if s" rec" else s" casesOn" then lfa-intern-part lf-menv-find'''
-new = '''  >r lf-menv-name r> drop s" rec" lfa-intern-part lf-menv-find'''
+old = ''': mel-rec ( d induction? -- d' ) if s" rec" else s" casesOn" then lf-decl-suffix ;'''
+new = ''': mel-rec ( d induction? -- d' ) drop s" rec" lf-decl-suffix ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "C4: cases (induction? false) takes T.rec, where Lean's builtin eliminator is T.casesOn"
 

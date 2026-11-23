@@ -254,7 +254,7 @@ reason = "review tb2-batch2b 4: by_cases on an assigned goal makes both branches
 [[fault]]
 id = "tb2c-cases-any-type"
 file = "src/front/tactics/by-cases.fs"
-old = '''  dup lf-meta-is-prop lf-tac-must 0= if lfa-e-tac-form lf-tac-fail then ;'''
+old = '''  dup lf-meta-is-prop lf-tac-must 0= if lf-tac-unported then ;'''
 new = '''  ;'''
 test = "$GFORTH tests/front/tactics/batch-c/test.fs"
 reason = "TB2: by_cases on a term that is no proposition is not refused (99)"
@@ -287,7 +287,7 @@ reason = "TB2: Iff's symmetry lemma taken to be Eq.symm"
 [[fault]]
 id = "tb2c-symm-fit-ignored"
 file = "src/front/meta-tactic/symm.fs"
-old = ''': msy-fit ( flag -- ) 0= if lfa-e-tac-form lf-tac-fail then ;'''
+old = ''': msy-fit ( flag -- ) 0= if lf-tac-unported then ;'''
 new = ''': msy-fit ( flag -- ) drop ;'''
 test = "$GFORTH tests/front/tactics/batch-c/test.fs"
 reason = "TB2: a relation with no lemma, or a conclusion that does not fit, answered as if it did"

@@ -63,10 +63,10 @@ require ./meta-tactic/goal.fs
 \ refused first: every metavariable it holds is open.)
 : tng-holds? ( e n -- flag ) lf-mvar-at tng-in? ;
 : tng-add ( e run n -- e run' )
-  >r over r@ tng-holds? r> swap if lf-mvar-at run-push lf-must else drop then ;
+  >r over r@ tng-holds? r> swap if lf-mvar-at lf-run+ else drop then ;
 : tng-collect ( e from -- mvars ) 0 swap lf-mvar-count swap ?do i tng-add loop nip ;
 : tng-undelayed ( e -- e )
-  dup ['] lf-mvar-delayed? lf-term-holds? lf-must if lfa-e-tac-form lf-tac-fail then ;
+  dup ['] lf-mvar-delayed? lf-term-holds? lf-must if lf-tac-unported then ;
 : lf-fresh-mvars ( e from -- mvars )
   swap lf-instantiate! tng-undelayed swap tng-collect ;
 : tng-natural? ( mvar -- flag ) lf-mvar-kind if mv-natural = else false then ;
@@ -79,7 +79,7 @@ require ./meta-tactic/goal.fs
 : tng-other? ( run k -- run flag ) over swap run@ tng-hole? 0= ;
 : tng-context. ( mvar -- outcome ) s" context:" lf-pp-emit lf-tac-goal-of. ;
 : tng-placeholder ( mvar -- )
-  dup lf-elab-hole drop nip if drop lfa-e-tac-form lf-tac-fail then
+  dup lf-elab-hole drop nip if drop lf-tac-unported then
   ['] tng-context. lf-tac-detail lfa-e-tac-placeholder lf-tac-stop ;
 : tng-others? ( mvars -- flag ) dup run-count ['] tng-other? find-index dup if nip then ;
 : lf-tac-log-unassigned ( mvars -- )

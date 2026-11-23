@@ -56,7 +56,7 @@ end-structure
 /mgz context-slab: mgz-frames
 : mgz ( -- frame ) mgz-frames slab-last ;
 : mgz-n ( -- n ) mgz mgz-args @ run-count 2/ ;
-: mgz-arg ( k -- e name ) 2* mgz mgz-args @ swap 2dup run@ -rot 1+ run@ ;
+: mgz-arg ( k -- e name ) mgz mgz-args @ swap run-pair@ ;
 \ (xi : Ti) -> type with ei abstracted (kabstract at instances).
 : mgz-kab ( type e -- body ) lf-meta-kabstract lf-must drop ;
 : mgz-abstract ( type e -- body ) ['] mgz-kab lf-tr-instances lf-meta-at ;

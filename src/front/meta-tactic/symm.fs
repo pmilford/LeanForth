@@ -86,7 +86,7 @@ msy-pairs# 0 xt-table: msy-pairs
   lf-instantiate! dup msy-binary? if exit then
   dup ['] lf-tac-indented. lf-tac-detail lfa-e-symm-binary lf-tac-stop ;
 : msy-target ( goal -- t ) lf-goal-type msy-relation ;
-: msy-fit ( flag -- ) 0= if lfa-e-tac-form lf-tac-fail then ;
+: msy-fit ( flag -- ) 0= if lf-tac-unported then ;
 : msy-decl ( t -- d )
   lf-meta-head msy-lemma dup msy-fit drop lfa-intern lf-menv-find lf-must ;
 

@@ -291,8 +291,7 @@ end-structure
 : tcr-blank. ( -- outcome ) s"  " lf-pp-emit outcome-ok ;
 : tcr-inline. ( term -- outcome )
   dup 0< if tcr-rest. exit then
-  s"  " lf-pp-emit lf-tac-inline. ['] tcr-blank. ok-and
-  0 swap ['] tcr-rest. ok-with nip ;
+  ['] tcr-blank. lf-tac-spaced. 0 swap ['] tcr-rest. ok-with nip ;
 : tcr-rest-detail ( term -- )
   ['] tcr-inline. lf-tac-inline lf-elab-below ?dup if ['] execute lf-tac-detail then ;
 : tcr-term-detail ( term -- )
@@ -384,7 +383,7 @@ end-structure
 : tcr-term ( node postpone? -- e ) -1 swap lf-tac-elab-term ;
 : tcr-for-apply ( node postpone? -- e )
   over lf-elab-ident? if tcr-ident else tcr-term then lf-instantiate! ;
-: tcr-not-mvar ( e -- e ) dup lf-mvar? if lfa-e-tac-form lf-tac-fail then ;
+: tcr-not-mvar ( e -- e ) dup lf-mvar? if lf-tac-unported then ;
 : lf-tac-elab-for-apply ( node -- e ) true tcr-for-apply tcr-not-mvar ;
 
 \ ---- getFVarId: elabTermForApply with no postponing, a free variable.
@@ -413,7 +412,7 @@ end-structure
 : tcr-quoted. ( name -- outcome ) s"  " lf-pp-emit lf-tac-.name outcome-ok ;
 : tcr-constant? ( name -- flag ) lf-menv-find nip ok? ;
 : tcr-unknown ( name -- )
-  dup tcr-constant? if lfa-e-tac-form lf-tac-fail then
+  dup tcr-constant? if lf-tac-unported then
   ['] tcr-quoted. lf-tac-inline lfa-e-tac-unknown-id lf-tac-stop ;
 : lf-tac-name-fvar ( name -- fvar )
   dup lf-tac-main lf-goal-view swap lf-view-named-fvar if nip else tcr-unknown then ;
@@ -441,7 +440,7 @@ end-structure
 : tlc-hyps ( i*x -- i*x ) tlc tlc-step @ lf-tac-loc# 0 ?do i tlc-hyp loop ;
 : tlc-goal ( i*x -- i*x )
   tlc tlc-step @ lf-tac-loc-goal? if tlc tlc-target @ execute then ;
-: tlc-all ( -- ) tlc tlc-step @ lf-tac-loc-all? if lfa-e-tac-form lf-tac-fail then ;
+: tlc-all ( -- ) tlc tlc-step @ lf-tac-loc-all? if lf-tac-unported then ;
 : tlc-run ( i*x i xt-local xt-target -- i*x )
   tlc tlc-target ! tlc tlc-local ! tlc tlc-step ! tlc-all tlc-hyps tlc-goal ;
 : lf-with-location ( i*x i xt-local xt-target -- i*x )
