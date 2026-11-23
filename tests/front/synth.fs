@@ -490,10 +490,16 @@ T{ budgets-ok? 0 budget-run need 1- budget-run nip nip need budget-run -rot 2dro
 \ ---- Full: each heap request of a search refused in turn (its slabs
 \ shrunk first): full, or the answer; nothing is left behind.
 : shrink ( slab -- ) dup slab-clear slab-trim drop ;
+\ The runs' slabs trimmed, their runs kept, so that a search's run claims
+\ (an entry's first waiter, run-one; review tb2-blocks2 finding 2) are
+\ refused too.
+lf-lib-private order+
+: runs-trim ( -- ) rn-recs slab-trim drop rn-cells slab-trim drop ;
+order-
 : fresh ( -- )
   mctx-epoch@ 1+ sy sy-epoch ! sy-gens shrink sy-cnodes shrink sy-entries shrink
   sy-answers shrink sy-resume shrink sy-cands shrink sy-found shrink sy-todo shrink
-  sy-calls shrink de-saved shrink ;
+  sy-calls shrink de-saved shrink runs-trim ;
 : refused ( k -- inst flag outcome fired? )
   le-and-lt dec swap fresh heap-refusals ! synth heap-refusals @ 0= 0 heap-refusals ! ;
 : refusal-ok? ( k -- flag fired? )
