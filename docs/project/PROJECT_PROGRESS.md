@@ -266,13 +266,25 @@ status changes when this date is older than them. Stages are those of the
   Windows 11 itself (today: Linux and WSL) and on macOS, or name another Forth system for each where Gforth does not
   serve, with the install scripts, the test suite and the pinned-Lean comparisons run there and the differences
   (paths, line ends, the job pool, memory limits) recorded.
-- Parallel running, from the review of 2026-11-23 ([PARALLEL_REVIEW.md](../development/PARALLEL_REVIEW.md); none
-  started; the owner decides the order): the default of `--jobs` (1 today; 10 workers are 5.5 times faster on
-  Init); the kernel faster on one thread, first the environment re-validated at every gate (about 15% of checking
-  time); busy and waiting seconds in `--resources`; the tactic tests through one snapshot of their slice; a cheaper
-  or parallel feed of the workers; the library kept loaded between texts (plan PD21); the re-entrancy test extended
-  to elaboration and tactics; the export parsed on several threads; then a text's declarations elaborated in
-  parallel.
+- Parallel running and speed, from the review of 2026-11-23 ([PARALLEL_REVIEW.md](../development/PARALLEL_REVIEW.md))
+  and the owner's order of the same day (none started; fitted in beside the tactic slices, lower priority, by
+  complexity; not before the usage reset of 2026-11-24):
+  1. `--jobs` defaults to 4 (owner: "so the rest of the computer is still ok to run"; 1 today; 4 workers are 3.5
+     times faster on Init), the verdicts unchanged; the user documents give the measured curve.
+  2. Performance monitoring in `--resources` (owner: "the stall time monitor should be there, along with other
+     performance monitoring items"): each worker's busy and waiting seconds, the driver's time, the planning time,
+     the stage, feed and publish phases.
+  3. One process for many texts (owner's question of 2026-11-23): a Forth program loads the library once (an export,
+     checked, or a snapshot), then for each `.lf` file runs it, resets the front end's state and goes on, each file
+     with its own verdict and exit status; the tactic tests' drivers then pass their files in one call, where today
+     every file starts a process that loads and checks the library again (4.2 s a file on the 1,291-declaration
+     slice; 0.43 s through a snapshot; about 0.05 s is the text itself). This is plan PD21's "library kept loaded
+     between texts", and it needs the re-entrancy test extended to elaboration and tactics.
+  4. Slightly lower: the kernel faster on one thread (Init: 951 s against 39 s for Lean's kernel), first the
+     environment re-validated at every gate (about 15% of checking time); kernel code: verdicts and fuel counts
+     identical, the full tier and every pinned-Lean comparison.
+  5. Later: a cheaper or parallel feed of the workers; the export parsed on several threads; a text's declarations
+     elaborated in parallel.
 - Carry on to the next theorem after an error (2026-11-22, from the done check of blocks slice 1; not started): a
   file's first error ends the run today, so a wrong theorem hides the verdicts of the correct ones beside it, where
   Lean reports every theorem; the declaration-level part of "log and carry on, as Lean".
