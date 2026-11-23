@@ -9,6 +9,8 @@
 \                                     word followed by lf-must
 \   lf-made! ( flag -- )              a term store's false thrown as full
 \   lf-run+ ( run x -- run' )         run-push's throwing face (lib/runs.fs)
+\   lf-run+! ( x addr -- )            the run in the cell at addr made
+\                                     that run, then x (a frame's list)
 \   lf-menv-find? ( name -- d true | false ) Environment.find? (and
 \                                     contains): false when no declaration
 \                                     has the name, any other failure
@@ -150,6 +152,7 @@ end-structure
   outcome-sane lf-meta-throw-base swap - throw ;
 : lf-made! ( flag -- ) 0= if outcome-full lf-must then ;
 : lf-run+ ( run x -- run' ) run-push lf-must ;
+: lf-run+! ( x addr -- ) tuck @ swap lf-run+ swap ! ;
 \ A failure's outcome, any other code thrown on.
 : lfm-caught ( code -- outcome ) dup lf-meta-thrown? 0= if throw then lf-meta-outcome ;
 : lfm-drop-under ( i*x o out in -- o out ) 0 ?do rot drop loop ;

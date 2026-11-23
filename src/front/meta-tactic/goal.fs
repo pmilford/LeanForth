@@ -8,6 +8,9 @@
 \       (Util.lean:65); an assigned goal is thrown invalid: no tactic of
 \       LeanForth's is handed one (lf-main-goal skips them), so it is a
 \       fault, not Lean's message
+\   lf-goal-with4 ( goal x y z xt -- i*x )  mvarId.withContext do
+\       checkNotAssigned ...: xt ( goal x y z -- i*x ) in goal's context
+\       (Meta induction's and cases')
 \   lf-goal-replace-target-eq ( goal new h -- goal' )  MVarId.replaceTargetEq
 \       (Replace.lean:21-32): a new synthetic opaque goal of type new with
 \       goal's tag in goal's context; goal assigned
@@ -180,6 +183,9 @@ require ../telescope.fs
 \ ---- checkNotAssigned.
 : lf-goal-not-assigned ( goal -- goal )
   dup lf-goal-assigned? if outcome-invalid lf-must then ;
+\ withContext after checkNotAssigned, for a goal word of four inputs.
+: lf-goal-with4 ( goal x y z xt -- i*x )
+  >r 2over drop lf-goal-not-assigned r> lf-with-goal ;
 
 \ ---- replaceTargetEq: goal' new in goal's context with goal's tag, goal
 \ assigned Eq.mpr.{u} target new (mkExpectedPropHint h (mkEq target new)) goal'.
@@ -346,8 +352,10 @@ end-structure
 : mtn-step ( goal names i -- goal' names )
   over swap run@0 mtk mtk-name ! swap false mtk-one swap ;
 : mtn-run ( goal names n -- goal' xs ) 0 ?do i mtn-step loop drop mtk mtk-xs @ ;
-: lf-goal-intro-names ( goal names n -- goal' xs )
-  dup 0= if nip exit then mtk-frames ['] mtn-run lf-with-record ;
+\ n 0 gives goal itself and the empty run; else xt in a frame of its own.
+: mtk-framed ( goal src n xt -- goal' xs )
+  over 0= if 2drop drop 0 exit then mtk-frames swap lf-with-record ;
+: lf-goal-intro-names ( goal names n -- goal' xs ) ['] mtn-run mtk-framed ;
 \ introNP's: each kept local's name, and its kind with its inaccessible flag.
 : mtk-flags ( local -- flags )
   dup lf-local-binder mti-introduced swap lf-local-inaccessible? lf-local-inaccessible
@@ -357,8 +365,7 @@ end-structure
 : mtk-run ( goal kept n -- goal' xs )
   2dup swap run-count > if outcome-invalid lf-must then
   0 ?do i mtk-step loop drop mtk mtk-xs @ ;
-: lf-goal-intro-kept ( goal kept n -- goal' xs )
-  dup 0= if nip exit then mtk-frames ['] mtk-run lf-with-record ;
+: lf-goal-intro-kept ( goal kept n -- goal' xs ) ['] mtk-run mtk-framed ;
 
 \ ---- MVarId.clear (Clear.lean:20-41): its three refusals, each
 \ throwTacticEx `clear` with Lean's text and the goal, then goals.fs's

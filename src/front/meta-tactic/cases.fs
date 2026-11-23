@@ -63,7 +63,7 @@ begin-structure /mcs
 end-structure
 /mcs context-slab: mcs-frames
 : mcs ( -- frame ) mcs-frames slab-last ;
-: mcs+ ( x -- ) mcs mcs-out @ swap lf-run+ mcs mcs-out ! ;
+: mcs+ ( x -- ) mcs mcs-out lf-run+! ;
 
 \ ---- mkCasesContext?: the environment's names, the major's type.
 : mcs-named ( c-addr u -- d true | false ) lfa-intern lf-menv-find? ;
@@ -97,15 +97,14 @@ end-structure
   swap mcs-head mcs-params# 0 ?do i mcs-param loop swap ['] mcs-field run-each lf-must ;
 : mcs-subst ( fs e -- fs' ) >r mcs mcs-major @ lf-fsubst-erase mcs mcs-major @
   r> lf-fsubst-insert ;
-: mcs-cell ( subgoals i k -- x ) swap 4 * + run@ ;
-: mcs-goal+ ( s i -- s i fields ) 2dup 0 mcs-cell mcs+ 2dup 1 mcs-cell dup mcs+ ;
+: mcs-goal+ ( s i -- s i fields ) 2dup 0 lf-subgoal@ mcs+ 2dup 1 lf-subgoal@ dup mcs+ ;
 : mcs-one ( s i -- s )
-  mcs-goal+ >r 2dup 2 mcs-cell over mcs-ctor r> mcs-ctor-app mcs-subst mcs+ mcs-ctor
+  mcs-goal+ >r 2dup 2 lf-subgoal@ over mcs-ctor r> mcs-ctor-app mcs-subst mcs+ mcs-ctor
   mcs+ ;
 : mcs-each ( subgoals -- subgoals' )
   dup run-count 4 / 0 ?do i mcs-one loop drop mcs mcs-out @ ;
 : mcs-run ( goal major names nat-aux? -- subgoals ) rot mcs-context mcs-split mcs-each ;
 : mcs-in ( goal major names nat-aux? -- subgoals ) mcs-frames ['] mcs-run lf-with-record ;
 : lf-goal-cases ( goal major names nat-aux? -- subgoals )
-  2over drop lf-goal-not-assigned ['] mcs-in lf-with-goal ;
+  ['] mcs-in lf-goal-with4 ;
 base !   \ the BASE this file was loaded with

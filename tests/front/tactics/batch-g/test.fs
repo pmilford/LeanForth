@@ -110,7 +110,7 @@ T{ ra rb lf-mk-eq tagged ra rb run2 ' lf-goal-revert-kept code2 -> thrown-unsupp
 g1' kept1 2 lf-goal-intro-kept constant xs1 constant g1''
 T{ xs1 run-count g1'' view# g1'' 1 s" b" named? g1'' 2 s" h" named? -> 2 3 true true }T
 T{ g1'' 1 hidden? g1'' 2 hidden? g1'' lf-goal-type ra xs1 0 run@ lf-mk-eq eqv? -> false true true }T
-T{ g1' kept1 0 lf-goal-intro-kept nip -> 0 }T
+T{ g1' kept1 0 lf-goal-intro-kept -> g1' 0 }T
 T{ ra rb lf-mk-eq tagged rb run1 lf-goal-revert-kept 3 ' lf-goal-intro-kept code3
    -> thrown-invalid }T   \ kept shorter than n
 fresh
@@ -127,7 +127,7 @@ na nb lf-mk-eq s" h" binder constant nh
 na nb lf-mk-eq goal nb run1 lf-goal-revert-kept drop constant gn
 T{ gn s" x" nm run1 2 lf-goal-intro-names drop dup 1 s" x" named? over 1 hidden? rot 2 hidden?
    -> true false true }T
-T{ gn 0 0 lf-goal-intro-names nip -> 0 }T
+T{ gn 0 0 lf-goal-intro-names -> gn 0 }T
 
 \ ---- 3. lf-recursor-info: from the declaration's type.
 : info. ( info -- args params major indices minors levels# )

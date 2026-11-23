@@ -23,6 +23,8 @@
 \       lf-rinfo-minors ( info -- n ) the minor premises (the binders but
 \       the parameters, the motive, the indices and the major);
 \       lf-rinfo-levels# ( info -- n ), lf-rinfo-level ( info k -- pos )
+\   lf-subgoal@ ( subgoals i k -- x )  cell k of subgoal i (0 its goal,
+\       1 its fields, 2 its substitution, 3 its constructor)
 \   lf-target-arity ( t -- n )  getTargetArity (Induction.lean:19): t's
 \       leading pis, through head-beta redexes
 \   lf-goal-induction ( goal major d names -- subgoals )  MVarId.induction
@@ -123,7 +125,7 @@ begin-structure /mri
 end-structure
 /mri context-slab: mri-frames
 : mri ( -- frame ) mri-frames slab-last ;
-: mri+ ( x -- ) mri mri-out @ swap lf-run+ mri mri-out ! ;
+: mri+ ( x -- ) mri mri-out lf-run+! ;
 : mri@ ( k -- x ) mri mri-out @ swap run@ ;
 \ Binder k's pi of d's type; a bound variable's binder seen from depth n.
 : mri-pi ( k -- pi ) mri mri-d @ lf-menv-type swap 0 ?do lf-term-second@ loop ;
@@ -199,7 +201,8 @@ end-structure
 : mid ( -- frame ) mid-frames slab-last ;
 : mid-info@ ( -- info ) mid mid-info @ ;
 : mid-goal@ ( -- goal ) mid mid-goal @ ;
-: mid-out+ ( x -- ) mid mid-out @ swap lf-run+ mid mid-out ! ;
+: mid-out+ ( x -- ) mid mid-out lf-run+! ;
+: lf-subgoal@ ( subgoals i k -- x ) swap 4 * + run@ ;
 \ The major's type through whnf (whnfUntil I: no type of a free variable
 \ is reduced further once headed by an inductive type), headed by I.
 : mid-itype ( fvar -- t ) lf-infer! lf-whnf! ;
@@ -290,5 +293,5 @@ end-structure
   ['] mid-rest lf-with-goal ;
 : mid-in ( goal major d names -- subgoals ) mid-frames ['] mid-framed lf-with-record ;
 : lf-goal-induction ( goal major d names -- subgoals )
-  2over drop lf-goal-not-assigned ['] mid-in lf-with-goal ;
+  ['] mid-in lf-goal-with4 ;
 base !   \ the BASE this file was loaded with

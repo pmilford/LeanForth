@@ -71,7 +71,7 @@ begin-structure /fsi
 end-structure
 /fsi context-slab: fsi-frames
 : fsi ( -- frame ) fsi-frames slab-last ;
-: fsi-pair ( -- pair ) fsi fsi-key @ fsi fsi-val @ lf-fsubst-pair ;
+: fsi-pair ( -- pair ) fsi fsi-key cell-pair@ lf-fsubst-pair ;
 : fsi-mapped ( out pair -- out' outcome )
   dup fsb-key swap fsb-val fsi fsi-key @ fsi fsi-val @ lf-replace-fvar lf-fsubst-pair
   lf-run+ outcome-ok ;
