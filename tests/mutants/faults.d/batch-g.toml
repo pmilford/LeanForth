@@ -134,3 +134,11 @@ old = ''': mri-univ ( name -- pos ) dup mri-motive-level? if drop -1 else mri-il
 new = ''': mri-univ ( name -- pos ) drop -1 ;'''
 test = "$GFORTH tests/front/tactics/batch-g/test.fs"
 reason = "TB2 E1: Exists.casesOn's level is taken as the motive's, not Exists's own (test.fs's i-ex level 0)"
+
+[[fault]]
+id = "rcs-left-negative"
+file = "src/front/rcases.fs"
+old = '''rcs rcs-hk @ - 0 max ;'''
+new = '''rcs rcs-hk @ - ;'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E1: an empty tuple on a two-field constructor makes a rest reference past the tuple's children and reads arbitrary memory (test.fs's << >> text; check.py's ob_empty)"

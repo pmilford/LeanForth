@@ -34,6 +34,9 @@ theorem ob_term_name (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
 theorem ob_name (a b : Nat) (h : a = b) : a = b := by
   obtain x := h
   exact h
+theorem ob_empty (a b : Nat) (h : a = b ∧ b = a) : b = a := by
+  obtain ⟨⟩ := h
+  assumption
 
 -- rcases (rcases.lf).
 theorem rc_or (a b : Nat) (h : a = b ∨ b = a) : b = a ∨ a = b := by
@@ -122,6 +125,6 @@ def dump (n : Name) : MetaM Unit := do
 
 #eval do
   for n in [``ob_and, ``ob_exists, ``ob_nested, ``ob_fewer, ``ob_clear, ``ob_clear_dep, ``ob_term,
-      ``ob_term_name, ``ob_name, ``rc_or, ``rc_three, ``rc_or_and, ``rc_nat, ``rc_comment,
-      ``ns_left, ``ns_flat, ``ns_right, ``od_depth, ``od_tags, ``od_one, ``hd_kept] do
+      ``ob_term_name, ``ob_name, ``ob_empty, ``rc_or, ``rc_three, ``rc_or_and, ``rc_nat,
+      ``rc_comment, ``ns_left, ``ns_flat, ``ns_right, ``od_depth, ``od_tags, ``od_one, ``hd_kept] do
     dump n

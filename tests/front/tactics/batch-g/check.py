@@ -22,7 +22,8 @@ D = "tests/front/tactics/batch-g/"
 ENV = tactic_check.Env("tests/front/decide-slice.ndjson", "tests/front/decide-slice.elab.ndjson",
                        "decide-dump")
 FILES = [(D + "obtain.lf", ["ob_and", "ob_exists", "ob_nested", "ob_fewer", "ob_clear",
-                            "ob_clear_dep", "ob_term", "ob_term_name", "ob_name"]),
+                            "ob_clear_dep", "ob_term", "ob_term_name", "ob_name",
+                            "ob_empty"]),
          (D + "rcases.lf", ["rc_or", "rc_three", "rc_or_and", "rc_nat", "rc_comment"]),
          (D + "nest.lf", ["ns_left", "ns_flat", "ns_right"]),
          (D + "order.lf", ["od_depth", "od_tags", "od_one"]),

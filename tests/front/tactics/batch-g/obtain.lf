@@ -120,3 +120,17 @@ theorem ob_name
   ]
   ' h by-exact
 end ob_name
+
+\ An empty tuple: every field takes _, inaccessible (Lean's tailD []
+\ keeps the patterns empty past the end).
+\ Lean: theorem ob_empty (a b : Nat) (h : a = b ∧ b = a) : b = a := by
+\         obtain ⟨⟩ := h
+\         assumption
+theorem ob_empty
+  Nat explicit: a  Nat explicit: b
+  a b = b a = ∧ explicit: h
+  b a =
+:= by
+  ' h by-obtain[ << >> ]
+  by-assumption
+end ob_empty

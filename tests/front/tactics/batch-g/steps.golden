@@ -25,6 +25,9 @@
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"ob_name","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
 {"goal_before":"a b : Nat\nh : a = b\n⊢ a = b","goals_after":["a b : Nat\nh : a = b\n⊢ a = b"],"parent":0,"source":"118:7","step":1,"tactic":"obtain","word":"by-obtain["}
 {"goal_before":"a b : Nat\nh : a = b\n⊢ a = b","goals_after":[],"parent":0,"source":"121:7","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"ob_empty","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a = b ∧ b = a\n⊢ b = a","goals_after":["a b : Nat\nleft✝ : a = b\nright✝ : b = a\n⊢ b = a"],"parent":0,"source":"134:7","step":1,"tactic":"obtain","word":"by-obtain["}
+{"goal_before":"a b : Nat\nleft✝ : a = b\nright✝ : b = a\n⊢ b = a","goals_after":[],"parent":0,"source":"135:3","step":2,"tactic":"assumption","word":"by-assumption"}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"rc_or","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":3}}
 {"goal_before":"a b : Nat\nh : a = b ∨ b = a\n⊢ b = a ∨ a = b","goals_after":["case inl\na b : Nat\nh1 : a = b\n⊢ b = a ∨ a = b","case inr\na b : Nat\nh2 : b = a\n⊢ b = a ∨ a = b"],"parent":0,"source":"14:7","step":1,"tactic":"rcases","word":"by-rcases["}
 {"goal_before":"case inl\na b : Nat\nh1 : a = b\n⊢ b = a ∨ a = b","goals_after":["case inr\na b : Nat\nh2 : b = a\n⊢ b = a ∨ a = b"],"parent":0,"source":"15:19","step":2,"tactic":"exact","word":"by-exact"}

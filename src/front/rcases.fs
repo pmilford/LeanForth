@@ -124,9 +124,9 @@ end-structure
 : rcs-pair+ ( run node s -- run' ) >r lf-run+ r> lf-run+ ;
 : rcs-kid+ ( list rev j -- list rev )
   over run-count 1- swap - over swap run@ rot swap -1 rcs-pair+ swap ;
-: rcs-container ( node s -- list )
-  0 max 2dup 0 -rot rcs-pair+ -rot swap rcs-kids dup run-count rot ?do i rcs-kid+
-  loop drop ;
+: rcs-container ( node s -- list )   \ s past the children: none
+  0 max 2dup 0 -rot rcs-pair+ -rot swap rcs-kids dup run-count rot over min ?do
+  i rcs-kid+ loop drop ;
 : rcs-single ( node s -- list ) 0 -1 0 rcs-pair+ -rot rcs-pair+ ;
 : rcs-list ( node s kind -- list ) >r over rcs-kind r> = if rcs-container else
   rcs-single then ;
@@ -142,7 +142,8 @@ end-structure
 : rcs-default ( -- ) 0 -1 -1 rcs-field+ ;
 : rcs-take ( -- node s ) rcs rcs-h @ rcs rcs-hk @ rcs-elem0 1 rcs rcs-hk +! ;
 : rcs-next ( -- ) rcs-take 2dup rcs-name -rot rcs-field+ ;
-: rcs-left ( -- n ) rcs rcs-h @ rcs-len rcs rcs-hk @ - ;
+\ The patterns left: none once the cursor has passed the end (Lean's tailD []).
+: rcs-left ( -- n ) rcs rcs-h @ rcs-len rcs rcs-hk @ - 0 max ;
 \ The last field: none left _, one its pattern, more a tuple of them.
 : rcs-last ( -- )
   rcs-left dup 0= if drop rcs-default exit then 1 = if rcs-next exit then

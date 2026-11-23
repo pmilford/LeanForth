@@ -247,6 +247,8 @@ T{ se s" ' h by-obtain[ << - hw >> ] by-rfl" tactic-ran se s" ' h by-obtain[ << 
   s" Nat explicit: a Nat explicit: b a b = b a = a a = ∨ ∨ explicit: h a a =" ;
 T{ s3 s" ' h by-rcases[ x | y | z ] by-rfl by-rfl by-rfl" tactic-ran -> 0 }T
 T{ st s" ' h by-obtain[ << rfl y >> ]" tactic-ran -> 99 }T
+\ An empty tuple: the cursor passes the end, and every field takes _ (p11).
+T{ st s" ' h by-obtain[ << >> ] by-assumption" tactic-ran -> 0 }T
 lf-tac-forget
 \ 471: a type that is no inductive one (a pi through whnfD).
 : sn ( -- c-addr u ) s" Nat explicit: a Nat explicit: b a b = Not explicit: h a a =" ;
