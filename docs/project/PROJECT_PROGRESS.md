@@ -210,6 +210,14 @@ status changes when this date is older than them. Stages are those of the
   specification: LeanForth to Lean can be driven by the table of words the ledger already holds, and would generate
   the twins; Lean to LeanForth is best done by Lean itself parsing the source and printing its syntax tree as
   LeanForth words, and is useful once most tactics exist.
+- A large recent Lean proof as the translators' test (owner, 2026-11-22; long term, not started): translate the
+  proof the owner names (he said "the recent Riemann hypothesis proof"; the reference is to be confirmed, since a
+  search on 2026-11-22 found a formal statement in Mathlib and unverified claims, no accepted proof) to LeanForth
+  and check it, translate it back to Lean and check it there, and measure the machine each needs (time and memory in
+  Lean and in LeanForth). Three separate tests: the exported proof checked by the kernel (possible today for any
+  Lean project that builds), the source translated and elaborated by LeanForth's front end (needs the tactics it
+  uses), and the round trip back to Lean. It also informs whether the Lean to LeanForth translator is written in
+  Lean or in Forth.
 - Carry on to the next theorem after an error (2026-11-22, from the done check of blocks slice 1; not started): a
   file's first error ends the run today, so a wrong theorem hides the verdicts of the correct ones beside it, where
   Lean reports every theorem; the declaration-level part of "log and carry on, as Lean".
