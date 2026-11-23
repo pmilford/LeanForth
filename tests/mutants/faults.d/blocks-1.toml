@@ -187,7 +187,7 @@ reason = "TB2 blocks 1: names given inside a brace stay after its }: blocks-1 te
 [[fault]]
 id = "tb2b1-brace-closes-any"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-in-brace ( -- ) tac-block-self lft-open-has? 0= if lft-closer-at then ;'''
+old = ''': lft-in-brace ( -- ) lft-brace? 0= if lft-closer-at then ;'''
 new = ''': lft-in-brace ( -- ) ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
 reason = "TB2 blocks 1: } closes any block: blocks-1 test.fs's } after by-focus closes it (not 83)"

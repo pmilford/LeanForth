@@ -565,7 +565,8 @@ end-structure
 \ block's place second); its place is the brace's tac-arrow (where its
 \ unsolved goals are told, as Lean's withRef stx[2]), and its names go.
 : lft-closer-at ( -- ) lft-open-at lfa-e-tac-closer lfa-fail-see ;
-: lft-in-brace ( -- ) tac-block-self lft-open-has? 0= if lft-closer-at then ;
+: lft-brace? ( -- flag ) tac-block-self lft-open-has? ;
+: lft-in-brace ( -- ) lft-brace? 0= if lft-closer-at then ;
 : lft-brace-close ( -- ) lft-past lft-open lft-arrow! lft-rec true lft-close-names ;
 : lft-w-brace-end ( -- ) lft-closing lft-in-brace lft-brace-close lft-from! ;
 \ by-end at a block a word opened: 83 at none (the proof's by) and at a
