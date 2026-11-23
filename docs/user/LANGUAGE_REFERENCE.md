@@ -2199,10 +2199,13 @@ pattern (99, slice E2); a split of an indexed family such as `a = b` or
 `a ≤ b` (99, slice E4); a quotient (99); typed pieces `(h : T)`, `@pat`,
 several targets and `obtain pat : T` have no form yet (slice E5); a
 recursor whose parameters are not the major type's first arguments
-(99); a hypothesis named in a goal that lacks it is LeanForth's 76 and a
-cleared statement variable 98 where Lean says "Unknown identifier" (plan
-NR); 471's message on a function type needs binder kinds (136, plan
-FE2).
+(99); a name the goal's context lacks, a pattern's or a statement
+variable's that a split or `-` cleared (`' h` after `' h by-obtain[ << a
+b >> ]`, even for a later name or `_` pattern), is refused with
+LeanForth's 76, whose text "malformed elaboration: a term that is no
+node, or a value unfit for the declaration" here means "no hypothesis of
+that name in this goal", where Lean says "Unknown identifier" (plan NR);
+471's message on a function type needs binder kinds (136, plan FE2).
 
 ---
 

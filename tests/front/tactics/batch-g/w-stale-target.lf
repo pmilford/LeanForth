@@ -1,0 +1,13 @@
+\ Wrong twin (batch-g-wrong.lean's w_stale_target, review probe p01):
+\ the split clears h, so the later rcases names nothing in the goal
+\ (Lean's "Unknown identifier"), though its pattern, a name, would do
+\ nothing with it. w-stale-blank.lf is the same with obtain's _ and x.
+theorem w_stale_target
+  Nat explicit: a  Nat explicit: b
+  a b = b a = ∧ explicit: h
+  b a =
+:= by
+  ' h by-obtain[ << hab hba >> ]
+  ' h by-rcases[ x ]
+  ' hba by-exact
+end w_stale_target

@@ -77,16 +77,13 @@ lf-mode-nested tac-k-have-by lf-tactic-mode!
 
 \ ---- The declaration: its name (_ not supported yet), type and value.
 : thv-name ( i k -- name ) lf-tac-arg dup 0= if lfa-e-tac-form lf-tac-fail then ;
-\ A term elaborated: no metavariable left open (93), and no free variable
-\ outside the context (a name the context lacks, cleared: Lean's unknown
-\ identifier, not supported yet, 99; elab-term.fs's et-var-named).
-: thv-scoped ( e -- e )
-  dup lf-mctx-view lf-view-scoped? 0= if lfa-e-tac-form lf-tac-fail then ;
-: thv-closed ( e -- e ) lf-open-mvar-free thv-scoped ;
+\ A term elaborated: no metavariable left open (93); a name the context
+\ lacks (cleared) is refused as it is elaborated (elab-term.fs's et-var
+\ and et-hyp, 76; Lean's unknown identifier).
 \ Step i's name, its argument k, below i.
 : thv-named ( i goal k -- goal name i ) rot tuck swap thv-name swap ;
-: thv-type ( i -- T ) 0 lf-tac-arg lf-tac-elab-type thv-closed ;
-: thv-ensuring ( node T -- e ) lf-tac-elab-ensuring thv-closed ;
+: thv-type ( i -- T ) 0 lf-tac-arg lf-tac-elab-type lf-open-mvar-free ;
+: thv-ensuring ( node T -- e ) lf-tac-elab-ensuring lf-open-mvar-free ;
 : thv-value ( i T -- e ) swap 1 lf-tac-arg swap thv-ensuring ;
 : thv-decl ( i goal -- goal name T e ) 2 thv-named dup thv-type tuck thv-value ;
 : thv-have ( i goal -- goal' ) thv-decl lf-goal-have ;
@@ -94,7 +91,7 @@ lf-mode-nested tac-k-have-by lf-tactic-mode!
 ' thv-run tac-k-have lf-tactic-action!
 
 \ ---- have := e: no type; the name this.
-: thv-untyped ( i -- e ) 0 lf-tac-elab-arg thv-closed ;
+: thv-untyped ( i -- e ) 0 lf-tac-elab-arg lf-open-mvar-free ;
 : thv-this ( i goal -- goal' )
   1 thv-named thv-untyped dup lf-infer! swap lf-goal-have ;
 : thv-this-run ( i -- ) dup ['] thv-this lf-lift-meta-tactic1 ;
@@ -116,7 +113,7 @@ lf-mode-nested tac-k-have-by lf-tactic-mode!
 
 \ ---- Mathlib's have h : T: the goals p (tagged h) and the main one with h.
 : thg-type ( i -- T )
-  0 lf-tac-arg ['] lf-tac-elab-type lf-tac-with-synth lf-instantiate! thv-closed ;
+  0 lf-tac-arg ['] lf-tac-elab-type lf-tac-with-synth lf-instantiate! lf-open-mvar-free ;
 : thg-proof ( goal name T -- p ) swap rot lf-goal-view lf-goal-new lf-must ;
 : thg-assert ( goal name T -- p goal' )
   2>r dup 2r@ thg-proof tuck 2r> rot lf-goal-assert ;

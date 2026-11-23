@@ -204,14 +204,6 @@ reason = "TB2: e not elaborated against T (Lean's Type mismatch, 96, lost)"
 
 # ---- have.fs: by-have (have := e)
 [[fault]]
-id = "tb2b-out-of-scope"
-file = "src/front/tactics/have.fs"
-old = ''': thv-closed ( e -- e ) lf-open-mvar-free thv-scoped ;'''
-new = ''': thv-closed ( e -- e ) lf-open-mvar-free ;'''
-test = "$GFORTH tests/front/tactics/batch-b/test.fs"
-reason = "TB2: a cleared hypothesis named in have's value taken (Lean: unknown identifier)"
-
-[[fault]]
 id = "tb2b-this-dep"
 file = "src/front/tactics/have.fs"
 old = '''  1 thv-named thv-untyped dup lf-infer! swap lf-goal-have ;'''
@@ -230,8 +222,8 @@ reason = "TB2: have := e's hypothesis typed by e itself, not e's type"
 [[fault]]
 id = "tb2b-this-no-mvar-check"
 file = "src/front/tactics/have.fs"
-old = ''': thv-untyped ( i -- e ) 0 lf-tac-elab-arg thv-closed ;'''
-new = ''': thv-untyped ( i -- e ) 0 lf-tac-elab-arg thv-scoped ;'''
+old = ''': thv-untyped ( i -- e ) 0 lf-tac-elab-arg lf-open-mvar-free ;'''
+new = ''': thv-untyped ( i -- e ) 0 lf-tac-elab-arg ;'''
 test = "$GFORTH tests/front/tactics/batch-b/test.fs"
 reason = "TB2: a value left with open metavariables taken (Lean's refine refuses natural holes)"
 

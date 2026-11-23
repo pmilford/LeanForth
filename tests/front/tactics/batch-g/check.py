@@ -8,9 +8,9 @@ tests/front/tactics/tactic_check.py's, against decide's slice of Init
 Nat.casesAuxOn), with this batch's own Lean twins (batch-g.lean, batch-g-wrong.lean) and
 golden (batch-g.golden).
 
-Two wrong twins name a hypothesis the goal does not have (Lean's "Unknown identifier"):
-LeanForth refuses both with errors of its own (76, a hypothesis no goal holds; 98, a
-statement variable the split cleared), so --lean does not ask Lean for their text."""
+Four wrong twins name a hypothesis or a statement variable the goal does not have (Lean's
+"Unknown identifier"): LeanForth refuses each with its own error 76 (a name the goal's
+context lacks), so --lean does not ask Lean for their text."""
 import pathlib
 import sys
 
@@ -33,10 +33,11 @@ WRONG = [(D + "w-tag-intro.lf", 210, "Case tag `intro` not found.",
           "\nNote: There are no cases to select."),
          (D + "w-hidden-extra.lf", 96, "Type mismatch",
           "  right\nhas type\n  c = c\nbut is expected to have type\n  0 = a")]
-OWN = [(D + "w-order.lf", 76, "malformed elaboration: a term that is no node, or a value unfit"
-          " for the declaration", ""),
-       (D + "w-clear-used.lf", 98, "Tactic `exact` failed: attempting to close the goal using",
-        "  _fvar.2\nthis is often due to an occurs-check failure\n\na b : Nat\n⊢ a = b")]
+UNNAMED = "malformed elaboration: a term that is no node, or a value unfit for the declaration"
+OWN = [(D + "w-order.lf", 76, UNNAMED, ""),
+       (D + "w-clear-used.lf", 76, UNNAMED, ""),
+       (D + "w-stale-target.lf", 76, UNNAMED, ""),
+       (D + "w-stale-blank.lf", 76, UNNAMED, "")]
 UNSUPPORTED = [(D + "x-rfl.lf", 99, "not supported yet"),
                (D + "x-indexed.lf", 99, "not supported yet"),
                (D + "x-not-inductive.lf", 136, "not supported yet")]

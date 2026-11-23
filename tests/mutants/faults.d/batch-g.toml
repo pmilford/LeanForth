@@ -142,3 +142,11 @@ old = '''rcs rcs-hk @ - 0 max ;'''
 new = '''rcs rcs-hk @ - ;'''
 test = "$GFORTH tests/front/tactics/batch-g/test.fs"
 reason = "TB2 E1: an empty tuple on a two-field constructor makes a rest reference past the tuple's children and reads arbitrary memory (test.fs's << >> text; check.py's ob_empty)"
+
+[[fault]]
+id = "var-unscoped-slot"
+file = "src/front/elab-term.fs"
+old = '''  lfa-binder lfa-binder-name @ et-hyp ;'''
+new = '''  dup et-vars slab-at @ swap lfa-binder lfa-binder-name @ lf-mctx-view swap lf-view-named-fvar if nip then outcome-ok ;'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E1 review 1: a statement variable the goal's context lacks is taken as the binder's own free variable, so a split's cleared h is accepted as a later target (test.fs's p01 and p19 texts; check.py's w-stale-target, w-stale-blank)"

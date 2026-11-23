@@ -19,3 +19,12 @@ theorem w_order (a b : Nat) (h : a = b ∨ b = a) : b = a ∨ a = b := by
   rcases h with h1 | h2
   exact Or.inl h2
   exact Or.inr h1
+theorem w_stale_target (a b : Nat) (h : a = b ∧ b = a) : b = a := by
+  obtain ⟨hab, hba⟩ := h
+  rcases h with x
+  exact hba
+theorem w_stale_blank (a b : Nat) (h : a = b ∧ b = a) : b = a := by
+  obtain ⟨hab, hba⟩ := h
+  obtain _ := h
+  obtain x := h
+  exact hba

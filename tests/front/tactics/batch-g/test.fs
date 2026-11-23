@@ -249,6 +249,10 @@ T{ s3 s" ' h by-rcases[ x | y | z ] by-rfl by-rfl by-rfl" tactic-ran -> 0 }T
 T{ st s" ' h by-obtain[ << rfl y >> ]" tactic-ran -> 99 }T
 \ An empty tuple: the cursor passes the end, and every field takes _ (p11).
 T{ st s" ' h by-obtain[ << >> ] by-assumption" tactic-ran -> 0 }T
+\ A statement variable the split cleared names nothing (Lean's Unknown
+\ identifier): 76, though a name or _ would do nothing (p01, p19).
+T{ st s" ' h by-obtain[ << hab hba >> ] ' h by-rcases[ x ] ' hba by-exact" tactic-ran -> 76 }T
+T{ st s" ' h by-obtain[ << hab hba >> ] ' h by-obtain[ _ ] ' hba by-exact" tactic-ran -> 76 }T
 lf-tac-forget
 \ 471: a type that is no inductive one (a pi through whnfD).
 : sn ( -- c-addr u ) s" Nat explicit: a Nat explicit: b a b = Not explicit: h a a =" ;

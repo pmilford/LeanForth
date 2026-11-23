@@ -68,7 +68,7 @@ theorem sp_self
 end sp_self
 
 \ After specialize h the name h means the new h, as Lean looks names up in
-\ the goal (elab-term.fs's et-var-named); the old h is cleared.
+\ the goal (elab-term.fs's et-var); the old h is cleared.
 \ Lean: theorem sp_exact (a b : Nat) (h : a ≤ b) (h2 : b ≤ a) : a ≤ b := by
 \         specialize h
 \         exact h

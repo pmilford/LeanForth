@@ -53,7 +53,8 @@
 \ - The declaration's variables (syntax var nodes, by binder slot):
 \   lf-elab-vars-reset ( -- ), lf-elab-var+ ( fvar -- outcome ) for the
 \   next slot. A var node means the newest local of its binder's name in
-\   the goal's context, as Lean resolves names, else its slot's variable.
+\   the goal's context, as Lean resolves names; a name the context lacks
+\   is refused (invalid, 76), as a hypothesis' name is.
 \ Untrusted: only the kernel's check of a finished term decides anything.
 \ State: the slabs et-tree (binop trees, a range each while open),
 \ et-ops (the binop% and binrel% in progress), et-vars, the record et-am
@@ -146,18 +147,17 @@ end-structure
 \ ---- Heads: a constant, a variable, a hypothesis.
 : et-const ( decl -- f outcome )
   lfa-decl-name et-resolve ['] lf-meta-const-fresh ok-apply ;
-\ A variable names the newest local of its binder's name in the goal's
-\ context, as Lean looks every name up there (resolveLocalName): after
-\ specialize, or revert and an intro, the local introduced again. A name
-\ the context lacks (cleared, inaccessible) leaves the binder's own free
-\ variable, out of the goal's scope, which the tactic then refuses.
-: et-var-named ( fvar slot -- fvar' )
-  lfa-binder lfa-binder-name @ lf-mctx-view swap lf-view-named-fvar if nip then ;
-: et-var ( slot -- f outcome )
-  dup et-vars slab-count index? 0= if drop -1 outcome-invalid exit then
-  dup et-vars slab-at @ swap et-var-named outcome-ok ;
+\ A hypothesis, and a variable by its binder's name, is the newest
+\ accessible local of that name in the goal's context, as Lean looks
+\ every name up there (resolveLocalName): after specialize, or revert and
+\ an intro, the local introduced again. A name the context lacks
+\ (cleared, reverted, inaccessible) is refused, invalid (Lean's "Unknown
+\ identifier"), never taken as the binder's own free variable.
 : et-hyp ( name -- f outcome )
   lf-mctx-view swap lf-view-named-fvar if outcome-ok else -1 outcome-invalid then ;
+: et-var ( slot -- f outcome )
+  dup et-vars slab-count index? 0= if drop -1 outcome-invalid exit then
+  lfa-binder lfa-binder-name @ et-hyp ;
 : et-head ( node -- f outcome )
   dup syn-a@ swap syn-kind@ case syn-k-const of et-const endof syn-k-var of et-var endof
     syn-k-hyp of et-hyp endof nip -1 outcome-invalid rot endcase ;

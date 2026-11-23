@@ -1,0 +1,13 @@
+\ Wrong twin (batch-g-wrong.lean's w_stale_blank, review probe p19):
+\ the split clears h, so obtain _ := h names nothing in the goal
+\ (Lean's "Unknown identifier"), though _ does nothing with it.
+theorem w_stale_blank
+  Nat explicit: a  Nat explicit: b
+  a b = b a = ∧ explicit: h
+  b a =
+:= by
+  ' h by-obtain[ << hab hba >> ]
+  ' h by-obtain[ _ ]
+  ' h by-obtain[ x ]
+  ' hba by-exact
+end w_stale_blank

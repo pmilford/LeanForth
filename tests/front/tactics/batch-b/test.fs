@@ -226,9 +226,10 @@ T{ hab s" b a ≥ ' h by-have: k ' k by-exact" tactic-ran -> 0 }T
 T{ hab s" b a ≤ ' h by-have: k" tactic-ran -> 96 }T
 T{ hab s" a ' h by-have: k" tactic-ran -> 130 }T
 T{ hab s" ' Nat.le_trans by-have ' h by-exact" tactic-ran -> 93 }T
-\ A cleared hypothesis named again (Lean's unknown identifier): 99.
-T{ hab s" ' h by-clear a b ≤ ' h by-have: k" tactic-ran -> 99 }T
-T{ hab s" ' h by-clear ' h by-have" tactic-ran -> 99 }T
+\ A cleared hypothesis named again (Lean's unknown identifier): 76, as
+\ elab-term.fs refuses a name the goal's context lacks.
+T{ hab s" ' h by-clear a b ≤ ' h by-have: k" tactic-ran -> 76 }T
+T{ hab s" ' h by-clear ' h by-have" tactic-ran -> 76 }T
 T{ s" a b ≤ explicit: h b a ≤" st s" ' h by-have ' this by-exact" tactic-ran -> 96 }T
 T{ hab s" Nat a by-let: x ' h by-exact" tactic-ran -> 0 }T
 T{ s" a a ≤" st s" Nat a by-let: x ' Nat.le_refl x $ by-exact" tactic-ran -> 0 }T

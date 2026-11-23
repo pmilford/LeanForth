@@ -568,7 +568,7 @@ reason = "TB2: absurd h with h : p leaves the goal p, not ¬p"
 [[fault]]
 id = "tb2-var-by-slot"
 file = "src/front/elab-term.fs"
-old = '''  dup et-vars slab-at @ swap et-var-named outcome-ok ;'''
+old = '''  lfa-binder lfa-binder-name @ et-hyp ;'''
 new = '''  et-vars slab-at @ outcome-ok ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-a/check.py"
 reason = "TB2 review 1: a variable is its binder's slot whatever the goal holds (sp_exact: the old, cleared h, error 98)"
@@ -576,7 +576,7 @@ reason = "TB2 review 1: a variable is its binder's slot whatever the goal holds 
 [[fault]]
 id = "tb2-var-name-kept-old"
 file = "src/front/elab-term.fs"
-old = '''  lfa-binder lfa-binder-name @ lf-mctx-view swap lf-view-named-fvar if nip then ;'''
-new = '''  lfa-binder lfa-binder-name @ lf-mctx-view swap lf-view-named-fvar if drop then ;'''
+old = '''  lfa-binder lfa-binder-name @ et-hyp ;'''
+new = '''  dup et-vars slab-at @ swap lfa-binder lfa-binder-name @ et-hyp nip ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-a/check.py"
 reason = "TB2 review 1: the goal's local of the name found but the binder's own variable kept (sp_later: the old h2)"
