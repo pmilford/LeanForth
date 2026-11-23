@@ -152,6 +152,9 @@ end-structure
 \ 1), and the line's numbers are still checked as the words read it. The
 \ current token is left as the line began.
 : lfa-has-word? ( c-addr u wid -- flag ) search-wordlist dup if nip then 0<> ;
+\ The word c-addr u of wordlist wid, for a layer that may not look names
+\ up itself (tests/core/check_log_isolation.py): pattern-syntax.fs's words.
+: lfa-word-of ( c-addr u wid -- xt true | false ) search-wordlist 0<> ;
 : lfa-worded? ( c-addr u -- flag )
   2dup lf-words lfa-has-word? if 2drop true exit then
   2dup lf-locals lfa-has-word? if 2drop true exit then lf-consts lfa-has-word? ;

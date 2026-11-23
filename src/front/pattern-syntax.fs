@@ -119,7 +119,7 @@ set-current
 : pat-name ( i c-addr u -- i true ) pat-word rot pfr-item -rot lft-given 1 pat-span!
   true ;
 : pat-step ( i c-addr u -- i more? )
-  2dup pat-words search-wordlist if nip nip execute else pat-name then ;
+  2dup pat-words lfa-word-of if nip nip execute else pat-name then ;
 : lft-build-pattern ( v i shape -- )
   lft-values drop lft-list-open pat-frames slab-clear 3 pfr-open
   begin lfa-token-on pat-step 0= until lft-done ;
