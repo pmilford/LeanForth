@@ -281,6 +281,10 @@ lf-tac-forget
 : se ( -- c-addr u ) s" Nat explicit: a ' Eq a $ Exists explicit: h a a =" ;
 T{ se s" ' h by-obtain[ << - hw >> ] by-rfl" tactic-ran se s" ' h by-obtain[ << w >> ] by-rfl"
    tactic-ran -> 0 0 }T
+\ - clears its field: a = b is gone, so assumption fails (381), as Lean's.
+: sl ( -- c-addr u ) s" Nat explicit: a Nat explicit: b a b = b a = ∧ explicit: h a b =" ;
+T{ sl s" ' h by-obtain[ << - hba >> ] by-assumption" tactic-ran -> 381 }T
+T{ sl s" ' h by-obtain[ << _ hba >> ] by-assumption" tactic-ran -> 0 }T
 : s3 ( -- c-addr u )
   s" Nat explicit: a Nat explicit: b a b = b a = a a = ∨ ∨ explicit: h a a =" ;
 T{ s3 s" ' h by-rcases[ x | y | z ] by-rfl by-rfl by-rfl" tactic-ran -> 0 }T

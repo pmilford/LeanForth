@@ -158,3 +158,11 @@ old = '''  syn-a@ lfa-decl-name lf-menv-find? dup if drop lf-menv-kind lf-kind-d
 new = '''  syn-a@ lfa-decl-name lf-menv-find ok-then? if lf-menv-kind lf-kind-definition = else drop false then ;'''
 test = "$GFORTH tests/front/s2-sweeps.fs"
 reason = "TB2 E1 review 7: rw's definition lookup refused for room is read as \"not a definition\" and the refusal is absorbed (s2-sweeps.fs's absorbed count, 1, becomes 2)"
+
+[[fault]]
+id = "clear-ignored"
+file = "src/front/rcases.fs"
+old = ''': rcs-clear ( -- ) rcs rcs-e @ dup lf-meta-fvar? if rcs-clears+ else drop then rcs-again ;'''
+new = ''': rcs-clear ( -- ) rcs-again ;'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E1 review 9: - leaves its field in the goal (test.fs's sl text: assumption then finds a = b)"

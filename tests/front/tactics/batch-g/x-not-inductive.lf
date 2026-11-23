@@ -3,7 +3,8 @@
 \ False` is not an inductive datatype", RCases.lean:309; LeanForth's
 \ 471), but the message's type is a binder whose kind the declaration's
 \ type does not give (plan S5), so the run stops unsupported, never
-\ accepted. test.fs reaches 471 with a type it can print.
+\ accepted. test.fs reaches 471 on Nat, whose type Type it can print
+\ (review probe p25).
 theorem x_not_inductive
   Nat explicit: a  Nat explicit: b
   a b = ¬ explicit: h
