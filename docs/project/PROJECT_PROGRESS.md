@@ -215,7 +215,14 @@ status changes when this date is older than them. Stages are those of the
   reference: <https://github.com/leanprover-community/riemann-hypothesis>, a community mirror of Alpöge's submission
   of 2026-11-20, written for Lean 4.33.1, published without a license; its README says Lean's kernel, nanoda and
   Comparator accept `src/Main.lean` with the axioms propext, Quot.sound and Classical.choice only, and that a full
-  build takes hours) to LeanForth
+  build takes hours; main is now on Lean 4.36.0) to LeanForth. Sizes from its own files, read 2026-11-22
+  (`verification/NOTES.md`, `CI-RUNNERS.md`): 149,397 Lean files of 15.2 million lines (175,187 modules); the build
+  7 to 10 hours on 48 cores with 503 GB; the solution's export 61.6 GB (sha256 `5ea74b91...be244e`), the exporter
+  peaking at 163 GB of memory; estimated about 4 hours and 150 GB for Lean's kernel, under an hour for nanoda; a
+  runner is asked for 128 GiB of memory and 250 GiB of free disk. The owner's machine (39 GB, 84 GB free) can
+  neither build nor export it; LeanForth could check a downloaded export only if it reads 61.6 GB as a stream
+  within memory, which is the first thing to measure (on the project's 371 MB smoke-test export, then on a part);
+  then to LeanForth
   and check it, translate it back to Lean and check it there, and measure the machine each needs (time and memory in
   Lean and in LeanForth). Three separate tests: the exported proof checked by the kernel (possible today for any
   Lean project that builds), the source translated and elaborated by LeanForth's front end (needs the tactics it
