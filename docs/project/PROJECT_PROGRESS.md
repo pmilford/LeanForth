@@ -228,6 +228,12 @@ status changes when this date is older than them. Stages are those of the
   Lean project that builds), the source translated and elaborated by LeanForth's front end (needs the tactics it
   uses), and the round trip back to Lean. It also informs whether the Lean to LeanForth translator is written in
   Lean or in Forth.
+- Very large exports (owner, 2026-11-22; long term, not started): check an export far larger than memory, such as
+  the 61.6 GB one above on a 39 GB machine, by reading it as a stream and keeping checked declarations in a disk
+  cache managed with some intelligence (what to keep in memory, what to page out and bring back, in what order),
+  instead of holding the whole environment in memory. First measure today's memory and time per declaration on a
+  Mathlib-sized export (the project's 371 MB smoke test: Lean's kernel 70 s and 0.75 GB, nanoda 14 s and 0.41 GB),
+  then design; the compact store and the snapshot format are the existing pieces it would build on.
 - Carry on to the next theorem after an error (2026-11-22, from the done check of blocks slice 1; not started): a
   file's first error ends the run today, so a wrong theorem hides the verdicts of the correct ones beside it, where
   Lean reports every theorem; the declaration-level part of "log and carry on, as Lean".
