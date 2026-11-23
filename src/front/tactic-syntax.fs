@@ -378,15 +378,18 @@ end-structure
 16 constant tac-block-bars
 32 constant tac-block-headed
 : lft-block-shape? ( shape|0 -- flag ) dup if shape-block @ 0<> then ;
-: lft-self-closing? ( shape -- flag ) shape-block @ tac-block-self and 0<> ;
+: tac-shape-has? ( shape bit -- flag ) swap shape-block @ and 0<> ;
+: lft-self-closing? ( shape -- flag ) tac-block-self tac-shape-has? ;
 : lft-flags-of ( i -- flags ) lft-shape@ dup if shape-block @ then ;
+: lft-has? ( i bit -- flag ) swap lft-flags-of and 0<> ;
 : lft-open-flags ( -- flags ) lft-open lft-flags-of ;
-: lft-bars? ( -- flag ) lft-open-flags tac-block-bars and 0<> ;
+: lft-open-has? ( bit -- flag ) lft-open swap lft-has? ;
+: lft-bars? ( -- flag ) tac-block-bars lft-open-has? ;
 \ An alternative: a headed block right inside a block of bars, closed by
 \ the next | or that block's by-end.
 : lft-parent@ ( j -- p ) lft-rec tac-parent @ ;
-: lft-up-bars? ( -- flag ) lft-open lft-parent@ lft-flags-of tac-block-bars and 0<> ;
-: lft-headed? ( -- flag ) lft-open-flags tac-block-headed and 0<> ;
+: lft-up-bars? ( -- flag ) lft-open lft-parent@ tac-block-bars lft-has? ;
+: lft-headed? ( -- flag ) tac-block-headed lft-open-has? ;
 : lft-alt? ( -- flag ) lft-headed? if lft-up-bars? else false then ;
 \ A shape's block flags (tac-block and flags); the fixed blocks' shapes,
 \ read by their own words, not by lft-read-as (no builder): by's (in its
@@ -417,7 +420,7 @@ end-structure
 \ first, or finds no step before it, 468), so one settle a token does.
 : lft-in-proof ( -- ) lft-proof? lfa-e-tac-outside lfa-must ;
 : lft-poised ( -- ) lft-in-proof lfa-brackets-closed lfa-same-binders ;
-: lft-one? ( -- flag ) lft-open-flags tac-block-one and 0<> ;
+: lft-one? ( -- flag ) tac-block-one lft-open-has? ;
 : lft-holding? ( -- flag ) lft-open lft-rec tac-inner @ 0<> ;
 : lft-then-close ( -- ) lft-open lft-rec lft-held drop lft-read-from lft-close ;
 : lft-settled ( -- ) lft-one? if lft-then-close then ;
@@ -562,7 +565,7 @@ end-structure
 \ block's place second); its place is the brace's tac-arrow (where its
 \ unsolved goals are told, as Lean's withRef stx[2]), and its names go.
 : lft-closer-at ( -- ) lft-open-at lfa-e-tac-closer lfa-fail-see ;
-: lft-in-brace ( -- ) lft-open-flags tac-block-self and 0= if lft-closer-at then ;
+: lft-in-brace ( -- ) tac-block-self lft-open-has? 0= if lft-closer-at then ;
 : lft-brace-close ( -- ) lft-past lft-open lft-arrow! lft-rec true lft-close-names ;
 : lft-w-brace-end ( -- ) lft-closing lft-in-brace lft-brace-close lft-from! ;
 \ by-end at a block a word opened: 83 at none (the proof's by) and at a

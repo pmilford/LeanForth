@@ -235,8 +235,8 @@ reason = "9.4.8s: a header's step has no shape, so an alternative is not closed 
 [[fault]]
 id = "tb2b2-header-word"
 file = "src/front/tactic-run.fs"
-old = ''': lfr-unbraced ( i shape -- c-addr u ) lfr-headed? if drop s" =>" else lfr-spelling then ;'''
-new = ''': lfr-unbraced ( i shape -- c-addr u ) drop lfr-spelling ;'''
+old = '''  tac-block-headed tac-shape-has? if drop s" =>" else lfr-spelling then ;'''
+new = '''  drop lfr-spelling ;'''
 test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
 reason = "9.4.8s: a case's unsolved goals told with its word, not its =>: blocks-2 test.fs's by-case: left => ... 89 token is by-case:, not =>"
 
@@ -247,3 +247,20 @@ old = '''tac-shape-headed tac-k-alt lf-tactic-shape!   tac-shape-headed tac-k-ca
 new = '''tac-shape-headed tac-k-alt lf-tactic-shape!'''
 test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
 reason = "9.4.8s: by-case:'s row has no shape, so the record check finds no block around its steps: blocks-2 test.fs's tac-k-case lfr-holder? is false and its by-case: texts are 92"
+
+# ---- Review tb2-blocks2 findings 4 and 5: shape flags read by one word each
+[[fault]]
+id = "tb2b2-alt-right-no-bars"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-bars? ( kind -- flag ) lf-tactic-shape@ tac-block-bars tac-shape-has? ;'''
+new = ''': lfr-bars? ( kind -- flag ) drop false ;'''
+test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
+reason = "review tb2-blocks2 finding 5: the record check finds no block of bars, so an alternative's parent is wrong: blocks-2 test.fs's n by-induction-with | zero => ... texts are 92, not 0"
+
+[[fault]]
+id = "tb2b2-shape-has-any"
+file = "src/front/tactic-syntax.fs"
+old = ''': tac-shape-has? ( shape bit -- flag ) swap shape-block @ and 0<> ;'''
+new = ''': tac-shape-has? ( shape bit -- flag ) drop shape-block @ 0<> ;'''
+test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
+reason = "review tb2-blocks2 finding 4: every block's shape reads as having each flag, so a then-block is taken for a brace: blocks-2 test.fs's ' h by-exact <;> ' k by-exact is refused, not 0"

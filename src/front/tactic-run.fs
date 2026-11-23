@@ -385,8 +385,8 @@ tac-shape-headed tac-k-alt lf-tactic-shape!   tac-shape-headed tac-k-case lf-tac
 \ (A brace's are told at its }: Lean's withRef stx[2], BuiltinTactic.lean:
 \ 170; the reader keeps the }'s place as its tac-arrow; a header's at
 \ its =>; any other block's at its word.)
-: lfr-headed? ( shape -- flag ) shape-block @ tac-block-headed and 0<> ;
-: lfr-unbraced ( i shape -- c-addr u ) lfr-headed? if drop s" =>" else lfr-spelling then ;
+: lfr-unbraced ( i shape -- c-addr u )
+  tac-block-headed tac-shape-has? if drop s" =>" else lfr-spelling then ;
 : lfr-shaped-word ( i shape -- c-addr u )
   dup lft-self-closing? if 2drop s" }" else lfr-unbraced then ;
 : lfr-block-word ( i -- c-addr u ) dup lfr-kind lf-tactic-shape@ lfr-shaped-word ;
@@ -703,7 +703,10 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 \ are known to come before their steps. A block is a kind whose row's
 \ shape is a block's (lfr-shaped-block?).
 : lfr-holder? ( kind -- flag ) lfr-shaped-block? ;
-: lfr-alt-right? ( i p -- flag ) lfr-kind tac-k-with = swap lfr-kind tac-k-alt = = ;
+\ An alternative right inside a block of bars (its row's shape says so,
+\ as the reader's lft-alt? does), else not one.
+: lfr-bars? ( kind -- flag ) lf-tactic-shape@ tac-block-bars tac-shape-has? ;
+: lfr-alt-right? ( i p -- flag ) lfr-kind lfr-bars? swap lfr-kind tac-k-alt = = ;
 \ p is j or a block around j: j's parents walked while they come after p.
 : lfr-ancestor? ( p j -- flag ) begin 2dup < while lfr-parent repeat = ;
 : lfr-on-chain? ( i p -- flag ) swap 1- lfr-ancestor? ;
