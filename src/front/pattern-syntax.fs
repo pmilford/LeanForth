@@ -90,7 +90,8 @@ end-structure
 : pfr-close ( i closer -- i )
   pfr pfr-closer @ <> if lfa-e-pat-closer lfa-fail then
   pfr pfr-join @ if lfa-e-pat-bar lfa-fail then pfr-end ;
-: pfr-tuple ( i closer -- i ) pfr-close pat-tuple pfr pfr-from @ pat-node pat-frames slab-drop ;
+: pfr-tuple ( i closer -- i ) pfr-close pat-tuple pfr pfr-from @ pat-node
+  pat-frames slab-drop ;
 : pfr-top ( i -- i )
   3 pfr-close pfr pfr-elems @ 1 <> if lfa-e-pat-one lfa-fail then
   pat-frames slab-drop lfa-bracket-drop ;
@@ -115,7 +116,8 @@ set-current
 : pat-word ( c-addr u -- c-addr u )
   dup 0= if lfa-list-unclosed then 2dup lft-at-sign? if lfa-e-tactic lfa-fail then
   2dup lf-pf-reserved? if lfa-list-unclosed then ;
-: pat-name ( i c-addr u -- i true ) pat-word rot pfr-item -rot lft-given 1 pat-span! true ;
+: pat-name ( i c-addr u -- i true ) pat-word rot pfr-item -rot lft-given 1 pat-span!
+  true ;
 : pat-step ( i c-addr u -- i more? )
   2dup pat-words search-wordlist if nip nip execute else pat-name then ;
 : lft-build-pattern ( v i shape -- )

@@ -1007,6 +1007,14 @@
   "shuffles": 0,
   "words": 2
  },
+ "src/front/tactics/obtain.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 1
+ },
  "src/front/tactics/refine.fs": {
   "globals": 1,
   "long lines": 0,

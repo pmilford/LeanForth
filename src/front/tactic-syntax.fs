@@ -70,8 +70,9 @@
 \ by-induction's, a rule) or the name ID of a hypothesis (0 for _),
 \ targ-at, its position, targ-symm, true for a rule written right to
 \ left (<-, Lean's ←), and targ-span, a pattern item's span (the
-\ arguments its node covers, itself included; pattern-syntax.fs), else 0. Positions are author/source.fs's. The parent
-\ links are the stack of open blocks, so nesting is limited only by the
+\ arguments its node covers, itself included; pattern-syntax.fs), else
+\ 0. Positions are author/source.fs's. The parent links are the stack of
+\ open blocks, so nesting is limited only by the
 \ heap. Only positions are kept, not the text: reading a block again
 \ (FE5's combinators) is the runner's to arrange (plan FE1g-3).
 \

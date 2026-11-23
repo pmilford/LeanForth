@@ -116,7 +116,6 @@ end-structure
 : lf-dt-const? ( head -- const true | false )
   dup lf-term-const? if true else drop false then ;
 : dk-last ( e -- a ) lf-term-second@ ;
-: dk-arg ( e i -- a ) over lf-meta-args# lf-meta-nth-arg ;
 
 \ ---- toNatLit? (Main.lean:111-146): a literal, Nat.zero, Nat.succ x and
 \ OfNat.ofNat _ x _ of a numeral x; its value, flag false for none.
@@ -128,7 +127,7 @@ end-structure
 \ One step down a numeral: ( acc e -- acc' e' more? ).
 : dk-nat-step ( acc e -- acc' e' more? )
   dup lf-meta-succ? if dk-last swap 1+ swap true exit then
-  dup dk-ofnat? if 1 dk-arg true exit then false ;
+  dup dk-ofnat? if 1 lf-meta-app-arg true exit then false ;
 : dk-numeral? ( e -- flag )
   begin dup dk-end? if drop true exit then 0 swap dk-nat-step rot drop while repeat
   drop false ;
@@ -236,7 +235,7 @@ constant dk-key-heads
   lf-meta-whnf ok-then? if s" Nat" lf-meta-const-named? outcome-ok else false swap then ;
 : dk-numeral-last? ( e -- flag ) dk-last dk-numeral? ;
 : dk-typed-offset ( e i -- flag outcome )
-  over dk-numeral-last? if dk-arg dk-nat-type? else 2drop false outcome-ok then ;
+  over dk-numeral-last? if lf-meta-app-arg dk-nat-type? else 2drop false outcome-ok then ;
 : dk-offset? ( e -- flag outcome )
   dup 2 s" Nat.add" lf-meta-app-of? if dk-numeral-last? outcome-ok exit then
   dup 4 s" Add.add" lf-meta-app-of? if 0 dk-typed-offset exit then
@@ -274,7 +273,8 @@ constant dk-key-heads
 \ A constant: mkPath's nested numerals and offsets, getUnifyKeyArgs'
 \ stuck tests, then the key and its arguments.
 : dk-decl ( -- d outcome ) dk-head lf-meta-const-decl ;
-: dk-mvar-in? ( from to -- flag ) swap false -rot ?do dk-e i dk-arg lf-meta-mvar-free?
+: dk-mvar-in? ( from to -- flag )
+  swap false -rot ?do dk-e i lf-meta-app-arg lf-meta-mvar-free?
   0= or loop ;
 : dk-match-span ( m -- from to ) elab-matcher@ rot drop swap 1+ tuck + ;
 : dk-match-arity ( m -- n ) dup elab-matcher-alts nip swap elab-matcher@ rot drop + 1+ + ;

@@ -109,9 +109,10 @@ end-structure
 : mrv-run ( -- goal' n ) mrv-reverted mrv-out# ;
 \ The reverted locals, as goal's context holds them (revert-kept's kept).
 : mrv-local+ ( run i -- run' )
-  mrv mrv-goal @ lf-goal-view swap mrv-out@ lf-view-local-of run-push lf-must ;
+  mrv mrv-goal @ lf-goal-view swap mrv-out@ lf-view-local-of lf-run+ ;
 : mrv-run-kept ( -- goal' kept ) mrv-reverted 0 mrv-out# 0 ?do i mrv-local+ loop ;
-: mrv-with ( goal fvars xt -- goal' x ) >r mrv mrv-in ! dup mrv mrv-goal ! r> lf-with-goal ;
+: mrv-with ( goal fvars xt -- goal' x ) >r mrv mrv-in ! dup mrv mrv-goal ! r>
+  lf-with-goal ;
 : mrv-framed ( goal fvars xt -- goal' x )
   rot lf-goal-not-assigned -rot mrv-frames ['] mrv-with lf-with-record ;
 : mrv-none? ( goal fvars -- goal 0 true | goal fvars false )

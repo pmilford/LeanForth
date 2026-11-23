@@ -2,3 +2,7 @@
 # One line per word: `src/path/file.fs:word  reason` (the word the branch adds or changes, not the old one it
 # equals; the reason says why a second word is better than calling the first). Entries are added in the branch
 # that adds the word and removed when the word goes.
+src/front/meta-tactic/meta-induction.fs:lf-rinfo-args  a field of RecursorInfo's run, not ElimInfo's (elim.fs's mel-binders reads another record at the same cell)
+src/front/meta-tactic/meta-induction.fs:lf-rinfo-params  a field of RecursorInfo's run, not ElimInfo's (elim.fs's mel-motive-at reads another record at the same cell)
+src/front/meta-tactic/meta-induction.fs:lf-rinfo-major  a field of RecursorInfo's run, not ElimInfo's (elim.fs's mel-target-at reads another record at the same cell)
+src/front/tactic-core.fs:lf-tac-arg-span  a field of the step's argument beside lf-tac-arg-symm?'s, each its own reader of the record

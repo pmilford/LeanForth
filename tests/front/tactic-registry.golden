@@ -181,6 +181,11 @@
 448	1	lean	Tactic `delta` failed: did not delta reduce
 385	1	lean	Tactic `left` failed: target is not an inductive datatype
 386	1	lean	Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors
+472	1	-	a pattern's bar | goes between two items
+473	1	-	this closer does not close the pattern's open bracket
+474	1	-	by-obtain[ and by-rcases[ take one pattern
+470	1	lean	Tactic `rcases` failed:
+471	1	lean	Tactic `rcases` failed:
 387	1	lean	Tactic `right` failed: target is not an inductive datatype
 388	1	lean	Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors
 456	1	lean	Type mismatch: The rewritten hypothesis
@@ -310,6 +315,8 @@ reserved by-trivial word
 reserved by-exists[ word
 reserved by-intros word
 reserved by-left word
+reserved by-obtain[ word
+reserved by-rcases[ word
 reserved by-refine word
 reserved by-rename-i[ word
 reserved by-replace: word
@@ -363,13 +370,15 @@ kind 40 by-trivial 0 trivial run
 kind 41 by-exists[ 0 exists run
 kind 42 by-intros 0 intros run
 kind 43 by-left 0 left run
-kind 44 by-refine 0 refine run
-kind 45 by-rename-i[ 0 rename_i run
-kind 46 by-replace: 0 replace run
-kind 47 by-revert 0 revert run
-kind 48 by-revert[ 0 revert run
-kind 49 by-right 0 right run
-kind 50 by-rwa[ 0 rwa run
-kind 51 by-specialize 0 specialize run
-kind 52 by-swap 0 swap run
-kind 53 by-symm 0 symm run
+kind 44 by-obtain[ 0 obtain run
+kind 45 by-rcases[ 0 rcases run
+kind 46 by-refine 0 refine run
+kind 47 by-rename-i[ 0 rename_i run
+kind 48 by-replace: 0 replace run
+kind 49 by-revert 0 revert run
+kind 50 by-revert[ 0 revert run
+kind 51 by-right 0 right run
+kind 52 by-rwa[ 0 rwa run
+kind 53 by-specialize 0 specialize run
+kind 54 by-swap 0 swap run
+kind 55 by-symm 0 symm run

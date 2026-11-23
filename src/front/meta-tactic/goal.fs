@@ -78,6 +78,8 @@
 \       Lean hides stays hidden (TACTIC_PATTERNS.md section 3, review 2);
 \       an instance binder is not supported yet (99, plan FE3); xs a run;
 \       n 0 gives goal itself and 0; kept shorter than n is thrown invalid
+\   lf-binder-domain ( pi -- dom )  a binder's domain head-beta reduced
+\       (introN's and Meta induction's d.headBeta)
 \   lf-intros-size ( type -- n )  getIntrosSize (Intro.lean:190): the
 \       leading pis and lets of type as it is (no delta, no
 \       instantiation; LeanForth's terms carry no mdata)
@@ -281,7 +283,8 @@ end-structure
 \ implicit or strict implicit, kept in the frame.
 : mti-unlet ( pi -- pi ) dup lf-let? if lf-tac-unported then ;
 : mti-introduced ( kind -- kind ) dup lf-binder-instance < 0= if lf-tac-unported then ;
-: mti-node-kind ( pi -- kind ) lf-binder-of 0= if lf-tac-unported then nip mti-introduced ;
+: mti-node-kind ( pi -- kind ) lf-binder-of 0= if lf-tac-unported then nip
+  mti-introduced ;
 : mti-kind ( pi -- kind ) mti mti-kinds @ ?dup if nip mti-at @ else mti-node-kind then ;
 : mti-kind! ( pi -- pi ) dup mti-kind mti mti-k ! ;
 \ The name given, else the binder's own (a when it has none) made
@@ -290,9 +293,9 @@ end-structure
 : mti-named ( pi -- name flags )
   mti mti-names @ mti-given ?dup if nip 0 exit then mti-own lf-local-inaccessible ;
 \ One binder: its free variable kept, its local pushed on the current view.
-: mti-dom ( pi -- dom ) lf-term-first@ lf-meta-head-beta lf-must ;
+: lf-binder-domain ( pi -- dom ) lf-term-first@ lf-meta-head-beta lf-must ;
 : mti-local ( pi -- fvar )
-  dup mti-dom swap mti-named mti mti-k @ or lf-local-decl-new lf-mctx-view! ;
+  dup lf-binder-domain swap mti-named mti mti-k @ or lf-local-decl-new lf-mctx-view! ;
 : mti-x! ( fvar -- ) mti mti-xs @ mti-at ! 1 mti mti-i +! ;
 : mti-body ( pi fvar -- t )
   swap lf-term-second@ swap lf-meta-instantiate1 lf-must lf-meta-head-beta lf-must ;
@@ -329,8 +332,9 @@ end-structure
 1 cells context-slab: mtk-cells
 : mtk-part ( n addr k -- addr' ) rot cells rot record-at ;
 : mtk-cell ( addr i -- addr' ) 1 cells rot record-at ;
-: mtk-run ( addr n -- xs ) 0 -rot 0 ?do i over cell-at@ rot swap run-push lf-must swap loop drop ;
-: mtk-done ( goal names kinds n xs -- goal' xs ) 2dup 2>r lf-goal-intro-n 2r> swap mtk-run ;
+: mtk-run ( addr n -- xs ) 0 -rot 0 ?do i over cell-at@ rot swap lf-run+ swap loop drop ;
+: mtk-done ( goal names kinds n xs -- goal' xs ) 2dup 2>r lf-goal-intro-n 2r> swap
+  mtk-run ;
 \ introN's names: name i of the run, 0 past its end.
 : mtn-fill ( names n addr -- ) swap 0 ?do over i run@0 over i mtk-cell ! loop 2drop ;
 : mtn-parts ( n addr -- names 0 n xs ) dup -rot over swap 1 mtk-part >r 0 swap r> ;
@@ -339,11 +343,14 @@ end-structure
   dup 0= if nip exit then dup 2* mtk-cells ['] mtn-intro lf-with-cells ;
 \ introNP's: each kept local's name, and its kind with its inaccessible flag.
 : mtk-flags ( local -- flags )
-  dup lf-local-binder mti-introduced swap lf-local-inaccessible? lf-local-inaccessible and or ;
+  dup lf-local-binder mti-introduced swap lf-local-inaccessible? lf-local-inaccessible
+  and or ;
 : mtk-set ( p n local -- p' n outcome )
-  >r over r@ lf-local-name swap ! 2dup mtk-cell r> mtk-flags swap ! swap cell+ swap outcome-ok ;
+  >r over r@ lf-local-name swap ! 2dup mtk-cell r> mtk-flags swap ! swap cell+
+  swap outcome-ok ;
 : mtk-fill ( kept n addr -- ) swap rot ['] mtk-set run-each lf-must 2drop ;
-: mtk-parts ( n addr -- names kinds n xs ) dup -rot 2dup 1 mtk-part -rot over swap 2 mtk-part ;
+: mtk-parts ( n addr -- names kinds n xs ) dup -rot 2dup 1 mtk-part -rot over swap
+  2 mtk-part ;
 : mtk-intro ( goal kept n addr -- goal' xs )
   >r tuck run-take lf-must over r@ mtk-fill r> mtk-parts mtk-done ;
 : lf-goal-intro-kept ( goal kept n -- goal' xs )

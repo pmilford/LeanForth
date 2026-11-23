@@ -16195,8 +16195,8 @@ reason = "FE1g-4 review fe1g3 L3 (F2): rfl's Eq.refl takes the right side where 
 [[fault]]
 id = "fe-intro-domain-unreduced"
 file = "src/front/meta-tactic/goal.fs"
-old = ''': mti-dom ( pi -- dom ) lf-term-first@ lf-meta-head-beta lf-must ;'''
-new = ''': mti-dom ( pi -- dom ) lf-term-first@ ;'''
+old = ''': lf-binder-domain ( pi -- dom ) lf-term-first@ lf-meta-head-beta lf-must ;'''
+new = ''': lf-binder-domain ( pi -- dom ) lf-term-first@ ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 review fe1g3 L4 (F13): intro's hypothesis keeps the domain's beta redex where Lean's introNCore head-beta reduces it"
 

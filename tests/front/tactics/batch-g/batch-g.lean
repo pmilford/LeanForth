@@ -22,6 +22,9 @@ theorem ob_fewer (a b c : Nat) (h : a = b ∧ b = c) : a = b := by
 theorem ob_clear (a b : Nat) (h : a = b ∧ b = a) : b = a := by
   obtain ⟨-, h2⟩ := h
   exact h2
+theorem ob_clear_dep (a : Nat) (h : Exists (Eq a)) : a = a := by
+  obtain ⟨-, hw⟩ := h
+  rfl
 theorem ob_term (a b : Nat) (h : a = b) (k : b = a) : b = a := by
   obtain ⟨p, q⟩ := And.intro h k
   exact q
@@ -118,7 +121,7 @@ def dump (n : Name) : MetaM Unit := do
   IO.println s!"{n} value {← sx i.value}"
 
 #eval do
-  for n in [``ob_and, ``ob_exists, ``ob_nested, ``ob_fewer, ``ob_clear, ``ob_term,
+  for n in [``ob_and, ``ob_exists, ``ob_nested, ``ob_fewer, ``ob_clear, ``ob_clear_dep, ``ob_term,
       ``ob_term_name, ``ob_name, ``rc_or, ``rc_three, ``rc_or_and, ``rc_nat, ``rc_comment,
       ``ns_left, ``ns_flat, ``ns_right, ``od_depth, ``od_tags, ``od_one, ``hd_kept] do
     dump n

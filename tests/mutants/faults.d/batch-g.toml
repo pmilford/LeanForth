@@ -1,0 +1,136 @@
+# Planted faults of case patterns, slice E1 (plan row TB2, piece E: src/front/fvar-subst.fs,
+# meta-tactic/revert.fs's revert-kept, goal.fs's intro-kept, meta-tactic/meta-induction.fs,
+# cases.fs, generalize.fs, src/front/pattern-syntax.fs, rcases.fs), read with faults.toml as
+# one list (scripts/mutants.py). Each is caught by the test it names
+# (tests/front/tactics/batch-g/test.fs or its check.py), unless it says why not (equivalent).
+
+[[fault]]
+id = "tag-ctor-on-single"
+file = "src/front/meta-tactic/meta-induction.fs"
+old = '''  mid-goal@ lf-goal-tag mid-info@ lf-rinfo-minors 1 = if nip exit then'''
+new = '''  mid-goal@ lf-goal-tag mid-info@ lf-rinfo-minors 0 = if nip exit then'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E1: one minor premise tags its goal t.intro, not the parent's t (test.fs's gi1 tag; check.py's w-tag-intro would be accepted)"
+
+[[fault]]
+id = "intro-kept-drops-flag"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  dup lf-local-binder mti-introduced swap lf-local-inaccessible? lf-local-inaccessible
+  and or ;'''
+new = '''  lf-local-binder mti-introduced ;'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E1: a hidden local comes back accessible after revert and intro (test.fs's g1'' 2 hidden?; check.py's w-hidden-extra would be accepted)"
+
+[[fault]]
+id = "bar-binds-looser"
+file = "src/front/pattern-syntax.fs"
+old = '''  pfr pfr-join @ if false pfr pfr-join ! 1 pfr pfr-items +! exit then pfr-end pfr-begin ;'''
+new = '''  false pfr pfr-join ! pfr-end pfr-begin ;'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E1: x | y reads as two elements, 474 (test.fs's so x | y text expects 0)"
+
+[[fault]]
+id = "align-no-skip"
+file = "src/front/rcases.fs"
+old = '''  rcs-r# swap ?do dup i 0 rcs-r@ lf-name-same? if drop i true unloop exit then loop'''
+new = '''  rcs-r# swap ?do drop i true unloop exit loop'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E1: align takes the entry at the cursor whatever its constructor's name"
+equivalent = "Meta cases' simple path (slice E1) gives every constructor a subgoal, in constructor order, so the entry at the cursor is always the subgoal's; E4's indexed families drop solved alternatives, and their tests catch it"
+
+[[fault]]
+id = "last-field-no-rest"
+file = "src/front/rcases.fs"
+old = '''  0 rcs rcs-h @ rcs rcs-hk @ rcs-rest-of rcs-field+ ;'''
+new = '''  rcs-next ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-g/check.py"
+reason = "TB2 E1: the last field takes one pattern, not the rest as a tuple (ob_nested's h3 is never made)"
+
+[[fault]]
+id = "tasks-in-text-order"
+file = "src/front/rcases.fs"
+old = ''': rcs-pushed ( -- ) rcs rcs-new @ run-count 4 / begin ?dup while 1- dup rcs-push repeat ;'''
+new = ''': rcs-pushed ( -- ) rcs rcs-new @ run-count 4 / 0 ?do i rcs-push loop ;'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E1: a split's last subgoal is matched first, so the goals come out in reverse (test.fs's x | y text; check.py's w-order would be accepted)"
+
+[[fault]]
+id = "clear-too-early"
+file = "src/front/rcases.fs"
+old = ''': rcs-clear ( -- ) rcs rcs-e @ dup lf-meta-fvar? if rcs-clears+ else drop then rcs-again ;'''
+new = ''': rcs-clear ( -- ) rcs rcs-goal @ rcs rcs-e @ lf-goal-try-clear rcs rcs-goal ! rcs-again ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-g/check.py"
+reason = "TB2 E1: - clears at once, where w cannot go while hw depends on it, not at finish with its dependents (ob_clear_dep's step log keeps w and hw)"
+
+[[fault]]
+id = "fsubst-not-applied"
+file = "src/front/rcases.fs"
+old = '''  dup 3 run-after lf-must rcs rcs-rest ! dup 2 run@ rcs rcs-fs @ swap lf-fsubst-apply'''
+new = '''  dup 3 run-after lf-must rcs rcs-rest ! dup 2 run@'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E1: a target is matched as it was before an earlier split reverted it"
+equivalent = "the only targets a later split reverts are an existential's fields, whose patterns in slice E1 are names (nothing done), - (finish maps the clears through the substitution itself) or splits of an Eq (99 before any use); E2's rfl reaches it"
+
+[[fault]]
+id = "rcases-top-as-sequence"
+file = "src/front/pattern-syntax.fs"
+old = '''  3 pfr-close pfr pfr-elems @ 1 <> if lfa-e-pat-one lfa-fail then'''
+new = '''  3 pfr-close'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E1: by-rcases[ x y ] is read as Lean's rcases h with x y would be, not refused 474 (test.fs's 474 pair)"
+
+[[fault]]
+id = "fsubst-insert-no-map"
+file = "src/front/fvar-subst.fs"
+old = '''  dup fsb-key swap fsb-val fsi fsi-key @ fsi fsi-val @ lf-replace-fvar lf-fsubst-pair'''
+new = '''  dup fsb-key swap fsb-val lf-fsubst-pair'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E1: insert keeps the old terms holding the new key (test.fs's s2: c maps to a, not b)"
+
+[[fault]]
+id = "revert-kept-first-only"
+file = "src/front/meta-tactic/revert.fs"
+old = ''': mrv-run-kept ( -- goal' kept ) mrv-reverted 0 mrv-out# 0 ?do i mrv-local+ loop ;'''
+new = ''': mrv-run-kept ( -- goal' kept ) mrv-reverted 0 1 0 ?do i mrv-local+ loop ;'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E1: kept holds the major alone, its dependents' names lost (test.fs's kept1 count 2)"
+
+[[fault]]
+id = "induction-major-kept"
+file = "src/front/meta-tactic/meta-induction.fs"
+old = '''  dup mid-fields# >r mid mid-major @ lf-goal-try-clear mid-names@ r> lf-goal-intro-names'''
+new = '''  dup mid-fields# >r mid-names@ r> lf-goal-intro-names'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E1: the major is not try-cleared from each minor premise's goal (test.fs's gi1 view# 4)"
+
+[[fault]]
+id = "cases-no-nat-aux"
+file = "src/front/meta-tactic/cases.fs"
+old = '''  mcs-nat? and if s" Nat.casesAuxOn" mcs-named if exit then then mcs-cases-on ;'''
+new = '''  drop mcs-cases-on ;'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E1: rcases splits Nat by Nat.casesOn, its goals Nat.zero and Nat.succ n (test.fs's subs-nat; check.py's rc_nat term)"
+
+[[fault]]
+id = "generalize-names-dropped"
+file = "src/front/meta-tactic/generalize.fs"
+old = ''': mgz-names ( -- names ) 0 mgz-n 0 ?do i mgz-arg nip lf-run+ loop ;'''
+new = ''': mgz-names ( -- names ) 0 ;'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E1: a generalized term's variable is the hidden x whatever the pattern names (test.fs's y named)"
+
+[[fault]]
+id = "pattern-span-short"
+file = "src/front/pattern-syntax.fs"
+old = ''': pat-node ( i kind from -- i ) targ# swap - 1+ >r lfa-here lft-arg+ r> pat-span! ;'''
+new = ''': pat-node ( i kind from -- i ) targ# swap - >r lfa-here lft-arg+ r> pat-span! ;'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E1: a node's span leaves itself out (test.fs's tuple span 3)"
+
+[[fault]]
+id = "rinfo-level-always-motive"
+file = "src/front/meta-tactic/meta-induction.fs"
+old = ''': mri-univ ( name -- pos ) dup mri-motive-level? if drop -1 else mri-ilevel then ;'''
+new = ''': mri-univ ( name -- pos ) drop -1 ;'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E1: Exists.casesOn's level is taken as the motive's, not Exists's own (test.fs's i-ex level 0)"

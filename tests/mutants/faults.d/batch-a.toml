@@ -91,8 +91,8 @@ reason = "TB2: revert leaves the locals that depend on the reverted one (collect
 [[fault]]
 id = "tb2-revert-not-applied"
 file = "src/front/meta-tactic/revert.fs"
-old = ''': mrv-run ( -- goal' n ) mrv-collect mrv-new dup mrv-applied mrv-assign mrv-out# ;'''
-new = ''': mrv-run ( -- goal' n ) mrv-collect mrv-new dup mrv-assign mrv-out# ;'''
+old = ''': mrv-reverted ( -- goal' ) mrv-collect mrv-new dup mrv-applied mrv-assign ;'''
+new = ''': mrv-reverted ( -- goal' ) mrv-collect mrv-new dup mrv-assign ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: the goal assigned the new goal not applied to the reverted variables"
 

@@ -55,7 +55,8 @@ require ./meta-must.fs
 : fsb-val ( pair -- e ) 1 run@ ;
 : fsb-is? ( fs fvar k -- fs fvar flag ) >r over r> run@ fsb-key over = ;
 : fsb-index ( fs fvar -- fs k true | fs false ) over run-count ['] fsb-is? find-index ;
-: lf-fsubst-get ( fs fvar -- e ) dup >r fsb-index if run@ fsb-val r> drop else drop r> then ;
+: lf-fsubst-get ( fs fvar -- e ) dup >r fsb-index if run@ fsb-val r> drop else drop
+  r> then ;
 
 \ ---- apply: each pair in turn, oldest first.
 : fsb-step ( e pair -- e' outcome ) dup fsb-key swap fsb-val lf-replace-fvar outcome-ok ;
@@ -70,13 +71,13 @@ end-structure
 : fsi ( -- frame ) fsi-frames slab-last ;
 : fsi-pair ( -- pair ) fsi fsi-key @ fsi fsi-val @ lf-fsubst-pair ;
 : fsi-mapped ( out pair -- out' outcome )
-  dup fsb-key swap fsb-val fsi fsi-key @ fsi fsi-val @ lf-replace-fvar lf-fsubst-pair lf-run+
-  outcome-ok ;
+  dup fsb-key swap fsb-val fsi fsi-key @ fsi fsi-val @ lf-replace-fvar lf-fsubst-pair
+  lf-run+ outcome-ok ;
 : fsi-run ( fs -- fs' ) 0 swap ['] fsi-mapped run-each lf-must fsi-pair lf-run+ ;
 : fsi-framed ( fs fvar e -- fs' ) fsi fsi-val ! fsi fsi-key ! fsi-run ;
 : lf-fsubst-insert ( fs fvar e -- fs' )
-  over >r >r fsb-index if drop r> r> 2drop exit then r> r> swap fsi-frames ['] fsi-framed
-  lf-with-record ;
+  over >r >r fsb-index if drop r> r> 2drop exit then
+  r> r> swap fsi-frames ['] fsi-framed lf-with-record ;
 : fsi-other? ( pair -- flag ) fsb-key fsi fsi-key @ <> ;
 : fse-framed ( fs fvar -- fs' ) fsi fsi-key ! ['] fsi-other? run-filter lf-must ;
 : lf-fsubst-erase ( fs fvar -- fs' ) fsi-frames ['] fse-framed lf-with-record ;

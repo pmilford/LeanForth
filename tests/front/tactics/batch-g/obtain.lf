@@ -66,6 +66,20 @@ theorem ob_clear
   ' h2 by-exact
 end ob_clear
 
+\ - waits for the goal's end (RCases.lean's finish), then clears its
+\ target and every local depending on it: w and hw, which depends on w.
+\ Lean: theorem ob_clear_dep (a : Nat) (h : Exists (Eq a)) : a = a := by
+\         obtain ⟨-, hw⟩ := h
+\         rfl
+theorem ob_clear_dep
+  Nat explicit: a
+  ' Eq a $ Exists explicit: h
+  a a =
+:= by
+  ' h by-obtain[ << - hw >> ]
+  by-rfl
+end ob_clear_dep
+
 \ A term is generalized first (an inaccessible x), then split.
 \ Lean: theorem ob_term (a b : Nat) (h : a = b) (k : b = a) : b = a := by
 \         obtain ⟨p, q⟩ := And.intro h k

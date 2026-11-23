@@ -117,18 +117,22 @@ end-structure
 \ A node's children, last first: back from the node over each one's span.
 : rcs-back ( rev c -- rev' c' ) tuck lf-run+ swap dup rcs-span - ;
 : rcs-kids ( node -- rev )
-  dup rcs-span over swap - >r 0 swap 1- begin dup r@ > while rcs-back repeat drop r> drop ;
+  dup rcs-span over swap - >r 0 swap 1- begin dup r@ > while rcs-back repeat drop r>
+  drop ;
 
 \ ---- Lists: asAlts (kind pat-alts) and asTuple (pat-tuple).
 : rcs-pair+ ( run node s -- run' ) >r lf-run+ r> lf-run+ ;
 : rcs-kid+ ( list rev j -- list rev )
   over run-count 1- swap - over swap run@ rot swap -1 rcs-pair+ swap ;
 : rcs-container ( node s -- list )
-  0 max 2dup 0 -rot rcs-pair+ -rot swap rcs-kids dup run-count rot ?do i rcs-kid+ loop drop ;
+  0 max 2dup 0 -rot rcs-pair+ -rot swap rcs-kids dup run-count rot ?do i rcs-kid+
+  loop drop ;
 : rcs-single ( node s -- list ) 0 -1 0 rcs-pair+ -rot rcs-pair+ ;
-: rcs-list ( node s kind -- list ) >r over rcs-kind r> = if rcs-container else rcs-single then ;
+: rcs-list ( node s kind -- list ) >r over rcs-kind r> = if rcs-container else
+  rcs-single then ;
 : rcs-len ( list -- n ) run-count 2 - 2/ ;
-: rcs-elem ( list j -- node s ) 2* 2 + 2dup run@ -rot 1+ run@ ;
+: rcs-pair@ ( run k -- node s ) 2* 2dup run@ -rot 1+ run@ ;   \ pair k of a run
+: rcs-elem ( list j -- node s ) 1+ rcs-pair@ ;   \ past the list's head pair
 : rcs-elem0 ( list j -- node s ) 2dup swap rcs-len < if rcs-elem else 2drop -1 -1 then ;
 : rcs-rest-of ( list j -- node s ) over 0 run@ -rot swap 1 run@ + ;
 
@@ -162,7 +166,8 @@ end-structure
   rcs rcs-alts @ rcs rcs-k @ rcs-elem0 pat-tuple rcs-list 1 rcs rcs-k +! ;
 : rcs-alt ( last? -- ) rcs-many? if rcs-rest-alts else rcs-next-alt then rcs rcs-h ! ;
 : rcs-r+ ( name ns ps -- )
-  >r rcs rcs-names @ swap lf-run+ rcs rcs-names ! rcs rcs-r @ swap lf-run+ r> lf-run+ rcs rcs-r ! ;
+  >r rcs rcs-names @ swap lf-run+ rcs rcs-names ! rcs rcs-r @ swap lf-run+ r> lf-run+ rcs
+  rcs-r ! ;
 : rcs-one-ctor ( name last? -- ) rcs-alt dup rcs-ctor rcs-r+ ;
 : rcs-process ( node s -- )
   pat-alts rcs-list rcs rcs-alts ! 0 rcs rcs-k ! 0 rcs rcs-names ! 0 rcs rcs-r !
@@ -171,7 +176,7 @@ end-structure
 \ ---- Tasks: four cells each on the stack run.
 : rcs-task+ ( goal fs clears pending -- )
   >r >r >r rcs rcs-tasks @ swap lf-run+ r> lf-run+ r> lf-run+ r> lf-run+ rcs rcs-tasks ! ;
-: rcs-task@ ( k -- x ) rcs rcs-tasks @ dup run-count 4 - rot + run@ ;
+: rcs-task@ ( k -- x ) >r rcs rcs-tasks @ dup run-count 4 - r> + run@ ;
 : rcs-pop ( -- goal fs clears pending )
   0 rcs-task@ 1 rcs-task@ 2 rcs-task@ 3 rcs-task@
   rcs rcs-tasks @ dup run-count 4 - run-take lf-must rcs rcs-tasks ! ;
@@ -184,49 +189,59 @@ end-structure
 : rcs-got ( fs run c -- fs run' outcome )
   >r over r> lf-fsubst-get dup lf-meta-fvar? if lf-run+ else drop then outcome-ok ;
 : rcs-cs ( -- run ) rcs rcs-fs @ 0 rcs rcs-clears @ ['] rcs-got run-each lf-must nip ;
-: rcs-dep? ( lfvar run k -- lfvar run flag ) over swap run@ >r over r> lf-local-depends-on? lf-must ;
+: rcs-dep? ( lfvar run k -- lfvar run flag ) over swap run@ >r over r>
+  lf-local-depends-on? lf-must ;
 : rcs-erase+ ( run local -- run' outcome )
-  lf-local-fvar swap dup run-count ['] rcs-dep? any? if swap lf-run+ else nip then outcome-ok ;
+  lf-local-fvar swap dup run-count ['] rcs-dep? any? if swap lf-run+ else nip
+  then outcome-ok ;
 : rcs-erased ( goal -- run ) rcs-cs swap lf-goal-view ['] rcs-erase+ run-each lf-must ;
 : rcs-cleared ( goal run -- goal' )
-  dup run-count begin ?dup while 1- 2dup run@ >r rot r> lf-goal-try-clear -rot repeat drop ;
+  dup run-count begin ?dup while 1- 2dup run@ >r rot r> lf-goal-try-clear -rot repeat
+  drop ;
 : rcs-finish-in ( goal -- goal' ) dup rcs-erased rcs-cleared ;
 : rcs-finish ( -- )
-  rcs rcs-goal @ dup ['] rcs-finish-in lf-with-goal rcs rcs-goals @ swap lf-run+ rcs rcs-goals ! ;
+  rcs rcs-goal @ dup ['] rcs-finish-in lf-with-goal rcs rcs-goals @ swap lf-run+ rcs
+  rcs-goals ! ;
 
 \ ---- A split (rcasesCore's last case), in the task's goal's context:
 \ the target a free variable (470) of an inductive type (471; Quot 99).
 : rcs-fvar-tail ( -- outcome ) s"  is not a free variable" lf-pp-emit outcome-ok ;
-: rcs-fvar. ( e -- outcome ) s"  " lf-pp-emit lf-tac-inline. ['] rcs-fvar-tail ok-and ;
+: rcs-fvar. ( e -- outcome ) ['] rcs-fvar-tail lf-tac-spaced. ;
 : rcs-not-fvar ( e -- ) ['] rcs-fvar. lf-tac-inline lfa-e-rcases-fvar lf-tac-stop ;
 : rcs-colon ( -- outcome ) s"  : " lf-pp-emit outcome-ok ;
 : rcs-of. ( e -- outcome ) s"  `" lf-pp-emit lf-tac-term. ['] rcs-colon ok-and ;
 : rcs-ind-tail ( -- outcome ) s" ` is not an inductive datatype" lf-pp-emit outcome-ok ;
 : rcs-type. ( t -- outcome ) lf-tac-term. ['] rcs-ind-tail ok-and ;
 : rcs-not-inductive ( e t -- )
-  swap ['] rcs-of. lf-tac-inline ['] rcs-type. lf-tac-inline lfa-e-rcases-inductive lf-tac-stop ;
-: rcs-quot? ( t -- flag ) lf-meta-head-name if s" Quot" lfa-intern lf-name-same? else false then ;
+  swap ['] rcs-of. lf-tac-inline ['] rcs-type. lf-tac-inline
+  lfa-e-rcases-inductive lf-tac-stop ;
+: rcs-quot? ( t -- flag ) lf-meta-head-name if s" Quot" lfa-intern lf-name-same? else
+  false then ;
 : rcs-inductive ( e t -- )
   dup lf-meta-head lf-match-const-induct if rcs rcs-ind ! 2drop exit then
   dup rcs-quot? if lf-tac-unported then rcs-not-inductive ;
 : rcs-check ( -- )
-  rcs rcs-e @ dup lf-meta-fvar? 0= if rcs-not-fvar then dup lf-infer! lf-whnf-d! rcs-inductive ;
-: rcs-cases ( -- ) rcs rcs-goal @ rcs rcs-e @ rcs rcs-names @ true lf-goal-cases rcs rcs-subs ! ;
+  rcs rcs-e @ dup lf-meta-fvar? 0= if rcs-not-fvar then dup lf-infer!
+  lf-whnf-d! rcs-inductive ;
+: rcs-cases ( -- ) rcs rcs-goal @ rcs rcs-e @ rcs rcs-names @ true lf-goal-cases rcs
+  rcs-subs ! ;
 
 \ ---- align: each subgoal with the first constructor entry of its name
 \ at or after the cursor (those passed over are dropped, as Lean's).
 : rcs-r# ( -- n ) rcs rcs-r @ run-count 2/ ;
 : rcs-r@ ( m k -- x ) swap 2* + rcs rcs-r @ swap run@ ;
 : rcs-find ( ctor kr -- m true | false )
-  rcs-r# swap ?do dup i 0 rcs-r@ lf-name-same? if drop i true unloop exit then loop drop false ;
+  rcs-r# swap ?do dup i 0 rcs-r@ lf-name-same? if drop i true unloop exit then loop
+  drop false ;
 : rcs-sub@ ( i k -- x ) swap 4 * + rcs rcs-subs @ swap run@ ;
 : rcs-new+ ( x -- ) rcs rcs-new @ swap lf-run+ rcs rcs-new ! ;
 \ The constructor's patterns zipped with the subgoal's fields, then the rest.
 : rcs-zip+ ( run j -- run' )
-  dup >r rcs rcs-zps @ swap 2* 2dup run@ -rot 1+ run@ rcs rcs-zfs @ r> run@ rcs-triple+ ;
+  dup >r rcs rcs-zps @ swap rcs-pair@ rcs rcs-zfs @ r> run@ rcs-triple+ ;
 : rcs-zip# ( -- n ) rcs rcs-zfs @ run-count rcs rcs-zps @ run-count 2/ min ;
 : rcs-zip ( ps fields -- pending )
-  rcs rcs-zfs ! rcs rcs-zps ! 0 rcs-zip# 0 ?do i rcs-zip+ loop rcs rcs-rest @ run-cat lf-must ;
+  rcs rcs-zfs ! rcs rcs-zps ! 0 rcs-zip# 0 ?do i rcs-zip+ loop rcs rcs-rest @
+  run-cat lf-must ;
 : rcs-sub-task ( i m -- )
   1 rcs-r@ over 1 rcs-sub@ rcs-zip >r dup 0 rcs-sub@ rcs-new+ rcs rcs-fs @ swap 2 rcs-sub@
   lf-fsubst-append rcs-new+ rcs rcs-clears @ rcs-new+ r> rcs-new+ ;
@@ -247,15 +262,16 @@ end-structure
 : rcs-first ( pending -- node s )
   dup 3 run-after lf-must rcs rcs-rest ! dup 2 run@ rcs rcs-fs @ swap lf-fsubst-apply
   rcs rcs-e ! dup 0 run@ swap 1 run@ ;
-: rcs-clear ( -- )
-  rcs rcs-e @ dup lf-meta-fvar? if rcs rcs-clears @ swap lf-run+ rcs rcs-clears ! else drop then
-  rcs-again ;
+: rcs-clears+ ( fvar -- ) rcs rcs-clears @ swap lf-run+ rcs rcs-clears ! ;
+: rcs-clear ( -- ) rcs rcs-e @ dup lf-meta-fvar? if rcs-clears+ else drop then rcs-again ;
 : rcs-match ( node s -- )
   over rcs-kind dup 0< 0= if drop 2drop rcs-again exit then
-  dup pat-clear = if drop 2drop rcs-clear exit then pat-rfl = if lf-tac-unported then rcs-split ;
+  dup pat-clear = if drop 2drop rcs-clear exit then
+  pat-rfl = if lf-tac-unported then rcs-split ;
 : rcs-task-step ( goal fs clears pending -- )
   >r rcs-task! r> dup run-count if rcs-first rcs-match else drop rcs-finish then ;
-: rcs-loop ( -- ) begin rcs rcs-tasks @ run-count while rcs-pop rcs-task-step repeat ;
+: rcs-next-task ( -- ) rcs-pop rcs-task-step ;
+: rcs-loop ( -- ) begin rcs rcs-tasks @ run-count while rcs-next-task repeat ;
 
 \ ---- rcases: the target, generalized unless a free variable
 \ (generalizeExceptFVar), matched with the pattern's root.
@@ -264,7 +280,8 @@ end-structure
   dup lf-meta-fvar? if exit then
   0 swap lf-run+ rcs-root rcs-name lf-run+ lf-goal-generalize swap 0 run@ ;
 : rcs-start ( goal e -- ) rcs-target >r 0 rcs-root r> rcs-triple+ >r 0 0 r> rcs-task+ ;
-: rcs-run ( goal -- goals ) rcs rcs-step @ 0 lf-tac-elab-arg rcs-start rcs-loop rcs rcs-goals @ ;
+: rcs-run ( goal -- goals ) rcs rcs-step @ 0 lf-tac-elab-arg rcs-start rcs-loop rcs
+  rcs-goals @ ;
 : rcs-framed ( i goal -- goals ) swap rcs rcs-step ! dup ['] rcs-run lf-with-goal ;
 : rcs-synth ( i goal -- goals ) rcs-frames ['] rcs-framed lf-with-record ;
 : lf-rcases ( i goal -- goals ) ['] rcs-synth lf-tac-with-synth ;

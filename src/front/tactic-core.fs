@@ -391,8 +391,7 @@ end-structure
 389 lfa-lean s" Unexpected term" lfa-code: lfa-e-tac-not-fvar
 : tcr-expected. ( -- outcome )
   s" ; expected single reference to variable" lf-pp-emit outcome-ok ;
-: tcr-unexpected. ( e -- outcome )
-  s"  " lf-pp-emit lf-tac-inline. ['] tcr-expected. ok-and ;
+: tcr-unexpected. ( e -- outcome ) ['] tcr-expected. lf-tac-spaced. ;
 : tcr-fvar ( e -- fvar )
   dup lf-meta-fvar? if exit then
   ['] tcr-unexpected. lf-tac-inline lfa-e-tac-not-fvar lf-tac-stop ;

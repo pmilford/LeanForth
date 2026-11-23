@@ -14,16 +14,16 @@ reason = "TB1: getIntrosSize reads a let's binder (a lambda) for its body, so bi
 [[fault]]
 id = "tb1-intro-explicit-only"
 file = "src/front/meta-tactic/goal.fs"
-old = ''': mti-introduced ( kind -- kind ) dup lf-binder-instance < 0= if mti-refused then ;'''
-new = ''': mti-introduced ( kind -- kind ) dup lf-binder-default <> if mti-refused then ;'''
+old = ''': mti-introduced ( kind -- kind ) dup lf-binder-instance < 0= if lf-tac-unported then ;'''
+new = ''': mti-introduced ( kind -- kind ) dup lf-binder-default <> if lf-tac-unported then ;'''
 test = "$GFORTH tests/front/tactics/intros/test.fs"
 reason = "TB1: kinds 0 back to explicit only: an implicit or strict-implicit binder refused (99) where Lean's intro and intros introduce it"
 
 [[fault]]
 id = "tb1-intro-instance-accepted"
 file = "src/front/meta-tactic/goal.fs"
-old = ''': mti-introduced ( kind -- kind ) dup lf-binder-instance < 0= if mti-refused then ;'''
-new = ''': mti-introduced ( kind -- kind ) dup lf-binder-instance 1+ < 0= if mti-refused then ;'''
+old = ''': mti-introduced ( kind -- kind ) dup lf-binder-instance < 0= if lf-tac-unported then ;'''
+new = ''': mti-introduced ( kind -- kind ) dup lf-binder-instance 1+ < 0= if lf-tac-unported then ;'''
 test = "$GFORTH tests/front/tactics/intros/test.fs"
 reason = "TB1: an instance binder introduced with no local instance (Lean adds one, plan FE3), never refused"
 
@@ -54,7 +54,7 @@ reason = "TB1: intros' one goal handed to liftMetaTactic as a list"
 [[fault]]
 id = "tb1-intros-kind-not-kept"
 file = "src/front/meta-tactic/goal.fs"
-old = '''  dup mti-dom swap mti-named mti mti-k @ or lf-local-decl-new lf-mctx-view! ;'''
-new = '''  dup mti-dom swap mti-named lf-local-decl-new lf-mctx-view! ;'''
+old = '''  dup lf-binder-domain swap mti-named mti mti-k @ or lf-local-decl-new lf-mctx-view! ;'''
+new = '''  dup lf-binder-domain swap mti-named lf-local-decl-new lf-mctx-view! ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/intros/check.py"
 reason = "TB1: every local introduced explicit, whatever its binder's kind (the lambdas' kinds differ from pinned Lean's)"

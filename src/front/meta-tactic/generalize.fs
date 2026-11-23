@@ -64,13 +64,14 @@ end-structure
   >r lf-instantiate! dup lf-infer! lf-instantiate! -rot mgz-abstract lf-term-pi lf-made!
   dup r> mgz-name lf-binder-default lf-pres-binder! lf-must ;
 : mgz-target ( -- t )
-  mgz mgz-goal @ lf-goal-type lf-instantiate! mgz-n 0 ?do mgz-n 1- i - mgz-arg mgz-forall loop ;
+  mgz mgz-goal @ lf-goal-type lf-instantiate! mgz-n 0 ?do mgz-n 1- i - mgz-arg
+  mgz-forall loop ;
 : mgz-checked ( t -- t )
-  dup lf-defeq-mode lf-meta-check dup outcome-invalid = if drop lf-tac-unported then
-  lf-must ;
+  dup lf-defeq-mode lf-meta-check dup outcome-invalid = if drop lf-tac-unported
+  then lf-must ;
 \ The new goal applied to e1 .. en, then the n binders introduced.
 : mgz-applied ( goal' -- e ) mgz-n 0 ?do i mgz-arg drop lf-mk-app loop ;
-: mgz-names ( -- names ) 0 mgz-n 0 ?do i mgz-arg nip run-push lf-must loop ;
+: mgz-names ( -- names ) 0 mgz-n 0 ?do i mgz-arg nip lf-run+ loop ;
 : mgz-run ( -- fvars goal' )
   mgz-target mgz-checked mgz mgz-goal @ lf-goal-fresh dup mgz-applied mgz mgz-goal @ swap
   lf-mvar-assign lf-must mgz-names mgz-n lf-goal-intro-names swap ;

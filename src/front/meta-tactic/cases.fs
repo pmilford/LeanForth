@@ -72,11 +72,13 @@ end-structure
 : mcs-params# ( -- n ) mcs-data lf-ity-params lf-more-field ;
 : mcs-indices# ( -- n ) mcs-data lf-ity-indices lf-more-field ;
 : mcs-cases-on ( -- d )
-  mcs mcs-d @ lf-menv-name s" casesOn" lfa-intern-part lf-menv-find? 0= if lf-tac-unported then ;
+  mcs mcs-d @ lf-menv-name s" casesOn" lfa-intern-part lf-menv-find? 0= if
+  lf-tac-unported then ;
 : mcs-arity ( n -- ) mcs-params# mcs-indices# + <> if lf-tac-unported then ;
 : mcs-context ( major -- )
   s" Eq" mcs-has s" HEq" mcs-has dup mcs mcs-major ! lf-infer! lf-whnf! dup mcs mcs-type !
-  lf-meta-head-args >r lf-match-const-induct 0= if lf-tac-unported then mcs mcs-d ! r> mcs-arity
+  lf-meta-head-args >r lf-match-const-induct 0= if lf-tac-unported then mcs mcs-d ! r>
+  mcs-arity
   mcs-cases-on drop mcs-indices# if lf-tac-unported then ;
 
 \ ---- inductionCasesOn: Nat.casesAuxOn for Nat when asked, else I.casesOn.
@@ -93,11 +95,13 @@ end-structure
 : mcs-field ( e x -- e' outcome ) lf-mk-app outcome-ok ;
 : mcs-ctor-app ( name fields -- e )
   swap mcs-head mcs-params# 0 ?do i mcs-param loop swap ['] mcs-field run-each lf-must ;
-: mcs-subst ( fs e -- fs' ) >r mcs mcs-major @ lf-fsubst-erase mcs mcs-major @ r> lf-fsubst-insert ;
+: mcs-subst ( fs e -- fs' ) >r mcs mcs-major @ lf-fsubst-erase mcs mcs-major @
+  r> lf-fsubst-insert ;
 : mcs-cell ( subgoals i k -- x ) swap 4 * + run@ ;
 : mcs-goal+ ( s i -- s i fields ) 2dup 0 mcs-cell mcs+ 2dup 1 mcs-cell dup mcs+ ;
 : mcs-one ( s i -- s )
-  mcs-goal+ >r 2dup 2 mcs-cell over mcs-ctor r> mcs-ctor-app mcs-subst mcs+ mcs-ctor mcs+ ;
+  mcs-goal+ >r 2dup 2 mcs-cell over mcs-ctor r> mcs-ctor-app mcs-subst mcs+ mcs-ctor
+  mcs+ ;
 : mcs-each ( subgoals -- subgoals' )
   dup run-count 4 / 0 ?do i mcs-one loop drop mcs mcs-out @ ;
 : mcs-run ( goal major names nat-aux? -- subgoals ) rot mcs-context mcs-split mcs-each ;
