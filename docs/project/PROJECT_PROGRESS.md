@@ -293,6 +293,12 @@ status changes when this date is older than them. Stages are those of the
      its share. Known so far: LeanForth's shares (replace passes 34%, universe substitution 22%, hash-consing 17%,
      validity checks 18.5%) have the shape of nanoda's (instantiation 34%, universe substitution 17%, hash-consing
      38%), so the gap looks like a constant cost per primitive more than one bad algorithm.
+     The owner's order for it (2026-11-23), each fitted in where it can be: (a) the measurement: the profiler a
+     kept tool, time per declaration, counts and time per primitive on Init with nanoda's beside them, and the
+     same Init check timed on each Gforth engine; (b) the algorithm changes with identical verdicts: the validity
+     re-checks removed, the cache with a 3.7% hit rate compared with Lean's, and instantiation and universe
+     substitution skipped wherever Lean skips them (no loose variables, no universe parameters); (c) lowest: native
+     primitives, for now measured only (which two or three would pay, and how much), not built.
   5. Later: a cheaper or parallel feed of the workers; the export parsed on several threads; a text's declarations
      elaborated in parallel.
 - Carry on to the next theorem after an error (2026-11-22, from the done check of blocks slice 1; not started): a
