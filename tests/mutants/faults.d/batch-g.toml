@@ -32,8 +32,8 @@ reason = "TB2 E1: x | y reads as two elements, 474 (test.fs's so x | y text expe
 [[fault]]
 id = "align-no-skip"
 file = "src/front/rcases.fs"
-old = '''  rcs-r# swap ?do dup i 0 rcs-r@ lf-name-same? if drop i true unloop exit then loop'''
-new = '''  rcs-r# swap ?do drop i true unloop exit loop'''
+old = ''': rcs-entry? ( ctor k -- ctor flag ) rcs rcs-kr @ + 0 rcs-r@ over lf-name-same? ;'''
+new = ''': rcs-entry? ( ctor k -- ctor flag ) drop true ;'''
 test = "$GFORTH tests/front/tactics/batch-g/test.fs"
 reason = "TB2 E1: align takes the entry at the cursor whatever its constructor's name"
 equivalent = "Meta cases' simple path (slice E1) gives every constructor a subgoal, in constructor order, so the entry at the cursor is always the subgoal's; E4's indexed families drop solved alternatives, and their tests catch it"

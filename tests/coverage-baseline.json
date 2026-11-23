@@ -436,6 +436,11 @@
    "blocks": 172,
    "never_run": 0
   },
+  "src/front/meta-tactic/cases.fs": {
+   "blocks": 64,
+   "never_run": 4,
+   "reason": "unreachable: new file (plan TB2, slice E1); cases.fs:70 Eq or HEq missing from the export (mcs-has): every test export holds both; cases.fs:71 an inductive type with no data (mcs-data): the library mode the tactics run in decodes every one (meta-env.fs's me-lib-data); cases.fs:77 a major's type not applied to all its parameters and indices (mcs-arity): a free variable's type through whnf is its inductive type fully applied; cases.fs:87 the fallback when the export lacks Nat.casesAuxOn (mcs-recursor): decide-slice, the unit tests' export, holds it"
+  },
   "src/front/meta-tactic/constructor.fs": {
    "blocks": 49,
    "never_run": 1,
@@ -448,6 +453,11 @@
   "src/front/meta-tactic/goal.fs": {
    "blocks": 187,
    "never_run": 0
+  },
+  "src/front/meta-tactic/meta-induction.fs": {
+   "blocks": 218,
+   "never_run": 8,
+   "reason": "unreachable: new file (plan TB2, slice E1); meta-induction.fs:147, meta-induction.fs:150, meta-induction.fs:158, meta-induction.fs:160, meta-induction.fs:167 Lean's invalid user defined recursor checks (a parameter not the major type's argument, more parameters than its arguments, a motive's sort neither Prop nor a level parameter, a level parameter neither the motive's nor the type's): no declaration of this shape in the test exports; reached by a user recursor (E5); meta-induction.fs:259 a binder of the recursor's type that is no pi (mid-app): the parameters' and the motive's binders were counted from that type and stay pis once instantiated (whnfForall); meta-induction.fs:277 a minor premise with fewer binders than the goal (mid-fields#): a casesOn or casesAuxOn minor premise ends in the motive applied, its fields before it; only a user recursor (E5) reaches it; meta-induction.fs:300 the major premise never applied (mid-end): its position is one of the recursor's binders, each a pi"
   },
   "src/front/meta-tactic/rename.fs": {
    "blocks": 57,
@@ -467,6 +477,11 @@
    "blocks": 244,
    "never_run": 22,
    "reason": "new file (plan FE1c, branch fe1c-3, 2026-11-13; measured over make test-front): never run are the full branches of the level and binder stacks and of a head's type (inferType refused), a metavariable head without a declaration, and shapes no test term has: a let at an application's head, a let in a type passed by isArrowProposition, a legacy numeric Sort"
+  },
+  "src/front/rcases.fs": {
+   "blocks": 225,
+   "never_run": 10,
+   "reason": "unreachable: new file (plan TB2, slice E1); rcases.fs:152 an implicit field past the parameters (rcs-field): no constructor of this shape in the test exports; reached by a user inductive type; rcases.fs:194, rcases.fs:212, rcases.fs:213, rcases.fs:214, rcases.fs:228, rcases.fs:271 a target or clear that is no free variable (rcs-got, rcs-fvar-tail, rcs-fvar., rcs-not-fvar, rcs-check, rcs-clear): the root is generalized to one, fields are free variables, and slice E1's substitutions map them to free variables only (E2's rfl reaches it); rcases.fs:222, rcases.fs:226 a type whose head is a constant but no inductive type (rcs-quot? named, the quotient's refusal): the test exports declare no opaque type, and the elaborator refuses a quotient before rcases sees it (probe p26); rcases.fs:254 no constructor entry for a subgoal (rcs-align's else): Meta cases in slice E1 gives every constructor one subgoal, in order (E4's indexed families reach it)"
   },
   "src/front/reader.fs": {
    "blocks": 158,

@@ -234,9 +234,8 @@ end-structure
 \ at or after the cursor (those passed over are dropped, as Lean's).
 : rcs-r# ( -- n ) rcs rcs-r @ run-count 2/ ;
 : rcs-r@ ( m k -- x ) swap 2* + rcs rcs-r @ swap run@ ;
-: rcs-find ( ctor kr -- m true | false )
-  rcs-r# swap ?do dup i 0 rcs-r@ lf-name-same? if drop i true unloop exit then loop
-  drop false ;
+: rcs-entry? ( ctor k -- ctor flag ) rcs rcs-kr @ + 0 rcs-r@ over lf-name-same? ;
+: rcs-find ( ctor -- k true | false ) rcs-r# rcs rcs-kr @ - ['] rcs-entry? find-index ;
 : rcs-sub ( i -- subgoals i ) rcs rcs-subs @ swap ;
 : rcs-new+ ( x -- ) rcs rcs-new lf-run+! ;
 \ The constructor's patterns zipped with the subgoal's fields, then the rest.
@@ -250,10 +249,9 @@ end-structure
   1 rcs-r@ over rcs-sub lf-subgoal-fields rcs-zip >r dup rcs-sub lf-subgoal-goal rcs-new+
   rcs rcs-fs @ swap rcs-sub lf-subgoal-subst lf-fsubst-append rcs-new+
   rcs rcs-clears @ rcs-new+ r> rcs-new+ ;
-: rcs-past ( m -- ) 1+ rcs rcs-kr ! ;   \ the cursor past entry m
+: rcs-matched ( i k -- ) rcs rcs-kr @ + dup 1+ rcs rcs-kr ! rcs-sub-task ;
 : rcs-align ( i -- )
-  dup rcs-sub lf-subgoal-ctor rcs rcs-kr @ rcs-find if dup rcs-past rcs-sub-task exit then
-  rcs-r# rcs rcs-kr ! drop ;
+  dup rcs-sub lf-subgoal-ctor rcs-find if rcs-matched exit then rcs-r# rcs rcs-kr ! drop ;
 \ The new tasks pushed last first, so the first subgoal is matched next.
 : rcs-new@ ( t k -- x ) swap rcs-task-cells * + rcs rcs-new @ swap run@ ;
 : rcs-push ( t -- ) >r r@ 0 rcs-new@ r@ 1 rcs-new@ r@ 2 rcs-new@ r> 3 rcs-new@ rcs-task+ ;

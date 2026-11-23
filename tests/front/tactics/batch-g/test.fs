@@ -152,9 +152,14 @@ T{ i-or tail3 -> 0 2 0 }T
 T{ s" Eq.casesOn" decl lf-recursor-info lf-rinfo-indices -> 1 }T
 : info-code ( d -- code ) ['] lf-recursor-info catch dup if nip then authored ;
 T{ s" Eq.refl" decl info-code -> 99 }T
+\ Lean's other refusals, 99: a conclusion that is a bound variable alone
+\ (id: no major premise), a major premise whose type is a bound variable
+\ (Eq.subst's b : α).
+T{ s" id" decl info-code s" Eq.subst" decl info-code -> 99 99 }T
 \ getTargetArity: pis, and the body of a redex's function.
 T{ ab lf-target-arity ab ab lf-term-pi lf-made! lf-target-arity -> 0 1 }T
 T{ ab ab lf-term-pi lf-made! nat swap lf-term-lam lf-made! fa lf-mk-app lf-target-arity -> 1 }T
+T{ nat lf-target-arity -> 0 }T   \ neither a pi nor a redex
 
 \ ---- 4. lf-goal-induction and lf-goal-cases.
 fresh
@@ -202,12 +207,26 @@ s" Not" lf-mk-const0 qa qb lf-mk-eq lf-mk-app s" n" binder constant qn
 qb qa lf-mk-eq goal constant ge
 T{ ge qe 0 true ' lf-goal-cases code4 ge open? -> 99 true }T
 T{ ge qn 0 true ' lf-goal-cases code4 ge open? -> 99 true }T
+\ Meta induction refuses (99), the goal left open, a major whose type has
+\ no head constant (¬(a = b), a pi through whnf), another inductive type
+\ than the recursor's (Eq for Or.casesOn), or indices (Eq.casesOn).
+T{ ge qn s" And.casesOn" decl 0 ' lf-goal-induction code4 -> 99 }T
+T{ ge qe s" Or.casesOn" decl 0 ' lf-goal-induction code4 -> 99 }T
+T{ ge qe s" Eq.casesOn" decl 0 ' lf-goal-induction code4 ge open? -> 99 true }T
 \ A dependent reverted and introduced again in each goal, mapped by the
 \ substitution: e : a = b depends on b.
 qa qb lf-mk-eq goal qb 0 true lf-goal-cases constant subs-dep
 T{ subs-dep 1 lf-subgoal-subst qe lf-fsubst-get dup lf-meta-fvar? swap qe = -> true false }T
 subs-dep 1 lf-subgoal-goal constant gdep
 T{ gdep dup view# 2 - s" e" named? gdep view# -> true 4 }T
+\ Meta cases of a type whose casesOn the export lacks (Iff): 99.
+: iff-of ( p q -- t ) s" Iff" 2swap 2 lf-mk-app-m ;
+qa qb lf-mk-eq qb qa lf-mk-eq iff-of s" i" binder constant qi
+T{ qb qa lf-mk-eq goal qi 0 true ' lf-goal-cases code4 -> 99 }T
+\ An eliminator into Prop only (Exists.casesOn) on a goal of type Nat:
+\ 99 (Lean's "can only eliminate into Prop").
+s" Eq" qa 1 lf-mk-app-m s" Exists" rot 1 lf-mk-app-m s" x" binder constant qx
+T{ nat goal qx s" Exists.casesOn" decl 0 ' lf-goal-induction code4 -> 99 }T
 
 \ ---- 5. lf-goal-generalize: a name given, else a hidden x.
 fresh
@@ -220,6 +239,11 @@ T{ gq' lf-goal-type ys 0 run@ gb lf-mk-eq eqv? -> true }T
 ga gb lf-mk-eq goal ga run1 0 lf-run+ lf-goal-generalize nip constant gq2
 T{ gq2 dup view# 1- hidden? gq2 dup view# 1- s" x" named? -> true true }T
 T{ gq ga run1 0 lf-run+ ' lf-goal-generalize code2 -> thrown-invalid }T   \ assigned
+\ A goal not type correct once generalized (a in @Eq (a = a) h
+\ (Eq.refl a)): 99, Lean's "result is not type correct".
+ga ga lf-mk-eq s" h" binder constant gh
+T{ gh s" Eq.refl" ga 1 lf-mk-app-m lf-mk-eq goal ga run1 0 lf-run+ ' lf-goal-generalize code2
+   -> 99 }T
 
 \ ---- 6. The reader (pattern-syntax.fs) and the walk through text.
 : st ( -- c-addr u ) s" Nat explicit: a Nat explicit: b a b = b a = ∧ explicit: h b a =" ;
@@ -245,6 +269,10 @@ T{ st s" ' h by-obtain[ << x ⟩ ]" tactic-ran st s" ' h by-obtain[ << x ]" tact
    st s" ' h by-obtain[ x >> ]" tactic-ran -> 473 473 473 }T
 T{ st s" ' h by-rcases[ x y ]" tactic-ran st s" ' h by-rcases[ ]" tactic-ran -> 474 474 }T
 T{ st s" ' h by-obtain[ x by-rfl ]" tactic-ran st s" ' h by-obtain[ @x ]" tactic-ran -> 458 72 }T
+\ The text ends inside the pattern: 458.
+: unended ( -- c-addr u ) s" theorem t Nat explicit: a a a = explicit: h a a = := by ' h by-obtain[ x" ;
+T{ lf-author-begin unended lf-author-text drop lf-author-code -> 458 }T
+lf-tac-forget
 T{ st s" ' h by-obtain[ << ⟨ x y ⟩ >> ] ' x ' y $ by-exact" tactic-ran 0= -> false }T
 lf-tac-forget
 \ The walk's other paths: - with a dependent (finish clears w and hw),
@@ -264,9 +292,8 @@ T{ st s" ' h by-obtain[ << >> ] by-assumption" tactic-ran -> 0 }T
 T{ st s" ' h by-obtain[ << hab hba >> ] ' h by-rcases[ x ] ' hba by-exact" tactic-ran -> 76 }T
 T{ st s" ' h by-obtain[ << hab hba >> ] ' h by-obtain[ _ ] ' hba by-exact" tactic-ran -> 76 }T
 lf-tac-forget
-\ 471: a type that is no inductive one (a pi through whnfD).
-: sn ( -- c-addr u ) s" Nat explicit: a Nat explicit: b a b = Not explicit: h a a =" ;
-T{ sn s" ' h by-rcases[ << x >> ]" tactic-ran dup 471 = swap 136 = or -> true }T
+\ 471: a type that is no inductive one (Nat's, Type), with Lean's text (p25).
+T{ s" True" s" ' Nat by-rcases[ << x >> ] by-trivial" tactic-ran -> 471 }T
 lf-tac-forget
 
 \ ---- 7. Resources: the words through their text with every heap
