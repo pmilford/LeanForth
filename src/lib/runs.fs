@@ -16,7 +16,8 @@
 \ - run-cat ( run1 run2 -- run outcome ): run1's cells, then run2's; no
 \   copy when run2 begins where run1 ends.
 \ - run-count ( run -- n ), run@ ( run i -- x ) (unchecked: a valid run,
-\   0 <= i < n), run-valid? ( run -- flag ).
+\   0 <= i < n), run-valid? ( run -- flag ); run@0 ( run i -- x ) cell
+\   i, or 0 for i at or past the end (a valid run, 0 <= i).
 \ - A run as a stack, its top the last cell: run-push, run-last ( run --
 \   x ) (unchecked, as run@: a valid run of one cell or more) and
 \   run-drop-last ( run -- run' outcome ), the run less its last cell (no
@@ -107,6 +108,8 @@ lf-lib set-current
   dup 0= if drop outcome-ok else rn-tail rn-new then ;
 \ A run as a stack: its top, and the run without it.
 : run-last ( run -- x ) dup run-count 1- run@ ;
+\ Cell i, or 0 past the run's end (a list of optional items: names).
+: run@0 ( run i -- x ) 2dup swap run-count < if run@ else 2drop 0 then ;
 : run-drop-last ( run -- run' outcome )
   dup run-valid? if dup run-count 1- run-take else drop -1 outcome-invalid then ;
 lf-lib-private set-current

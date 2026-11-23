@@ -28,9 +28,8 @@
 require ../tactic-api.fs
 
 \ ---- The target: a free variable that is not a let.
-: tind-refused ( -- ) lfa-e-tac-form lf-tac-fail ;
 : tind-fvar ( e -- fvar )
-  dup lf-meta-fvar? 0= if tind-refused then dup lf-fvar-let? if tind-refused then ;
+  dup lf-meta-fvar? 0= if lf-tac-unported then dup lf-fvar-let? if lf-tac-unported then ;
 : tind-target ( i -- fvar ) 0 lf-tac-elab-arg tind-fvar ;
 \ generalizeVars: a hypothesis whose type depends on the target.
 : tind-depends? ( target local -- target flag )
@@ -38,7 +37,7 @@ require ../tactic-api.fs
   lf-fvar-type over lf-depends-on? lf-tac-must ;
 : tind-dep-at? ( target k -- target flag ) tb tb-view @ swap lf-view-local tind-depends? ;
 : tind-independent ( target -- target )
-  tb tb-view @ lf-view-count ['] tind-dep-at? any? if tind-refused then ;
+  tb tb-view @ lf-view-count ['] tind-dep-at? any? if lf-tac-unported then ;
 
 \ ---- The eliminator applied, the motive set, the goal assigned.
 : tind-goal ( -- goal ) tb tb-goal @ ;

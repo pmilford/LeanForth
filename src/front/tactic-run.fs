@@ -76,7 +76,8 @@
 \ lf-tac-step ( -- i ) the step running, lf-tac-step-at ( i -- pos ) step
 \ i's word's place (tactics/exists.fs's syntax made there), lf-tac-main ( -- goal ),
 \ lf-tac-fail ( code -- ) (an error at the step running, with the goals),
-\ lf-tac-stop ( code -- ) (the same without the goals), lf-tac-must
+\ lf-tac-unported ( -- ) (its 99: this case of a tactic is not ported
+\ yet), lf-tac-stop ( code -- ) (the same without the goals), lf-tac-must
 \ ( outcome -- ) (a Meta step's failure stops the run), lf-tac-detail
 \ ( x xt -- ) (xt's printing as the error's detail), lf-tac-detail-n
 \ ( i*x n xt -- ) (the same of n cells), lf-tac-lean-fail ( term code
@@ -371,6 +372,7 @@ s" sorry" tac-k-sorry lf-tactic-lean!
 \ current token.)
 : lfr-fail ( code -- ) lf-tac-step lf-tactic-count < if lfr-at-step else lfa-fail then ;
 : lf-tac-fail ( code -- ) lfr-with-goals lfr-fail ;
+: lf-tac-unported ( -- ) lfa-e-tac-form lf-tac-fail ;
 : lf-tac-fail-at ( j code -- ) lfr-with-goals lf-tac-stop-at ;
 : lf-tac-stop ( code -- ) lfr-fail ;
 \ (A brace's are told at its }: Lean's withRef stx[2], BuiltinTactic.lean:

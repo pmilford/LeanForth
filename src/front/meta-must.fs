@@ -8,6 +8,7 @@
 \                                     outcome word's throwing face is the
 \                                     word followed by lf-must
 \   lf-made! ( flag -- )              a term store's false thrown as full
+\   lf-run+ ( run x -- run' )         run-push's throwing face (lib/runs.fs)
 \   lf-whnf! lf-whnf-r! lf-whnf-d! ( e -- e' )  whnf, whnfR, whnfD
 \   lf-infer! ( e -- type )           inferType
 \   lf-level! ( type -- level )       getLevel
@@ -113,6 +114,7 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/slab.fs
+require ../lib/runs.fs
 require ../core/input.fs
 require ../core/constant-term-boundary.fs
 require ./mvars.fs
@@ -142,6 +144,7 @@ end-structure
   dup ok? if drop exit then 0 mmf mmf-code !
   outcome-sane lf-meta-throw-base swap - throw ;
 : lf-made! ( flag -- ) 0= if outcome-full lf-must then ;
+: lf-run+ ( run x -- run' ) run-push lf-must ;
 \ A failure's outcome, any other code thrown on.
 : lfm-caught ( code -- outcome ) dup lf-meta-thrown? 0= if throw then lf-meta-outcome ;
 : lfm-drop-under ( i*x o out in -- o out ) 0 ?do rot drop loop ;

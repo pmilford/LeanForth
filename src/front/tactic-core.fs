@@ -33,7 +33,9 @@
 \       its argument k from 0 (a syntax node or a name, 0 for _) and that
 \       argument's place in the text; lf-tac-arg-symm? ( i k -- flag )
 \       whether argument k is a rule written right to left (<-, Lean's ←:
-\       rwRule's symm flag, withRWRulesSeq)
+\       rwRule's symm flag, withRWRulesSeq); lf-tac-arg-span ( i k -- n )
+\       a pattern item's span (pattern-syntax.fs), 0 for any other
+\       argument
 \   lf-tac-row ( kind -- )  kind's run word on the step running
 \       (lf-tac-step): a tactic Lean writes as another one, run on the
 \       same step (lf-tac-eval)
@@ -274,6 +276,7 @@ end-structure
 : lf-tac-arg ( i k -- x ) tcr-arg drop ;
 : lf-tac-arg-at ( i k -- pos ) tcr-arg nip ;
 : lf-tac-arg-symm? ( i k -- flag ) tcr-arg-index lf-tactic-arg-symm? ;
+: lf-tac-arg-span ( i k -- n ) tcr-arg-index lf-tactic-arg-span ;
 : lf-tac-only ( goal -- ) lf-goals1 lf-goals! lf-tac-must ;
 
 \ ---- A row on the step running; with_reducible rfl.

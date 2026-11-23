@@ -18,6 +18,16 @@
 \       of the kind of its local), with goal's tag, in goal's context
 \       without them (Lean's reduceLocalContext); goal assigned
 \       goal' x1 .. xn (elimMVar's mkAppN of the new metavariable)
+\   lf-goal-revert-kept ( goal fvars -- goal' kept )  MVarId.revert with
+\       preserveOrder true as Meta induction asks it (Induction.lean:229):
+\       the same goal' (one free variable asked, as every caller of slice
+\       E1 asks, gives the order preserveOrder false gives: the one asked,
+\       then its dependents oldest first; several asked are not supported
+\       yet, E4's indices), and kept, a run of the reverted locals in that
+\       order (lctx-views.fs's records, which never change: each one's
+\       name, kind and inaccessible flag, for goal.fs's
+\       lf-goal-intro-kept to put back, as Lean's introNP keeps a
+\       binder's name, hygienic or not); none asked gives goal and 0
 \   lf-goal-revert-after ( goal fvar -- goal' n )  MVarId.revertAfter
 \       (Revert.lean:51-56): every local after fvar in goal's context
 \       reverted so, oldest first (preserveOrder true asks the same order)
@@ -95,12 +105,21 @@ end-structure
 : mrv-new ( -- goal' ) mrv-type mrv mrv-goal @ lf-goal-tag mrv-view lf-goal-new lf-must ;
 : mrv-applied ( goal' -- e ) mrv-out# 0 ?do i mrv-out@ lf-mk-app loop ;
 : mrv-assign ( e -- ) mrv mrv-goal @ swap lf-mvar-assign lf-must ;
-: mrv-run ( -- goal' n ) mrv-collect mrv-new dup mrv-applied mrv-assign mrv-out# ;
-: mrv-framed ( goal fvars -- goal' n )
-  mrv mrv-in ! dup mrv mrv-goal ! ['] mrv-run lf-with-goal ;
-: lf-goal-revert ( goal fvars -- goal' n )
-  dup run-count 0= if drop 0 exit then
-  over lf-goal-not-assigned drop mrv-frames ['] mrv-framed lf-with-record ;
+: mrv-reverted ( -- goal' ) mrv-collect mrv-new dup mrv-applied mrv-assign ;
+: mrv-run ( -- goal' n ) mrv-reverted mrv-out# ;
+\ The reverted locals, as goal's context holds them (revert-kept's kept).
+: mrv-local+ ( run i -- run' )
+  mrv mrv-goal @ lf-goal-view swap mrv-out@ lf-view-local-of run-push lf-must ;
+: mrv-run-kept ( -- goal' kept ) mrv-reverted 0 mrv-out# 0 ?do i mrv-local+ loop ;
+: mrv-with ( goal fvars xt -- goal' x ) >r mrv mrv-in ! dup mrv mrv-goal ! r> lf-with-goal ;
+: mrv-framed ( goal fvars xt -- goal' x )
+  rot lf-goal-not-assigned -rot mrv-frames ['] mrv-with lf-with-record ;
+: mrv-none? ( goal fvars -- goal 0 true | goal fvars false )
+  dup run-count if false else drop 0 true then ;
+: lf-goal-revert ( goal fvars -- goal' n ) mrv-none? if exit then ['] mrv-run mrv-framed ;
+: lf-goal-revert-kept ( goal fvars -- goal' kept )
+  dup run-count 1 > if outcome-unsupported lf-must then
+  mrv-none? if exit then ['] mrv-run-kept mrv-framed ;
 
 \ ---- revertAfter: the locals after fvar, a run.
 : mrv-fvar+ ( run view i -- run' view )

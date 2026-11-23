@@ -5,6 +5,8 @@
 \ ends; the current context's names as a goal there shows them, n✝ for
 \ an inaccessible n, goal-print.fs's lf-with-names), after Lean 4.35.0's
 \ MessageData helpers:
+\   lf-tac-term. ( term -- outcome )  m!"{e}": the term instantiated, to
+\       the message's sink, named as its goals print it
 \   lf-tac-indented. ( term -- outcome )  indentExpr: the term
 \       instantiated, on its own line, indented, to the message's sink
 \   lf-tac-inline. ( term -- outcome )  inlineExpr: `term`
@@ -60,11 +62,11 @@ require ./meta-must.fs
 \ Named in the current context as its goals print it (goal-print.fs's
 \ lf-with-names: n✝ for an inaccessible n, plan 9.4.8l O).
 : tmg-named ( term -- outcome ) ['] tmg-noted lf-mctx-view lf-with-names ;
-: tmg-term. ( term -- outcome ) lf-instantiate-mvars ok-then? if tmg-named then ;
-: lf-tac-indented. ( term -- outcome ) s"   " lf-pp-emit tmg-term. ;
+: lf-tac-term. ( term -- outcome ) lf-instantiate-mvars ok-then? if tmg-named then ;
+: lf-tac-indented. ( term -- outcome ) s"   " lf-pp-emit lf-tac-term. ;
 : lf-tac-line. ( c-addr u term -- outcome ) >r lf-pp-emit r> lf-tac-indented. ;
 : tmg-mark ( c-addr -- ) 1 lf-pp-emit ;   \ one character
-: tmg-in ( term c-addr -- outcome ) dup tmg-mark swap tmg-term. swap tmg-mark ;
+: tmg-in ( term c-addr -- outcome ) dup tmg-mark swap lf-tac-term. swap tmg-mark ;
 : lf-tac-inline. ( term -- outcome ) s" `" drop tmg-in ;
 : lf-tac-quoted. ( term -- outcome ) s" '" drop tmg-in ;
 : lf-tac-goal-of. ( goal -- outcome ) s\" \n" lf-pp-emit lf-goal-print ;

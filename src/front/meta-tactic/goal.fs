@@ -64,6 +64,20 @@
 \       (mkLambdaFVars has no let case), and with kinds 0 a binder of no
 \       known kind or an instance one (a local instance is plan FE3). The
 \       current context is put back.
+\   lf-goal-intro-names ( goal names n -- goal' xs )  introN n with the
+\       names of the run names (Lean's givenNames, useNamesForExplicitOnly
+\       false: a name for every binder in turn; 0, Lean's _, and every
+\       binder past the run's end the binder's own name, inaccessible)
+\       and the nodes' kinds: lf-goal-intro-n, xs the new free variables
+\       as a run; n 0 gives goal itself and 0 (Lean asks nothing then)
+\   lf-goal-intro-kept ( goal kept n -- goal' xs )  introNP n (Intro.lean
+\       :139, preserveBinderNames) of binders revert.fs's
+\       lf-goal-revert-kept made: each takes its name, kind and
+\       inaccessible flag back from the first n locals of the run kept (an
+\       anonymous one a fresh inaccessible a, Intro.lean:116), so a name
+\       Lean hides stays hidden (TACTIC_PATTERNS.md section 3, review 2);
+\       an instance binder is not supported yet (99, plan FE3); xs a run;
+\       n 0 gives goal itself and 0; kept shorter than n is thrown invalid
 \   lf-intros-size ( type -- n )  getIntrosSize (Intro.lean:190): the
 \       leading pis and lets of type as it is (no delta, no
 \       instantiation; LeanForth's terms carry no mdata)
@@ -124,8 +138,9 @@
 \ outcomes (meta-must.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: mti-frames and mrf-frames (introN's and refl's frames, one per
-\ call open, meta-must.fs's lf-with-record) and mti-cells (intros' free
-\ variables, n cells a call, meta-must.fs's lf-with-cells), in the
+\ call open, meta-must.fs's lf-with-record), mti-cells (intros' free
+\ variables, n cells a call, meta-must.fs's lf-with-cells) and mtk-cells
+\ (intro-names' and intro-kept's names, kinds and variables), in the
 \ checker context (ADR 0009); no other. Loads in
 \ decimal whatever BASE is, then restores it.
 
@@ -133,6 +148,8 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../../lib/lib.fs
 require ../../lib/slab.fs
 require ../../lib/find.fs
+require ../../lib/runs.fs
+require ../../lib/bounds.fs
 require ../../lib/context.fs
 require ../../core/terms.fs
 require ../../core/let-terms.fs
@@ -262,10 +279,9 @@ end-structure
 \ (a local instance, plan FE3). Else the binder's kind is the caller's,
 \ or the node's (Lean's c of introNImp's forallE case): explicit,
 \ implicit or strict implicit, kept in the frame.
-: mti-refused ( -- ) lfa-e-tac-form lf-tac-fail ;
-: mti-unlet ( pi -- pi ) dup lf-let? if mti-refused then ;
-: mti-introduced ( kind -- kind ) dup lf-binder-instance < 0= if mti-refused then ;
-: mti-node-kind ( pi -- kind ) lf-binder-of 0= if mti-refused then nip mti-introduced ;
+: mti-unlet ( pi -- pi ) dup lf-let? if lf-tac-unported then ;
+: mti-introduced ( kind -- kind ) dup lf-binder-instance < 0= if lf-tac-unported then ;
+: mti-node-kind ( pi -- kind ) lf-binder-of 0= if lf-tac-unported then nip mti-introduced ;
 : mti-kind ( pi -- kind ) mti mti-kinds @ ?dup if nip mti-at @ else mti-node-kind then ;
 : mti-kind! ( pi -- pi ) dup mti-kind mti mti-k ! ;
 \ The name given, else the binder's own (a when it has none) made
@@ -305,6 +321,33 @@ end-structure
 : lf-goal-intros ( goal -- goal' )
   dup lf-goal-type lf-instantiate! lf-intros-size ?dup 0= if exit then
   dup mti-cells ['] mti-intros lf-with-cells ;
+
+\ ---- introN with a run of names, introNP with revert's kept locals: n
+\ cells of names, n of kinds (intro-kept's: the kind and the inaccessible
+\ flag, which mti-local ORs into the local's flags) and n for the free
+\ variables, in a claim of mtk-cells (lf-with-cells).
+1 cells context-slab: mtk-cells
+: mtk-part ( n addr k -- addr' ) rot cells rot record-at ;
+: mtk-cell ( addr i -- addr' ) 1 cells rot record-at ;
+: mtk-run ( addr n -- xs ) 0 -rot 0 ?do i over cell-at@ rot swap run-push lf-must swap loop drop ;
+: mtk-done ( goal names kinds n xs -- goal' xs ) 2dup 2>r lf-goal-intro-n 2r> swap mtk-run ;
+\ introN's names: name i of the run, 0 past its end.
+: mtn-fill ( names n addr -- ) swap 0 ?do over i run@0 over i mtk-cell ! loop 2drop ;
+: mtn-parts ( n addr -- names 0 n xs ) dup -rot over swap 1 mtk-part >r 0 swap r> ;
+: mtn-intro ( goal names n addr -- goal' xs ) >r tuck r@ mtn-fill r> mtn-parts mtk-done ;
+: lf-goal-intro-names ( goal names n -- goal' xs )
+  dup 0= if nip exit then dup 2* mtk-cells ['] mtn-intro lf-with-cells ;
+\ introNP's: each kept local's name, and its kind with its inaccessible flag.
+: mtk-flags ( local -- flags )
+  dup lf-local-binder mti-introduced swap lf-local-inaccessible? lf-local-inaccessible and or ;
+: mtk-set ( p n local -- p' n outcome )
+  >r over r@ lf-local-name swap ! 2dup mtk-cell r> mtk-flags swap ! swap cell+ swap outcome-ok ;
+: mtk-fill ( kept n addr -- ) swap rot ['] mtk-set run-each lf-must 2drop ;
+: mtk-parts ( n addr -- names kinds n xs ) dup -rot 2dup 1 mtk-part -rot over swap 2 mtk-part ;
+: mtk-intro ( goal kept n addr -- goal' xs )
+  >r tuck run-take lf-must over r@ mtk-fill r> mtk-parts mtk-done ;
+: lf-goal-intro-kept ( goal kept n -- goal' xs )
+  dup 0= if nip exit then dup 3 * mtk-cells ['] mtk-intro lf-with-cells ;
 
 \ ---- MVarId.clear (Clear.lean:20-41): its three refusals, each
 \ throwTacticEx `clear` with Lean's text and the goal, then goals.fs's

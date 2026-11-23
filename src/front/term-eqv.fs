@@ -27,6 +27,8 @@
 \   lf-meta-app-of? ( t n c-addr u -- flag ): t has n arguments and the
 \   constant of the dotted name at its head (Lean's match_expr shapes);
 \   lf-meta-nth-arg ( t i n -- a ): argument i, the first 0, of such a t;
+\   lf-meta-app-arg ( t i -- a ): the same, n t's own count (getArg!:
+\   unchecked, i below the count);
 \   lf-meta-succ? ( t -- flag ): t is Nat.succ x.
 \ - Type annotations (Expr.lean:1716-1745): lf-meta-opt-auto? ( t -- flag )
 \   t is optParam a b or autoParam a b (isOptParam, isAutoParam);
@@ -128,6 +130,7 @@ require ./meta-spine.fs
   2>r over lf-meta-args# = if lf-meta-head 2r> lf-meta-const-named?
   else drop 2r> 2drop false then ;
 : lf-meta-nth-arg ( t i n -- a ) swap - 1- 0 ?do lf-term-first@ loop lf-term-second@ ;
+: lf-meta-app-arg ( t i -- a ) over lf-meta-args# lf-meta-nth-arg ;
 \ Nat.succ x (Lean's match_expr Nat.succ _): toNatLit?, isOffset,
 \ evalNat and getFunInfo's shapes.
 : lf-meta-succ? ( t -- flag ) 1 s" Nat.succ" lf-meta-app-of? ;

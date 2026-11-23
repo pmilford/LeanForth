@@ -56,6 +56,8 @@ T{ 0 run-drop-last 99 run-drop-last -5 run-drop-last
    -> -1 outcome-invalid -1 outcome-invalid -1 outcome-invalid }T
 T{ r79 5 run-push made dup run-last swap run-drop-last made cells. -> 5 7 9 }T
 T{ r78 cells. r79 cells. r7 cells. -> 7 8 7 9 7 }T
+\ run@0: a cell, and 0 at and past the end and for the empty run.
+T{ r78 0 run@0 r78 1 run@0 r78 2 run@0 r78 5 run@0 0 0 run@0 -> 7 8 0 0 0 }T
 
 \ ---- run-each: each cell in order while ok; the empty run runs no step;
 \ the first failure stops it (no step after); a handle that names no run

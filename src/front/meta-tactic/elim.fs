@@ -93,7 +93,6 @@ require ./goal.fs
 \ named here, read only through these words).
 4 constant mel-head#        \ d, binders, the motive's and the target's positions
 3 constant mel-alt-cells    \ an alternative's name, position and fields
-: mel+ ( run x -- run' ) run-push lf-must ;
 : lf-elim-decl ( info -- d ) 0 run@ ;
 : mel-binders ( info -- n ) 1 run@ ;
 : mel-motive-at ( info -- k ) 2 run@ ;
@@ -192,7 +191,7 @@ require ./goal.fs
 : mel-at ( info bvar -- info k ) lf-term-first@ over mel-binders swap - 1- ;
 : mel-ends ( info concl -- info' )
   dup mel-shape? 0= if lfa-e-tac-form lf-tac-fail then
-  tuck lf-term-first@ mel-at mel+ swap lf-term-second@ mel-at mel+ ;
+  tuck lf-term-first@ mel-at lf-run+ swap lf-term-second@ mel-at lf-run+ ;
 : mel-special? ( info k -- flag )   \ the motive's binder or the target's
   2dup swap mel-motive-at = >r swap mel-target-at = r> or ;
 : mel-kind ( info k -- kind )
@@ -200,14 +199,14 @@ require ./goal.fs
 : mel-alt? ( info k -- flag )   \ explicit, neither the motive nor the target
   2dup mel-special? if 2drop false exit then mel-kind lf-binder-default = ;
 : mel-alt+ ( info pi k -- info' )
-  >r tuck lf-binder-name mel+ r> mel+ swap lf-term-first@ lf-meta-forall-body# nip mel+ ;
+  >r tuck lf-binder-name lf-run+ r> lf-run+ swap lf-term-first@ lf-meta-forall-body# nip lf-run+ ;
 : mel-binder ( info pi k -- info' )
   >r over r@ mel-alt? r> swap if mel-alt+ else 2drop then ;
 : mel-alts ( info -- info' )
   dup lf-elim-decl lf-menv-type over mel-binders 0 ?do
     tuck i mel-binder swap lf-term-second@ loop drop ;
 : mel-head ( d -- info concl )   \ d and how many binders, and the conclusion
-  0 over mel+ swap lf-menv-type lf-meta-forall-body# rot swap mel+ swap ;
+  0 over lf-run+ swap lf-menv-type lf-meta-forall-body# rot swap lf-run+ swap ;
 : lf-elim-info ( d -- info ) mel-head mel-ends mel-alts ;
 
 \ ---- mkElimApp: a frame per call (lf-with-record), in the current context.
@@ -240,7 +239,7 @@ end-structure
   mea mea-tag @ mea-info@ mea-next lf-elim-alt-name lf-name-append-tag ;
 : mea-alt ( pi -- arg )
   lf-term-first@ mea-alt-tag lf-mctx-view lf-goal-new lf-must
-  mea mea-alts @ over mel+ mea mea-alts ! ;
+  mea mea-alts @ over lf-run+ mea mea-alts ! ;
 : mea-arg ( pi k -- arg )
   dup mea-info@ mel-motive-at = if drop mea-motive-arg exit then
   dup mea-info@ mel-target-at = if drop mea-target-arg exit then

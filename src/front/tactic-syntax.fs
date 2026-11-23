@@ -68,8 +68,9 @@
 \ by-next's, a by-case: step; else 0), for its errors and the step log.
 \ Argument fields: targ-x, the syntax node of a term (by-exact's,
 \ by-induction's, a rule) or the name ID of a hypothesis (0 for _),
-\ targ-at, its position, and targ-symm, true for a rule written right to
-\ left (<-, Lean's ←). Positions are author/source.fs's. The parent
+\ targ-at, its position, targ-symm, true for a rule written right to
+\ left (<-, Lean's ←), and targ-span, a pattern item's span (the
+\ arguments its node covers, itself included; pattern-syntax.fs), else 0. Positions are author/source.fs's. The parent
 \ links are the stack of open blocks, so nesting is limited only by the
 \ heap. Only positions are kept, not the text: reading a block again
 \ (FE5's combinators) is the runner's to arrange (plan FE1g-3).
@@ -81,7 +82,8 @@
 \ Words: lf-tactic-proof? ( -- flag ), lf-tactic-count ( -- n ),
 \ lf-tactic-step ( i -- addr ) (unchecked, valid until the next step),
 \ lf-tactic-arg ( j -- x pos ) (unchecked), lf-tactic-arg-symm? ( j --
-\ flag ) (unchecked: argument j a rule written right to left), the kinds
+\ flag ) (unchecked: argument j a rule written right to left),
+\ lf-tactic-arg-span ( j -- n ) (unchecked: its span), the kinds
 \ and fields above;
 \ lf-tactic-proof-end ( -- ), deferred: what end NAME does with a proof
 \ read whole, its by block closed (the runner's, tactic-run.fs).
@@ -130,6 +132,7 @@ begin-structure /targ
   field: targ-x
   field: targ-at
   field: targ-symm      \ a rule written right to left (<-)
+  field: targ-span      \ a pattern item's span (pattern-syntax.fs), else 0
 end-structure
 \ Forth's interpreter runs the text a word at a time and the data stack
 \ holds the author's values, so what one word leaves for the next lives
@@ -185,6 +188,7 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 : lf-tactic-step ( i -- addr ) lft-rec ;
 : lf-tactic-arg ( j -- x pos ) tac-args store-slot dup targ-x @ swap targ-at @ ;
 : lf-tactic-arg-symm? ( j -- flag ) tac-args store-slot targ-symm @ ;
+: lf-tactic-arg-span ( j -- n ) tac-args store-slot targ-span @ ;
 \ A new step of kind at the current token, in the open block, its text
 \ from where the step before ended, its arguments to come.
 : lft-blank ( addr -- addr ) dup /tac erase -1 over tac-to ! -1 over tac-arrow ! ;
@@ -267,6 +271,9 @@ action-of lfa-declaration-fresh constant lft-fresh-before
 \   tac-shape-hyps  by-x[ NAMES ]: no value; the names up to ] of
 \       hypotheses the goal has, one at least, _ refused (459;
 \       by-revert['s, by-clear['s);
+\   tac-shape-new ( n k xt -- shape )  a shape of n values and k names
+\       built by xt ( v1 .. vn i shape -- ), for a reader of its own
+\       (pattern-syntax.fs's tac-shape-pattern, plan row TB2 piece E);
 \   tac-shape-at ( shape -- shape )  the shape made to take a trailing
 \       at[ as well (below): tac-shape-plain-at and tac-shape-term-at are
 \       tac-shape-plain's and tac-shape-term's so (by-symm's, by-change's,
@@ -285,7 +292,7 @@ begin-structure /lft-shape
   field: shape-some      \ true: a list of one item at least (tac-shape-list+)
   field: shape-block     \ a block's flags (tac-shape-block, below), else 0
 end-structure
-: lft-shape ( n k xt -- shape )
+: tac-shape-new ( n k xt -- shape )
   align here /lft-shape allot dup /lft-shape erase
   tuck shape-build ! tuck shape-names ! tuck shape-want ! ;
 \ The shape made to take a location too (Lean's (location)? after it).
@@ -333,9 +340,9 @@ end-structure
 : lft-build-binders ( i shape -- ) drop lft-list-open lft-binders] lft-done ;
 : lft-build-binders+ ( i shape -- ) drop lft-list-open lft-binders] lft-some lft-done ;
 : lft-build-hyps ( i shape -- ) drop lft-list-open lft-hyps] lft-some lft-done ;
-: tac-shape-terms ( n -- shape ) 0 ['] lft-build-terms lft-shape ;
-: tac-shape-term-names ( n k -- shape ) ['] lft-build-names lft-shape ;
-: tac-shape-term-this ( n -- shape ) 0 ['] lft-build-this lft-shape ;
+: tac-shape-terms ( n -- shape ) 0 ['] lft-build-terms tac-shape-new ;
+: tac-shape-term-names ( n k -- shape ) ['] lft-build-names tac-shape-new ;
+: tac-shape-term-this ( n -- shape ) 0 ['] lft-build-this tac-shape-new ;
 0 tac-shape-terms constant tac-shape-plain
 1 tac-shape-terms constant tac-shape-term
 0 tac-shape-terms tac-shape-at constant tac-shape-plain-at
@@ -343,12 +350,12 @@ end-structure
 0 1 tac-shape-term-names constant tac-shape-name
 \ T e word: name, have's and let's.
 2 1 tac-shape-term-names constant tac-shape-decl
-0 0 ' lft-build-rules lft-shape tac-shape-at constant tac-shape-rules
-0 0 ' lft-build-rules lft-shape constant tac-shape-list
-0 0 ' lft-build-rules lft-shape true over shape-some ! constant tac-shape-list+
-0 0 ' lft-build-binders lft-shape constant tac-shape-binders
-0 0 ' lft-build-binders+ lft-shape constant tac-shape-binders+
-0 0 ' lft-build-hyps lft-shape constant tac-shape-hyps
+0 0 ' lft-build-rules tac-shape-new tac-shape-at constant tac-shape-rules
+0 0 ' lft-build-rules tac-shape-new constant tac-shape-list
+0 0 ' lft-build-rules tac-shape-new true over shape-some ! constant tac-shape-list+
+0 0 ' lft-build-binders tac-shape-new constant tac-shape-binders
+0 0 ' lft-build-binders+ tac-shape-new constant tac-shape-binders+
+0 0 ' lft-build-hyps tac-shape-new constant tac-shape-hyps
 \ Whether the open block is a bracket of rules.
 \ (A block read by no shape, by's or a header's, has shape 0.)
 : lft-rules? ( -- flag ) lft-open lft-shape@ tac-shape-rules = ;
@@ -477,7 +484,7 @@ end-structure
 : lft-build-block ( v1 .. vn i shape -- )
   lft-values shape-names @ lft-names-after lft-entries! lft-opened ;
 : tac-shape-block ( n k flags -- shape )
-  0 0 ['] lft-build-block lft-shape swap tac-block or over shape-block !
+  0 0 ['] lft-build-block tac-shape-new swap tac-block or over shape-block !
   tuck shape-names ! tuck shape-want ! ;
 : lft-open-flags ( -- flags ) lft-open lft-shape@ dup if shape-block @ then ;
 \ } closes the innermost block, which must be a brace (else 83, the open
