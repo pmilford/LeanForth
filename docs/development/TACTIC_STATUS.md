@@ -17,7 +17,7 @@ core-Lean proof (column "Compared with").
 Pieces named in the last column: **A** shapes (done), **B** holes `?_` `_` (done for refine, exact,
 apply and have where unification fills them, batch 3b; the rows say what is left), **C** anonymous
 constructor (done, `<< >>`, batch 3c), **D** locations (done for hypotheses and the goal; written `at[ ]` since batch 3b), **E**
-cases and patterns, **F** blocks (slice 1 written and tested on its branch: braces, `by-focus`, `by-have-by:`; slices 2 and 3 to come), **G** macro word (done), **NL** name lists (done for intro, revert,
+cases and patterns, **F** blocks (slice 1 tested on its branch and Forth-reviewed, not merged: braces, `by-focus`, `by-have-by:`; slices 2 and 3 to come), **G** macro word (done), **NL** name lists (done for intro, revert,
 clear and rename_i, batch 3b; a list sits between its bracket word and `]`, over lines since batch 3c), **FE2** `→`, `∀`, `fun` in statements
 and terms, **REFL** Lean's `@[refl]` lemma set brought over with the elaboration data,
 **NR** names resolved as Lean does everywhere (unknown identifier messages), **LC** a local
@@ -29,7 +29,12 @@ errors Lean logs and goes on from, instead of throwing them, while its `recover`
 Elab/Tactic/ElabTerm.lean:31-39; `closeUsingOrAdmit`, Basic.lean:351-361). LeanForth makes them
 final there (`tactic-run.fs`'s `lf-tac-log-fail`, `lf-tac-logged`, the loop's admitting
 frames): no try or first may take one back, and the run stops at it, the same verdict. With
-recover false (a try's or first's alternative that is not the last) they are thrown, as Lean's.
+recover false (a try's or first's alternative that is not the last) they are thrown, as Lean's,
+with one exception: Lean's term elaborator has a flag of its own, errToSorry, which
+withoutRecover clears and a have-by's fresh Tactic.run does not set again, so today a term error
+in a have-by inside a block that does not recover is final where Lean throws it. That is
+stricter than Lean, never laxer; no text can reach it until by-try and by-first exist, and
+blocks slice 3 models the flag (TACTIC_BLOCKS.md 4, the frame field `tfr-sorry`).
 The pinned-Lean twins of these classes inside `any_goals` come with blocks slice 3, which builds
 the handlers that can tell them apart; slice 1's unit tests pin them with probe handlers
 (`tests/front/tactics/blocks-1/test.fs`).
