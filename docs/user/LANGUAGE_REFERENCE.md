@@ -1638,8 +1638,13 @@ models it). have-by's unsolved goals are told at `by-have-by:`, Lean's at
 design, not built yet.
 
 **Tactic blocks, slice 2: `t1 <;> t2` and `by-all-goals`** (plan row
-TB2, piece F, 2026-11-22; tested on branch `tb2-blocks2`, not merged, not
-done; `src/front/tactics/blocks.fs`, the reader's then-step in
+TB2, piece F, 2026-11-22; on main, done check
+[2026-11-23-tb2-blocks2-done.md](../development/done-checks/2026-11-23-tb2-blocks2-done.md);
+a refused proof text exits 4, its error number in the message's "error
+NNN"; an "and" of four parts A ∧ (B ∧ (C ∧ D)) is `A B C D ∧ ∧ ∧`, and
+(A ∧ B) ∧ (C ∧ D), which two `by-constructor` steps split evenly, is
+`A B ∧ C D ∧ ∧`; goals a chain leaves open are closed by the steps after
+it, for instance by a `by-all-goals` block; `src/front/tactics/blocks.fs`, the reader's then-step in
 `src/front/tactic-syntax.fs`, the runner's per-goal modes in
 `src/front/tactic-run.fs`; compared with pinned Lean node for node by
 `tests/front/tactics/blocks-2/check.py`, examples from

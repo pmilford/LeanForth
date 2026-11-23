@@ -29,6 +29,7 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
+- 2026-11-23, 01:23: plan row TB2's tactic blocks, slice 2, are **done** on main 4aaf236a (done check [2026-11-23-tb2-blocks2-done.md](../development/done-checks/2026-11-23-tb2-blocks2-done.md): the checker's own 6 theorems accepted from the reference alone, 4 wrong variants not accepted; pushed, origin/main f5ab977e). No new slice starts before the usage reset of 2026-11-24; next are pattern slice E2 and blocks slice 3. Earlier:
 - 2026-11-23, 00:47: plan row TB2's tactic blocks, slice 2, are **tested on branch `tb2-blocks2` and
   Forth-reviewed** ([review](../development/forth-reviews/2026-11-22-tb2-blocks2.md)): findings 1, 2, 4 and 5
   fixed on the branch (a per-goal block walks its goals by place and claims nothing, so a refused run claim
