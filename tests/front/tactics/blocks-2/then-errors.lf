@@ -1,0 +1,9 @@
+\ A reading error: <;> with no step before it in its block (468; plan
+\ row TB2, blocks slice 2; Lean's parser refuses it with its own error).
+theorem then_none
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  <;> ' h by-exact
+end then_none

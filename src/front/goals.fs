@@ -39,6 +39,11 @@
 \ - lf-replace-main ( list -- outcome ): replaceMainGoal, the list in
 \   place of the first goal; lf-goals-append ( list -- outcome ):
 \   appendGoals, the list after the goals.
+\ - lf-goals-next-open ( list -- list' goal true | false ): the goals
+\   after the list's first goal not assigned, and that goal, or false
+\   when every goal is (all_goals' walk, BuiltinTactic.lean:233-234: for
+\   each goal, unless it is assigned when reached; a valid list,
+\   unchecked as run@).
 \ Outcomes: ok; invalid as above and for a goal that is no live
 \ metavariable, a list that names no run; full when a store or the heap
 \ has no room; unsupported where an instantiation is (lf-depends-on?).
@@ -138,6 +143,10 @@ end-structure
   dup gl-set 0 run@ outcome-ok ;
 : lf-main-goal ( -- goal outcome )
   lf-goals dup gl-first-open run-after ['] gl-main ok-apply ;
+\ (k is below the count, so both run-afters answer ok.)
+: gl-from ( list k -- list' goal ) run-after drop dup 1 run-after drop swap 0 run@ ;
+: lf-goals-next-open ( list -- list' goal true | false )
+  dup gl-first-open 2dup swap run-count < if gl-from true else 2drop false then ;
 : gl-tail ( -- list outcome )
   lf-goals dup run-count 0= if drop -1 outcome-invalid else 1 run-after then ;
 : gl-set-ok ( list outcome -- outcome ) ok-then? if gl-set outcome-ok then ;

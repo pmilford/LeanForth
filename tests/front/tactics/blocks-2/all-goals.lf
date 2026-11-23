@@ -1,0 +1,69 @@
+\ by-all-goals tacs by-end (plan row TB2, blocks slice 2; Lean's
+\ all_goals tacs, Elab/Tactic/BuiltinTactic.lean:229-253; blocks-2.lean):
+\ the tactics once on each goal, that goal alone, the goals each run
+\ leaves kept in order.
+
+\ Lean: theorem ag_and (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor
+\         all_goals assumption
+theorem ag_and
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor
+  by-all-goals by-assumption by-end
+end ag_and
+
+\ The goals each run leaves, in order: those of the first goal first.
+\ Lean: theorem ag_left (a b : Nat) (h : a = b) (k : b = a) :
+\           (a = b ∧ a = b) ∧ (b = a ∧ b = a) := by
+\         constructor
+\         all_goals constructor
+\         exact h
+\         exact h
+\         exact k
+\         exact k
+theorem ag_left
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = a b = ∧ b a = b a = ∧ ∧
+:= by
+  by-constructor
+  by-all-goals by-constructor by-end
+  ' h by-exact
+  ' h by-exact
+  ' k by-exact
+  ' k by-exact
+end ag_left
+
+\ A goal assigned when reached is skipped: rfl on h : a = ?w assigns
+\ the witness ?w, the second goal.
+\ Lean: theorem ag_assigned (a : Nat) : Exists (Eq a) := by
+\         constructor
+\         all_goals rfl
+theorem ag_assigned
+  Nat explicit: a
+  ' Eq a $ Exists
+:= by
+  by-constructor
+  by-all-goals by-rfl by-end
+end ag_assigned
+
+\ Several steps a goal, a brace among them; names given inside stay.
+\ Lean: theorem ag_steps (a b : Nat) (h : a = b) : a = b ∧ a = b := by
+\         constructor
+\         all_goals
+\           have x : a = b := h
+\           · exact x
+theorem ag_steps
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b = a b = ∧
+:= by
+  by-constructor
+  by-all-goals
+    a b = ' h by-have: x
+    { ' x by-exact }
+  by-end
+end ag_steps

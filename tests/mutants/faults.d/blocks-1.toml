@@ -34,8 +34,8 @@ reason = "TB2 blocks 1: try's gate by outcome again (the hole on main): tactic-r
 [[fault]]
 id = "tb2b1-mode-end-skipped"
 file = "src/front/tactic-run.fs"
-old = ''': lfr-end-block ( -- ) lfr-top dup tfr-mode @ mode-end @ execute lfr-pop ;'''
-new = ''': lfr-end-block ( -- ) lfr-pop ;'''
+old = '''  lfr-top dup tfr-mode @ mode-end @ execute lfr-more? 0= if lfr-pop then ;'''
+new = '''  lfr-pop ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
 reason = "TB2 blocks 1: a block's end never runs its mode (no done, no goals put back): blocks-1 test.fs's { } over a goal gives 0, not 89"
 

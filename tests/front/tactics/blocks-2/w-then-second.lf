@@ -1,0 +1,12 @@
+\ A wrong twin: t2 fails on the second of the three goals t1 leaves (plan
+\ row TB2, blocks slice 2; blocks-2-wrong.lean).
+\ Lean: theorem w_then_second (a b : Nat) (h : a = b) (k : b = a) :
+\           a = b ∧ b = a ∧ a = b := by
+\         and_intros <;> exact h
+theorem w_then_second
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = a b = ∧ ∧
+:= by
+  by-and-intros <;> ' h by-exact
+end w_then_second

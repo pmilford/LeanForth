@@ -1,0 +1,174 @@
+\ t1 <;> t2 (plan row TB2, blocks slice 2; Lean's macro focus (t1;
+\ all_goals t2), Init/Tactics.lean:451-456; blocks-2.lean): t1 on the
+\ main goal alone, t2 on each goal it leaves, then the other goals.
+
+\ t1 leaving two goals.
+\ Lean: theorem at_and (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor <;> assumption
+theorem at_and
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor <;> by-assumption
+end at_and
+
+\ t1 leaving no goal: t2 never runs (here it would fail).
+\ Lean: theorem at_none (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         exact h <;> exact k
+theorem at_none
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  ' h by-exact <;> ' k by-exact
+end at_none
+
+\ t1 leaving one goal; t2 uses the name t1 gave.
+\ Lean: theorem at_one (a b : Nat) (h : a = b) : a = b := by
+\         revert h
+\         intro x <;> exact x
+theorem at_one
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  ' h by-revert
+  by-intro: x <;> ' x by-exact
+end at_one
+
+\ t1 leaving three goals.
+\ Lean: theorem at_three (a b : Nat) (h : a = b) (k : b = a) :
+\           a = b ∧ b = a ∧ a = b := by
+\         and_intros <;> assumption
+theorem at_three
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = a b = ∧ ∧
+:= by
+  by-and-intros <;> by-assumption
+end at_three
+
+\ A chain, left associative: each pass's goals kept, in order.
+\ Lean: theorem at_chain (a b : Nat) (h : a = b) :
+\           (a = b ∧ a = b) ∧ (a = b ∧ a = b) := by
+\         constructor <;> constructor <;> exact h
+theorem at_chain
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b = a b = ∧ a b = a b = ∧ ∧
+:= by
+  by-constructor <;> by-constructor <;> ' h by-exact
+end at_chain
+
+\ The goals set aside come back after the whole chain, once: the last
+\ then-block runs on no goal, not on the second goal.
+\ Lean: theorem at_rest (a b : Nat) (h : a = b) (k : b = a) :
+\           (a = b ∧ a = b) ∧ b = a := by
+\         constructor
+\         constructor <;> exact h <;> exact h
+\         exact k
+theorem at_rest
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = a b = ∧ b a = ∧
+:= by
+  by-constructor
+  by-constructor <;> ' h by-exact <;> ' h by-exact
+  ' k by-exact
+end at_rest
+
+\ t1 a closed block: an induction's alternatives, then t2 on no goal.
+\ Lean: theorem at_ind (n : Nat) : n + 0 = n := by
+\         (induction n with
+\          | zero => rfl
+\          | succ m ih => rfl) <;> rfl
+theorem at_ind
+  Nat explicit: n
+  n 0 + n =
+:= by
+  n by-induction-with
+  | zero => by-rfl
+  | succ m ih => by-rfl
+  by-end <;> by-rfl
+end at_ind
+
+\ t1 an induction leaving its two goals, tagged zero and succ.
+\ Lean: theorem at_induct (n : Nat) : n + 0 = n := by
+\         induction n <;> rfl
+theorem at_induct
+  Nat explicit: n
+  n 0 + n =
+:= by
+  n by-induction <;> by-rfl
+end at_induct
+
+\ t2 a brace; a chain inside a brace; one inside an alternative.
+\ Lean: theorem at_brace (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor <;> { assumption }
+theorem at_brace
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor <;> { by-assumption }
+end at_brace
+
+\ Lean: theorem at_inner (a b : Nat) (h : a = b) (k : b = a) :
+\           a = b ∧ (b = a ∧ b = a) := by
+\         constructor
+\         · exact h
+\         · constructor <;> exact k
+theorem at_inner
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = b a = ∧ ∧
+:= by
+  by-constructor
+  { ' h by-exact }
+  { by-constructor <;> ' k by-exact }
+end at_inner
+
+\ Lean: theorem at_alt (n : Nat) : n + 0 = n := by
+\         induction n with
+\         | zero => rfl <;> rfl
+\         | succ m ih => rfl
+theorem at_alt
+  Nat explicit: n
+  n 0 + n =
+:= by
+  n by-induction-with
+  | zero => by-rfl <;> by-rfl
+  | succ m ih => by-rfl
+  by-end
+end at_alt
+
+\ t2 with a location (at[ ] amends t2, not the chain).
+\ Lean: theorem at_loc (a b : Nat) (h : a = b) : b = a := by
+\         revert h
+\         intro x <;> symm at x
+\         exact x
+theorem at_loc
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a =
+:= by
+  ' h by-revert
+  by-intro: x <;> by-symm at[ x ]
+  ' x by-exact
+end at_loc
+
+\ Names t2 gives stay after the chain, in each goal that has them.
+\ Lean: theorem at_names (a b : Nat) (h : a = b) : a = b ∧ a = b := by
+\         constructor <;> have x : a = b := h
+\         exact x
+\         exact x
+theorem at_names
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b = a b = ∧
+:= by
+  by-constructor <;> a b = ' h by-have: x
+  ' x by-exact
+  ' x by-exact
+end at_names

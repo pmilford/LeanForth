@@ -65,7 +65,8 @@
 \ form, FE1g-7, carries it); tac-shape, the shape its word was read by
 \ (below; 0 for by, a header and by-induction-with); tac-word, the word
 \ it was written with when that is not its kind's (a counted string:
-\ by-next's, a by-case: step; else 0), for its errors and the step log.
+\ by-next's, a by-case: step; else 0), for its errors and the step log;
+\ tac-then, true when <;> follows it (below, plan row TB2, blocks slice 2).
 \ Argument fields: targ-x, the syntax node of a term (by-exact's,
 \ by-induction's, a rule) or the name ID of a hypothesis (0 for _),
 \ targ-at, its position, targ-symm, true for a rule written right to
@@ -128,6 +129,7 @@ begin-structure /tac
   field: tac-word         \ its word when not its kind's (a counted string), else 0
   field: tac-loc          \ its at[ ] (lft-w-at): 0 none, else tac-loc-* flags
   field: tac-loc#         \ the hypothesis names of its at[ ], after its arguments
+  field: tac-then         \ true: <;> follows it, a then-block its next step (lft-w-then)
 end-structure
 begin-structure /targ
   field: targ-x
@@ -361,10 +363,42 @@ end-structure
 \ (A block read by no shape, by's or a header's, has shape 0.)
 : lft-rules? ( -- flag ) lft-open lft-shape@ tac-shape-rules = ;
 
+\ A block's flags (tac-shape-block, below): tac-block, tac-block-cuts
+\ (names given inside it go at its end), tac-block-self (closed by its
+\ own }), tac-block-one (one step, closed lazily: <;>'s then-block).
+1 constant tac-block
+2 constant tac-block-cuts
+4 constant tac-block-self
+8 constant tac-block-one
+: lft-block-shape? ( shape|0 -- flag ) dup if shape-block @ 0<> then ;
+: lft-self-closing? ( shape -- flag ) shape-block @ tac-block-self and 0<> ;
+: lft-open-flags ( -- flags ) lft-open lft-shape@ dup if shape-block @ then ;
+\ A block that ends holds a tactic: an empty one stops the run at the
+\ word that ends it, its => (a brace's }, a then-block's <;>) the second
+\ place (pinned Lean's parser reports just past =>).
+: lft-held ( addr -- addr )
+  dup tac-inner @ 0> if exit then dup tac-arrow @ lfa-e-tac-empty lfa-fail-see ;
+
 \ Before a tactic word: in a tactic proof, no list open (its closing word
-\ is missing: 458 at the list's word, scopes.fs), no binder open.
+\ is missing: 458 at the list's word, scopes.fs), no binder open
+\ (lft-poised; at[, which amends the step before it, asks no more), and
+\ the then-block of a <;> closed once it holds its step (lft-settle).
+\ A then-block (blocks slice 2, lft-w-then) is closed lazily, past its
+\ step's text (lft-read-from), at the first token that cannot extend that
+\ step: a tactic word, { or <;> when it holds its step (lft-settle), a
+\ closer (}, by-end, |, end) always, an empty one there 85 at the closer,
+\ its <;> second (lft-settled). Its names stay (Lean's all_goals keeps
+\ them). No then-block is right inside another (a <;> there settles the
+\ first, or finds no step before it, 468), so one settle a token does.
 : lft-in-proof ( -- ) lft-proof? lfa-e-tac-outside lfa-must ;
-: lft-ready ( -- ) lft-in-proof lfa-brackets-closed lfa-same-binders ;
+: lft-poised ( -- ) lft-in-proof lfa-brackets-closed lfa-same-binders ;
+: lft-one? ( -- flag ) lft-open-flags tac-block-one and 0<> ;
+: lft-holding? ( -- flag ) lft-open lft-rec tac-inner @ 0<> ;
+: lft-then-close ( -- ) lft-open lft-rec lft-held drop lft-read-from lft-close ;
+: lft-settled ( -- ) lft-one? if lft-then-close then ;
+: lft-settle ( -- ) lft-one? lft-holding? and if lft-then-close then ;
+: lft-ready ( -- ) lft-poised lft-settle ;
+: lft-closing ( -- ) lft-poised lft-settled ;
 \ Right inside by-induction-with comes an alternative; a tactic there is
 \ Lean's pre-tactic (induction t with tac | ...), not supported yet.
 : lft-not-pre ( -- ) lft-kind tac-k-with = if lfa-e-tactic lfa-fail then ;
@@ -442,12 +476,8 @@ end-structure
 : lft-headed ( i -- ) lft-names lft-arrow! lft-opened ;
 : lft-header ( kind -- ) lft-new lft-entries! lft-tag! lft-headed ;
 
-\ A block of names ends at pos: it held a tactic, and its names go (with
-\ cut?, lft-block-close; always, lft-names-end). An empty one stops the
-\ run at the word that ends it, with its => as the second place (pinned
-\ Lean's parser reports just past =>).
-: lft-held ( addr -- addr )
-  dup tac-inner @ 0> if exit then dup tac-arrow @ lfa-e-tac-empty lfa-fail-see ;
+\ A block of names ends at pos: it held a tactic (lft-held), and its
+\ names go (with cut?, lft-block-close; always, lft-names-end).
 : lft-cut-names ( addr -- ) tac-entries @ lfa-entries-cut ;
 : lft-close-names ( pos addr cut? -- ) if lft-cut-names else drop then lft-close ;
 : lft-block-close ( pos cut? -- ) lft-open lft-rec lft-held swap lft-close-names ;
@@ -455,7 +485,7 @@ end-structure
 \ An alternative ends with its last tactic, at the next | or by-end.
 : lft-alt-end ( -- ) lft-kind tac-k-alt = if lft-read-from lft-names-end then ;
 : lft-in-with ( -- ) lft-kind tac-k-with = lfa-e-tac-closer lfa-must ;
-: lft-w-bar ( -- ) lft-ready 0 lft-takes lft-alt-end lft-in-with tac-k-alt lft-header ;
+: lft-w-bar ( -- ) lft-closing 0 lft-takes lft-alt-end lft-in-with tac-k-alt lft-header ;
 : lft-case-new ( -- i ) 0 lft-tactic lft-inner+ tac-k-case lft-new lft-entries! ;
 : lft-w-case ( -- ) lft-case-new lft-case-tag! lft-headed ;
 \ by-next NAMES... => : Lean's next, the macro case _ NAMES => (Init/
@@ -475,26 +505,40 @@ end-structure
 \ (Lean's parser wants a tactic after by and focus); { } is read, as
 \ Lean's parser reads it, and its run is Lean's unsolved goals (89) or
 \ no goals (90). lft-block-shape? ( shape|0 -- flag ) and
-\ lft-self-closing? ( shape -- flag ) tell them (the runner's record
-\ check and errors).
-1 constant tac-block
-2 constant tac-block-cuts
-4 constant tac-block-self
-: lft-block-shape? ( shape|0 -- flag ) dup if shape-block @ 0<> then ;
-: lft-self-closing? ( shape -- flag ) shape-block @ tac-block-self and 0<> ;
+\ lft-self-closing? ( shape -- flag ), above, tell them (the runner's
+\ record check and errors).
 : lft-build-block ( v1 .. vn i shape -- )
   lft-values shape-names @ lft-names-after lft-entries! lft-opened ;
+: tac-shape-flags ( shape flags -- shape ) tac-block or over shape-block ! ;
 : tac-shape-block ( n k flags -- shape )
-  0 0 ['] lft-build-block tac-shape-new swap tac-block or over shape-block !
+  0 0 ['] lft-build-block tac-shape-new swap tac-shape-flags
   tuck shape-names ! tuck shape-want ! ;
-: lft-open-flags ( -- flags ) lft-open lft-shape@ dup if shape-block @ then ;
+\ t1 <;> t2 (plan row TB2, blocks slice 2; Lean's macro focus (t1;
+\ all_goals t2), Init/Tactics.lean:451-456): <;>, read by tac-shape-then
+\ (tactics/blocks.fs's kind), takes no value and settles (lft-ready);
+\ t1 is the last step right inside the open block (a closed block too,
+\ such as by-induction-with ... by-end), marked tac-then, none 468; the
+\ then-block opens after it (tac-block-one), its <;> its second place
+\ (tac-arrow), and t2 is its one step, a tactic or a block ({ ... }, a
+\ by- block). a <;> b <;> c is (a <;> b) <;> c, Lean's left association:
+\ the second <;> settles the first's then-block and takes it as its t1.
+468 outcome-invalid s" <;> follows no tactic of its block (t1 <;> t2)"
+  lfa-code: lfa-e-tac-then
+: lft-parent@ ( j -- p ) lft-rec tac-parent @ ;
+: lft-deeper? ( b j -- b j flag ) 2dup < if 2dup lft-parent@ <> else false then ;
+\ (The steps after block b are inside it: from j up to b's child.)
+: lft-child ( b j -- b j' ) begin lft-deeper? while lft-parent@ repeat ;
+: lft-before ( i -- j ) dup lft-parent@ swap 1- lft-child tuck < lfa-e-tac-then lfa-must ;
+: lft-then! ( j -- ) true swap lft-rec tac-then ! ;
+: lft-build-then ( i shape -- ) drop dup lft-before lft-then! lft-arrow! lft-opened ;
+0 0 ' lft-build-then tac-shape-new tac-block-one tac-shape-flags constant tac-shape-then
 \ } closes the innermost block, which must be a brace (else 83, the open
 \ block's place second); its place is the brace's tac-arrow (where its
 \ unsolved goals are told, as Lean's withRef stx[2]), and its names go.
 : lft-closer-at ( -- ) lft-open-at lfa-e-tac-closer lfa-fail-see ;
 : lft-in-brace ( -- ) lft-open-flags tac-block-self and 0= if lft-closer-at then ;
 : lft-brace-close ( -- ) lft-past lft-open lft-arrow! lft-rec true lft-close-names ;
-: lft-w-brace-end ( -- ) lft-ready 0 lft-takes lft-in-brace lft-brace-close lft-from! ;
+: lft-w-brace-end ( -- ) lft-closing 0 lft-takes lft-in-brace lft-brace-close lft-from! ;
 \ by-end at a block a word opened: 83 at none (the proof's by) and at a
 \ brace (its { second); else the block's end, its names cut when its
 \ shape says so.
@@ -505,7 +549,8 @@ end-structure
 : lft-block-end ( kind -- )
   case tac-k-with of lft-past lft-close endof tac-k-case of lft-past lft-names-end endof
     lft-word-end endcase ;
-: lft-w-by-end ( -- ) lft-ready 0 lft-takes lft-alt-end lft-kind lft-block-end lft-from! ;
+: lft-w-by-end ( -- )
+  lft-closing 0 lft-takes lft-alt-end lft-kind lft-block-end lft-from! ;
 : lft-w-arrow ( -- ) lft-in-proof lfa-e-tac-header lfa-fail ;
 
 \ Locations (plan row TB2, tactic batch 3a, written at[ ... ] since
@@ -552,7 +597,7 @@ end-structure
 : lft-loc-names ( i -- i ) begin lft-list-name while lft-loc-token repeat ;
 : lft-loc-some ( i -- i ) dup lft-loc-fresh? 0= lfa-e-tac-at-names lfa-must ;
 : lft-w-at ( -- )
-  lft-ready 0 lft-takes lft-located tac-loc-given lft-loc! lft-list-open
+  lft-poised 0 lft-takes lft-located tac-loc-given lft-loc! lft-list-open
   lft-loc-names lft-loc-some lft-done ;
 
 \ := by opens the proof; its end NAME needs every block closed and no
@@ -571,8 +616,9 @@ defer lf-tactic-proof-end ( -- )
 ' lft-unrun is lf-tactic-proof-end
 \ The position just past end's NAME, which is the proof's end.
 : lft-name-past ( c-addr u -- c-addr u pos ) 2dup + lfa-token-pos ;
+: lft-all-closed ( -- ) lft-settled lft-closed ;
 : lft-end-proof ( above c-addr u -- )
-  lft-name-past >r lfa-end-check lft-closed lfa-proof-ready 0 lft-count r> lft-close
+  lft-name-past >r lfa-end-check lft-all-closed lfa-proof-ready 0 lft-count r> lft-close
   lf-tactic-proof-end ;
 : lft-end-declaration ( above c-addr u -- )
   lft-proof? if lft-end-proof else lfn-end-declaration then ;

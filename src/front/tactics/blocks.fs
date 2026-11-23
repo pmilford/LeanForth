@@ -14,11 +14,22 @@
 \ - by-focus tacs by-end  Lean's focus tacs (evalFocus :187; focus,
 \   Basic.lean:332-338): the main goal alone (none: 90), the tactics,
 \   then the goals they leave before the others; names given inside stay.
+\ - by-all-goals tacs by-end  Lean's all_goals tacs (evalAllGoals,
+\   BuiltinTactic.lean:229-253; slice 2): the tactics once on each goal
+\   not assigned when reached, that goal alone, in order; the goals each
+\   run leaves, in order, are the goals after it; names given inside stay.
+\ - t1 <;> t2  Lean's macro focus (t1; all_goals t2) (Init/Tactics.lean:
+\   451-456; slice 2): t1 on the main goal alone, t2 (one tactic or one
+\   block) on each goal t1 leaves, as by-all-goals, then the other goals
+\   after those left; a <;> b <;> c is (a <;> b) <;> c, as Lean's.
 \ Lean call list: getUnsolvedGoals, setGoals -> tactic-run.fs's
 \ lf-tac-focus (lf-tac-bracketed, lf-tac-focused); focusAndDone's done and
 \ closeUsingOrAdmit -> the runner's mode lf-mode-done; focus's end ->
-\ lf-mode-focus. Where closeUsingOrAdmit logs an error, admits the goal
-\ and goes on, LeanForth stops at that error (the same verdict).
+\ lf-mode-focus; evalAllGoals -> lf-mode-per-goal (getGoals, isAssigned:
+\ goals.fs's lf-goals-next-open); <;>'s focus and all_goals ->
+\ lf-mode-then with tac-then (tactic-syntax.fs's then-step). Where
+\ closeUsingOrAdmit or all_goals logs an error, admits the goal and goes
+\ on, LeanForth stops at that error (the same verdict).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own.
 
@@ -34,3 +45,13 @@ lf-mode-done tac-k-brace lf-tactic-mode!
 s" focus" tac-k-focus lf-tactic-lean!
 ' lf-tac-focused tac-k-focus lf-tactic-action!
 lf-mode-focus tac-k-focus lf-tactic-mode!
+
+0 0 0 tac-shape-block lf-tactic: by-all-goals constant tac-k-all-goals
+s" all_goals" tac-k-all-goals lf-tactic-lean!
+' lf-tac-all tac-k-all-goals lf-tactic-action!
+lf-mode-per-goal tac-k-all-goals lf-tactic-mode!
+
+tac-shape-then lf-tactic-sign: <;> constant tac-k-then
+s" and_then" tac-k-then lf-tactic-lean!
+' lf-tac-all tac-k-then lf-tactic-action!
+lf-mode-then tac-k-then lf-tactic-mode!

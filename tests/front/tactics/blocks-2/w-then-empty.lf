@@ -1,0 +1,10 @@
+\ A reading error: <;> with nothing after it, at end (85, its <;> the
+\ second place; plan row TB2, blocks slice 2; Lean's parser refuses it
+\ with its own error).
+theorem then_empty
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  ' h by-exact <;>
+end then_empty

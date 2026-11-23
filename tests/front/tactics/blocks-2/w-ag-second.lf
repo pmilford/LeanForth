@@ -1,0 +1,15 @@
+\ A wrong twin: the second of three goals fails, b = a against h : a = b:
+\ the error is at by-exact, for that goal (the first error Lean logs;
+\ plan row TB2, blocks slice 2; blocks-2-wrong.lean).
+\ Lean: theorem w_ag_second (a b : Nat) (h : a = b) (k : b = a) :
+\           a = b ∧ b = a ∧ a = b := by
+\         and_intros
+\         all_goals exact h
+theorem w_ag_second
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = a b = ∧ ∧
+:= by
+  by-and-intros
+  by-all-goals ' h by-exact by-end
+end w_ag_second

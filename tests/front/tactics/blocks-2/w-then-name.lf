@@ -1,0 +1,17 @@
+\ A name t1 gave, used after the chain on a goal that lacks it: the first
+\ goal is closed inside the chain, the second has no x (plan row TB2,
+\ blocks slice 2). Lean says unknown identifier; LeanForth refuses it as
+\ malformed elaboration (76): both reject (TACTIC_STATUS row NR).
+\ Lean: theorem w_then_name (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor
+\         have x : a = b := h <;> exact x
+\         exact x
+theorem w_then_name
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor
+  a b = ' h by-have: x <;> ' x by-exact
+  ' x by-exact
+end w_then_name

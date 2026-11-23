@@ -1,0 +1,12 @@
+\ A wrong twin: the chain leaves both goals open, so the proof's end is
+\ Lean's unsolved goals (89) at by, with both goals, their tags kept
+\ (plan row TB2, blocks slice 2; blocks-2-wrong.lean).
+\ Lean: theorem w_then_open (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor <;> have x : a = b := h
+theorem w_then_open
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor <;> a b = ' h by-have: x
+end w_then_open
