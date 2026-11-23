@@ -178,7 +178,7 @@ FAULTS = [
      [(PRINT, "  dup lf-pf-spellable-note? 0= if drop outcome-unsupported exit then\n", "")]),
     ("6: a long line reported at the line before", "any",
      [("src/author/runner.fs",
-       "  lfa-line! lfa-the-line lfa-next-token lfa-token! 2drop lfa-e-line lfa-fail ;",
+       "  lfa-line! lfa-the-line lfa-token-of lfa-token! lfa-e-line lfa-fail ;",
        "  2drop lfa-e-line lfa-fail ;")]),
     ("6: an unknown token reported after the number-like ones", "any",
      [(GROUPS, "2dup lfa-plain-decimal? 0= if 2swap 2drop exit then",
