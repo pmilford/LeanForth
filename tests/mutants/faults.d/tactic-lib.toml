@@ -845,7 +845,7 @@ reason = "TB1 C1 fail-closed: a lookup the heap refuses read as 'no such constan
 [[fault]]
 id = "tb1-goals1-empty"
 file = "src/front/tactic-core.fs"
-old = ''': lf-goals1 ( goal -- goals ) 0 swap run-push lf-tac-must ;'''
+old = ''': lf-goals1 ( goal -- goals ) run-one lf-tac-must ;'''
 new = ''': lf-goals1 ( goal -- goals ) drop 0 ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "TB1 C1: liftMetaTactic1's [goal] is the empty list, so the new goal is lost"

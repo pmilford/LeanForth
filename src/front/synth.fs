@@ -290,7 +290,7 @@ create sy-scoped ' sy-gens , ' sy-resume , ' sy-entries , ' sy-cnodes , ' sy-ans
 : sy-find ( key -- e found? outcome )
   sy-c syc-entries @ sy-entries slab-count ['] sy-entry-hit? sy-hit ;
 : sy-entry-new ( key waiter -- outcome )
-  0 swap run-push ok-then? 0= if nip exit then
+  run-one ok-then? 0= if nip exit then
   1 sy-entries slab-claim ok-then? 0= if nip nip exit then
   sen@ tuck se-waiters ! tuck se-key ! 0 swap se-answers ! outcome-ok ;
 : sy-run+ ( x addr -- outcome )   \ x at the end of the run at addr

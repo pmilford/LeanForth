@@ -32,6 +32,8 @@ r7 9 run-push made constant r79
 T{ r78 cells. r79 cells. r7 cells. -> 7 8 7 9 7 }T
 \ [7 8] was made in place (r7 ended at the top), [7 9] by a copy of [7].
 T{ runs-cells -> 4 }T
+\ run-one: [x], a new run each time (review tb2-blocks2 finding 2).
+T{ 5 run-one made dup run-count swap 0 run@ 6 run-one made 5 run-one made = -> 1 5 false }T
 T{ 0 run-count 0 run-valid? r79 run-valid? 99 run-valid? -5 run-valid? -> 0 true true false false }T
 T{ r78 1 run-take made cells. r78 1 run-after made cells. -> 7 8 }T
 T{ r78 2 run-take made r78 = r78 0 run-after made r78 = -> true true }T
@@ -114,6 +116,7 @@ lf-lib-private order+
 : refusal-done? ( -- flag ) heap-refusals @ 0= ;
 \ A new run's record: the cells fit, the record does not.
 T{ 4 rn-cells room 0 rn-recs room refused 0 7 run-push refusal-done? -> -1 outcome-full true }T
+T{ 4 rn-cells room 0 rn-recs room refused 7 run-one refusal-done? -> -1 outcome-full true }T
 T{ 4 rn-cells room 0 rn-recs room refused r78 1 run-take refusal-done? -> -1 outcome-full true }T
 T{ 4 rn-cells room 0 rn-recs room refused r78 1 run-after refusal-done? -> -1 outcome-full true }T
 T{ 4 rn-cells room 0 rn-recs room refused r78 run-drop-last refusal-done? -> -1 outcome-full true }T

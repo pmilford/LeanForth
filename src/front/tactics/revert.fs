@@ -21,7 +21,7 @@ require ../meta-tactic/revert.fs
 tac-shape-term lf-tactic: by-revert constant tac-k-revert
 s" revert" tac-k-revert lf-tactic-lean!
 : trv-tac ( i goal -- goal' )
-  swap 0 lf-tac-arg lf-tac-get-fvar 0 swap run-push lf-tac-must lf-goal-revert drop ;
+  swap 0 lf-tac-arg lf-tac-get-fvar run-one lf-tac-must lf-goal-revert drop ;
 : trv-run ( i -- ) dup ['] trv-tac lf-lift-meta-tactic1 ;
 ' trv-run tac-k-revert lf-tactic-action!
 tac-shape-hyps lf-tactic: by-revert[ constant tac-k-revert-list

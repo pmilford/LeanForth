@@ -10,6 +10,7 @@
 \ - run-push ( run x -- run' outcome ): the run, then x. When the run ends
 \   at the top of the cells, x is appended there; else the run is copied
 \   to the top first (a run that another one extended stays as it was).
+\ - run-one ( x -- run outcome ): the run of x alone (0 x run-push).
 \ - run-take ( run n -- run' outcome ): its first n cells; run-after ( run
 \   n -- run' outcome ): the cells after them. Neither copies; taking all,
 \   or none after, gives the run itself.
@@ -138,6 +139,7 @@ lf-lib set-current
 : run-push ( run x -- run' outcome )
   over run-valid? 0= if 2drop -1 outcome-invalid exit then
   rn-grown ok-then3? if rn-pushed else no-result then ;
+: run-one ( x -- run outcome ) 0 swap run-push ;
 lf-lib-private set-current
 
 \ Joining: in place when run2 begins where run1 ends; else run1 at the

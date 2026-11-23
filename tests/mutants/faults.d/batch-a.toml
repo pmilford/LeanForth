@@ -368,8 +368,8 @@ reason = "TB2: elabChange takes the pattern without isDefEq (a wrong pattern acc
 [[fault]]
 id = "tb2-show-not-front"
 file = "src/front/tactics/change.fs"
-old = '''  0 swap run-push lf-tac-must tsh tsh-goals @ tsh tsh-k @ run-take lf-tac-must tsh-cat ;'''
-new = '''  0 swap run-push lf-tac-must tsh tsh-goals @ tsh tsh-k @ run-take lf-tac-must swap tsh-cat ;'''
+old = '''  run-one lf-tac-must tsh tsh-goals @ tsh tsh-k @ run-take lf-tac-must tsh-cat ;'''
+new = '''  run-one lf-tac-must tsh tsh-goals @ tsh tsh-k @ run-take lf-tac-must swap tsh-cat ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: show leaves the goal it found after the goals before it"
 
@@ -443,7 +443,7 @@ reason = "TB2: specialize's goals (batch 3b: the holes, then the new goal) hande
 [[fault]]
 id = "tb2-revert-tac-noop"
 file = "src/front/tactics/revert.fs"
-old = '''  swap 0 lf-tac-arg lf-tac-get-fvar 0 swap run-push lf-tac-must lf-goal-revert drop ;'''
+old = '''  swap 0 lf-tac-arg lf-tac-get-fvar run-one lf-tac-must lf-goal-revert drop ;'''
 new = '''  swap drop ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: revert leaves the goal as it is"
@@ -459,8 +459,8 @@ reason = "TB2: revert's one goal handed to liftMetaTactic as a list"
 [[fault]]
 id = "tb2-revert-any-term"
 file = "src/front/tactics/revert.fs"
-old = '''  swap 0 lf-tac-arg lf-tac-get-fvar 0 swap run-push lf-tac-must lf-goal-revert drop ;'''
-new = '''  swap 0 lf-tac-arg lf-tac-elab-for-apply 0 swap run-push lf-tac-must lf-goal-revert drop ;'''
+old = '''  swap 0 lf-tac-arg lf-tac-get-fvar run-one lf-tac-must lf-goal-revert drop ;'''
+new = '''  swap 0 lf-tac-arg lf-tac-elab-for-apply run-one lf-tac-must lf-goal-revert drop ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: revert takes any term, not only a hypothesis (Lean's getFVarId: error 389)"
 

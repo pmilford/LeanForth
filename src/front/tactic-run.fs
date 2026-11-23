@@ -581,7 +581,7 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 : lfr-unheld ( frame -- ) -1 swap tfr-held ! ;
 : lf-tac-again ( frame -- ) dup tfr-step @ 1+ over tfr-next ! lfr-unheld ;
 : lfr-skip ( frame -- ) lf-tactic-count swap tfr-next ! ;
-: lfr-only ( goal -- ) 0 swap run-push lfr-must lfr-goals! ;
+: lfr-only ( goal -- ) run-one lfr-must lfr-goals! ;
 : lfr-acc+ ( frame -- ) dup tfr-acc @ lfr-unsolved run-cat lfr-must swap tfr-acc ! ;
 : lfr-pass-on ( frame k goal -- ) lfr-only over tfr-at ! lf-tac-again ;
 : lfr-passes-done ( frame -- true ) tfr-acc @ lfr-goals! true ;

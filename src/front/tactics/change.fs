@@ -117,7 +117,7 @@ end-structure
 \ goal' :: the goals before it :: the goals after it.
 : tsh-cat ( run1 run2 -- run ) run-cat lf-tac-must ;
 : tsh-before ( goal' -- run )
-  0 swap run-push lf-tac-must tsh tsh-goals @ tsh tsh-k @ run-take lf-tac-must tsh-cat ;
+  run-one lf-tac-must tsh tsh-goals @ tsh tsh-k @ run-take lf-tac-must tsh-cat ;
 : tsh-after ( run -- run' )
   tsh tsh-goals @ tsh tsh-k @ 1+ run-after lf-tac-must tsh-cat ;
 \ tryGoal: goal k with the error given (xt and code).

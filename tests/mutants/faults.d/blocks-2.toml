@@ -183,6 +183,14 @@ new = ''': lfr-acc+ ( frame -- ) dup tfr-acc @ lfr-unsolved run-cat drop swap tf
 test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
 reason = "review tb2-blocks2 finding 1: a refused claim of the goals a pass left goes on as a list: blocks-2 test.fs's slab sweep of the run records gives another answer than full (the heap sweep does not reach this claim)"
 
+[[fault]]
+id = "tb2b2-run-one-swapped"
+file = "src/lib/runs.fs"
+old = ''': run-one ( x -- run outcome ) 0 swap run-push ;'''
+new = ''': run-one ( x -- run outcome ) 0 run-push ;'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "review tb2-blocks2 finding 2: run-one pushes 0 onto x taken as a run: tests/lib/runs.fs's 5 run-one is not the run [5]"
+
 # ---- Plan row 9.4.8s: the fixed blocks on block shapes (tactic-syntax.fs, tactic-run.fs)
 [[fault]]
 id = "tb2b2-alt-never"
