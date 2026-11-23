@@ -270,6 +270,20 @@ through substReduced and heqToEq), `w-subst-var-used` (the eliminated variable n
 only if `a | b c` grouped as Lean's `(a | b c)`; Lean's `rintro (a | b) c` rejects it). Faults: `subst-left-first`,
 `skip-rec-when-dependent`, `reduced-path-skipped`, `dependent-not-reintroduced`, `rintro-top-as-one`,
 `subst-vars-order`.
+E2 also carries four tasks from the Forth review of E1
+([report](../development/forth-reviews/2026-11-22-tb2-patterns-e1.md)): (finding 8) the `patterns-slice` export holds
+`Dvd.dvd` and `Nat.instDvdNat` with a theorem `obtain ⟨_ | n, c, hc⟩ := h` on `h : Exists (Dvd.dvd 2)` (Lean accepts;
+probe p27), which reaches fault `fsubst-not-applied`, whose "equivalent" is then dropped; (finding 10) a refusal sweep
+(`heap-sweep`, `tests/support/meta-sweeps.fs`) that calls each library word directly, not only through text:
+`lf-fsubst-insert`, `-append`, `-erase`, `-apply`, `lf-recursor-info`, `lf-goal-induction`, `lf-goal-cases`,
+`lf-goal-generalize`, `lf-goal-revert-kept`, `lf-goal-intro-kept` and `-names`; (finding 11) the Meta words of
+`meta-induction.fs`, `cases.fs` and `generalize.fs` throw `outcome-unsupported lf-must`, as `revert.fs`'s
+`lf-goal-revert-kept` does, and the tactic layer maps it to 99, so that rule 6 of contradiction can observe a cases
+failure as Lean's `elimEmptyInductive` does (today they throw the tactic runner's `lf-tac-unported`); (finding 13d)
+rcases.fs's frame loses its registers: processConstructor gets a frame of its own (or `( ps fields )` on the stack
+of a zip word iterating with `run-pair@`), `rcs-zps`/`rcs-zfs` go, `rcs-container` is split into `rcs-head` and
+`rcs-kids+`, and the tasks become a structure on a context slab (`slab-claim-one`, `slab-last`, `slab-drop`, as
+`pat-frames` does) in place of `rcs-task+`, `rcs-task@`, `rcs-pop` and `rcs-again`.
 
 **E3, `tests/front/tactics/batch-i/`: cases and induction's dependents (about 290 lines).** `by-cases`,
 `by-cases-with`; `by-induction` with dependents and index targets. Mathlib: cases 4,532 (765 with `with`). Files:
