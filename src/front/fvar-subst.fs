@@ -36,6 +36,7 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/runs.fs
+require ../lib/bounds.fs
 require ../lib/slab.fs
 require ../lib/find.fs
 require ../lib/context.fs
@@ -55,17 +56,18 @@ require ./meta-must.fs
 : fsb-val ( pair -- e ) 1 run@ ;
 : fsb-is? ( fs fvar k -- fs fvar flag ) >r over r> run@ fsb-key over = ;
 : fsb-index ( fs fvar -- fs k true | fs false ) over run-count ['] fsb-is? find-index ;
-: lf-fsubst-get ( fs fvar -- e ) dup >r fsb-index if run@ fsb-val r> drop else drop
-  r> then ;
+: lf-fsubst-get ( fs fvar -- e ) tuck fsb-index if run@ fsb-val nip else drop then ;
 
 \ ---- apply: each pair in turn, oldest first.
 : fsb-step ( e pair -- e' outcome ) dup fsb-key swap fsb-val lf-replace-fvar outcome-ok ;
 : lf-fsubst-apply ( fs e -- e' ) swap ['] fsb-step run-each lf-must ;
 
-\ ---- insert and erase: a frame per call, the key and its term.
+\ ---- insert, erase and append: a frame per call (lf-with-record).
 begin-structure /fsi
-  field: fsi-key         \ the free variable
+  field: fsi-key         \ the free variable (insert's, erase's)
   field: fsi-val         \ its term (insert's)
+  field: fsi-fs1         \ append's first substitution
+  field: fsi-fs2         \ and its second
 end-structure
 /fsi context-slab: fsi-frames
 : fsi ( -- frame ) fsi-frames slab-last ;
@@ -73,19 +75,19 @@ end-structure
 : fsi-mapped ( out pair -- out' outcome )
   dup fsb-key swap fsb-val fsi fsi-key @ fsi fsi-val @ lf-replace-fvar lf-fsubst-pair
   lf-run+ outcome-ok ;
-: fsi-run ( fs -- fs' ) 0 swap ['] fsi-mapped run-each lf-must fsi-pair lf-run+ ;
-: fsi-framed ( fs fvar e -- fs' ) fsi fsi-val ! fsi fsi-key ! fsi-run ;
-: lf-fsubst-insert ( fs fvar e -- fs' )
-  over >r >r fsb-index if drop r> r> 2drop exit then
-  r> r> swap fsi-frames ['] fsi-framed lf-with-record ;
+: fsi-new ( fs -- fs' ) 0 swap ['] fsi-mapped run-each lf-must fsi-pair lf-run+ ;
+: fsi-run ( fs -- fs' ) dup fsi fsi-key @ fsb-index if 2drop exit then drop fsi-new ;
+: fsi-framed ( fs fvar e -- fs' ) fsi fsi-key cell-pair! fsi-run ;
+: lf-fsubst-insert ( fs fvar e -- fs' ) fsi-frames ['] fsi-framed lf-with-record ;
 : fsi-other? ( pair -- flag ) fsb-key fsi fsi-key @ <> ;
 : fse-framed ( fs fvar -- fs' ) fsi fsi-key ! ['] fsi-other? run-filter lf-must ;
 : lf-fsubst-erase ( fs fvar -- fs' ) fsi-frames ['] fse-framed lf-with-record ;
-
-\ ---- append: fs2, then fs1's pairs inserted newest first.
-: fsa-step ( fs2 acc pair -- fs2 acc' )
-  >r over r@ fsb-val lf-fsubst-apply r> fsb-key swap lf-fsubst-insert ;
-: fsa-at ( fs2 acc fs1 k -- fs2 acc' fs1 ) over swap run@ swap >r fsa-step r> ;
-: lf-fsubst-append ( fs1 fs2 -- fs )
-  dup rot dup run-count begin ?dup while 1- dup >r fsa-at r> repeat drop nip ;
+\ append: fs2, then fs1's pairs inserted newest first, each term through fs2.
+: fsa-step ( acc pair -- acc' )
+  dup fsb-key swap fsb-val fsi fsi-fs2 @ swap lf-fsubst-apply lf-fsubst-insert ;
+: fsa-at ( acc k -- acc' ) fsi fsi-fs1 @ swap run@ fsa-step ;
+: fsa-framed ( fs1 fs2 -- fs )
+  dup fsi fsi-fs2 ! swap dup fsi fsi-fs1 ! run-count
+  begin ?dup while 1- tuck fsa-at swap repeat ;
+: lf-fsubst-append ( fs1 fs2 -- fs ) fsi-frames ['] fsa-framed lf-with-record ;
 base !   \ the BASE this file was loaded with

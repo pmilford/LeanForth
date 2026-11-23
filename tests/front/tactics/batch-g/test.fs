@@ -247,7 +247,7 @@ lf-tac-forget
 : frames-anew ( -- )
   lfa-brackets sweep-slab-anew pat-frames sweep-slab-anew rcs-frames sweep-slab-anew
   mid-frames sweep-slab-anew mcs-frames sweep-slab-anew mri-frames sweep-slab-anew
-  mgz-frames sweep-slab-anew mtk-cells sweep-slab-anew fsi-frames sweep-slab-anew
+  mgz-frames sweep-slab-anew mtk-frames sweep-slab-anew fsi-frames sweep-slab-anew
   frp-cells sweep-slab-anew mrv-frames sweep-slab-anew ;
 ' frames-anew sweep-slabs-xt !
 : full-code? ( code -- flag ) dup if lf-author-outcome outcome-full = then ;

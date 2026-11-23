@@ -35,6 +35,7 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../../lib/lib.fs
 require ../../lib/slab.fs
 require ../../lib/runs.fs
+require ../../lib/bounds.fs
 require ../../lib/context.fs
 require ../../core/terms.fs
 require ../../present/binder-table.fs
@@ -75,7 +76,7 @@ end-structure
 : mgz-run ( -- fvars goal' )
   mgz-target mgz-checked mgz mgz-goal @ lf-goal-fresh dup mgz-applied mgz mgz-goal @ swap
   lf-mvar-assign lf-must mgz-names mgz-n lf-goal-intro-names swap ;
-: mgz-framed ( goal args -- fvars goal' ) mgz mgz-args ! mgz mgz-goal ! mgz-run ;
+: mgz-framed ( goal args -- fvars goal' ) mgz mgz-goal cell-pair! mgz-run ;
 : mgz-in ( goal args -- fvars goal' ) mgz-frames ['] mgz-framed lf-with-record ;
 : lf-goal-generalize ( goal args -- fvars goal' )
   over lf-goal-not-assigned drop over ['] mgz-in lf-with-goal ;

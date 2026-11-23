@@ -141,8 +141,8 @@
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: mti-frames and mrf-frames (introN's and refl's frames, one per
 \ call open, meta-must.fs's lf-with-record), mti-cells (intros' free
-\ variables, n cells a call, meta-must.fs's lf-with-cells) and mtk-cells
-\ (intro-names' and intro-kept's names, kinds and variables), in the
+\ variables, n cells a call, meta-must.fs's lf-with-cells) and mtk-frames
+\ (intro-names' and intro-kept's frames, one per call open), in the
 \ checker context (ADR 0009); no other. Loads in
 \ decimal whatever BASE is, then restores it.
 
@@ -325,36 +325,40 @@ end-structure
   dup lf-goal-type lf-instantiate! lf-intros-size ?dup 0= if exit then
   dup mti-cells ['] mti-intros lf-with-cells ;
 
-\ ---- introN with a run of names, introNP with revert's kept locals: n
-\ cells of names, n of kinds (intro-kept's: the kind and the inaccessible
-\ flag, which mti-local ORs into the local's flags) and n for the free
-\ variables, in a claim of mtk-cells (lf-with-cells).
-1 cells context-slab: mtk-cells
-: mtk-part ( n addr k -- addr' ) rot cells rot record-at ;
-: mtk-cell ( addr i -- addr' ) 1 cells rot record-at ;
-: mtk-run ( addr n -- xs ) 0 -rot 0 ?do i over cell-at@ rot swap lf-run+ swap loop drop ;
-: mtk-done ( goal names kinds n xs -- goal' xs ) 2dup 2>r lf-goal-intro-n 2r> swap
-  mtk-run ;
+\ ---- introN with a run of names, introNP with revert's kept locals: a
+\ binder at a time (introN of 1, its new goal the next one's: the same
+\ term once instantiated), a frame per call (lf-with-record) holding the
+\ binder's name, its kind (intro-kept's: the kind and the inaccessible
+\ flag, which mti-local ORs into the local's flags) and its variable.
+begin-structure /mtk
+  field: mtk-name        \ the binder's name (introN's one cell)
+  field: mtk-kind        \ its kind and flag (intro-kept's one cell)
+  field: mtk-x           \ its free variable
+  field: mtk-xs          \ the free variables so far, a run
+end-structure
+/mtk context-slab: mtk-frames
+: mtk ( -- frame ) mtk-frames slab-last ;
+: mtk-kinds ( kinds? -- addr|0 ) if mtk mtk-kind else 0 then ;
+: mtk-one ( goal kinds? -- goal' )
+  mtk mtk-name swap mtk-kinds 1 mtk mtk-x lf-goal-intro-n
+  mtk mtk-xs @ mtk mtk-x @ lf-run+ mtk mtk-xs ! ;
 \ introN's names: name i of the run, 0 past its end.
-: mtn-fill ( names n addr -- ) swap 0 ?do over i run@0 over i mtk-cell ! loop 2drop ;
-: mtn-parts ( n addr -- names 0 n xs ) dup -rot over swap 1 mtk-part >r 0 swap r> ;
-: mtn-intro ( goal names n addr -- goal' xs ) >r tuck r@ mtn-fill r> mtn-parts mtk-done ;
+: mtn-step ( goal names i -- goal' names )
+  over swap run@0 mtk mtk-name ! swap false mtk-one swap ;
+: mtn-run ( goal names n -- goal' xs ) 0 ?do i mtn-step loop drop mtk mtk-xs @ ;
 : lf-goal-intro-names ( goal names n -- goal' xs )
-  dup 0= if nip exit then dup 2* mtk-cells ['] mtn-intro lf-with-cells ;
+  dup 0= if nip exit then mtk-frames ['] mtn-run lf-with-record ;
 \ introNP's: each kept local's name, and its kind with its inaccessible flag.
 : mtk-flags ( local -- flags )
   dup lf-local-binder mti-introduced swap lf-local-inaccessible? lf-local-inaccessible
   and or ;
-: mtk-set ( p n local -- p' n outcome )
-  >r over r@ lf-local-name swap ! 2dup mtk-cell r> mtk-flags swap ! swap cell+
-  swap outcome-ok ;
-: mtk-fill ( kept n addr -- ) swap rot ['] mtk-set run-each lf-must 2drop ;
-: mtk-parts ( n addr -- names kinds n xs ) dup -rot 2dup 1 mtk-part -rot over swap
-  2 mtk-part ;
-: mtk-intro ( goal kept n addr -- goal' xs )
-  >r tuck run-take lf-must over r@ mtk-fill r> mtk-parts mtk-done ;
+: mtk-local ( local -- ) dup lf-local-name mtk mtk-name ! mtk-flags mtk mtk-kind ! ;
+: mtk-step ( goal kept i -- goal' kept ) over swap run@ mtk-local swap true mtk-one swap ;
+: mtk-run ( goal kept n -- goal' xs )
+  2dup swap run-count > if outcome-invalid lf-must then
+  0 ?do i mtk-step loop drop mtk mtk-xs @ ;
 : lf-goal-intro-kept ( goal kept n -- goal' xs )
-  dup 0= if nip exit then dup 3 * mtk-cells ['] mtk-intro lf-with-cells ;
+  dup 0= if nip exit then mtk-frames ['] mtk-run lf-with-record ;
 
 \ ---- MVarId.clear (Clear.lean:20-41): its three refusals, each
 \ throwTacticEx `clear` with Lean's text and the goal, then goals.fs's

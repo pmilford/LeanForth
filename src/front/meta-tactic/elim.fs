@@ -199,7 +199,8 @@ require ./goal.fs
 : mel-alt? ( info k -- flag )   \ explicit, neither the motive nor the target
   2dup mel-special? if 2drop false exit then mel-kind lf-binder-default = ;
 : mel-alt+ ( info pi k -- info' )
-  >r tuck lf-binder-name lf-run+ r> lf-run+ swap lf-term-first@ lf-meta-forall-body# nip lf-run+ ;
+  >r tuck lf-binder-name lf-run+ r> lf-run+ swap lf-term-first@ lf-meta-forall-body# nip
+  lf-run+ ;
 : mel-binder ( info pi k -- info' )
   >r over r@ mel-alt? r> swap if mel-alt+ else 2drop then ;
 : mel-alts ( info -- info' )

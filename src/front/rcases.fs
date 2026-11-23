@@ -258,7 +258,7 @@ end-structure
 : rcs-split ( node s -- ) rcs rcs-goal @ ['] rcs-split-in lf-with-goal ;
 
 \ ---- A task: its first pair matched (rcasesCore), the rest after it.
-: rcs-task! ( goal fs clears -- ) rcs rcs-clears ! rcs rcs-fs ! rcs rcs-goal ! ;
+: rcs-task! ( goal fs clears -- ) rcs rcs-goal cell-triple! ;
 : rcs-first ( pending -- node s )
   dup 3 run-after lf-must rcs rcs-rest ! dup 2 run@ rcs rcs-fs @ swap lf-fsubst-apply
   rcs rcs-e ! dup 0 run@ swap 1 run@ ;
