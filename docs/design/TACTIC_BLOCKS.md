@@ -10,7 +10,14 @@ THROW code of its own; `{ }` is read, as Lean's parser reads it, and fails when 
 modes are in `tactic-run.fs`, which needs them for its own kinds, so `tactic-blocks.fs` waits for slice 2;
 by-induction-with, `|`, by-case: and by-next are still told by kind tests, not on block shapes as "Read time" below
 says: slice 2 moves them (plan row 9.4.8s, review finding 3); Lean's errToSorry is not modelled apart from recover:
-slice 3 adds it (section 4, review finding 1)). Slices 2 and 3: not started. Second version, by the architect
+slice 3 adds it (section 4, review finding 1)). Slice 1 is done (on main). **Slice 2 written and tested on its
+branch `tb2-blocks2`** (`<;>`, `by-all-goals`; `tests/front/tactics/blocks-2/`), not reviewed, merged or
+done-checked; where it differs from this text: the per-goal modes (`lf-mode-per-goal`, `lf-mode-then`) are in
+`tactic-run.fs` beside the others, so `tactic-blocks.fs` still waits; a block's end pops its frame unless its mode
+started the steps again (`lf-tac-again`), so `mode-end` keeps its stack effect; t1 is found by walking up from the
+step before `<;>` (no field `tac-last`); `<;>` with no step before it is a code of its own, 468, not 86; the
+per-goal modes admit (an error inside them is final where the block recovers, as Lean's logged one); plan row 9.4.8s is done there: by-induction-with, `|`, by-case: and by-next are on block shapes (flags `tac-block-bars`, `tac-block-headed`). Slice 3: not
+started. Second version, by the architect
 agent, after the independent design review
 ([2026-11-22-tactic-blocks.md](../development/design-reviews/2026-11-22-tactic-blocks.md): approve with changes, all
 eleven findings applied, see "Review response"). Plan row TB2, piece F of

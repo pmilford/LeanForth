@@ -63,9 +63,10 @@
 \ inside a block; tac-entries, the names in scope before a header's (an
 \ index of the reader's entry store, for this run only: no serialized
 \ form, FE1g-7, carries it); tac-shape, the shape its word was read by
-\ (below; 0 for by, a header and by-induction-with); tac-word, the word
-\ it was written with when that is not its kind's (a counted string:
-\ by-next's, a by-case: step; else 0), for its errors and the step log;
+\ (below; 0 for by; tac-shape-with and tac-shape-headed for the fixed
+\ blocks, which their own words read); tac-word, the word it was written
+\ with when that is not its kind's (a counted string: by-next's, a
+\ by-case: step; else 0), for its errors and the step log;
 \ tac-then, true when <;> follows it (below, plan row TB2, blocks slice 2).
 \ Argument fields: targ-x, the syntax node of a term (by-exact's,
 \ by-induction's, a rule) or the name ID of a hypothesis (0 for _),
@@ -370,9 +371,33 @@ end-structure
 2 constant tac-block-cuts
 4 constant tac-block-self
 8 constant tac-block-one
+\ tac-block-bars: its steps are alternatives, each begun by | (by-
+\ induction-with); tac-block-headed: its word reads a header TAG NAMES
+\ => (an alternative, by-case:, by-next), its => where its errors are
+\ told (plan row 9.4.8s, blocks slice 2: the fixed blocks on shapes too).
+16 constant tac-block-bars
+32 constant tac-block-headed
 : lft-block-shape? ( shape|0 -- flag ) dup if shape-block @ 0<> then ;
 : lft-self-closing? ( shape -- flag ) shape-block @ tac-block-self and 0<> ;
-: lft-open-flags ( -- flags ) lft-open lft-shape@ dup if shape-block @ then ;
+: lft-flags-of ( i -- flags ) lft-shape@ dup if shape-block @ then ;
+: lft-open-flags ( -- flags ) lft-open lft-flags-of ;
+: lft-bars? ( -- flag ) lft-open-flags tac-block-bars and 0<> ;
+\ An alternative: a headed block right inside a block of bars, closed by
+\ the next | or that block's by-end.
+: lft-parent@ ( j -- p ) lft-rec tac-parent @ ;
+: lft-up-bars? ( -- flag ) lft-open lft-parent@ lft-flags-of tac-block-bars and 0<> ;
+: lft-headed? ( -- flag ) lft-open-flags tac-block-headed and 0<> ;
+: lft-alt? ( -- flag ) lft-headed? if lft-up-bars? else false then ;
+\ A shape's block flags (tac-block and flags); the fixed blocks' shapes,
+\ read by their own words, not by lft-read-as (no builder): by's (in its
+\ row only: the reader keeps the proof's step at 0), by-induction-with's
+\ (its term) and a header's (an alternative's, by-case:'s, by-next's).
+: tac-shape-flags ( shape flags -- shape ) tac-block or over shape-block ! ;
+: lft-fixed-shape ( n flags -- shape ) swap 0 0 tac-shape-new swap tac-shape-flags ;
+0 0 lft-fixed-shape constant tac-shape-by
+1 tac-block-bars lft-fixed-shape constant tac-shape-with
+0 tac-block-headed tac-block-cuts or lft-fixed-shape constant tac-shape-headed
+: lft-shape! ( i shape -- i ) over lft-rec tac-shape ! ;
 \ A block that ends holds a tactic: an empty one stops the run at the
 \ word that ends it, its => (a brace's }, a then-block's <;>) the second
 \ place (pinned Lean's parser reports just past =>).
@@ -399,9 +424,9 @@ end-structure
 : lft-settle ( -- ) lft-one? lft-holding? and if lft-then-close then ;
 : lft-ready ( -- ) lft-poised lft-settle ;
 : lft-closing ( -- ) lft-poised lft-settled ;
-\ Right inside by-induction-with comes an alternative; a tactic there is
+\ Right inside a block of bars comes an alternative; a tactic there is
 \ Lean's pre-tactic (induction t with tac | ...), not supported yet.
-: lft-not-pre ( -- ) lft-kind tac-k-with = if lfa-e-tactic lfa-fail then ;
+: lft-not-pre ( -- ) lft-bars? if lfa-e-tactic lfa-fail then ;
 \ Exactly want values above the frame. Too few is a mistake; too many
 \ too, unless a hypothesis read since the last tactic word (taken as
 \ taking none) had values below it, which it may take: not supported yet.
@@ -429,7 +454,8 @@ end-structure
 : lft-w-rw ( -- ) tac-k-rw tac-shape-rules lft-read-as ;
 : lft-w-rewrite ( -- ) tac-k-rewrite tac-shape-rules lft-read-as ;
 : lft-term-step ( t kind -- i ) lft-tactic-new tuck 1 lft-terms ;
-: lft-w-with ( t -- ) 1 lft-tactic tac-k-with lft-term-step lft-opened ;
+: lft-with-step ( t -- i ) tac-k-with lft-term-step tac-shape-with lft-shape! ;
+: lft-w-with ( t -- ) 1 lft-tactic lft-with-step lft-opened ;
 \ ] : the rules are the values built since the bracket's word (by-rw[),
 \ after those a <- took: the innermost bracket's items (none open: 83;
 \ a << open inside: 458 at <<).
@@ -474,7 +500,8 @@ end-structure
 : lft-case-tag! ( i -- i ) lft-header-token lft-case-tag lft-name! ;
 : lft-arrow! ( i -- i ) lfa-here over lft-rec tac-arrow ! ;
 : lft-headed ( i -- ) lft-names lft-arrow! lft-opened ;
-: lft-header ( kind -- ) lft-new lft-entries! lft-tag! lft-headed ;
+: lft-headed-new ( kind -- i ) lft-new tac-shape-headed lft-shape! lft-entries! ;
+: lft-header ( kind -- ) lft-headed-new lft-tag! lft-headed ;
 
 \ A block of names ends at pos: it held a tactic (lft-held), and its
 \ names go (with cut?, lft-block-close; always, lft-names-end).
@@ -483,10 +510,10 @@ end-structure
 : lft-block-close ( pos cut? -- ) lft-open lft-rec lft-held swap lft-close-names ;
 : lft-names-end ( pos -- ) true lft-block-close ;
 \ An alternative ends with its last tactic, at the next | or by-end.
-: lft-alt-end ( -- ) lft-kind tac-k-alt = if lft-read-from lft-names-end then ;
-: lft-in-with ( -- ) lft-kind tac-k-with = lfa-e-tac-closer lfa-must ;
+: lft-alt-end ( -- ) lft-alt? if lft-read-from lft-names-end then ;
+: lft-in-with ( -- ) lft-bars? lfa-e-tac-closer lfa-must ;
 : lft-w-bar ( -- ) lft-closing 0 lft-takes lft-alt-end lft-in-with tac-k-alt lft-header ;
-: lft-case-new ( -- i ) 0 lft-tactic lft-inner+ tac-k-case lft-new lft-entries! ;
+: lft-case-new ( -- i ) 0 lft-tactic lft-inner+ tac-k-case lft-headed-new ;
 : lft-w-case ( -- ) lft-case-new lft-case-tag! lft-headed ;
 \ by-next NAMES... => : Lean's next, the macro case _ NAMES => (Init/
 \ Tactics.lean:348), a by-case: step whose tag is _ (0), spelt by-next.
@@ -509,7 +536,6 @@ end-structure
 \ record check and errors).
 : lft-build-block ( v1 .. vn i shape -- )
   lft-values shape-names @ lft-names-after lft-entries! lft-opened ;
-: tac-shape-flags ( shape flags -- shape ) tac-block or over shape-block ! ;
 : tac-shape-block ( n k flags -- shape )
   0 0 ['] lft-build-block tac-shape-new swap tac-shape-flags
   tuck shape-names ! tuck shape-want ! ;
@@ -524,7 +550,6 @@ end-structure
 \ the second <;> settles the first's then-block and takes it as its t1.
 468 outcome-invalid s" <;> follows no tactic of its block (t1 <;> t2)"
   lfa-code: lfa-e-tac-then
-: lft-parent@ ( j -- p ) lft-rec tac-parent @ ;
 : lft-deeper? ( b j -- b j flag ) 2dup < if 2dup lft-parent@ <> else false then ;
 \ (The steps after block b are inside it: from j up to b's child.)
 : lft-child ( b j -- b j' ) begin lft-deeper? while lft-parent@ repeat ;
@@ -546,11 +571,9 @@ end-structure
 : lft-word-end ( -- )
   lft-open-flags dup 0<> lfa-e-tac-closer lfa-must lft-not-brace
   lft-past swap tac-block-cuts and lft-block-close ;
-: lft-block-end ( kind -- )
-  case tac-k-with of lft-past lft-close endof tac-k-case of lft-past lft-names-end endof
-    lft-word-end endcase ;
+: lft-block-end ( -- ) lft-bars? if lft-past lft-close else lft-word-end then ;
 : lft-w-by-end ( -- )
-  lft-closing 0 lft-takes lft-alt-end lft-kind lft-block-end lft-from! ;
+  lft-closing 0 lft-takes lft-alt-end lft-block-end lft-from! ;
 : lft-w-arrow ( -- ) lft-in-proof lfa-e-tac-header lfa-fail ;
 
 \ Locations (plan row TB2, tactic batch 3a, written at[ ... ] since
@@ -606,8 +629,7 @@ end-structure
 \ without by ends as the reader's does (reader.fs).
 : lft-w-by ( -- ) lfn-w-by lfa-here lft-read-from! tac-k-by lft-new lft-opened ;
 \ The block by-end would close: an alternative's is its by-induction-with.
-: lft-block ( -- addr )
-  lft-open lft-rec dup tac-kind @ tac-k-alt = if tac-parent @ lft-rec then ;
+: lft-block ( -- addr ) lft-alt? lft-open lft-rec swap if tac-parent @ lft-rec then ;
 : lft-closed ( -- )
   lft-kind tac-k-by = if exit then lft-block tac-at @ lfa-e-tac-open lfa-fail-see ;
 \ The proof read whole (its block closed) goes to the runner.

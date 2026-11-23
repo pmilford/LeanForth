@@ -154,16 +154,16 @@ reason = "TB2 blocks 1: a loop from a base takes an error to a frame below its b
 [[fault]]
 id = "tb2b1-shaped-not-holder"
 file = "src/front/tactic-run.fs"
-old = ''': lfr-holder? ( kind -- flag ) dup lfr-fixed-block? swap lfr-shaped-block? or ;'''
-new = ''': lfr-holder? ( kind -- flag ) lfr-fixed-block? ;'''
+old = ''': lfr-holder? ( kind -- flag ) lfr-shaped-block? ;'''
+new = ''': lfr-holder? ( kind -- flag ) dup tac-k-by = swap tac-k-with tac-k-case 1+ within or ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
-reason = "TB2 blocks 1: the record check refuses a step inside a shaped block: every brace text of blocks-1 test.fs is 92"
+reason = "TB2 blocks 1 (moved by plan row 9.4.8s: the fixed kinds alone holders): the record check refuses a step inside a shaped block: every brace text of blocks-1 test.fs is 92"
 
 [[fault]]
 id = "tb2b1-brace-word"
 file = "src/front/tactic-run.fs"
-old = '''  lft-self-closing? if drop s" }" else lfr-spelling then ;'''
-new = '''  drop lfr-spelling ;'''
+old = '''  dup lft-self-closing? if 2drop s" }" else lfr-unbraced then ;'''
+new = '''  lfr-unbraced ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
 reason = "TB2 blocks 1: a brace's unsolved goals told with { at }'s place: blocks-1 test.fs's 89 token is not }"
 

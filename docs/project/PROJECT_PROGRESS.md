@@ -29,6 +29,13 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
+- 2026-11-22, 23:11: plan row TB2's tactic blocks, slice 2 (piece F, design
+  [TACTIC_BLOCKS.md](../design/TACTIC_BLOCKS.md)), are **tested on branch `tb2-blocks2`**: `t1 <;> t2` (Lean's
+  `t1 <;> t2`: t1 on the first goal alone, t2 on each goal it leaves, chains left associative, t2 one tactic or one
+  block) and `by-all-goals ... by-end` (Lean's `all_goals`), on the runner's per-goal modes; 17 theorems node for
+  node pinned Lean's (`tests/front/tactics/blocks-2/`), 3 wrong twins with Lean's messages; plan row 9.4.8s (the
+  fixed blocks on block shapes) on the same branch; not Forth-reviewed, not merged, not done. Next: its Forth
+  review. Earlier the same day:
 - 2026-11-22, 21:47: plan row TB2's case patterns, slice E1, are **done** on main 63f6324f (done check [2026-11-22-tb2-patterns-e1-done.md](../development/done-checks/2026-11-22-tb2-patterns-e1-done.md): the checker's own 8 theorems accepted from the reference alone, 5 wrong variants not accepted; pushed, origin/main 93edeac4). A statement variable the goal no longer holds is now refused in every tactic, as Lean's "Unknown identifier". No new slice starts before the usage reset of 2026-11-24; next are blocks slice 2 and pattern slice E2. Earlier the same day:
 - 2026-11-22, 20:30: plan row TB2's case patterns, slice E1, are **tested on branch `tb2-patterns-e1` and
   Forth-reviewed** ([review](../development/forth-reviews/2026-11-22-tb2-patterns-e1.md): findings 1-7, 9, 12 and

@@ -14183,7 +14183,7 @@ quick = true
 [[fault]]
 id = "fe-tac-bar-anywhere"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-in-with ( -- ) lft-kind tac-k-with = lfa-e-tac-closer lfa-must ;'''
+old = ''': lft-in-with ( -- ) lft-bars? lfa-e-tac-closer lfa-must ;'''
 new = ''': lft-in-with ( -- ) ;'''
 test = "$GFORTH tests/front/tactic-syntax.fs"
 reason = "FE1g-2: | opens an alternative outside by-induction-with, in the proof or a case block (error 83 expected)"
@@ -14240,7 +14240,7 @@ reason = "FE1g-2: end NAME of a tactic proof takes the term proof's path, so blo
 [[fault]]
 id = "fe-tac-pre-tactic"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-not-pre ( -- ) lft-kind tac-k-with = if lfa-e-tactic lfa-fail then ;'''
+old = ''': lft-not-pre ( -- ) lft-bars? if lfa-e-tactic lfa-fail then ;'''
 new = ''': lft-not-pre ( -- ) ;'''
 test = "$GFORTH tests/front/tactic-syntax.fs"
 reason = "FE1g-2: a tactic right after by-induction-with (Lean's pre-tactic, with tac) is read as a step of the block instead of not supported yet (72)"

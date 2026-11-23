@@ -1634,8 +1634,111 @@ that does not recover (a slice 3 `try`) is final in LeanForth, where Lean
 throws it on and the `try` takes it (Lean's errToSorry, not modelled yet;
 no text can reach it until `by-try` and `by-first` exist, and slice 3
 models it). have-by's unsolved goals are told at `by-have-by:`, Lean's at
-`by`. `try`, `first`, `<;>`, `all_goals`, `any_goals` and `repeat` are
-slices 2 and 3 of the design, not built yet.
+`by`. `try`, `first`, `any_goals` and `repeat` are slice 3 of the
+design, not built yet.
+
+**Tactic blocks, slice 2: `t1 <;> t2` and `by-all-goals`** (plan row
+TB2, piece F, 2026-11-22; tested on branch `tb2-blocks2`, not merged, not
+done; `src/front/tactics/blocks.fs`, the reader's then-step in
+`src/front/tactic-syntax.fs`, the runner's per-goal modes in
+`src/front/tactic-run.fs`; compared with pinned Lean node for node by
+`tests/front/tactics/blocks-2/check.py`, examples from
+`tests/front/tactics/blocks-2/and-then.lf` and `all-goals.lf`).
+
+- `t1 <;> t2` is Lean's `t1 <;> t2`, the macro `focus (t1; all_goals t2)`
+  (Init/Tactics.lean:451-456): t1 on the first goal alone, then t2 on each
+  goal t1 leaves, then the other goals after those left. Mathematically:
+  split a claim into cases and treat every case the same way. With `h :
+  a = b`, `k : b = a`: `by-constructor <;> by-assumption` proves `a = b ∧
+  b = a` (`at_and`; Lean: `constructor <;> assumption`). Lean's token stays
+  between the two steps; t1 is the step just before `<;>` in its block, a
+  closed block too (`n by-induction-with | zero => by-rfl | succ m ih =>
+  by-rfl by-end <;> by-rfl`, `at_ind`; Lean: `(induction n with | zero =>
+  rfl | succ m ih => rfl) <;> rfl`); t2 is one tactic or one block
+  (`by-constructor <;> { by-assumption }`, `at_brace`; Lean: `constructor
+  <;> { assumption }`), and an `at[ ]` after t2 belongs to t2
+  (`by-intro: x <;> by-symm at[ x ]`, `at_loc`). `a <;> b <;> c` is `(a
+  <;> b) <;> c`, as Lean's: the goals b leaves, in order, then c on each
+  (`at_chain`). When t1 leaves no goal, t2 never runs (`at_none`: `' h
+  by-exact <;> ' k by-exact` is accepted, as Lean accepts `exact h <;>
+  exact k`). Names given in t1 or t2 stay after the chain, as Lean's do,
+  in each goal that has them (`at_names`). A chain may stand in a brace,
+  a `by-` block or an alternative (`at_inner`, `at_alt`).
+- `by-all-goals tacs by-end` is Lean's `all_goals tacs`
+  (BuiltinTactic.lean:229-253): the tactics once on each goal, that goal
+  alone, a goal already solved when its turn comes skipped; the goals each
+  run leaves, in order, are the goals after it. Mathematically: the same
+  argument in every open case. `by-constructor by-all-goals by-assumption
+  by-end` proves `a = b ∧ b = a` (`ag_and`; Lean: `constructor` /
+  `all_goals assumption`); on `∃ x, a = x`, `by-constructor by-all-goals
+  by-rfl by-end` runs `by-rfl` once: it proves `a = ?w` and so chooses the
+  witness ?w, the second goal, which is then skipped (`ag_assigned`).
+  Names given inside stay after `by-end`.
+- Errors: a goal t2 or the block fails on fails the proof, at that step,
+  with Lean's message (the first goal that fails: `w-then-second.lf`,
+  `w-ag-second.lf`, 96 "Type mismatch"); goals left at the proof's end:
+  89 with every goal and its tag (`w-then-open.lf`); `<;>` with no step
+  before it in its block (first in a block, right after another `<;>`):
+  468; nothing after it, before `}`, `by-end`, `|` or `end`: 85 at that
+  word, the `<;>` second; a value before `<;>`: 86; `<;>` right inside
+  `by-induction-with`, before its first `|`: 72 (Lean's pre-tactic);
+  `at[` right after `<;>`: 453; t1 with no goal: 90 at t1, Lean's focus.
+
+A worked theorem with `<;>` (`at_rest` of `and-then.lf`), checked with
+`bin/leanforth check --env tests/front/decide-slice.ndjson --elab-data
+tests/front/decide-slice.elab.ndjson FILE.lf`:
+
+```forth
+theorem at_rest
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = a b = ∧ b a = ∧
+:= by
+  by-constructor
+  by-constructor <;> ' h by-exact <;> ' h by-exact
+  ' k by-exact
+end at_rest
+```
+
+Mathematically: (a = b ∧ a = b) ∧ b = a splits into a = b ∧ a = b and
+b = a; the first splits again and h proves both parts; the chain's last
+step finds nothing left of the first part, and k proves the second.
+Lean: `constructor` / `constructor <;> exact h <;> exact h` / `exact k`.
+
+A worked theorem with `by-all-goals` (`ag_left` of `all-goals.lf`), the
+same command:
+
+```forth
+theorem ag_left
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = a b = ∧ b a = b a = ∧ ∧
+:= by
+  by-constructor
+  by-all-goals by-constructor by-end
+  ' h by-exact
+  ' h by-exact
+  ' k by-exact
+  ' k by-exact
+end ag_left
+```
+
+Mathematically: (a = b ∧ a = b) ∧ (b = a ∧ b = a) splits into its two
+halves, each half splits again, and the four parts come in order, those of
+the first half first. Lean: `constructor` / `all_goals constructor` /
+`exact h` / `exact h` / `exact k` / `exact k`.
+
+Narrower than Lean (each an answer, never a wrong acceptance): where
+Lean's `all_goals` (and so `<;>`) logs an error, admits that goal, runs
+the other goals and aborts at the end, LeanForth stops at the first error
+(the owner's decision 6; the same verdict and the same first error). That
+error is final when the block recovers (no handler can take it back), as
+Lean's logged error, so inside slice 3's `any_goals`, where Lean may roll
+the logged error back, LeanForth will reject: stricter, never laxer, to be
+settled with the coordinator's rule in slice 3. A name given by t1 and used
+after the chain on a goal that lacks it is 76 (malformed elaboration)
+where Lean says unknown identifier (`w-then-name.lf`; both reject,
+TACTIC_STATUS row NR).
 
 A statement's hypothesis is written with a tick when it stands alone,
 `' h by-apply`, because its type is not unfolded to count its arguments
@@ -1679,6 +1782,8 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `=>` | | read only by `\|` and `by-case:` as their terminator; run alone it is error 84 | none | Ends an alternative's header. | `=>` |
 | `by-end` | `( -- )` | ordinary | read: closes the innermost `by-induction-with`, `by-case:`, `by-focus` or `by-have-by:` block | Closes the block; with none open, or a brace innermost (the `{` second), error 83; an empty `by-focus` or `by-have-by:` block: 85. | indentation |
 | `{` .. `}` | `( -- )` | ordinary; `{` opens a block that its own `}` closes, over lines; may nest | read: a block step; names given inside it go at `}`. Run: the first goal alone, the block, no goal left at `}`, the other goals back | Works on the first goal alone and must close it (Lean's bullet); a goal left: 89 at `}`; no goal: 90 at `}`; `}` with no brace innermost: 83 (the open block second). | `· tacs`, `{ tacs }` |
+| `<;>` | `( -- )` | ordinary; opens a block of one step, closed by the next tactic word or closer after that step | read: marks the step before it in its block (t1; none: 468) and opens the then-block after it, t2 its one step (none: 85 at the closer). Run: t1 on the first goal alone, t2 on each goal t1 leaves, then the other goals | `t1 <;> t2`: treats every goal t1 makes alike; a value before it: 86. | `t1 <;> t2` |
+| `by-all-goals` | `( -- )` | ordinary; opens a block that `by-end` closes | read: a block step; names given inside it stay. Run: the block once on each goal not solved when reached, that goal alone; the goals each run leaves, in order, are the goals after it | Runs the same tactics on every goal; the first goal they fail on stops the proof with its error. | `all_goals tacs` |
 | `by-focus` | `( -- )` | ordinary; opens a block that `by-end` closes | read: a block step; names given inside it stay. Run: the first goal alone, the block, then the goals it leaves before the others | Works on the first goal alone without having to close it; no goal: 90. | `focus` |
 | `by-have-by: HYP-NAME` | `( T -- )` | parsing: one name after it, on its line; opens a block that `by-end` closes | read: a block step holding T; HYP-NAME a hypothesis word after the block, names given inside it go at `by-end`. Run: a new goal T, untagged, in the main goal's context, the main goal assigned `have HYP-NAME : T := ?p; ?g` (?g in its place), then the block on ?p alone | Proves the claim T by its own tactics, then goes on with HYP-NAME : T; goals left at `by-end`: 89 (always reported); T no type: 130; `_`: 99. | `have HYP-NAME : T := by tacs` |
 | `by-rw[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: a block step. Run: rewrites the goal with each rule, then tries `by-rfl` | Starts a list of rewrite rules; every value built until `]` is a rule. | `rw [` |

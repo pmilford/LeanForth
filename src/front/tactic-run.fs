@@ -328,9 +328,10 @@ lfr-kinds constant lf-tactic-kinds#
 : lf-tactic-shape! ( shape kind -- ) lfr-row! trow-shape ! ;
 : lf-tactic-shape@ ( kind -- shape ) lfr-row trow-shape @ ;
 : lf-tactic-mode! ( mode kind -- ) lfr-row! trow-mode ! ;
-\ Whether a kind's words open a block by their shape (tactic-syntax.fs's
-\ tac-shape-block: { }, by-focus, by-have-by:; the fixed blocks by,
-\ by-induction-with, | and by-case: have none).
+\ Whether a kind's words open a block, by its shape (tactic-syntax.fs's
+\ tac-shape-block: { }, by-focus, by-have-by:, by-all-goals, <;>; the
+\ fixed blocks' shapes, set below: by, by-induction-with, | and by-case:,
+\ plan row 9.4.8s).
 : lfr-shaped-block? ( kind -- flag ) lf-tactic-shape@ lft-block-shape? ;
 : lf-tactic-alt@ ( kind -- xt|0 ) lfr-row trow-alt @ ;
 \ The first kind with no row, from 12 (the S1/S2 kinds keep 1-11).
@@ -351,6 +352,8 @@ s" induction" tac-k-with lf-tactic-lean!
 s" alternative" tac-k-alt lf-tactic-lean! s" case" tac-k-case lf-tactic-lean!
 s" rw" tac-k-rw lf-tactic-lean!           s" rewrite" tac-k-rewrite lf-tactic-lean!
 s" sorry" tac-k-sorry lf-tactic-lean!
+tac-shape-by tac-k-by lf-tactic-shape!     tac-shape-with tac-k-with lf-tactic-shape!
+tac-shape-headed tac-k-alt lf-tactic-shape!   tac-shape-headed tac-k-case lf-tactic-shape!
 
 \ ---- Errors: at the step running (its word and position) or at a
 \ block's place; a tactic's error also shows the goals, kept as the
@@ -379,12 +382,13 @@ s" sorry" tac-k-sorry lf-tactic-lean!
 : lf-tac-fail-at ( j code -- ) lfr-with-goals lf-tac-stop-at ;
 : lf-tac-stop ( code -- ) lfr-fail ;
 \ (A brace's are told at its }: Lean's withRef stx[2], BuiltinTactic.lean:
-\ 170; the reader keeps the }'s place as its tac-arrow.)
+\ 170; the reader keeps the }'s place as its tac-arrow; a header's at
+\ its =>; any other block's at its word.)
+: lfr-headed? ( shape -- flag ) shape-block @ tac-block-headed and 0<> ;
+: lfr-unbraced ( i shape -- c-addr u ) lfr-headed? if drop s" =>" else lfr-spelling then ;
 : lfr-shaped-word ( i shape -- c-addr u )
-  lft-self-closing? if drop s" }" else lfr-spelling then ;
-: lfr-block-word ( i -- c-addr u )
-  dup lfr-kind lf-tactic-shape@ ?dup if lfr-shaped-word exit then
-  lfr-kind tac-k-by = if s" by" else s" =>" then ;
+  dup lft-self-closing? if 2drop s" }" else lfr-unbraced then ;
+: lfr-block-word ( i -- c-addr u ) dup lfr-kind lf-tactic-shape@ lfr-shaped-word ;
 : lfr-block-fail ( i code -- ) >r dup lfr-block-word rot lfr-block-at r> lfa-fail-at ;
 \ An outcome other than ok stops the run: the run's own stores and goal
 \ list (no room 88, fuel 91, not supported 93, else 92: none of them
@@ -692,10 +696,9 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 \ around that) and a block (by, with, alternative or case), alternatives
 \ exactly the steps right inside a by-induction-with. Steps are checked
 \ in order and the first bad one stops the check, so the parents walked
-\ are known to come before their steps.
-: lfr-fixed-block? ( kind -- flag )
-  dup tac-k-by = over tac-k-with = or over tac-k-alt = or swap tac-k-case = or ;
-: lfr-holder? ( kind -- flag ) dup lfr-fixed-block? swap lfr-shaped-block? or ;
+\ are known to come before their steps. A block is a kind whose row's
+\ shape is a block's (lfr-shaped-block?).
+: lfr-holder? ( kind -- flag ) lfr-shaped-block? ;
 : lfr-alt-right? ( i p -- flag ) lfr-kind tac-k-with = swap lfr-kind tac-k-alt = = ;
 \ p is j or a block around j: j's parents walked while they come after p.
 : lfr-ancestor? ( p j -- flag ) begin 2dup < while lfr-parent repeat = ;
