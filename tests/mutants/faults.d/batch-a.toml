@@ -327,16 +327,16 @@ reason = "TB2: Nat.hasNotBit, not ported, passed over instead of not supported"
 [[fault]]
 id = "tb2-first-last-only"
 file = "src/front/tactic-core.fs"
-old = '''  begin dup 1 > while swap lf-tac-try-lean if 1- ndrop exit then 1- repeat drop execute ;'''
-new = '''  1- ndrop execute ;'''
+old = '''  begin dup 1 > while swap tcr-try-kept if 1- ndrop true exit then 1- repeat drop false ;'''
+new = '''  1- ndrop false ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: first runs only its last alternative"
 
 [[fault]]
 id = "tb2-first-keeps-failure"
 file = "src/front/tactic-core.fs"
-old = '''  begin dup 1 > while swap lf-tac-try-lean if 1- ndrop exit then 1- repeat drop execute ;'''
-new = '''  begin dup 1 > while swap execute 1- ndrop exit repeat drop execute ;'''
+old = '''  begin dup 1 > while swap tcr-try-kept if 1- ndrop true exit then 1- repeat drop false ;'''
+new = '''  begin dup 1 > while swap execute 1- ndrop true exit repeat drop false ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: first runs its first alternative bare (no saved state: its error stops the step)"
 
@@ -510,8 +510,8 @@ reason = "TB2: contradiction's step does nothing"
 [[fault]]
 id = "tb2-trivial-no-and"
 file = "src/front/tactics/trivial.fs"
-old = '''  ['] ttr-and 6 lf-tac-first-of ;'''
-new = '''  ['] ttr-true 6 lf-tac-first-of ;'''
+old = '''  ['] ttr-and 6 lf-tac-macro-alts ;'''
+new = '''  ['] ttr-true 6 lf-tac-macro-alts ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: trivial without its newest rule, apply And.intro <;> trivial"
 

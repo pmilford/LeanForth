@@ -73,10 +73,14 @@
 \       its end kept and the rest not run; a Lean error undone and
 \       forgotten; anything else thrown on at once; xtn, the deepest, when
 \       all before it failed, runs bare, so its error is the one reported,
-\       as Lean's. Also an extensible macro's rules (Elab/Tactic/
-\       Basic.lean's expandEval: tried newest first, the error of the last
-\       tried, the first registered, reported, Lean issue #3770): trivial's
-\       (tactics/trivial.fs)
+\       as Lean's
+\   lf-tac-macro-alts ( xtn .. xt1 n -- )  an extensible macro's rules
+\       (Elab/Tactic/Basic.lean:247-258's expandEval: tried newest first,
+\       each from a saved state, the error of the last tried, the first
+\       registered, reported, Lean issue #3770): as lf-tac-first-of, but
+\       the rules before the last keep the block's recover (expandEval
+\       has no withoutRecover); rfl's and trivial's rules (tactics/rfl.fs,
+\       tactics/trivial.fs)
 \   lf-tac-elab-term ( node expected postpone? -- e )  Tactic.elabTerm
 \       (ElabTerm.lean:45): lf-tac-elab, its failure thrown as the
 \       runner's error (Term codes 125-139, 71 without an elaborator);
@@ -305,16 +309,23 @@ end-structure
   ['] tcr-under lf-postpone-no lf-elab-with-synth tcr-synthesized ;
 
 \ ---- try: first | xt | skip (Init/Tactics.lean:445), xt a non-last
-\ alternative, run withoutRecover (Basic.lean:436-437's orElse).
-: lf-tac-try-lean ( xt -- flag )
-  ['] lf-tac-try lf-tac-no-recover ?dup 0= if true exit then lf-tac-forget-lean false ;
+\ alternative, run withoutRecover (Basic.lean:436-437's orElse);
+\ tcr-try-kept: the same with the block's recover (a macro's rule).
+: tcr-try-kept ( xt -- flag )
+  lf-tac-try ?dup 0= if true exit then lf-tac-forget-lean false ;
+: lf-tac-try-lean ( xt -- flag ) ['] tcr-try-kept lf-tac-no-recover ;
 
-\ ---- first: the alternative on top tried first (lf-tac-try-lean); one
-\ that ends is kept and the rest dropped; the deepest, the last, runs bare,
-\ so its error is the one thrown.
-: tcr-alts ( xtn..xt1 n -- )
-  begin dup 1 > while swap lf-tac-try-lean if 1- ndrop exit then 1- repeat drop execute ;
-: lf-tac-first-of ( xtn..xt1 n -- ) dup 0> 0= if outcome-invalid lf-must then tcr-alts ;
+\ ---- first and a macro's rules: the alternative on top tried first; one
+\ that ends is kept and the rest dropped (tcr-some: true), else the
+\ deepest, the last, is left (false) and runs bare, so its error is the
+\ one thrown. first tries them withoutRecover, a macro's rules with the
+\ block's recover.
+: tcr-some ( xtn..xt1 n -- xtn false | true )
+  begin dup 1 > while swap tcr-try-kept if 1- ndrop true exit then 1- repeat drop false ;
+: tcr-last ( xtn false | true -- ) 0= if execute then ;
+: tcr-counted ( n -- n ) dup 0> 0= if outcome-invalid lf-must then ;
+: lf-tac-first-of ( xtn..xt1 n -- ) tcr-counted ['] tcr-some lf-tac-no-recover tcr-last ;
+: lf-tac-macro-alts ( xtn..xt1 n -- ) tcr-counted tcr-some tcr-last ;
 
 \ ---- Tactic.elabTerm, elabTermEnsuringType, elabType.
 : lf-tac-elab-term ( node expected postpone? -- e ) lf-tac-elab lf-tac-must ;

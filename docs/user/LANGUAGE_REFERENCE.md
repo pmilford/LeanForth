@@ -1554,12 +1554,15 @@ closes with `by-end`. Blocks nest and may run over lines.
   = a`: `by-constructor { ' h by-exact } { ' k by-exact }` proves `a = b
   ∧ b = a` (`br_and`); Lean: `constructor` / `· exact h` / `· exact k`.
   A goal left at `}`: 89, "unsolved goals", at `}` as Lean's; `{` with
-  no goal: 90 at `{` (Lean at `}`); `{ }` is read, as Lean's parser reads
-  it, and is 89 over a goal. Names given inside a brace go at its `}`, so
-  two braces may both name a hypothesis `x` (`br_names`). A brace may
+  no goal: 90, "No goals to be solved", also at `}` as Lean's; `{ }` is
+  read, as Lean's parser reads it, and is 89 over a goal. Names given
+  inside a brace go at its `}`, so two braces may both name a hypothesis
+  `x` (`br_names`). A brace may
   stand in an alternative's or a case's block: `| zero => { by-constructor
   { by-rfl } { by-rfl } }` (`br_ind`), `by-case: right => { ' k by-exact }
-  by-end` (`br_case`).
+  by-end` (`br_case`; Lean: `case right => · exact k`, where `{` stands
+  for the bullet: Lean's `case` takes no `{ }` block, and rejects
+  `case right => { exact k }` as unexpected syntax).
 - `by-focus tacs by-end` is Lean's `focus tacs`: the first goal alone, the
   tactics; the goals they leave come back first, before the others, and
   none need be closed (`fo_open`: `by-constructor by-focus a b = ' h
@@ -1614,9 +1617,12 @@ logs an error, admits the goal and goes on (a brace's or an alternative's
 `closeUsingOrAdmit`, a term that does not elaborate, a have-by's unsolved
 goals), LeanForth stops at that first error; the verdict is the same,
 rejected, but Lean may report further errors that LeanForth does not
-(the owner's decision 6). The place of 90 for `{` with no goal is `{`,
-Lean's is `}`; have-by's unsolved goals are told at `by-have-by:`, Lean's
-at `by`. `try`, `first`, `<;>`, `all_goals`, `any_goals` and `repeat` are
+(the owner's decision 6). A term error inside a have-by inside a block
+that does not recover (a slice 3 `try`) is final in LeanForth, where Lean
+throws it on and the `try` takes it (Lean's errToSorry, not modelled yet;
+no text can reach it until `by-try` and `by-first` exist, and slice 3
+models it). have-by's unsolved goals are told at `by-have-by:`, Lean's at
+`by`. `try`, `first`, `<;>`, `all_goals`, `any_goals` and `repeat` are
 slices 2 and 3 of the design, not built yet.
 
 A statement's hypothesis is written with a tick when it stands alone,
@@ -1660,7 +1666,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `\| CASE-TAG HYP-NAME ... =>` | `( -- )` | parsing: tokens of its line up to `=>`; only right inside `by-induction-with` (error 83 elsewhere) | read: an alternative block; the names become hypotheses until the alternative ends. Run: introduces the case's fields and runs the block | One alternative of an induction. CASE-TAG is the name of the case (`zero`, `succ`); each HYP-NAME becomes a new word for one of the case's variables or hypotheses (`k`, `ih` in `\| succ k ih =>`) until the alternative ends. The alternative ends at the next `\|` or at `by-end`. | `\| tag names =>` |
 | `=>` | | read only by `\|` and `by-case:` as their terminator; run alone it is error 84 | none | Ends an alternative's header. | `=>` |
 | `by-end` | `( -- )` | ordinary | read: closes the innermost `by-induction-with`, `by-case:`, `by-focus` or `by-have-by:` block | Closes the block; with none open, or a brace innermost (the `{` second), error 83; an empty `by-focus` or `by-have-by:` block: 85. | indentation |
-| `{` .. `}` | `( -- )` | ordinary; `{` opens a block that its own `}` closes, over lines; may nest | read: a block step; names given inside it go at `}`. Run: the first goal alone, the block, no goal left at `}`, the other goals back | Works on the first goal alone and must close it (Lean's bullet); a goal left: 89 at `}`; no goal: 90; `}` with no brace innermost: 83 (the open block second). | `· tacs`, `{ tacs }` |
+| `{` .. `}` | `( -- )` | ordinary; `{` opens a block that its own `}` closes, over lines; may nest | read: a block step; names given inside it go at `}`. Run: the first goal alone, the block, no goal left at `}`, the other goals back | Works on the first goal alone and must close it (Lean's bullet); a goal left: 89 at `}`; no goal: 90 at `}`; `}` with no brace innermost: 83 (the open block second). | `· tacs`, `{ tacs }` |
 | `by-focus` | `( -- )` | ordinary; opens a block that `by-end` closes | read: a block step; names given inside it stay. Run: the first goal alone, the block, then the goals it leaves before the others | Works on the first goal alone without having to close it; no goal: 90. | `focus` |
 | `by-have-by: HYP-NAME` | `( T -- )` | parsing: one name after it, on its line; opens a block that `by-end` closes | read: a block step holding T; HYP-NAME a hypothesis word after the block, names given inside it go at `by-end`. Run: a new goal T, untagged, in the main goal's context, the main goal assigned `have HYP-NAME : T := ?p; ?g` (?g in its place), then the block on ?p alone | Proves the claim T by its own tactics, then goes on with HYP-NAME : T; goals left at `by-end`: 89 (always reported); T no type: 130; `_`: 99. | `have HYP-NAME : T := by tacs` |
 | `by-rw[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: a block step. Run: rewrites the goal with each rule, then tries `by-rfl` | Starts a list of rewrite rules; every value built until `]` is a rule. | `rw [` |

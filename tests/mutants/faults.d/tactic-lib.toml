@@ -410,8 +410,8 @@ reason = "9.4.8l-I fail-closed: try (lf-tac-try-lean) catches unsupported, no ro
 [[fault]]
 id = "lib-try-lean-always-true"
 file = "src/front/tactic-core.fs"
-old = '''  ['] lf-tac-try lf-tac-no-recover ?dup 0= if true exit then lf-tac-forget-lean false ;'''
-new = '''  ['] lf-tac-try lf-tac-no-recover drop true ;'''
+old = '''  lf-tac-try ?dup 0= if true exit then lf-tac-forget-lean false ;'''
+new = '''  lf-tac-try drop true ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "9.4.8l-I fail-closed: lf-tac-try-lean answers success for every failure"
 

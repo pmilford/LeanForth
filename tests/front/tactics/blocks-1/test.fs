@@ -74,6 +74,12 @@ variable alt1  variable alt2
 : probe-first ( i -- ) drop ['] alt-ends ['] alt-fails 2 lf-tac-first-of ;
 tac-shape-plain lf-tactic: by-probe-first constant tac-k-probe-first
 ' probe-first tac-k-probe-first lf-tactic-action!
+: probe-macro ( i -- ) drop ['] alt-ends ['] alt-fails 2 lf-tac-macro-alts ;
+tac-shape-plain lf-tactic: by-probe-macro constant tac-k-probe-macro
+' probe-macro tac-k-probe-macro lf-tactic-action!
+: probe-try-lean ( i -- ) drop ['] alt-fails lf-tac-try-lean alt2 ! ;
+tac-shape-plain lf-tactic: by-probe-try-lean constant tac-k-probe-try-lean
+' probe-try-lean tac-k-probe-try-lean lf-tactic-action!
 variable was-final
 : raise-logged ( -- ) lfa-e-tac-mismatch lf-tac-log-fail ;
 : probe-log ( i -- ) drop ['] raise-logged catch lf-author-final? was-final ! throw ;
@@ -150,10 +156,12 @@ lf-tac-forget
 
 \ ---- 1, 2. Outcomes and malformed input through the text.
 \ A goal left at }: 89 at }; { } likewise (Lean's parser reads it); no
-\ goal: 90 at {, and no frame was pushed for it.
+\ goal: 90 at } too (Lean's withRef stx[2] around the whole brace,
+\ BuiltinTactic.lean:167-173), and no frame was pushed for it.
 T{ hh s" { b a = ' k by-have: x }" tactic-ran s" }" token? -> 89 true }T
 T{ hh s" { }" tactic-ran s" }" token? -> 89 true }T
-T{ hh s" ' h by-exact { ' h by-exact }" tactic-ran s" {" token? lfr-depth -> 90 true 1 }T
+T{ hh s" ' h by-exact { ' h by-exact }" tactic-ran s" }" token? lfr-depth -> 90 true 1 }T
+T{ hh s" ' h by-exact { }" tactic-ran s" }" token? lfr-depth -> 90 true 1 }T
 \ Closers: } with no brace (83), } at an alternative (83, its | second),
 \ } at by-focus, by-end at a brace (83, its { second), by-end with only by
 \ open, { open at end (82, its { second), | inside a brace (83).
@@ -182,7 +190,8 @@ T{ hs s" b a = by-have-by: j a b = ' h by-have: x by-end ' j by-exact" tactic-ra
 T{ hh s" ' h by-exact a b = by-have-by: j ' h by-exact by-end" tactic-ran -> 90 }T
 T{ hs s" b a = by-have-by: _ ' Eq.symm ' h $ by-exact by-end by-assumption" tactic-ran -> 99 }T
 \ by-focus: 90 with no goal; the goals it leaves come back first.
-T{ hh s" ' h by-exact by-focus ' h by-exact by-end" tactic-ran -> 90 }T
+T{ hh s" ' h by-exact by-focus ' h by-exact by-end" tactic-ran s" by-focus" token? lfr-depth
+   -> 90 true 1 }T
 T{ hk s" by-constructor by-focus a b = ' h by-have: x by-end ' x by-exact ' k by-exact"
    tactic-ran -> 0 }T
 \ ---- 6. Names: { cuts those given inside it, have-by its block's but its
@@ -211,6 +220,10 @@ T{ true inner-recover ! ' probe-inner lf-tac-no-recover inner-recover @ -> false
 \ first: the alternative tried from a save runs with recover false, the
 \ last bare, with the block's (Lean's orElse, BuiltinTactic.lean:631-641).
 T{ hh s" by-probe-first ' h by-exact" tactic-ran alt1 @ alt2 @ -> 0 false true }T
+\ A macro's rules (Lean's expandEval, Basic.lean:247-258): each with the
+\ block's recover; try alone: recover false, the error forgotten (false).
+T{ hh s" by-probe-macro ' h by-exact" tactic-ran alt1 @ alt2 @ -> 0 true true }T
+T{ hh s" by-probe-try-lean ' h by-exact" tactic-ran alt1 @ alt2 @ -> 0 false false }T
 \ A block opened while recover is false takes false; a brace inside it
 \ too; a have-by inside it is a fresh Tactic.run: true.
 T{ hh s" by-probe-block by-probe ' h by-exact by-end" tactic-ran seen-recover @ -> 0 false }T
@@ -246,6 +259,20 @@ T{ hh s" by-probe-try by-probe-gap by-end ' h by-exact" tactic-ran -> 93 }T
 T{ hs s" by-probe-try b a = by-have-by: j a b = ' h by-have: x by-end by-end ' h by-exact"
    tactic-ran -> 89 }T
 T{ hh s" by-probe-try { ' k by-exact } by-end ' h by-exact" tactic-ran -> 0 }T
+\ A have-by inside the handler: its thrown error leaves it to a frame that
+\ does not recover, so it is not final and the handler takes it (Lean's
+\ q1 is accepted; review tb2-blocks1 finding 2).
+T{ hh s" by-probe-try b a = by-have-by: j ' h by-exact by-end by-end ' h by-exact" tactic-ran
+   -> 0 }T
+\ Today's answer pinned, stricter than Lean's: a term error (467, the
+\ logged class) in a have-by inside the handler is final, where Lean's
+\ errToSorry, cleared by withoutRecover and kept by the have-by's fresh
+\ Tactic.run, throws it and try takes it (Lean's q8 is accepted). TB2
+\ blocks slice 3's frame field tfr-sorry changes this answer to Lean's, 0
+\ (docs/design/TACTIC_BLOCKS.md, review tb2-blocks1 finding 1).
+T{ hh s" by-probe-try b a = by-have-by: j << ' h >> by-exact by-end by-end ' h by-exact"
+   tactic-ran lf-author-final? -> 467 true }T
+lf-tac-forget
 T{ hh s" by-probe-try ' h by-exact by-end" tactic-ran lfr-saves -> 0 0 }T
 \ A brace inside a have-by inside the handler: the have-by recovers, so
 \ the brace's error is final there (Lean's closeUsingOrAdmit logs it).

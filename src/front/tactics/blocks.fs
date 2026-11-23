@@ -5,8 +5,9 @@
 \   BuiltinTactic.lean:167-185, evalTacticSeqBracketed and its copy
 \   evalTacticCDot): closeUsingOrAdmit (Basic.lean:351-361) of
 \   focusAndDone, the first unsolved goal alone (none: 90, before the
-\   block opens, :354), the block's tactics, then no goal left (89 at its
-\   }, Lean's withRef stx[2]) and the other goals back. It closes itself
+\   block opens, :354), the block's tactics, then no goal left (89), both
+\   at its } (Lean's withRef stx[2] around it all), and the other goals
+\   back. It closes itself
 \   at }, may nest and may stand in an alternative's or a case's block;
 \   the names given inside it go at }. { } is read, as Lean's parser
 \   reads it, and fails as Lean's: 89, or 90 with no goal.
@@ -14,7 +15,7 @@
 \   Basic.lean:332-338): the main goal alone (none: 90), the tactics,
 \   then the goals they leave before the others; names given inside stay.
 \ Lean call list: getUnsolvedGoals, setGoals -> tactic-run.fs's
-\ lf-tac-focus (lf-tac-focused); focusAndDone's done and
+\ lf-tac-focus (lf-tac-bracketed, lf-tac-focused); focusAndDone's done and
 \ closeUsingOrAdmit -> the runner's mode lf-mode-done; focus's end ->
 \ lf-mode-focus. Where closeUsingOrAdmit logs an error, admits the goal
 \ and goes on, LeanForth stops at that error (the same verdict).
@@ -26,7 +27,7 @@ require ../tactic-api.fs
 0 0 tac-block-cuts tac-block-self or tac-shape-block
   lf-tactic-sign: { constant tac-k-brace
 s" braces" tac-k-brace lf-tactic-lean!
-' lf-tac-focused tac-k-brace lf-tactic-action!
+' lf-tac-bracketed tac-k-brace lf-tactic-action!
 lf-mode-done tac-k-brace lf-tactic-mode!
 
 0 0 0 tac-shape-block lf-tactic: by-focus constant tac-k-focus

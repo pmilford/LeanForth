@@ -375,8 +375,8 @@ reason = "TB2 3a: exact Iff.rfl assigned without the type check: a ≤ b's rfl c
 [[fault]]
 id = "tb3a-rfl-iff-missing"
 file = "src/front/tactics/rfl.fs"
-old = ''': trf-rules ( -- ) ['] trf-refl ['] trf-heq-rfl ['] trf-iff-rfl 3 lf-tac-first-of ;'''
-new = ''': trf-rules ( -- ) ['] trf-refl ['] trf-heq-rfl 2 lf-tac-first-of ;'''
+old = ''': trf-rules ( -- ) ['] trf-refl ['] trf-heq-rfl ['] trf-iff-rfl 3 lf-tac-macro-alts ;'''
+new = ''': trf-rules ( -- ) ['] trf-refl ['] trf-heq-rfl 2 lf-tac-macro-alts ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
 reason = "TB2 3a: rfl's exact Iff.rfl rule left out: p ↔ p not closed"
 

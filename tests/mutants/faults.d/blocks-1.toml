@@ -42,8 +42,8 @@ reason = "TB2 blocks 1: a block's end never runs its mode (no done, no goals put
 [[fault]]
 id = "tb2b1-rest-dropped"
 file = "src/front/tactic-run.fs"
-old = '''  dup tfr-step @ lfr-ending lf-tac-done tfr-rest @ lfr-goals! ;'''
-new = '''  dup tfr-step @ lfr-ending lf-tac-done drop ;'''
+old = '''  dup tfr-rest @ swap tfr-step @ lfr-ending lf-tac-done lfr-goals! ;'''
+new = '''  dup tfr-rest @ swap tfr-step @ lfr-ending lf-tac-done drop ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
 reason = "TB2 blocks 1: done's end drops the goals outside the block: blocks-1 test.fs's br_and text (fuel-swept?, p-brace) finds no goal for its second brace (90)"
 
@@ -53,7 +53,7 @@ file = "src/front/tactic-run.fs"
 old = ''': lf-tac-focused ( i -- ) lf-tac-focus lf-tac-block ;'''
 new = ''': lf-tac-focused ( i -- ) lf-goals lf-tac-block lf-tac-focus drop ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
-reason = "TB2 blocks 1: the no-goal check after the frame is pushed (Lean's Basic.lean:354 is before the catch): blocks-1 test.fs's { with no goal leaves 2 frames, not 1"
+reason = "TB2 blocks 1: the no-goal check after the frame is pushed (Lean's Basic.lean:354 is before the catch): blocks-1 test.fs's by-focus with no goal leaves 2 frames, not 1"
 
 [[fault]]
 id = "tb2b1-have-by-not-fresh"
@@ -82,10 +82,26 @@ reason = "TB2 blocks 1: Lean's logged class made an ordinary throw: blocks-1 tes
 [[fault]]
 id = "tb2b1-try-lean-recovers"
 file = "src/front/tactic-core.fs"
-old = '''  ['] lf-tac-try lf-tac-no-recover ?dup 0= if true exit then lf-tac-forget-lean false ;'''
-new = '''  lf-tac-try ?dup 0= if true exit then lf-tac-forget-lean false ;'''
+old = ''': lf-tac-try-lean ( xt -- flag ) ['] tcr-try-kept lf-tac-no-recover ;'''
+new = ''': lf-tac-try-lean ( xt -- flag ) tcr-try-kept ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
-reason = "TB2 blocks 1: try's and first's non-last alternatives keep recover (Lean's orElse clears it): blocks-1 test.fs's by-probe-first's first alternative sees true"
+reason = "TB2 blocks 1: try's alternative keeps recover (Lean's orElse clears it): blocks-1 test.fs's by-probe-try-lean's alternative sees true"
+
+[[fault]]
+id = "tb2b1-first-recovers"
+file = "src/front/tactic-core.fs"
+old = ''': lf-tac-first-of ( xtn..xt1 n -- ) tcr-counted ['] tcr-some lf-tac-no-recover tcr-last ;'''
+new = ''': lf-tac-first-of ( xtn..xt1 n -- ) tcr-counted tcr-some tcr-last ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: first's non-last alternatives keep recover (Lean's orElse clears it): blocks-1 test.fs's by-probe-first's first alternative sees true"
+
+[[fault]]
+id = "tb2b1-macro-alts-no-recover"
+file = "src/front/tactic-core.fs"
+old = ''': lf-tac-macro-alts ( xtn..xt1 n -- ) tcr-counted tcr-some tcr-last ;'''
+new = ''': lf-tac-macro-alts ( xtn..xt1 n -- ) tcr-counted ['] tcr-some lf-tac-no-recover tcr-last ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1 review 6: a macro's rules run withoutRecover as first's (Lean's expandEval keeps recover): blocks-1 test.fs's by-probe-macro's first rule sees false"
 
 [[fault]]
 id = "tb2b1-final-never"
@@ -94,6 +110,22 @@ old = ''': lfr-final-at? ( k -- flag ) dup lfr-admits lfr-frame-flag? swap lfr-b
 new = ''': lfr-final-at? ( k -- flag ) drop false ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
 reason = "TB2 blocks 1: an error leaving an admitting block over one that recovers is not final: blocks-1 test.fs's brace in a have-by in the probe try is taken back (0, not 96)"
+
+[[fault]]
+id = "tb2b1-below-own-flag"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-below-recover ( k -- flag ) 1- lfr-recover-at ;'''
+new = ''': lfr-below-recover ( k -- flag ) lfr-recover-at ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1 review 2: whether an error leaving a nested block is final read from the block's own recover, not the one below it: blocks-1 test.fs's thrown error in a have-by in the probe try is final (96, not 0)"
+
+[[fault]]
+id = "tb2b1-recover-below-first"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-recover-at ( k -- flag ) dup 0< if drop true else lfr-frame tfr-recover @ then ;'''
+new = ''': lfr-recover-at ( k -- flag ) dup 0< if drop false else lfr-frame tfr-recover @ then ;'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1: below the first frame recover is false, not Tactic.run's true: blocks-1 test.fs's probe in the proof's by sees false (and lfr-recover-in outside a run is false)"
 
 [[fault]]
 id = "tb2b1-handler-no-restore"
@@ -135,12 +167,20 @@ new = '''  drop lfr-spelling ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
 reason = "TB2 blocks 1: a brace's unsolved goals told with { at }'s place: blocks-1 test.fs's 89 token is not }"
 
+[[fault]]
+id = "tb2b1-brace-none-at-open"
+file = "src/front/tactics/blocks.fs"
+old = '''' lf-tac-bracketed tac-k-brace lf-tactic-action!'''
+new = '''' lf-tac-focused tac-k-brace lf-tactic-action!'''
+test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
+reason = "TB2 blocks 1 review 4: a brace with no goal told at its { (Lean's withRef stx[2] puts it at }): blocks-1 test.fs's 90 token is {, not }"
+
 # ---- The reader's closers and names (tactic-syntax.fs, tactics/)
 [[fault]]
 id = "tb2b1-brace-names-kept"
 file = "src/front/tactic-syntax.fs"
-old = '''  lft-open lft-arrow! drop lft-past lft-open lft-rec lft-cut-names lft-close ;'''
-new = '''  lft-open lft-arrow! drop lft-past lft-open lft-rec drop lft-close ;'''
+old = ''': lft-brace-close ( -- ) lft-open lft-arrow! lft-rec lft-cut-names lft-past lft-close ;'''
+new = ''': lft-brace-close ( -- ) lft-open lft-arrow! lft-rec drop lft-past lft-close ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
 reason = "TB2 blocks 1: names given inside a brace stay after its }: blocks-1 test.fs's x after } reads as the hypothesis, not error 1"
 

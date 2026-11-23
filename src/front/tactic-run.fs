@@ -91,7 +91,9 @@
 \ -- j*x ), lf-tac-record ( -- addr ) (the running record's own fields,
 \ else the last's), lf-tac-records ( -- n ), lf-tac-record-at ( k -- addr ),
 \ lf-tac-block ( i rest -- ), lf-tac-done ( i -- ), lf-tac-focus ( --
-\ rest ), lf-tac-unfocus ( rest -- ), lf-tac-save ( -- save outcome ),
+\ rest ), lf-tac-unfocus ( rest -- ), lf-tac-focused and
+\ lf-tac-bracketed ( i -- ) (a block over the main goal alone; no goal
+\ 90 at the step, or at a brace's }), lf-tac-save ( -- save outcome ),
 \ lf-tac-restore, lf-tac-commit ( save -- outcome ), lf-tac-try,
 \ lf-tac-forget ( -- ), lf-open-parts ( -- n ), lf-open-parts. ( -- ),
 \ lf-front-close ( type value -- type' value' ) and lf-front-close-type
@@ -498,8 +500,10 @@ end-structure
 \ by-have-by:); focus (Basic.lean:332-338: the goals left, then those
 \ outside it; by-focus).
 : lfr-ending ( i -- i ) dup dup lfr-kind lfr-row trow-end @ execute ;
+\ (The frame's fields read before the kind's end runs: a slab address
+\ may move at a claim, lib/slab.fs.)
 : lfr-done-end ( frame -- )
-  dup tfr-step @ lfr-ending lf-tac-done tfr-rest @ lfr-goals! ;
+  dup tfr-rest @ swap tfr-step @ lfr-ending lf-tac-done lfr-goals! ;
 \ An authoring error xt throws made final (author/errors.fs's lfa-final):
 \ no handler takes it back.
 \ (lfr-mark: an authoring error's THROW code, made final when flag.)
@@ -515,9 +519,12 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 : lfr-depth ( -- n ) trun-frames slab-count ;
 : lfr-frame ( k -- addr ) trun-frames slab-at ;
 : lfr-top ( -- addr ) trun-frames slab-last ;
-\ Lean's recover inside the top block; false outside a run.
-: lf-tac-recover? ( -- flag ) lfr-depth if lfr-top tfr-recover @ else false then ;
-: lfr-inherited ( -- flag ) lfr-depth if lfr-top tfr-recover @ else true then ;
+: lfr-mode-at ( k -- mode ) lfr-frame tfr-mode @ ;
+\ Lean's recover inside frame k; below the first frame (k < 0) Tactic.
+\ run's, true. lf-tac-recover?: inside the top block, false outside a run.
+: lfr-recover-at ( k -- flag ) dup 0< if drop true else lfr-frame tfr-recover @ then ;
+: lfr-inherited ( -- flag ) lfr-depth 1- lfr-recover-at ;
+: lf-tac-recover? ( -- flag ) lfr-depth if lfr-inherited else false then ;
 : lfr-kept-in ( mode -- flag ) lfr-no-recover lfr-mode-flag? 0= lfr-inherited and ;
 : lfr-recover-in ( mode -- flag )
   dup lfr-fresh-recover lfr-mode-flag? swap lfr-kept-in or ;
@@ -535,9 +542,14 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 \ Step i's block over the main goal alone (Lean's focus: none is 90,
 \ before the block opens, Basic.lean:333 and :354).
 : lf-tac-focused ( i -- ) lf-tac-focus lf-tac-block ;
+\ A brace's block (Lean's evalTacticSeqBracketed, BuiltinTactic.lean:
+\ 167-173, all of it under withRef stx[2]): no goal is 90 at its }, as its
+\ unsolved goals are (lfr-block-at), before the block opens.
+: lf-tac-bracketed ( i -- )
+  lfr-unsolved run-count if lf-tac-focused else lfa-e-tac-no-goals lfr-block-fail then ;
 \ withoutRecover (Basic.lean:387): xt with the top block's flag false,
 \ put back however xt ends; outside a run, xt alone.
-: lfr-recover@ ( -- k flag ) lfr-depth 1- dup lfr-frame tfr-recover @ ;
+: lfr-recover@ ( -- k flag ) lfr-depth 1- dup lfr-recover-at ;
 : lfr-recover! ( flag k -- ) lfr-frame tfr-recover ! ;
 : lfr-without ( i*x xt -- j*x )
   lfr-recover@ 2dup 2>r drop false swap lfr-recover! catch 2r> swap lfr-recover! throw ;
@@ -545,7 +557,13 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 \ An error of Lean's logged class (throwOrLogError, Basic.lean:422-434;
 \ the term elaborator's errToSorry, ElabTerm.lean:31-39): xt's error made
 \ final when the top block recovers (Lean logs it and goes on; LeanForth
-\ stops there, the same verdict), else thrown as any other.
+\ stops there, the same verdict), else thrown as any other. Lean's
+\ errToSorry is not modelled apart from recover yet: a fresh Tactic.run
+\ (a have-by) resets recover but keeps errToSorry, so a term error in a
+\ have-by inside a block that does not recover is final here where Lean
+\ throws it: stricter than Lean, never laxer; no text reaches it until
+\ by-try and by-first exist (TB2 blocks slice 3's frame field tfr-sorry,
+\ docs/design/TACTIC_BLOCKS.md 4).
 : lf-tac-logged ( i*x xt -- j*x ) catch lf-tac-recover? lfr-mark throw ;
 : lf-tac-log-fail ( code -- ) ['] lf-tac-stop lf-tac-logged ;
 : lfr-inside? ( b j -- flag )
@@ -791,11 +809,12 @@ lfr-states# 2* 0 xt-table: lfr-states
 \ recovers, makes it final (Lean logs it); one whose mode takes errors
 \ (mode-fail) has the state put back to its save, the error forgotten,
 \ and its mode-fail run, and the loop goes on; none above base, or any
-\ other code, is thrown on.
-: lfr-below-recover ( k -- flag ) dup if 1- lfr-frame tfr-recover @ else drop true then ;
-: lfr-frame-flag? ( k bit -- flag ) swap lfr-frame tfr-mode @ swap lfr-mode-flag? ;
+\ other code, is thrown on. The fail path's first callers outside the
+\ unit tests' probe try are TB2 blocks slice 3's by-try and by-first.
+: lfr-below-recover ( k -- flag ) 1- lfr-recover-at ;
+: lfr-frame-flag? ( k bit -- flag ) swap lfr-mode-at swap lfr-mode-flag? ;
 : lfr-final-at? ( k -- flag ) dup lfr-admits lfr-frame-flag? swap lfr-below-recover and ;
-: lfr-handler? ( k -- flag ) lfr-frame tfr-mode @ mode-fail @ 0<> ;
+: lfr-handler? ( k -- flag ) lfr-mode-at mode-fail @ 0<> ;
 \ (The topmost frame that decides; one below base is the caller's loop's.)
 : lfr-decides? ( base k -- base flag ) dup lfr-final-at? swap lfr-handler? or ;
 : lfr-in? ( base k -- k true | false ) tuck > if drop false else true then ;

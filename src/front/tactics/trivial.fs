@@ -3,7 +3,7 @@
 \ its six rules (:1534-1539), tried as Lean's evalTactic tries a macro's
 \ rules (Elab/Tactic/Basic.lean's expandEval: the newest first, each from
 \ the saved state; the error of the last tried, the first registered,
-\ reported): tactic-core.fs's lf-tac-first-of of
+\ reported): tactic-core.fs's lf-tac-macro-alts of
 \   apply And.intro <;> trivial   focus on the main goal, apply And.intro
 \                                 (meta-tactic/apply.fs), then trivial on
 \                                 each of its goals in turn (all_goals: the
@@ -21,7 +21,7 @@
 \ nested trivial of the first rule runs through this row
 \ (lf-tac-eval): And nested deeper than ttr-most is not supported yet
 \ (99), where Lean's limit is its recursion depth (maxRecDepth).
-\ Lean call list: the macro's rules -> lf-tac-first-of; focus ->
+\ Lean call list: the macro's rules -> lf-tac-macro-alts; focus ->
 \ lf-tac-focus, lf-tac-unfocus (tactic-run.fs); apply c ->
 \ lf-lift-meta-tactic, lf-tac-with-synth (tactic-core.fs) and
 \ lf-goal-apply-named; all_goals -> ttr-all (setGoals [g]: lf-tac-only;
@@ -74,6 +74,6 @@ end-structure
 \ (assumption: tactics/assumption.fs's tas-row).
 : ttr-rules ( -- )
   ['] tas-row ['] ttr-rfl ['] ttr-contradiction ['] ttr-decide ['] ttr-true
-  ['] ttr-and 6 lf-tac-first-of ;
+  ['] ttr-and 6 lf-tac-macro-alts ;
 : ttr-run ( i -- ) drop ['] ttr-rules ttr-deeper ;
 ' ttr-run tac-k-trivial lf-tactic-action!

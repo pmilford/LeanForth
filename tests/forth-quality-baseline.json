@@ -75,7 +75,7 @@
   "globals": 1,
   "long lines": 0,
   "long words": 0,
-  "rstack": 10,
+  "rstack": 5,
   "shuffles": 3,
   "words": 59
  },
@@ -848,10 +848,10 @@
   "words": 161
  },
  "src/front/tactic-syntax.fs": {
-  "globals": 2,
+  "globals": 0,
   "long lines": 0,
   "long words": 0,
-  "rstack": 19,
+  "rstack": 18,
   "shuffles": 3,
   "words": 109
  },

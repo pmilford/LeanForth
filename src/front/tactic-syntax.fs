@@ -434,13 +434,16 @@ end-structure
 : lft-headed ( i -- ) lft-names lft-arrow! lft-opened ;
 : lft-header ( kind -- ) lft-new lft-entries! lft-tag! lft-headed ;
 
-\ A block of names ends at pos: it held a tactic, and its names go. An
-\ empty one stops the run at the word that ends it, with its => as the
-\ second place (pinned Lean's parser reports just past =>).
+\ A block of names ends at pos: it held a tactic, and its names go (with
+\ cut?, lft-block-close; always, lft-names-end). An empty one stops the
+\ run at the word that ends it, with its => as the second place (pinned
+\ Lean's parser reports just past =>).
 : lft-held ( addr -- addr )
   dup tac-inner @ 0> if exit then dup tac-arrow @ lfa-e-tac-empty lfa-fail-see ;
 : lft-cut-names ( addr -- ) tac-entries @ lfa-entries-cut ;
-: lft-names-end ( pos -- ) lft-open lft-rec lft-held lft-cut-names lft-close ;
+: lft-block-close ( pos cut? -- )
+  lft-open lft-rec lft-held swap if lft-cut-names else drop then lft-close ;
+: lft-names-end ( pos -- ) true lft-block-close ;
 \ An alternative ends with its last tactic, at the next | or by-end.
 : lft-alt-end ( -- ) lft-kind tac-k-alt = if lft-read-from lft-names-end then ;
 : lft-in-with ( -- ) lft-kind tac-k-with = lfa-e-tac-closer lfa-must ;
@@ -482,17 +485,15 @@ end-structure
 \ unsolved goals are told, as Lean's withRef stx[2]), and its names go.
 : lft-closer-at ( -- ) lft-open-at lfa-e-tac-closer lfa-fail-see ;
 : lft-in-brace ( -- ) lft-open-flags tac-block-self and 0= if lft-closer-at then ;
-: lft-brace-close ( -- )
-  lft-open lft-arrow! drop lft-past lft-open lft-rec lft-cut-names lft-close ;
+: lft-brace-close ( -- ) lft-open lft-arrow! lft-rec lft-cut-names lft-past lft-close ;
 : lft-w-brace-end ( -- ) lft-ready 0 lft-takes lft-in-brace lft-brace-close lft-from! ;
 \ by-end at a block a word opened: 83 at none (the proof's by) and at a
 \ brace (its { second); else the block's end, its names cut when its
 \ shape says so.
-: lft-kept-end ( pos -- ) lft-open lft-rec lft-held drop lft-close ;
 : lft-not-brace ( flags -- flags ) dup tac-block-self and if lft-closer-at then ;
 : lft-word-end ( -- )
   lft-open-flags dup 0<> lfa-e-tac-closer lfa-must lft-not-brace
-  lft-past swap tac-block-cuts and if lft-names-end else lft-kept-end then ;
+  lft-past swap tac-block-cuts and lft-block-close ;
 : lft-block-end ( kind -- )
   case tac-k-with of lft-past lft-close endof tac-k-case of lft-past lft-names-end endof
     lft-word-end endcase ;

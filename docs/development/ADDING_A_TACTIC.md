@@ -103,7 +103,8 @@ s" assumption" tac-k-assumption lf-tactic-lean!
   `tac-block-self`: it closes itself at `}`), its run word opens the
   runner's frame with `lf-tac-block ( i rest -- )` or, over the main goal
   alone, `lf-tac-focused ( i -- )` (Lean's focus: 90 with no goal, before
-  the frame is pushed), and its row names the frame's mode with
+  the frame is pushed; a brace's `lf-tac-bracketed ( i -- )` tells that 90
+  at its `}`, as Lean's), and its row names the frame's mode with
   `lf-tactic-mode! ( mode kind -- )`: `lf-mode-done` (the default: Lean's
   closeUsingOrAdmit, no goal left at its end, 89), `lf-mode-nested`
   (Term.runTactic: a fresh recover, its unsolved goals always reported)
@@ -153,8 +154,12 @@ s" assumption" tac-k-assumption lf-tactic-lean!
     lf-tactic-seq: by-contra: constant tac-k-by-contra
   ```
   by-intro:'s row reads the step's argument 0, the name after the word. A
-  macro of alternatives (`first | t1 | t2`) is `lf-tac-first-of` in a run
-  word; one whose parts take other arguments is a run word of its own.
+  macro of alternatives (`first | t1 | t2`, `t1 <|> t2`) is
+  `lf-tac-first-of` in a run word (the alternatives before the last run
+  withoutRecover, as Lean's orElse); an extensible macro's rules (several
+  `macro_rules`, Lean's expandEval: `rfl`, `trivial`) are
+  `lf-tac-macro-alts`, the same loop with the block's recover kept; one
+  whose parts take other arguments is a run word of its own.
 - `lf-tactic-lean!` gives Lean's name for the step log; `lf-tactic-action!`
   the run word ( i -- ), step i of the record; `lf-tactic-plan!` a plan
   step to name while the word is not ported (error 80).
@@ -165,8 +170,9 @@ s" assumption" tac-k-assumption lf-tactic-lean!
   of the design's appendix C. A code that is Lean's own error, raised
   where Lean raises it, takes the outcome `lfa-lean` (invalid, with the
   code's "Lean's error" bit set): only such a code is caught by try and
-  first (`lf-tac-try-lean`, `lf-tac-first-of`, tactic-msg.fs's
-  `lf-tac-lean-error?`; plan row TB2, blocks slice 1). Every other code,
+  first (`lf-tac-try-lean`, `lf-tac-first-of`, `lf-tac-macro-alts`,
+  tactic-run.fs's `lf-tac-lean-error?`; plan row TB2, blocks slice 1).
+  Every other code,
   `outcome-invalid` included, is LeanForth's own refusal and passes every
   try, so a gap or a malformed state never becomes another alternative.
 - `lf-lift-meta-tactic` (Lean's liftMetaTactic): xt ( i*x goal -- goals )
