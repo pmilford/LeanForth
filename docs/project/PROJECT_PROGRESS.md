@@ -29,6 +29,7 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
+- 2026-11-22, 21:47: plan row TB2's case patterns, slice E1, are **done** on main 63f6324f (done check [2026-11-22-tb2-patterns-e1-done.md](../development/done-checks/2026-11-22-tb2-patterns-e1-done.md): the checker's own 8 theorems accepted from the reference alone, 5 wrong variants not accepted; pushed, origin/main 93edeac4). A statement variable the goal no longer holds is now refused in every tactic, as Lean's "Unknown identifier". No new slice starts before the usage reset of 2026-11-24; next are blocks slice 2 and pattern slice E2. Earlier the same day:
 - 2026-11-22, 20:30: plan row TB2's case patterns, slice E1, are **tested on branch `tb2-patterns-e1` and
   Forth-reviewed** ([review](../development/forth-reviews/2026-11-22-tb2-patterns-e1.md): findings 1-7, 9, 12 and
   13a-c, e-f fixed on the branch, among them a statement variable the goal's context lacks now refused (76, Lean's

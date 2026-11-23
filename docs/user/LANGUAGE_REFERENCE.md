@@ -2098,8 +2098,14 @@ spelling.
 ### D.8 `by-obtain[ ]`, `by-rcases[ ]`: case patterns
 
 Plan row TB2, piece E, slice E1 (design
-[TACTIC_PATTERNS.md](../design/TACTIC_PATTERNS.md); tested on its branch,
-not merged). `e by-obtain[ pat ]` is Lean's `obtain pat := e` and `e
+[TACTIC_PATTERNS.md](../design/TACTIC_PATTERNS.md); on main, done check
+[2026-11-22-tb2-patterns-e1-done.md](../development/done-checks/2026-11-22-tb2-patterns-e1-done.md)).
+When a pattern leaves several goals (alternatives), close each with its
+own `{ ... }` (see "Tactic blocks"). The line that gives a theorem's
+verdict is `NAME: accepted`; the count of declarations before it is the
+library's. A refused proof text exits 4 (invalid) or, where it meets
+something not built yet, 2 (unsupported); 1 (rejected) is the kernel's
+answer to a finished term. `e by-obtain[ pat ]` is Lean's `obtain pat := e` and `e
 by-rcases[ pat ]` Lean's `rcases e with pat`: the value first, then one
 pattern up to `]`. The value is a hypothesis (`' h`) or any term (`' foo
 ' a $`), which is first generalized to a new variable, named as the
@@ -2113,7 +2119,7 @@ pieces.
 |---|---|
 | `x` | a name for this piece (a hypothesis of the goals that follow) |
 | `_` | the piece keeps the constructor's own name, hidden (`left✝`) |
-| `-` | the piece and every hypothesis that depends on it are cleared when the goal is finished |
+| `-` | the piece and every hypothesis that depends on it are cleared when the goal is finished (it gets no name, so nothing can refer to it; what a later step can wrongly name is `h` itself or a statement variable the split cleared, refused with 76) |
 | `<< p1 .. pn >>` or `⟨ p1 .. pn ⟩` | one constructor's fields, in order; the last field takes the patterns left over; missing ones are `_` |
 | `p1 \| p2 \| ..` | alternatives: a goal per constructor, in order; the last constructor takes the alternatives left over |
 
