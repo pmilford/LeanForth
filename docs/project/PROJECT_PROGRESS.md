@@ -282,7 +282,17 @@ status changes when this date is older than them. Stages are those of the
      between texts", and it needs the re-entrancy test extended to elaboration and tactics.
   4. Slightly lower: the kernel faster on one thread (Init: 951 s against 39 s for Lean's kernel), first the
      environment re-validated at every gate (about 15% of checking time); kernel code: verdicts and fuel counts
-     identical, the full tier and every pinned-Lean comparison.
+     identical, the full tier and every pinned-Lean comparison. The owner's target (2026-11-23): 3 to 5 times
+     Lean's time at this stage, not 25; algorithms first, then, where a few hot primitives justify it, macros to
+     cut call depth, better cache locality, or C or inline assembler (a native primitive in the kernel is a new
+     dependency and a trust-boundary change: the owner's gate, with the Forth word kept as the reference and both
+     compared). First the measurement: the sampling profiler of the 2026-11-18 scan made a kept tool
+     (`make profile-check`), microseconds per declaration in the JSON report, counts and time per kernel primitive
+     (term construction and its table probe, instantiation, universe substitution, the validity checks), and the
+     same counts from nanoda or Lean on the same export, so each primitive's cost per call is compared, not only
+     its share. Known so far: LeanForth's shares (replace passes 34%, universe substitution 22%, hash-consing 17%,
+     validity checks 18.5%) have the shape of nanoda's (instantiation 34%, universe substitution 17%, hash-consing
+     38%), so the gap looks like a constant cost per primitive more than one bad algorithm.
   5. Later: a cheaper or parallel feed of the workers; the export parsed on several threads; a text's declarations
      elaborated in parallel.
 - Carry on to the next theorem after an error (2026-11-22, from the done check of blocks slice 1; not started): a
