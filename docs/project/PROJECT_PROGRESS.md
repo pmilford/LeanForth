@@ -248,6 +248,10 @@ status changes when this date is older than them. Stages are those of the
   instead of holding the whole environment in memory. First measure today's memory and time per declaration on a
   Mathlib-sized export (the project's 371 MB smoke test: Lean's kernel 70 s and 0.75 GB, nanoda 14 s and 0.41 GB),
   then design; the compact store and the snapshot format are the existing pieces it would build on.
+- Windows 11 and macOS directly (owner, 2026-11-22; long term, not started): make sure LeanForth runs on Gforth on
+  Windows 11 itself (today: Linux and WSL) and on macOS, or name another Forth system for each where Gforth does not
+  serve, with the install scripts, the test suite and the pinned-Lean comparisons run there and the differences
+  (paths, line ends, the job pool, memory limits) recorded.
 - Carry on to the next theorem after an error (2026-11-22, from the done check of blocks slice 1; not started): a
   file's first error ends the run today, so a wrong theorem hides the verdicts of the correct ones beside it, where
   Lean reports every theorem; the declaration-level part of "log and carry on, as Lean".
