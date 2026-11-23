@@ -1120,7 +1120,7 @@ T{ s" And" induct? s" Nat.zero" induct? s" Nat.add" induct? s" Nat.le_refl" indu
    -> true false false false }T
 T{ nat lf-infer! lf-match-const-induct zero-x lf-match-const-induct fw lf-match-const-induct
    -> false false false }T
-T{ s" No.such" lfa-intern mm-declared s" Nat" lfa-intern mm-declared swap s" Nat" decl =
+T{ s" No.such" lfa-intern lf-menv-find? s" Nat" lfa-intern lf-menv-find? swap s" Nat" decl =
    -> false true true }T
 \ A lookup the heap refuses (the library bound again, its decoded
 \ declarations forgotten) is thrown full, never read as false.

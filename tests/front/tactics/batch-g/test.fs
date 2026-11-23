@@ -237,6 +237,17 @@ T{ st s" ' h by-rcases[ x y ]" tactic-ran st s" ' h by-rcases[ ]" tactic-ran -> 
 T{ st s" ' h by-obtain[ x by-rfl ]" tactic-ran st s" ' h by-obtain[ @x ]" tactic-ran -> 458 72 }T
 T{ st s" ' h by-obtain[ << ⟨ x y ⟩ >> ] ' x ' y $ by-exact" tactic-ran 0= -> false }T
 lf-tac-forget
+\ The walk's other paths: - with a dependent (finish clears w and hw),
+\ fewer patterns than fields (the default _), three alternatives (the
+\ last constructor takes the rest), rfl (99), Exists' own level.
+: se ( -- c-addr u ) s" Nat explicit: a ' Eq a $ Exists explicit: h a a =" ;
+T{ se s" ' h by-obtain[ << - hw >> ] by-rfl" tactic-ran se s" ' h by-obtain[ << w >> ] by-rfl"
+   tactic-ran -> 0 0 }T
+: s3 ( -- c-addr u )
+  s" Nat explicit: a Nat explicit: b a b = b a = a a = ∨ ∨ explicit: h a a =" ;
+T{ s3 s" ' h by-rcases[ x | y | z ] by-rfl by-rfl by-rfl" tactic-ran -> 0 }T
+T{ st s" ' h by-obtain[ << rfl y >> ]" tactic-ran -> 99 }T
+lf-tac-forget
 \ 471: a type that is no inductive one (a pi through whnfD).
 : sn ( -- c-addr u ) s" Nat explicit: a Nat explicit: b a b = Not explicit: h a a =" ;
 T{ sn s" ' h by-rcases[ << x >> ]" tactic-ran dup 471 = swap 136 = or -> true }T
