@@ -56,7 +56,9 @@ COMMANDS = [
 # Commands that read what an earlier command of the same run wrote.
 FOLLOW_ON = [(["check", "--record", "OUT/r.rec", C], ["replay", C, "OUT/r.rec"]),
              (["check", "--save-snapshot", "OUT/s.lfsnap", B], ["check", "--snapshot", "OUT/s.lfsnap", AX])]
-MEASURED = re.compile(r',"measured":\{"microseconds":\{.*?\},"peakResidentBytes":\d+,')
+# The JSON report's last member, "measured", to the report's closing brace: its times, peak
+# resident bytes and, for a run with workers, the workers' times.
+MEASURED = re.compile(r',"measured":\{"microseconds":.*\}(?=\}$)', re.M)
 
 
 def run(tool, commands):
