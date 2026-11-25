@@ -132,6 +132,19 @@ T{ 5 0 dsum d+! -1 0 dsum d+! dsum 2@ -> 4 1 }T
 T{ -6 s>d dsum d+! dsum 2@ -> -2 0 }T
 T{ 7 0 3 0 d-floor 3 0 7 0 d-floor 5 0 5 0 d-floor -> 4 0 0 0 0 0 }T
 T{ 0 1 1 0 d-floor -2 s>d -5 s>d d-floor -> -1 0 3 0 }T
+\ timed (review kernel-speed-measure finding 2): the clock's reading after
+\ xt less its reading before; xt finds the stack as the caller left it (a
+\ word that takes the cell below it), a clock set back gives 0, and a
+\ THROW in xt passes through with the return stack restored.
+variable tick  0 tick !
+: ticks ( -- d ) tick @ s>d 5 tick +! ;         \ each reading 5 on
+: back-ticks ( -- d ) tick @ s>d -5 tick +! ;   \ each reading 5 back
+: tick+ ( n -- ) tick +! ;
+T{ 7 ' noop ' ticks timed -> 7 5 0 }T
+T{ 7 3 ' tick+ ' ticks timed -> 7 8 0 }T
+T{ 7 ' drop ' ticks timed -> 5 0 }T
+T{ ' noop ' back-ticks timed -> 0 0 }T
+T{ 4 ' throw ' ticks ' timed catch nip nip nip -> 4 }T
 -3 budget !
 T{ budget cell-spend? budget @ -> false -3 }T
 1 budget !

@@ -71,8 +71,8 @@
 \   step; then the fuel and the time), ck-fuel-of, ck-us-of (the wall
 \   microseconds d's own check took, timed in the context that ran it by
 \   ck-timed-check: 0 for a block's member after its first, one taken
-\   from a snapshot, one not checked, or a check that threw; reported
-\   only with ck-resources!), ck-fuel-total, ck-fuel-unknowns,
+\   from a snapshot, one not checked, or a check that threw before it
+\   ended; reported only with ck-resources!), ck-fuel-total, ck-fuel-unknowns,
 \   ck-top@ (ck-tops of them), the times (ck-phase-wall, ck-phase-cpu,
 \   ck-phase-name), ck-peak, ck-engine, ck-staged-bytes and the input's
 \   sizes;
@@ -668,14 +668,14 @@ create ck-line ck-line-room 2 + allot
 : ck-rechecking? ( -- flag ) ck-carrying? snap-stale-allowed @ 0= and ;
 : ck-same ( d -- ) ck-rechecking? if ck-import imp-same else drop then ;
 \ The last check's wall time in this context (each worker's own;
-\ ck-timed-check below): when it began, and the microseconds it took, set
-\ when it ends and taken once into d's kept step (0 again after), so that
-\ a keep with no check before it, or after a check that threw, keeps 0,
-\ never another check's time. Both live in the context, not on a stack,
-\ so the check finds a job's sentinel directly below it (lib/task.fs
-\ job-call). A report only: nothing reads a time back into a check.
+\ ck-timed-check below): the microseconds it took, set when it ends and
+\ taken once into d's kept step (0 again after), so that a keep with no
+\ check before it, or after a check that threw before it ended, keeps 0,
+\ never another check's time. lib/bounds.fs's timed keeps the start on
+\ the return stack, so the check finds a job's sentinel directly below it
+\ (lib/task.fs job-call). A report only: nothing reads a time back into a
+\ check.
 begin-structure /ck-timer
-  2 cells +field timer-began
   2 cells +field timer-took
 end-structure
 /ck-timer context-record: ck-timer
@@ -693,9 +693,7 @@ end-structure
 : ck-check-word! ( xt -- ) ck-state ck-checker ! ;
 \ The check every run passes (serial and with workers): the check word,
 \ timed in ck-timer.
-: ck-timer-start ( -- ) ck-wall-now ck-timer timer-began 2! ;
-: ck-timer-stop ( -- ) ck-wall-now ck-timer timer-began 2@ d-floor ck-took 2! ;
-: ck-timed-check ( -- ) ck-timer-start ck-check-word execute ck-timer-stop ;
+: ck-timed-check ( -- ) ck-check-word ['] ck-wall-now timed ck-took 2! ;
 : ck-step ( d -- stop? )
   dup >r ['] ck-timed-check swap lf-env-step swap r> ck-keep lf-env-spent? or ck-stop! ;
 \ A member after its block's first, published with it: the first's facts,

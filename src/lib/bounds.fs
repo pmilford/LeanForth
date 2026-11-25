@@ -6,8 +6,8 @@
 \ Interface: cell-pair@ cell-pair! cell-triple@ cell-triple! between? upto?
 \ range-at in-ranges? cells-zero? cells= index? cells-index cells-has?
 \ cell-at@ pair-at record-at first-nonzero ascii-upper? first-or-second one-of2?
-\ one-of3? cell-tally cell-spend? epoch+ d+! d-floor cell-counted, cell-count
-\ cell-counted! cell-counted+! cell-counted-left cell-counted+?. Requires
+\ one-of3? cell-tally cell-spend? epoch+ d+! d-floor timed cell-counted,
+\ cell-count cell-counted! cell-counted+! cell-counted-left cell-counted+?. Requires
 \ portability.fs, outcome.fs (any?, 2dup-under) and module.fs; helpers are
 \ private in lf-lib-private (ADR 0010).
 \ Example:
@@ -33,6 +33,7 @@
 \   2variable spent  0 0 spent 2!  5 0 spent d+!  -1 0 spent d+!  spent 2@
 \                                     \ 4 1: added across the low cell
 \   7 0 3 0 d-floor  3 0 7 0 d-floor  \ 4 0  0 0: a difference, never below 0
+\   ' noop ' utime timed               \ ud: the microseconds noop took
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./portability.fs
@@ -120,6 +121,14 @@ lf-lib set-current
 \ negative when a wall clock was set back). Constant time.
 : d+! ( d addr -- ) dup >r 2@ d+ r> 2! ;
 : d-floor ( d1 d2 -- d ) d- 0 0 dmax ;
+\ timed runs xt and gives the time it took by clock ( -- d ), a double
+\ such as UTIME's microseconds: the end's reading less the start's, by
+\ d-floor. The start and clock wait on the return stack, so xt finds the
+\ stack as timed's caller left it below xt (lib/task.fs job-call: a job's
+\ sentinel directly below the check); a THROW in xt or clock passes
+\ through, with no time.
+: timed ( i*x xt clock -- j*x d )
+  tuck execute 2>r swap >r execute r> execute 2r> d-floor ;
 \ A cell-counted array or text: its count in the first cell, its cells
 \ or bytes after it. cell-counted, compiles text of any length as one
 \ (its length in a cell, then its bytes), then aligns: for tables of

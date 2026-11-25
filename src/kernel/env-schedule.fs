@@ -540,13 +540,13 @@ variable lf-sched-faults  0 lf-sched-faults !
 \ The job ( -- ): the check, its wall time added to the worker's own
 \ lf-sch-busy (a double; none when lf-sched-clock! gave no clock).
 \ lf-sch-timing runs xt and gives the microseconds it took (lib/bounds.fs's
-\ d-floor: never negative); the start time waits on the return stack, so
+\ timed: never negative); the start time waits on the return stack, so
 \ a check finds the job's sentinel directly below it, as job-call
 \ (lib/task.fs) requires: a check that consumes and replaces that cell is
 \ caught, never published.
 2 cells context-record: lf-sch-busy
 : lf-sch-now ( -- d ) lf-sched lf-sch-clock @ ?dup if execute else 0 0 then ;
-: lf-sch-timing ( i*x xt -- j*x d ) lf-sch-now 2>r execute lf-sch-now 2r> d-floor ;
+: lf-sch-timing ( i*x xt -- j*x d ) ['] lf-sch-now timed ;
 : lf-sch-timed-check ( -- ) lf-sched lf-sch-check @ lf-sch-timing lf-sch-busy d+! ;
 \ Begin d's check in worker k's context and submit it; a refused
 \ beginning is the serial run's stop at d (kept invalid); a refused job

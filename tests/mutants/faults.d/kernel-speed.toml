@@ -17,8 +17,8 @@ quick = true
 [[fault]]
 id = "ks-time-untimed"
 file = "src/cli/check-run.fs"
-old = ''': ck-timer-stop ( -- ) ck-wall-now ck-timer timer-began 2@ d-floor ck-took 2! ;'''
-new = ''': ck-timer-stop ( -- ) ;'''
+old = ''': ck-timed-check ( -- ) ck-check-word ['] ck-wall-now timed ck-took 2! ;'''
+new = ''': ck-timed-check ( -- ) ck-check-word execute ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "a check's end is never timed: every declaration's time is 0"
 
@@ -77,3 +77,15 @@ old = ''': cj-took-each ( -- ) lf-input-count 0 ?do i ck-us-of cj-ud loop ;'''
 new = ''': cj-took-each ( -- ) ;'''
 test = "python3 tests/cli/test_leanforth.py Jobs.test_declaration_times"
 reason = "declarationMicroseconds is an empty list, not one entry a declaration"
+
+# lib/bounds.fs's timed (review finding 2): ck-timed-check and the scheduler's
+# lf-sch-timing both time through it.
+
+[[fault]]
+id = "ks-timed-backwards"
+file = "src/lib/bounds.fs"
+old = '''  tuck execute 2>r swap >r execute r> execute 2r> d-floor ;'''
+new = '''  tuck execute 2>r swap >r execute r> execute 2r> 2swap d-floor ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "the start less the end, floored: every time is 0, each declaration's and each worker's busy and waiting time"
+quick = true
