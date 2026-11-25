@@ -2267,13 +2267,16 @@ class Jobs(unittest.TestCase):
     """check --jobs N (plan tasks 6.5.4, 7.3.1; src/kernel/env-schedule.fs)
     prints exactly what --jobs 1 prints, text and JSON (but for "measured"),
     with the same exit status, on every export of the JSON tests and on
-    larger ones; the resource report names the workers. --jobs takes a
-    number of at least 1 and does not go with --record (status 4)."""
+    larger ones -- accepted, rejected, unsupported, unknown, out of fuel --
+    and so does the default, 4 workers or the cores if fewer (owner,
+    2026-11-23); the resource report names the workers and where their
+    count came from. --jobs takes a number of at least 1 and does not go
+    with --record (status 4); the default does, and that run is serial."""
 
     MORE = [["tests/cli/sharing.ndjson"], ["tests/cli/nested.ndjson"],
             ["tests/cli/irrelevance.ndjson"], ["--fuel", "3000", "tests/cli/nested.ndjson"],
             ["tests/cli/jobs/wide60.ndjson"], ["tests/cli/jobs/dupl80.ndjson"],
-            ["--no-manifest", "tests/cli/jobs/renamed20.ndjson"]]
+            ["--no-manifest", "tests/cli/jobs/renamed20.ndjson"], ["--no-manifest", UNKNOWN]]
 
     def text(self, *args):
         return run("check", *args)[:2]
@@ -2284,15 +2287,22 @@ class Jobs(unittest.TestCase):
         return status, got
 
     def test_same_output(self):
-        """Each case's four runs, the cases side by side (each only reads its export)."""
+        """Each case's five runs, the cases side by side (each only reads its
+        export): one at a time, the default and --jobs 3 (text), one at a
+        time and the default (JSON)."""
         cases = CASES_ALL + self.MORE
 
-        def four(args):
-            return (self.text(*args), self.text("--jobs", "3", *args),
-                    self.json(*args), self.json("--jobs", "4", *args))
-        for args, (text, text3, json1, json4) in zip(cases, side_by_side(four, cases)):
-            self.assertEqual(text, text3, args)
-            self.assertEqual(json1, json4, args)
+        def five(args):
+            return (self.text("--jobs", "1", *args), self.text(*args),
+                    self.text("--jobs", "3", *args), self.json("--jobs", "1", *args),
+                    self.json(*args))
+        outcomes = set()
+        for args, (text1, text, text3, json1, json) in zip(cases, side_by_side(five, cases)):
+            self.assertEqual(text, text1, args)
+            self.assertEqual(text3, text1, args)
+            self.assertEqual(json, json1, args)
+            outcomes.add(text1[0])
+        self.assertTrue({0, 1, 2, 3, 4} <= outcomes, outcomes)
 
     def test_resources(self):
         status, out, _ = run("check", "--resources", "--jobs", "2", "tests/cli/nested.ndjson")
@@ -2300,7 +2310,29 @@ class Jobs(unittest.TestCase):
         self.assertRegex(out, r"\n  workers: 2 \(--jobs\), on \d+ cores\n    checks handed "
                               r"out [1-9]\d*, run again 0, not ready 0, forced 0, workers "
                               r"replaced 0\n")
-        self.assertNotIn("workers:", run("check", "--resources", CHAIN)[1])
+        self.assertNotIn("workers:", run("check", "--resources", "--jobs", "1", CHAIN)[1])
+
+    def test_default_workers(self):
+        """No --jobs: 4 workers, or the cores when fewer, named as the default."""
+        status, out, _ = run("check", "--resources", "tests/cli/nested.ndjson")
+        self.assertEqual(status, 0)
+        found = re.search(r"\n  workers: (\d+) \(the default\), on (\d+) cores\n    checks "
+                          r"handed out [1-9]\d*, run again 0, not ready 0, forced 0, workers "
+                          r"replaced 0\n", out)
+        self.assertIsNotNone(found, out)
+        self.assertEqual(int(found.group(1)), min(4, int(found.group(2))))
+        self.assertNotIn("(--jobs)", out)
+
+    def test_default_with_record(self):
+        """--record with no --jobs, or --jobs 1, runs one at a time and writes
+        its record; --jobs 2 with it is a mistake."""
+        with tempfile.TemporaryDirectory() as tmp:
+            for jobs in [[], ["--jobs", "1"]]:
+                record = Path(tmp) / f"r{len(jobs)}.json"
+                status, out, _ = run("check", *jobs, "--record", str(record), COMPOSITION)
+                self.assertEqual(status, 0, (jobs, out))
+                self.assertIn('"declarations"', record.read_text(encoding="utf-8"), jobs)
+            self.assertEqual(run("check", "--jobs", "2", "--record", str(record), COMPOSITION)[0], 4)
 
     def test_workers_share_merged_binders(self):
         """Binders equal up to their names, which the importer makes one node
@@ -2339,7 +2371,7 @@ class Jobs(unittest.TestCase):
         a copy of the input per worker. Same output as --jobs 1, and no more
         workers than cores in the report."""
         args = ["--no-manifest", "tests/cli/jobs/wide60.ndjson"]
-        serial = self.text(*args)
+        serial = self.text("--jobs", "1", *args)
         self.assertEqual(serial[0], 0)
         for value in ["1100", "9223372036854775807"]:
             self.assertEqual(self.text("--jobs", value, *args), serial, value)
@@ -2395,6 +2427,17 @@ class TextJobs(unittest.TestCase):
             status, out, _ = run("check", *args, *self.LIBRARY, self.TEXT)
             self.assertEqual(status, 0, args)
             self.assertNotIn("--jobs", out, args)
+
+    def test_default_one_at_a_time(self):
+        """No --jobs: the text is checked one at a time with no worker tried
+        (no workers line, where --jobs 2 says none could be made) and no
+        note; the verdicts are --jobs 1's."""
+        args = [*self.LIBRARY, self.TEXT]
+        status, out, _ = run("check", "--resources", *args)
+        self.assertEqual(status, 0)
+        self.assertNotIn("workers:", out)
+        self.assertNotIn(TEXT_JOBS_NOTE, out)
+        self.assertEqual(run("check", *args)[:2], run("check", "--jobs", "1", *args)[:2])
 
     def test_note_order_and_resources(self):
         """After the --no-manifest note; --resources says why (no workers)."""
@@ -2488,15 +2531,17 @@ class MemoryPerCheck(unittest.TestCase):
             self.assertEqual(got["settings"].get("memoryPerCheck"), int(args[1]) if args else None)
 
     def test_jobs(self):
-        """With --jobs 2 big is full while the small ones beside it are
-        accepted: the same text as one at a time, with the note."""
+        """With --jobs 2, and with the default, big is full while the small
+        ones beside it are accepted: the same text as one at a time, with
+        the note."""
         args = ["--no-manifest", "--memory-per-check", "1", self.export]
-        serial = run("check", *args)[:2]
+        serial = run("check", "--jobs", "1", *args)[:2]
         self.assertEqual(serial[0], 3)
         self.assertIn("big: full\n  memory limit per check; diagnostic 101", serial[1])
         self.assertIn("note: a check passed its memory limit (1 MB each); --memory-per-check MB "
                       "gives each more\n", serial[1])
         self.assertEqual(run("check", "--jobs", "2", *args)[:2], serial)
+        self.assertEqual(run("check", *args)[:2], serial)
         status, got, verdicts = self.verdicts("--jobs", "2", "--memory-per-check", "1")
         self.assertEqual((status, verdicts.pop("big"), set(verdicts.values())),
                          (3, "full", {"accepted"}))
@@ -2508,7 +2553,7 @@ class MemoryPerCheck(unittest.TestCase):
         seen = []
         for mb in range(1, 6):
             args = ["--no-manifest", "--memory-per-check", str(mb), self.export]
-            serial = run("check", *args)[:2]
+            serial = run("check", "--jobs", "1", *args)[:2]
             self.assertEqual(run("check", "--jobs", "3", *args)[:2], serial, mb)
             seen.append(re.search(r"^big: (\w+)", serial[1], re.M).group(1))
         full = seen.count("full")
@@ -2525,7 +2570,7 @@ class MemoryPerCheck(unittest.TestCase):
                                    "double2", "12"], capture_output=True, check=True)
             Path(export).write_bytes(made.stdout)
             args = ["--no-manifest", "--memory-per-check", "1", export]
-            status, out = run("check", *args)[:2]
+            status, out = run("check", "--jobs", "1", *args)[:2]
             reasons = re.findall(r"^big2?: full\n  (memory limit per check; .*)$", out, re.M)
             self.assertEqual((status, len(reasons)), (3, 2), out)
             self.assertEqual(reasons[0], reasons[1])
@@ -2551,13 +2596,13 @@ class MemoryPerCheck(unittest.TestCase):
                 Path(exports[kind]).write_bytes(done.stdout)
             side_by_side(made, exports)
             snapshot = str(Path(tmp) / "refsz.lfsnap")
-            limit = ["--no-manifest", "--memory-per-check", "1"]
+            limit = ["--no-manifest", "--memory-per-check", "1", "--jobs", "1"]
             # The snapshot written beside the three checks that do not read it, then the one
             # that does; every run only reads its export.
             first = side_by_side(lambda args: run("check", *args), [
                 ["--no-manifest", "--save-snapshot", snapshot, exports["refsz"]],
                 [*limit, exports["refs"]], [*limit, exports["refsbz"]],
-                [*limit, "--jobs", "2", exports["refsbz"]]])
+                [*limit[:-2], "--jobs", "2", exports["refsbz"]]])
             self.assertEqual(first[0][0], 0)
             seen = []
             for status, out, _ in first[1:2] + [run("check", *limit, "--snapshot", snapshot,

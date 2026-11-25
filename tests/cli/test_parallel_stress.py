@@ -118,7 +118,7 @@ class Stress(unittest.TestCase):
         cls.export = os.path.join(cls.dir.name, "stress.ndjson")
         with open(cls.export, "w", encoding="utf-8") as stream:
             stream.write(generated(DECLARATIONS))
-        cls.serial = leanforth("--no-manifest", cls.export)
+        cls.serial = leanforth("--no-manifest", "--jobs", "1", cls.export)
         cls.workers = max(4, 2 * (os.cpu_count() or 1))
 
     @classmethod

@@ -213,6 +213,31 @@ manifest: cli-manifest
 : cli-record ( -- addr ) cli-state opt-record ;
 : cli-file ( k -- c-addr u ) 2* cells cli-state arg-files + 2@ ;
 : cli-files ( -- addr ) cli-state arg-count ;
+\ The options, as bits of the set a command takes (arg-set; the table of
+\ commands at the end of this file).
+1 constant takes-no-manifest
+2 constant takes-fuel
+4 constant takes-record
+8 constant takes-detail
+16 constant takes-name
+32 constant takes-resources
+64 constant takes-json
+128 constant takes-latex
+256 constant takes-statement
+512 constant takes-strict
+1024 constant takes-fast
+2048 constant takes-lf
+4096 constant takes-any-lean
+131072 constant takes-checked
+8192 constant takes-jobs
+16384 constant takes-save
+32768 constant takes-snapshot
+65536 constant takes-progress
+262144 constant takes-stale
+524288 constant takes-memory
+1048576 constant takes-kernel
+2097152 constant takes-env
+4194304 constant takes-elab
 
 \ Options. cli-options also forgets the file names, any mistake and an
 \ earlier command's memory limit per check (cli-fed-run sets this one's).
@@ -239,9 +264,23 @@ manifest: cli-manifest
 : cli-any-lean ( -- ) true cli-state opt-any-lean ! ;
 : cli-any-lean? ( -- flag ) cli-state opt-any-lean @ ;
 \ check: how many workers check declarations at once (--jobs; plan task
-\ 6.5.4); 0 or 1, the default, checks one at a time.
+\ 6.5.4); 0 when --jobs was not given (cli-workers then chooses).
 : cli-jobs ( -- n ) cli-state opt-jobs @ ;
 : cli-jobs! ( n -- ) cli-state opt-jobs ! ;
+\ Whether file 0 is a LeanForth text: its name ends in .lf.
+: cli-text-file? ( -- flag )
+  0 cli-file dup 3 < if 2drop false exit then + 3 - 3 s" .lf" compare 0= ;
+\ The workers a check runs with (owner, 2026-11-23: "make the jobs default
+\ 4, so the rest of the computer is still ok to run"): --jobs N, else for
+\ check 4, which ck-jobs! cuts to the cores; a LeanForth text one at a
+\ time, as no worker can share its input (cli-text-jobs-note), and one for
+\ print, which takes no --jobs. On the cli tests' small exports 4 workers
+\ measured no slower than one (docs/user/COMMAND_LINE.md).
+4 constant cli-jobs-default
+: cli-takes-jobs? ( -- flag ) cli-state arg-set @ takes-jobs and 0<> ;
+: cli-jobs-unset ( -- n )
+  cli-takes-jobs? cli-text-file? 0= and if cli-jobs-default else 1 then ;
+: cli-workers ( -- n ) cli-jobs ?dup 0= if cli-jobs-unset then ;
 \ check: the megabytes (of 2^20 bytes) each declaration's check may hold
 \ in scratch (--memory-per-check; core/scratch-meter.fs); 0, the
 \ default, sets no limit but the heap's. A check past it is full.
@@ -708,14 +747,17 @@ create cli-fed-ops
   ."     from a new one's): checked one at a time" cr ;
 \ Cores that run workers at once: all on threads, one when they take turns.
 : cli-cores ( -- n ) task-host task-threads = if task-cores else 1 then ;
+: cli-cores. ( -- ) ." , on " cli-cores .decimal ."  cores" cr ;
 \ A pool the system made fewer worker tasks for than workers (near its
 \ process limit; lib/task.fs): the workers took turns on those it made.
 : cli-lacked. ( -- )
   ck-lacked 0= if exit then ."     worker tasks started: " ck-made .decimal
   ."  (the system refused " ck-lacked .decimal ."  more)" cr ;
+\ Where the count came from: --jobs, or the default (cli-workers).
+: cli-jobs-from. ( -- ) cli-jobs if ."  (--jobs)" else ."  (the default)" then ;
 : cli-jobs. ( -- )
   ck-parallel? 0= if exit then ck-jobs-run? 0= if cli-no-workers. exit then
-  ."   workers: " ck-jobs .decimal ."  (--jobs), on " cli-cores .decimal ."  cores" cr
+  ."   workers: " ck-jobs .decimal cli-jobs-from. cli-cores.
   cli-lacked. cli-sched. ;
 : cli-resources. ( -- )
   ." resources:" cr cli-times. cli-memory. cli-engine. cli-jobs. cli-input. cli-fuel.
@@ -934,8 +976,8 @@ here cli-plain-chars - 2 cells / constant cli-plain-chars#
 : cli-fed-run ( xt -- code )
   cli-fed-ops cli-state run-ops ! 0 cli-state run-printed ! 0 cli-state run-noted !
   rr-release rr-reset cli-fuel @ ck-start
-  cli-stale? snap-stale-allowed !
-  cli-any-lean? ck-any-version! cli-jobs ck-jobs! cli-progress-apply cli-per-check-apply
+  cli-stale? snap-stale-allowed ! cli-workers ck-jobs!
+  cli-any-lean? ck-any-version! cli-progress-apply cli-per-check-apply
   catch ck-release throw cli-restored
   cli-worst @ ;
 : cli-library ( -- code )
@@ -1051,8 +1093,7 @@ here cli-plain-chars - 2 cells / constant cli-plain-chars#
 \ one, and not with --snapshot. --elab-data FILE (plan row FE1d) goes only
 \ with a text and its library: the library's elaboration data, read and
 \ checked before the text runs (cli/check-lf.fs); refused, nothing runs.
-: cli-text-file? ( -- flag )
-  0 cli-file dup 3 < if 2drop false exit then + 3 - 3 s" .lf" compare 0= ;
+\ (cli-text-file? is defined with the workers, above.)
 : cli-library-file ( -- c-addr u ) cli-state opt-env 2@ ;
 : cli-elab-file ( -- c-addr u ) cli-state opt-elab 2@ ;
 \ An error's outcome as the line names it: error 41's is none of the
@@ -1561,7 +1602,8 @@ end-structure
   ."         [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]]" cr
   ."         [--memory-per-check MB] [--save-snapshot FILE] EXPORT" cr
   ."       check every declaration of a Lean export, in file order, any size;" cr
-  ."       --jobs N checks with N workers at once (default 1), same output;" cr
+  ."       --jobs N checks with N workers at once, same output (default 4, or" cr
+  ."       the cores if fewer; --jobs 1 one at a time);" cr
   ."       --memory-per-check MB makes a check whose scratch passes MB full;" cr
   ."       --progress writes a status line to stderr every SECONDS (default 60);" cr
   ."       the text report's lines are written as declarations are final;" cr
@@ -1684,31 +1726,8 @@ end-structure
 : cli-entry-find ( c-addr u table -- entry | 0 )
   name-table-find dup if name-entry-data then ;
 
-\ The options, as bits of the set a command takes. Each option's word
-\ ( c-addr u -- ) is given the option's own text, and reads its value.
-1 constant takes-no-manifest
-2 constant takes-fuel
-4 constant takes-record
-8 constant takes-detail
-16 constant takes-name
-32 constant takes-resources
-64 constant takes-json
-128 constant takes-latex
-256 constant takes-statement
-512 constant takes-strict
-1024 constant takes-fast
-2048 constant takes-lf
-4096 constant takes-any-lean
-131072 constant takes-checked
-8192 constant takes-jobs
-16384 constant takes-save
-32768 constant takes-snapshot
-65536 constant takes-progress
-262144 constant takes-stale
-524288 constant takes-memory
-1048576 constant takes-kernel
-2097152 constant takes-env
-4194304 constant takes-elab
+\ The options' words (their bits, takes-*, are defined with cli-state):
+\ each ( c-addr u -- ) is given the option's own text, and reads its value.
 : cli-value ( c-addr u -- c-addr' u' true | false )
   cli-arg if 2swap 2drop true else c" an option without its value" cli-wrong false then ;
 \ A decimal number from 0 to max-n with nothing else: (n true) or false.

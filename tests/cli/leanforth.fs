@@ -375,6 +375,18 @@ T{ 2 jobs-note note-text compare 64 jobs-note note-text compare -> 0 0 }T
 T{ names-text? -> true }T
 [then]
 cli-options
+\ The workers a run has (owner, 2026-11-23): --jobs N as given, else for
+\ check (a command that takes --jobs) 4 for an export or a snapshot
+\ (ck-jobs! cuts it to the cores) and one for a LeanForth text, whose
+\ input no worker can share; one for any other command (print). The
+\ in-process cli-check runs below set no options, so they run serial.
+: workers-for ( jobs c-addr u set -- n )
+  cli-state arg-set ! 0 cli-file! cli-jobs! cli-workers cli-options ;
+: checks ( jobs c-addr u -- n ) check-set workers-for ;
+T{ 0 s" a.ndjson" checks 0 s" a.lf" checks 0 s" lf" checks -> 4 1 4 }T
+T{ 2 s" a.lf" checks 1 s" a.ndjson" checks 7 s" x" checks -> 2 1 7 }T
+T{ 0 s" a.ndjson" print-set workers-for 0 s" a.ndjson" 0 workers-for -> 1 1 }T
+T{ 3 s" a.ndjson" 0 workers-for cli-jobs-default -> 3 4 }T
 
 \ The run record (--record): written after the run (here to /dev/null; the
 \ text stays in rr-text), with every declaration's verdict, the read and
@@ -1043,15 +1055,19 @@ T{ 3 -1 limited-run -> serial-wide 0 true 3 asked 0 }T
 \ The report's workers line, and the line of the tasks the system refused
 \ (Gforth 1.0, which captures output).
 [defined] >string-execute [if]
-: limited-report ( limit -- c-addr u )
-  spawn-limit! fresh >r wide 2 run-with ['] cli-jobs. >string-execute ck-release
-  -1 spawn-limit! r> back ;
+\ With --jobs 2 the line says so; with no --jobs, the default.
+: jobs-report ( limit jobs -- c-addr u )
+  swap spawn-limit! fresh >r cli-jobs! wide 2 run-with ['] cli-jobs. >string-execute
+  ck-release -1 spawn-limit! r> back ;
+: limited-report ( limit -- c-addr u ) 2 jobs-report ;
 : workers-line ( -- c-addr u ) s"   workers: 2 (--jobs), on " ;
+: default-line ( -- c-addr u ) s"   workers: 2 (the default), on " ;
 : lacked-line ( -- c-addr u )
   s\" cores\n    worker tasks started: 1 (the system refused 1 more)\n    checks handed out" ;
 : holds? ( c-addr u c-addr' u' -- flag ) search nip nip ;
 T{ 1 limited-report 2dup workers-line holds? -rot lacked-line holds? -> true true }T
 T{ -1 limited-report 2dup workers-line holds? -rot s" worker tasks" holds? -> true false }T
+T{ -1 0 jobs-report 2dup default-line holds? -rot workers-line holds? -> true false }T
 [then]
 \ Every worker lost: each check of the two first declarations throws and
 \ no replacement can be made. The run ends (it spun forever with entries
