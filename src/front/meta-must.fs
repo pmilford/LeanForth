@@ -178,7 +178,8 @@ end-structure
   lfm-caught 2r> swap lfm-drop-under lfm-nones r> drop ;
 \ Lean's try xt catch _ => (a fallback): xt run as lf-meta-catch runs it;
 \ true after it; false, its out cells dropped, after a Lean error
-\ (rejected); any other failure thrown.
+\ (rejected); any other failure thrown. Nothing undone on false, as in
+\ Lean's MetaM try: wrap in lf-commit-when to undo xt's assignments.
 : lf-meta-try ( i*x xt in out -- j*x true | false )
   dup >r lf-meta-catch dup outcome-rejected = if drop r> ndrop false exit then
   r> drop lf-must true ;

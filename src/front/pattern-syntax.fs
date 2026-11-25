@@ -72,7 +72,7 @@ require ./tactic-syntax.fs
 \ 4, ] of by-rintro['s sequence; 5, ] of by-contra['s one element, a
 \ sequence of one) and each tuple's (1 for <<, 2 for ⟨).
 begin-structure /pfr
-  field: pfr-closer      \ the closer it waits for: 1 >>, 2 ⟩, 3 or 4 ]
+  field: pfr-closer      \ the closer it waits for: 1 >>, 2 ⟩, 3, 4 or 5 ]
   field: pfr-from        \ the argument its contents begin at
   field: pfr-elem        \ the open element's first argument, else -1
   field: pfr-items       \ the open element's items

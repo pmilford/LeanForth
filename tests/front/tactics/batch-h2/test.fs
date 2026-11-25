@@ -35,6 +35,8 @@ T{ s" False" held? s" Empty" held? s" List.Mem" held? s" Dvd.dvd" held? s" Nat.i
 : made ( x outcome -- x ) ok? 0= abort" batch-h2 test: not made" ;
 lf-meta-throw-base outcome-rejected - constant thrown-rejected
 lf-meta-throw-base outcome-unsupported - constant thrown-unsupported
+lf-meta-throw-base outcome-full - constant thrown-full
+lf-meta-throw-base outcome-invalid - constant thrown-invalid
 : authored ( code -- n ) dup lf-author-throw = if drop lf-author-code lf-tac-forget then ;
 : code1 ( x xt -- code ) catch dup if nip then authored ;
 : nat ( -- t ) s" Nat" lf-mk-const0 ;
@@ -83,24 +85,31 @@ T{ s" Nat explicit: a Nat explicit: b False explicit: h True ¬" s" by-contra[ -
 lf-tac-forget
 
 \ ---- 2. lf-tac-ported: a Meta refusal thrown unsupported is 99; a Lean
-\ error (rejected) and any other THROW pass on; nothing thrown, nothing
+\ error (rejected), full, invalid and any other THROW pass on; nothing thrown, nothing
 \ changed.
 : unsup ( -- ) outcome-unsupported lf-must ;
 : rejd ( -- ) outcome-rejected lf-must ;
 : unported ( -- ) lf-tac-unported ;
 : ported ( xt -- code ) ['] lf-tac-ported code1 ;
 T{ ' unsup ported ' rejd ported ' unported ported -> 99 thrown-rejected 99 }T
+: fulld ( -- ) outcome-full lf-must ;
+: invd ( -- ) outcome-invalid lf-must ;
+T{ ' fulld ported ' invd ported -> thrown-full thrown-invalid }T
 T{ 5 ' 1+ lf-tac-ported -> 6 }T
 T{ 7 ' abort ' lf-tac-ported catch nip nip -> -1 }T
 lf-tac-forget
 
 \ ---- 3. lf-meta-try: true after xt, false after a Lean error with its
-\ out cells dropped, any other failure thrown.
+\ out cells dropped, any other failure (unsupported, full, invalid) thrown.
 : two-rejd ( x -- y z ) drop rejd 0 0 ;
 : two-unsup ( x -- y z ) drop unsup 0 0 ;
 T{ 3 ' dup 1 2 lf-meta-try -> 3 3 true }T
 T{ 3 ' two-rejd 1 2 lf-meta-try -> false }T
 T{ 3 ' two-unsup 1 2 ' lf-meta-try catch nip nip nip nip -> thrown-unsupported }T
+: two-full ( x -- y z ) drop fulld 0 0 ;
+: two-inv ( x -- y z ) drop invd 0 0 ;
+T{ 3 ' two-full 1 2 ' lf-meta-try catch nip nip nip nip -> thrown-full }T
+T{ 3 ' two-inv 1 2 ' lf-meta-try catch nip nip nip nip -> thrown-invalid }T
 
 \ ---- 4. Rule 6 (elimEmptyInductive): h : (fun _ : Nat => False) a has
 \ a free variable (rule 5 passes it over) and whnfD False, no constructor:

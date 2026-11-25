@@ -380,9 +380,12 @@ tac-shape-headed tac-k-alt lf-tactic-shape!   tac-shape-headed tac-k-case lf-tac
 : lfr-fail ( code -- ) lf-tac-step lf-tactic-count < if lfr-at-step else lfa-fail then ;
 : lf-tac-fail ( code -- ) lfr-with-goals lfr-fail ;
 : lf-tac-unported ( -- ) lfa-e-tac-form lf-tac-fail ;
-\ xt run, a Meta word's refusal thrown unsupported (a case the tactic
-\ library does not port: meta-induction.fs, cases.fs, generalize.fs) made
-\ 99 as lf-tac-unported; any other THROW passed on.
+\ xt run, every Meta refusal thrown unsupported inside it made 99 as
+\ lf-tac-unported: a case the tactic library does not port
+\ (meta-induction.fs, cases.fs, generalize.fs), and as well one from
+\ lf-whnf!, lf-infer! or a store under them, which reached the runner as
+\ 93 before (both mean "not supported", neither a negative answer); any
+\ other THROW (rejected, full, exhausted, invalid, not Meta) passed on.
 : lfr-thrown-as? ( code outcome -- flag )
   swap dup lf-meta-thrown? if lf-meta-outcome = else 2drop false then ;
 : lfr-unsupported? ( code -- flag ) outcome-unsupported lfr-thrown-as? ;
