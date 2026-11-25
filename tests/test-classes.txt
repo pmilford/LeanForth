@@ -78,9 +78,9 @@ test-cli-forth                     unit
 test-lean-cache                    unit
 test-tiers                         unit
 test-parallel-runs                 unit    tests/scripts/test_parallel_runs.py: the shared helper of the parallel runners
-test-profile-check                 e2e     tests/scripts/test_profile_check.py: make profile-check's sampler, symbol table and tables, on gforth-fast and a small export
 
 # make test: end to end (once, in make coverage-check)
+test-profile-check                 e2e     tests/scripts/test_profile_check.py: make profile-check's sampler, symbol table and tables, on gforth-fast and a small export
 test-cli-1                         e2e     bin/leanforth itself, every exit code, from other folders
 test-cli-2                         e2e
 test-cli-3                         e2e

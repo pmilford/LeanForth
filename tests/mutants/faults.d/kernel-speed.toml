@@ -89,3 +89,22 @@ new = '''  tuck execute 2>r swap >r execute r> execute 2r> 2swap d-floor ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "the start less the end, floored: every time is 0, each declaration's and each worker's busy and waiting time"
 quick = true
+
+# The review's planted faults D2 and D3 (findings 9): a negative time, and the
+# start on the data stack under the check (the regression of the branch before).
+
+[[fault]]
+id = "ks-time-negative"
+file = "src/lib/bounds.fs"
+old = '''  tuck execute 2>r swap >r execute r> execute 2r> d-floor ;'''
+new = '''  tuck execute 2>r swap >r execute r> execute 2r> 2swap d- ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the start less the end: every declaration's time and every worker's busy time is negative"
+
+[[fault]]
+id = "ks-start-under-check"
+file = "src/cli/check-run.fs"
+old = ''': ck-timed-check ( -- ) ck-check-word ['] ck-wall-now timed ck-took 2! ;'''
+new = ''': ck-timed-check ( -- ) ck-wall-now ck-check-word execute ck-wall-now 2swap d-floor ck-took 2! ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the start time lies between the job's sentinel and the check: a check that replaces the cell below it rewrites the time, the guard misses it and its declaration is published accepted where the serial run finds it invalid and stops"
