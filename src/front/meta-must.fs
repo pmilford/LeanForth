@@ -49,6 +49,11 @@
 \                                     (any lf-must failure clears it)
 \   lf-meta-catch ( i*x xt in out -- j*x outcome ) xt ( i*x -- j*x ) run
 \                                     from outcome code (Lean's try/catch)
+\   lf-meta-try ( i*x xt in out -- j*x true | false ) the same, true
+\                                     after xt, false (out cells dropped)
+\                                     after a Lean error (rejected), any
+\                                     other failure thrown (try ... catch
+\                                     _ => a fallback)
 \   lf-commit-when ( i*x xt -- j*x flag ) commitWhen (Util/MonadBacktrack
 \                                     .lean:50)
 \   lf-with-goal ( i*x goal xt -- j*x ) MVarId.withContext (Meta/Basic.lean)
@@ -171,6 +176,12 @@ end-structure
 : lf-meta-catch ( i*x xt in out -- j*x outcome )
   lfm-want >r 2>r catch ?dup 0= if 2r> 2drop r> lfm-left exit then
   lfm-caught 2r> swap lfm-drop-under lfm-nones r> drop ;
+\ Lean's try xt catch _ => (a fallback): xt run as lf-meta-catch runs it;
+\ true after it; false, its out cells dropped, after a Lean error
+\ (rejected); any other failure thrown.
+: lf-meta-try ( i*x xt in out -- j*x true | false )
+  dup >r lf-meta-catch dup outcome-rejected = if drop r> ndrop false exit then
+  r> drop lf-must true ;
 
 \ ---- The Meta core's throwing faces.
 : lf-whnf! ( e -- e' ) lf-meta-whnf lf-must ;

@@ -56,7 +56,9 @@
 \       lf-bvar-binder ( n bvar -- k ) the binder that a bound variable
 \       of the conclusion names, of n; lf-decl-suffix ( d c-addr u -- d' )
 \       the declaration named d's name then the part (C.rec, C.casesOn):
-\       none, not supported (99), an environment that lacks it
+\       none, not supported (99), an environment that lacks it;
+\       lf-decl-suffix? ( d c-addr u -- d' true | false ) the same, false
+\       for none (cases.fs's Meta refusal)
 \ Errors are thrown as authoring errors at the step running
 \ (tactic-run.fs's lf-tac-stop and lf-tac-fail), Meta failures as
 \ outcomes (meta-must.fs). Not ported: generalizeVars and index targets
@@ -179,8 +181,9 @@ require ./goal.fs
   dup lf-ity-all@ nip 1 <> if drop over ['] mel-mutual. mel-unsupported then
   lf-ity-nested lf-more-field if over ['] mel-nested. mel-unsupported then ;
 \ The declaration named d's name then part: none, not supported (99).
-: lf-decl-suffix ( d c-addr u -- d' )
-  rot lf-menv-name -rot lfa-intern-part lf-menv-find? 0= if lf-tac-unported then ;
+: lf-decl-suffix? ( d c-addr u -- d' true | false )
+  rot lf-menv-name -rot lfa-intern-part lf-menv-find? ;
+: lf-decl-suffix ( d c-addr u -- d' ) lf-decl-suffix? 0= if lf-tac-unported then ;
 : mel-rec ( d induction? -- d' ) if s" rec" else s" casesOn" then lf-decl-suffix ;
 : mel-checked ( t d induction? -- t d ) if mel-simple then ;
 \ The inductive type of the target's type, its refusals checked (205

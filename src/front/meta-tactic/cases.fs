@@ -68,17 +68,19 @@ end-structure
 
 \ ---- mkCasesContext?: the environment's names, the major's type.
 : mcs-named ( c-addr u -- d true | false ) lfa-intern lf-menv-find? ;
-: mcs-has ( c-addr u -- ) mcs-named 0= if lf-tac-unported then drop ;
-: mcs-data ( -- addr ) mcs mcs-d @ lf-menv-data ?dup 0= if lf-tac-unported then ;
+: mcs-has ( c-addr u -- ) mcs-named 0= if outcome-unsupported lf-must then drop ;
+: mcs-data ( -- addr )
+  mcs mcs-d @ lf-menv-data ?dup 0= if outcome-unsupported lf-must then ;
 : mcs-params# ( -- n ) mcs-data lf-ity-params lf-more-field ;
 : mcs-indices# ( -- n ) mcs-data lf-ity-indices lf-more-field ;
-: mcs-cases-on ( -- d ) mcs mcs-d @ s" casesOn" lf-decl-suffix ;
-: mcs-arity ( n -- ) mcs-params# mcs-indices# + <> if lf-tac-unported then ;
+: mcs-cases-on ( -- d )
+  mcs mcs-d @ s" casesOn" lf-decl-suffix? 0= if outcome-unsupported lf-must then ;
+: mcs-arity ( n -- ) mcs-params# mcs-indices# + <> if outcome-unsupported lf-must then ;
 : mcs-inductive ( type -- ) lf-meta-head-args >r
-  lf-match-const-induct 0= if lf-tac-unported then mcs mcs-d ! r> mcs-arity ;
+  lf-match-const-induct 0= if outcome-unsupported lf-must then mcs mcs-d ! r> mcs-arity ;
 : mcs-context ( major -- )
   s" Eq" mcs-has s" HEq" mcs-has dup mcs mcs-major ! lf-infer! lf-whnf! dup mcs mcs-type !
-  mcs-inductive mcs-cases-on drop mcs-indices# if lf-tac-unported then ;
+  mcs-inductive mcs-cases-on drop mcs-indices# if outcome-unsupported lf-must then ;
 
 \ ---- inductionCasesOn: Nat.casesAuxOn for Nat when asked, else I.casesOn.
 : mcs-nat? ( -- flag ) mcs mcs-d @ lf-menv-name s" Nat" lfa-intern lf-name-same? ;

@@ -68,7 +68,7 @@ end-structure
   mgz mgz-goal @ lf-goal-type lf-instantiate! mgz-n 0 ?do mgz-n 1- i - mgz-arg
   mgz-forall loop ;
 : mgz-checked ( t -- t ) dup lf-defeq-mode lf-meta-check
-  dup outcome-invalid = if drop lf-tac-unported then lf-must ;
+  dup outcome-invalid = if drop outcome-unsupported then lf-must ;
 \ The new goal applied to e1 .. en, then the n binders introduced.
 : mgz-applied ( goal' -- e ) mgz-n 0 ?do i mgz-arg drop lf-mk-app loop ;
 : mgz-names ( -- names ) 0 mgz-n 0 ?do i mgz-arg nip lf-run+ loop ;

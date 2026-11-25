@@ -7,8 +7,8 @@
 [[fault]]
 id = "constructor-gap-is-no"
 file = "src/front/tactic-run.fs"
-old = '''  dup lf-meta-thrown? if lf-meta-outcome outcome-rejected = else drop false then ;'''
-new = '''  dup lf-meta-thrown? if drop true else drop false then ;'''
+old = '''  swap dup lf-meta-thrown? if lf-meta-outcome = else 2drop false then ;'''
+new = '''  swap dup lf-meta-thrown? if 2drop true else 2drop false then ;'''
 test = "$GFORTH tests/front/tactics/constructor/test.fs"
 reason = "a2-iii fail-closed: a gap (unsupported) inside a probe read as 'does not apply', so another constructor may be chosen silently"
 

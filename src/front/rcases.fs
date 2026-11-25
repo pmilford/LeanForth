@@ -244,8 +244,8 @@ end-structure
   dup rcs-quot? if lf-tac-unported then rcs-not-inductive ;
 : rcs-fvar ( e -- e ) dup lf-meta-fvar? 0= if rcs-not-fvar then ;   \ asFVar
 : rcs-check ( -- ) rcs rcs-e @ rcs-fvar dup lf-infer! lf-whnf-d! rcs-inductive ;
-: rcs-cases ( -- ) rcs rcs-goal @ rcs rcs-e @ rcs rcs-names @ true lf-goal-cases rcs
-  rcs-subs ! ;
+: rcs-cases ( -- ) rcs rcs-goal @ rcs rcs-e @ rcs rcs-names @ true
+  ['] lf-goal-cases lf-tac-ported rcs rcs-subs ! ;
 
 \ ---- align: each subgoal with the first constructor entry of its name
 \ at or after the cursor (those passed over are dropped, as Lean's).
@@ -320,7 +320,7 @@ end-structure
 \ (generalizeExceptFVar), matched with the pattern's root.
 : rcs-root ( -- node s ) rcs rcs-step @ lf-tac-args# 1- -1 ;
 : rcs-generalized ( goal e -- goal' v )
-  rcs-root rcs-name lf-run2 lf-goal-generalize swap 0 run@ ;
+  rcs-root rcs-name lf-run2 ['] lf-goal-generalize lf-tac-ported swap 0 run@ ;
 : rcs-target ( goal e -- goal' v ) dup lf-meta-fvar? if exit then rcs-generalized ;
 : rcs-start ( goal e -- ) rcs-target >r 0 rcs-root r> rcs-triple+ >r 0 0 r> rcs-task+ ;
 : rcs-walk ( -- goals ) rcs-loop rcs rcs-goals @ ;

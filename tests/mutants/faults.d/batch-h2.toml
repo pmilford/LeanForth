@@ -1,0 +1,71 @@
+# Planted faults of case patterns, slice E2b (plan row TB2, piece E: pattern-syntax.fs's
+# by-contra shapes, tactics/by-contra.fs, tactic-run.fs's lf-tac-ported, meta-must.fs's
+# lf-meta-try, rcases.fs's mapping of the Meta words' refusals, and meta-tactic/contradiction.fs's
+# rule 6), read with faults.toml as one list (scripts/mutants.py). Each is caught by the test
+# it names (tests/front/tactics/batch-h2/test.fs or check.py, batch-g/check.py).
+
+[[fault]]
+id = "contra-rfl-as-name"
+file = "src/front/pattern-syntax.fs"
+old = '''  2dup s" rfl" lfa-token= if 2drop pat-rfl pat-leaf exit then lft-given 1 pat-span! ;'''
+new = '''  lft-given 1 pat-span! ;'''
+test = "$GFORTH tests/front/tactics/batch-h2/test.fs"
+reason = "TB2 E2b: by-contra: rfl introduces a hypothesis named rfl where Lean's by_contra rfl substitutes (test.fs's by-contra: rfl, argument 0 pat-rfl)"
+
+[[fault]]
+id = "contra-many-patterns"
+file = "src/front/pattern-syntax.fs"
+old = ''': pfr-contra ( i -- i ) 5 pfr-one pfr-seq-node ;'''
+new = ''': pfr-contra ( i -- i ) 5 pfr-close pfr-seq-node ;'''
+test = "$GFORTH tests/front/tactics/batch-h2/test.fs"
+reason = "TB2 E2b: by-contra[ k j ] is read as rintro k j, where Lean's by_contra takes one pattern (test.fs's 474 pair)"
+
+[[fault]]
+id = "contra-pattern-dropped"
+file = "src/front/tactics/by-contra.fs"
+old = '''tac-k-by-contra-core tac-k-rintro 2 tac-shape-contra
+  lf-tactic-seq: by-contra[ constant tac-k-by-contra-pat'''
+new = '''tac-k-by-contra-core 1 tac-shape-contra
+  lf-tactic-seq: by-contra[ constant tac-k-by-contra-pat'''
+test = "$GFORTH tests/front/tactics/batch-h2/test.fs"
+reason = "TB2 E2b: by-contra[ pat ] runs by_contra_core alone, its pattern never introduced (test.fs's tuple text)"
+
+[[fault]]
+id = "ported-maps-every-throw"
+file = "src/front/tactic-run.fs"
+old = '''  catch ?dup 0= if exit then dup lfr-unsupported? if lf-tac-unported then throw ;'''
+new = '''  catch ?dup 0= if exit then drop lf-tac-unported ;'''
+test = "$GFORTH tests/front/tactics/batch-h2/test.fs"
+reason = "TB2 E2b: a Lean error (rejected) inside cases or generalize becomes 99 instead of Lean's error (test.fs's lf-tac-ported of a rejected throw)"
+
+[[fault]]
+id = "cases-refusal-93"
+file = "src/front/rcases.fs"
+old = '''  ['] lf-goal-cases lf-tac-ported rcs rcs-subs ! ;'''
+new = '''  lf-goal-cases rcs rcs-subs ! ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-g/check.py"
+reason = "TB2 E2b (E1 review finding 11): rcases on an indexed family answers 93 (a Meta gap) instead of 99 (a case not ported) once cases throws unsupported (check.py's x-indexed.lf)"
+
+[[fault]]
+id = "meta-try-swallows"
+file = "src/front/meta-must.fs"
+old = '''  dup >r lf-meta-catch dup outcome-rejected = if drop r> ndrop false exit then'''
+new = '''  dup >r lf-meta-catch dup ok? 0= if drop r> ndrop false exit then'''
+test = "$GFORTH tests/front/tactics/batch-h2/test.fs"
+reason = "TB2 E2b: Lean's catch takes a refusal LeanForth does not port (unsupported) as Lean's error, so contradiction passes on where it must answer 99 (test.fs's lf-meta-try of an unsupported throw)"
+
+[[fault]]
+id = "rule6-one-ctor"
+file = "src/front/meta-tactic/contradiction.fs"
+old = '''  lf-ity-ctors@ nip if false exit then dup mcd-fvar ['] mcd-committed lf-tac-ported ;'''
+new = '''  lf-ity-ctors@ 2drop dup mcd-fvar ['] mcd-committed lf-tac-ported ;'''
+test = "$GFORTH tests/front/tactics/batch-h2/test.fs"
+reason = "TB2 E2b: rule 6 splits a type with a constructor (True, And) and counts the goal closed with its subgoal open, where Lean's candidate test refuses it (test.fs's True and False ∧ True: 449)"
+
+[[fault]]
+id = "rule6-no-split"
+file = "src/front/meta-tactic/contradiction.fs"
+old = ''': mcd-cases ( goal fvar -- ) 0 false lf-goal-cases drop ;'''
+new = ''': mcd-cases ( goal fvar -- ) 2drop ;'''
+test = "$GFORTH tests/front/tactics/batch-h2/test.fs"
+reason = "TB2 E2b: rule 6 counts the goal closed after exfalso alone, its False goal left open (test.fs's g-false value: no open metavariable)"

@@ -31,9 +31,18 @@
 \          catch does; unsupported, no room or no fuel is thrown on;
 \       6. unless h is an equation or HEq, h's type through whnfD an
 \          inductive type with no constructor or with indices
-\          (isElimEmptyInductiveCandidate): elimEmptyInductive's cases is
-\          not ported (99), whatever it would find (a ≤ b is one: Nat.le
-\          has an index).
+\          (isElimEmptyInductiveCandidate, :45-48), elimEmptyInductive
+\          (:57-87): with indices not ported (99, whatever it would find:
+\          a ≤ b is one, Nat.le has an index; slice E4); with no
+\          constructor and no index (False, Empty), under commitWhen
+\          (meta-must.fs's lf-commit-when) the goal's exfalso (goal.fs),
+\          then cases.fs's lf-goal-cases on h in it: no constructor, no
+\          subgoal, the goal closed (False.casesOn and the like); a Lean
+\          error of cases (rejected) is elim's catch, false, everything
+\          undone, the next local tried; a case cases does not port is 99
+\          (tactic-run.fs's lf-tac-ported). Lean's fuel (searchFuel 16)
+\          is spent once there and otherwise only by the recursion into
+\          the subgoals' fields, which needs a constructor, so an index.
 \       Before the locals, nestedFalseElim (the goal's type holding
 \       False.elim applied to a proof with no loose bound variable) is not
 \       ported: a type that holds the constant False.elim answers 99. No
@@ -46,8 +55,9 @@
 \ lf-local-index-with-type? (assumption.fs); mkFalseElim, mkAbsurd,
 \ mkEqRefl, mkDecide -> lf-mk-false-elim, lf-mk-absurd, lf-mk-eq-refl,
 \ lf-mk-decide (app-builder.fs); whnfD -> lf-whnf-d!; matchConstInduct ->
-\ lf-match-const-induct (meta-must.fs); throwTacticEx -> lf-tac-ex
-\ (tactic-msg.fs).
+\ lf-match-const-induct (meta-must.fs); commitWhen -> lf-commit-when;
+\ MVarId.exfalso -> lf-goal-exfalso; MVarId.cases -> lf-goal-cases
+\ (cases.fs); throwTacticEx -> lf-tac-ex (tactic-msg.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: mcd-frames (a frame per call open, meta-must.fs's lf-with-record),
 \ in the checker context (ADR 0009); no other. Loads in decimal whatever
@@ -75,6 +85,7 @@ require ../meta-must.fs
 require ../app-builder.fs
 require ./goal.fs
 require ./assumption.fs
+require ./cases.fs
 
 449 lfa-lean s" Tactic `contradiction` failed" lfa-code: lfa-e-contradiction
 
@@ -136,9 +147,7 @@ end-structure
   dup lf-meta-has-fvar? if drop false exit then
   lf-instantiate! dup lf-meta-has-fvar? swap lf-meta-has-mvar? lf-must or 0= ;
 : mcd-dec ( t -- d r ) lf-mk-decide dup lf-whnf-d! ;
-: mcd-try-decide ( t -- d r true | false )
-  ['] mcd-dec 1 2 lf-meta-catch dup outcome-rejected = if drop 2drop false exit then
-  lf-must true ;
+: mcd-try-decide ( t -- d r true | false ) ['] mcd-dec 1 2 lf-meta-try ;
 : mcd-hn ( d -- hn )
   s" of_decide_eq_false" lf-mk-const0 swap dup lf-meta-args2 rot lf-mk-eq-refl
   3 lf-mk-app-n ;
@@ -148,17 +157,24 @@ end-structure
   mcd-try-decide 0= if false exit then
   s" Bool.false" lf-meta-const-named? 0= if drop false exit then mcd-refuted ;
 
-\ ---- 6. An empty inductive type or an indexed family: cases, not ported.
+\ ---- 6. elimEmptyInductive: an indexed family, not ported (E4); a type
+\ with no constructor: exfalso, then cases on h under commitWhen.
 : mcd-data ( d -- data ) lf-menv-data ?dup 0= if lf-tac-unported 0 then ;
-: mcd-candidate? ( t -- flag )
-  lf-whnf-d! lf-meta-app-head lf-match-const-induct 0= if false exit then
-  mcd-data dup lf-ity-ctors@ nip 0= swap lf-ity-indices cells + @ 0> or ;
-: mcd-empty ( k equation? -- k )
-  if exit then dup mcd-type mcd-candidate? if lf-tac-unported then ;
+: mcd-inductive ( t -- data true | false )
+  lf-whnf-d! lf-meta-app-head lf-match-const-induct 0= if false exit then mcd-data true ;
+: mcd-cases ( goal fvar -- ) 0 false lf-goal-cases drop ;
+: mcd-split ( fvar -- flag )
+  mcd mcd-goal @ lf-goal-exfalso swap ['] mcd-cases 2 0 lf-meta-try ;
+: mcd-committed ( fvar -- flag ) ['] mcd-split lf-commit-when ;
+: mcd-no-ctor ( k data -- k flag )
+  lf-ity-ctors@ nip if false exit then dup mcd-fvar ['] mcd-committed lf-tac-ported ;
+: mcd-empty ( k equation? -- k flag )
+  if false exit then dup mcd-type mcd-inductive 0= if false exit then
+  dup lf-ity-indices lf-more-field if lf-tac-unported then mcd-no-ctor ;
 
 \ ---- The locals, oldest first; nestedFalseElim before them.
 : mcd-last ( k equation? -- flag )
-  swap mcd-decide if 2drop true exit then swap mcd-empty drop false ;
+  swap mcd-decide if 2drop true exit then swap mcd-empty nip ;
 : mcd-rules ( k -- flag )
   mcd-not-pair if drop true exit then mcd-bit mcd-ne if drop true exit then
   mcd-equation mcd-last ;

@@ -380,6 +380,14 @@ tac-shape-headed tac-k-alt lf-tactic-shape!   tac-shape-headed tac-k-case lf-tac
 : lfr-fail ( code -- ) lf-tac-step lf-tactic-count < if lfr-at-step else lfa-fail then ;
 : lf-tac-fail ( code -- ) lfr-with-goals lfr-fail ;
 : lf-tac-unported ( -- ) lfa-e-tac-form lf-tac-fail ;
+\ xt run, a Meta word's refusal thrown unsupported (a case the tactic
+\ library does not port: meta-induction.fs, cases.fs, generalize.fs) made
+\ 99 as lf-tac-unported; any other THROW passed on.
+: lfr-thrown-as? ( code outcome -- flag )
+  swap dup lf-meta-thrown? if lf-meta-outcome = else 2drop false then ;
+: lfr-unsupported? ( code -- flag ) outcome-unsupported lfr-thrown-as? ;
+: lf-tac-ported ( i*x xt -- j*x )
+  catch ?dup 0= if exit then dup lfr-unsupported? if lf-tac-unported then throw ;
 : lf-tac-fail-at ( j code -- ) lfr-with-goals lf-tac-stop-at ;
 : lf-tac-stop ( code -- ) lfr-fail ;
 \ (A brace's are told at its }: Lean's withRef stx[2], BuiltinTactic.lean:
@@ -858,8 +866,7 @@ lfr-states# 2* 0 xt-table: lfr-states
 \ LeanForth's stays one). lf-tac-forget-lean ( code -- ) forgets a Lean
 \ error (the message dropped) and throws any other code on.
 : lfr-lean-authored? ( -- flag ) lf-author-code lf-author-lean? lf-author-final? 0= and ;
-: lfr-rejected? ( code -- flag )
-  dup lf-meta-thrown? if lf-meta-outcome outcome-rejected = else drop false then ;
+: lfr-rejected? ( code -- flag ) outcome-rejected lfr-thrown-as? ;
 : lf-tac-lean-error? ( code -- flag )
   dup lf-author-throw = if drop lfr-lean-authored? else lfr-rejected? then ;
 : lf-tac-forget-lean ( code -- )
