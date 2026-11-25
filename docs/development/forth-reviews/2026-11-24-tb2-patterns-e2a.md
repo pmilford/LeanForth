@@ -165,7 +165,9 @@ Fixed on branch `tb2-patterns-e2a` (2026-11-24), one commit an item:
    `dependent-not-reintroduced`, `subst-major-not-symm`, `try-skip-ignored`, `fsubst-not-applied` and
    `revert-kept-order-unchecked` moved and checked caught. app-builder.fs's return-stack baseline 38 to 42 for
    `lf-heq-homogeneous?` (its α lies four deep; every other form trades the four for deep shuffles, already at the
-   file's baseline); `rcs-target@` excused as a small copy (a field reader, as `fsb-key`).
+   file's baseline); `rcs-target@` excused as a small copy (a field reader, as `fsb-key`). `7666f08c`: `rcs-target`
+   exits on a free variable again, as before, since its `0= if rcs-generalized then` had `rcs-fvar`'s shape (a
+   duplicate group pre-tier found).
 8. No change: the ledger already records it (TACTIC_STATUS.md, plan row LC).
 
 The side note on intro (`by-intro: h` and `by-rintro[ h ]` on `¬a = b` with `k : ¬a = a` in context, 93 where
