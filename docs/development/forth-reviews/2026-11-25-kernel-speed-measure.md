@@ -96,3 +96,15 @@ Probe files are in /tmp/claude-1000/-home-peter-code-LeanForth/69a89404-3a7f-48a
     `sym-char`, `sym-end`), no buffer. A direct run on `src/main.fs` wrote 29,026 lines in the old format;
     `make test-profile-check` passed (8 tests).
 12. Fixed in `69d2bf90`: the `test-profile-check` row is in the end-to-end section.
+
+## Re-check (2026-11-25 11:06)
+
+An independent re-check of `0c0c49ac..127b85f8` (the branch rebased on main `0c0c49ac`): **merge**, 0 blocking,
+0 medium, 1 low, 1 nit. `timed` is correct by reading and by its tests on both engines; the scheduler's change
+keeps behaviour (the planted faulty check answers exit 5 at `--jobs 1`, 2 and the default, with and without
+`--resources --json`; decide-slice's JSON is identical to main's outside `measured`, `settings` and `run`);
+`declarationMicroseconds` appears only with `--resources`; a sampler sent SIGTERM, SIGINT or SIGKILL leaves no
+child; three faults the re-checker planted were caught; the only baseline change against main is
+`src/lib/bounds.fs` return-stack 8 -> 12, the owner's decision of 2026-11-25 (OWNER_DECISIONS.md). Left: the
+low finding L1 (finding 10's edge case, two paths) and the nit, planned as row 9.4.8z of PLAN_DRAFT.md.
+
