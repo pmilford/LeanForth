@@ -1,0 +1,10 @@
+\ Wrong twin: by-contra[ takes one pattern (474); Lean's by_contra k j
+\ is a parse error (rcasesPatMed is one pattern).
+theorem w_contra_two
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  by-contra[ k j ]
+  by-contradiction
+end w_contra_two

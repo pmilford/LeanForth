@@ -351,7 +351,8 @@ T{ s" Nat Nonempty explicit: h Nat Nonempty" st s" by-contra ' this by-absurd ' 
 T{ s" a b ≠ explicit: h a b ≠" st s" by-contra-core by-intro: k ' k by-absurd by-assumption"
    tactic-ran -> 0 }T
 T{ hle s" by-contra: k ' h1 by-exact" tactic-ran -> 96 }T
-T{ hle s" by-contra: rfl" tactic-ran -> 99 }T
+\ rfl is rintro's pattern (slice E2b): subst of h : ¬a ≤ b, Lean's 478.
+T{ hle s" by-contra: rfl" tactic-ran -> 478 }T
 lf-tac-forget
 \ symm, and_intros, next through the text; next with no goal: 90.
 T{ s" a b = explicit: h b a =" st s" by-symm ' h by-exact" tactic-ran -> 0 }T

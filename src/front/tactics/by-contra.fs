@@ -21,24 +21,27 @@
 \     new synthetic opaque goal of ¬p → False with the goal's tag;
 \   refine @Classical.byContradiction _ ?_: the same with no instance
 \     (the axiom report then lists propext, Classical.choice, Quot.sound).
-\ - by-contra: h: by_contra_core, then rintro h, Lean's macro (by_contra_core;
-\   rintro h): a sequence of rows (tactic-api.fs's lf-tactic-seq:),
-\   by-contra-core's, then by-intro:'s on the same step (rintro of one
-\   name is intro of it; the pattern rfl is intro's 99).
+\ - by-contra[ pat ]: Batteries' by_contra pat (Init.lean:57-60, the
+\   macro by_contra_core; rintro (pat)): a sequence of rows (tactic-api.
+\   fs's lf-tactic-seq:), by-contra-core's, then by-rintro['s on the same
+\   step (rintro.fs: rcases.fs's lf-rintro), its pattern one element
+\   (pattern-syntax.fs's tac-shape-contra: a | b is Lean's (a | b));
+\ - by-contra: h: the same with the pattern h (Lean's by_contra h; h a
+\   name, _ or rfl);
 \ - by-contra: the same with the name this (Lean's default pattern).
-\ Not supported yet: patterns and the : T form (Lean's by_contra h : T).
+\ Not supported yet: the : T form (Lean's by_contra h : T), slice E5.
 \ Lean call list: first -> lf-tac-first-of; guard_target -> lf-whnf-r!,
 \ lf-meta-app-of?; change -> lf-whnf!, lf-goal-replace-target-defeq;
 \ refine -> lf-goal-target, lf-meta-is-prop, lf-synth-instance!,
 \ lf-goal-fresh, lf-mvar-assign; liftMetaTactic1 -> lf-lift-meta-tactic1;
-\ the macros -> lf-tactic-seq: of tac-k-intro (tactics/intro.fs).
+\ the macros -> lf-tactic-seq: of tac-k-rintro (tactics/rintro.fs).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own.
 
 require ../tactic-api.fs
 require ../meta-tactic/by-cases.fs
 require ./by-cases.fs
-require ./intro.fs
+require ./rintro.fs
 
 450 lfa-lean s" The main goal is" lfa-code: lfa-e-guard-target
 
@@ -70,10 +73,13 @@ s" by_contra_core" tac-k-by-contra-core lf-tactic-lean!
   drop ['] tbc-classical ['] tbc-decidable ['] tbc-change 3 lf-tac-first-of ;
 ' tbc-run tac-k-by-contra-core lf-tactic-action!
 
-\ ---- by_contra h and by_contra: the core, then intro of the name.
-tac-k-by-contra-core tac-k-intro 2 tac-shape-name
+\ ---- by_contra pat, by_contra h and by_contra: the core, then rintro.
+tac-k-by-contra-core tac-k-rintro 2 tac-shape-contra-name
   lf-tactic-seq: by-contra: constant tac-k-by-contra
 s" by_contra" tac-k-by-contra lf-tactic-lean!
-tac-k-by-contra-core tac-k-intro 2 0 tac-shape-term-this
+tac-k-by-contra-core tac-k-rintro 2 tac-shape-contra-this
   lf-tactic-seq: by-contra constant tac-k-by-contra-this
 s" by_contra" tac-k-by-contra-this lf-tactic-lean!
+tac-k-by-contra-core tac-k-rintro 2 tac-shape-contra
+  lf-tactic-seq: by-contra[ constant tac-k-by-contra-pat
+s" by_contra" tac-k-by-contra-pat lf-tactic-lean!

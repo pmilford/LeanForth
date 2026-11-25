@@ -1,0 +1,11 @@
+\ Wrong twin (batch-h2-wrong.lean's w_contra_alts): by-contra[ h1 | h2 ]
+\ makes two goals, and h1 is only the first's. Lean: Unknown identifier.
+theorem w_contra_alts
+  Nat explicit: a  Nat explicit: b
+  a b = ¬ explicit: h
+  a b = b a = ∨ ¬
+:= by
+  by-contra[ h1 | h2 ]
+  by-contradiction
+  ' h1 by-exact
+end w_contra_alts

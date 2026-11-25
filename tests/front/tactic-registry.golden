@@ -169,6 +169,18 @@
 381	1	lean	Tactic `assumption` failed
 382	1	lean	Tactic `constructor` failed: target is not an inductive datatype
 383	1	lean	Tactic `constructor` failed: no applicable constructor found
+472	1	-	a pattern's bar | goes between two items
+473	1	-	this closer does not close the pattern's open bracket
+474	1	-	by-obtain[, by-rcases[ and by-contra[ take one pattern
+481	1	-	by-rintro[ takes one pattern or more
+475	1	lean	Tactic `subst` failed: argument must be an equality proof
+476	1	lean	Tactic `subst` failed:
+477	1	lean	Tactic `subst` failed: invalid equality proof, it is not of the form
+478	1	lean	Tactic `subst` failed: invalid equality proof, it is not of the form
+479	1	lean	Tactic `subst` failed: did not find equation for eliminating
+480	1	lean	Tactic `subst` failed: variable
+470	1	lean	Tactic `rcases` failed:
+471	1	lean	Tactic `rcases` failed:
 450	1	lean	The main goal is
 443	1	lean	'change' tactic failed, pattern
 444	1	lean	'show' tactic failed, pattern
@@ -182,18 +194,6 @@
 448	1	lean	Tactic `delta` failed: did not delta reduce
 385	1	lean	Tactic `left` failed: target is not an inductive datatype
 386	1	lean	Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors
-472	1	-	a pattern's bar | goes between two items
-473	1	-	this closer does not close the pattern's open bracket
-474	1	-	by-obtain[ and by-rcases[ take one pattern
-481	1	-	by-rintro[ takes one pattern or more
-475	1	lean	Tactic `subst` failed: argument must be an equality proof
-476	1	lean	Tactic `subst` failed:
-477	1	lean	Tactic `subst` failed: invalid equality proof, it is not of the form
-478	1	lean	Tactic `subst` failed: invalid equality proof, it is not of the form
-479	1	lean	Tactic `subst` failed: did not find equation for eliminating
-480	1	lean	Tactic `subst` failed: variable
-470	1	lean	Tactic `rcases` failed:
-471	1	lean	Tactic `rcases` failed:
 387	1	lean	Tactic `right` failed: target is not an inductive datatype
 388	1	lean	Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors
 456	1	lean	Type mismatch: The rewritten hypothesis
@@ -306,10 +306,11 @@ reserved by-suffices: word
 reserved by-have-goal: word
 reserved by-have-by: word
 reserved by-cases: word
-reserved by-intro[ word
+reserved by-rintro[ word
 reserved by-contra-core word
 reserved by-contra: word
 reserved by-contra word
+reserved by-contra[ word
 reserved by-change word
 reserved by-show word
 reserved by-clear word
@@ -323,6 +324,7 @@ reserved by-exacts[ word
 reserved by-exfalso word
 reserved by-trivial word
 reserved by-exists[ word
+reserved by-intro[ word
 reserved by-intros word
 reserved by-left word
 reserved by-obtain[ word
@@ -333,7 +335,6 @@ reserved by-replace: word
 reserved by-revert word
 reserved by-revert[ word
 reserved by-right word
-reserved by-rintro[ word
 reserved by-rwa[ word
 reserved by-specialize word
 reserved by-subst word
@@ -367,38 +368,39 @@ kind 23 by-suffices: 0 suffices run
 kind 24 by-have-goal: 0 have run
 kind 25 by-have-by: 0 have run
 kind 26 by-cases: 0 by_cases run
-kind 27 by-intro[ 0 intro run
+kind 27 by-rintro[ 0 rintro run
 kind 28 by-contra-core 0 by_contra_core run
 kind 29 by-contra: 0 by_contra run
 kind 30 by-contra 0 by_contra run
-kind 31 by-change 0 change run
-kind 32 by-show 0 show run
-kind 33 by-clear 0 clear run
-kind 34 by-clear[ 0 clear run
-kind 35 by-constructor 0 constructor run
-kind 36 by-contradiction 0 contradiction run
-kind 37 by-decide 0 decide run
-kind 38 by-native-decide 0 native_decide run
-kind 39 by-delta 0 delta run
-kind 40 by-exacts[ 0 exacts run
-kind 41 by-exfalso 0 exfalso run
-kind 42 by-trivial 0 trivial run
-kind 43 by-exists[ 0 exists run
-kind 44 by-intros 0 intros run
-kind 45 by-left 0 left run
-kind 46 by-obtain[ 0 obtain run
-kind 47 by-rcases[ 0 rcases run
-kind 48 by-refine 0 refine run
-kind 49 by-rename-i[ 0 rename_i run
-kind 50 by-replace: 0 replace run
-kind 51 by-revert 0 revert run
-kind 52 by-revert[ 0 revert run
-kind 53 by-right 0 right run
-kind 54 by-rintro[ 0 rintro run
-kind 55 by-rwa[ 0 rwa run
-kind 56 by-specialize 0 specialize run
-kind 57 by-subst 0 subst run
-kind 58 by-subst[ 0 subst run
-kind 59 by-subst-vars 0 subst_vars run
-kind 60 by-swap 0 swap run
-kind 61 by-symm 0 symm run
+kind 31 by-contra[ 0 by_contra run
+kind 32 by-change 0 change run
+kind 33 by-show 0 show run
+kind 34 by-clear 0 clear run
+kind 35 by-clear[ 0 clear run
+kind 36 by-constructor 0 constructor run
+kind 37 by-contradiction 0 contradiction run
+kind 38 by-decide 0 decide run
+kind 39 by-native-decide 0 native_decide run
+kind 40 by-delta 0 delta run
+kind 41 by-exacts[ 0 exacts run
+kind 42 by-exfalso 0 exfalso run
+kind 43 by-trivial 0 trivial run
+kind 44 by-exists[ 0 exists run
+kind 45 by-intro[ 0 intro run
+kind 46 by-intros 0 intros run
+kind 47 by-left 0 left run
+kind 48 by-obtain[ 0 obtain run
+kind 49 by-rcases[ 0 rcases run
+kind 50 by-refine 0 refine run
+kind 51 by-rename-i[ 0 rename_i run
+kind 52 by-replace: 0 replace run
+kind 53 by-revert 0 revert run
+kind 54 by-revert[ 0 revert run
+kind 55 by-right 0 right run
+kind 56 by-rwa[ 0 rwa run
+kind 57 by-specialize 0 specialize run
+kind 58 by-subst 0 subst run
+kind 59 by-subst[ 0 subst run
+kind 60 by-subst-vars 0 subst_vars run
+kind 61 by-swap 0 swap run
+kind 62 by-symm 0 symm run

@@ -13,6 +13,11 @@
 \     by-rintro[ (slice E2a, tac-shape-rintro: no value) takes one
 \     element or more, each one rintro pattern (Lean's rintroPat: a | b
 \     c is Lean's rintro (a | b) c), then ]; none is 481.
+\     by-contra[ (slice E2b, tac-shape-contra: no value) takes exactly
+\     one element (474), read as by-rintro['s sequence of one (Batteries'
+\     by_contra pat: rintro (pat)); by-contra: NAME (tac-shape-contra-
+\     name) and by-contra (tac-shape-contra-this: the name this) are read
+\     the same way, NAME a hypothesis's name, _ or rfl.
 \ A plain loop with no lookahead: an item ends the open element unless a
 \ bar since the last item set the join flag (then it joins the element
 \ and clears the flag); a bar with no element open or the flag set is 472
@@ -34,8 +39,9 @@
 \ nodes pat-tuple (a bracket) and pat-alts (an element of two items or
 \ more), and by-rintro['s pat-seq over its elements, last; a walker
 \ steps back over its children's spans (rcases.fs).
-\ Words: tac-shape-pattern, tac-shape-rintro, pat-clear pat-rfl pat-tuple
-\ pat-alts pat-seq ( -- x ).
+\ Words: tac-shape-pattern, tac-shape-rintro, tac-shape-contra,
+\ tac-shape-contra-name, tac-shape-contra-this, pat-clear pat-rfl
+\ pat-tuple pat-alts pat-seq ( -- x ).
 \ It uses tactic-syntax.fs's reader words (lft-values, lft-list-open,
 \ lft-given, lft-arg+, lft-done, targ#, lft-at-sign?).
 \ Untrusted: a pattern says what was written; only the kernel's check of
@@ -57,11 +63,13 @@ require ./tactic-syntax.fs
 472 outcome-invalid s" a pattern's bar | goes between two items" lfa-code: lfa-e-pat-bar
 473 outcome-invalid s" this closer does not close the pattern's open bracket"
   lfa-code: lfa-e-pat-closer
-474 outcome-invalid s" by-obtain[ and by-rcases[ take one pattern" lfa-code: lfa-e-pat-one
+474 outcome-invalid s" by-obtain[, by-rcases[ and by-contra[ take one pattern"
+  lfa-code: lfa-e-pat-one
 481 outcome-invalid s" by-rintro[ takes one pattern or more" lfa-code: lfa-e-pat-none
 
 \ ---- The open brackets: the top level's (closer 3, ] of one element;
-\ 4, ] of by-rintro['s sequence) and each tuple's (1 for <<, 2 for ⟨).
+\ 4, ] of by-rintro['s sequence; 5, ] of by-contra['s one element, a
+\ sequence of one) and each tuple's (1 for <<, 2 for ⟨).
 begin-structure /pfr
   field: pfr-closer      \ the closer it waits for: 1 >>, 2 ⟩, 3 or 4 ]
   field: pfr-from        \ the argument its contents begin at
@@ -99,14 +107,16 @@ end-structure
   pfr pfr-join @ if lfa-e-pat-bar lfa-fail then pfr-end ;
 : pfr-node ( i kind -- i ) pfr pfr-from @ pat-node pat-frames slab-drop ;
 : pfr-tuple ( i closer -- i ) pfr-close pat-tuple pfr-node ;
-: pfr-top ( i -- i )
-  3 pfr-close pfr pfr-elems @ 1 <> if lfa-e-pat-one lfa-fail then
-  pat-frames slab-drop lfa-bracket-drop ;
-\ rintro's top level: one element or more (481), a seq node over them.
-: pfr-seq ( i -- i )
-  4 pfr-close pfr pfr-elems @ 0= if lfa-e-pat-none lfa-fail then
-  pat-seq pfr-node lfa-bracket-drop ;
-: pfr-end-list ( i -- i ) pfr pfr-closer @ 4 = if pfr-seq else pfr-top then ;
+: pfr-elems# ( i closer -- i n ) pfr-close pfr pfr-elems @ ;
+: pfr-one ( i closer -- i ) pfr-elems# 1 <> if lfa-e-pat-one lfa-fail then ;
+: pfr-top ( i -- i ) 3 pfr-one pat-frames slab-drop lfa-bracket-drop ;
+\ rintro's top level: one element or more (481), a seq node over them;
+\ by-contra['s: one element (474), a seq node over it.
+: pfr-seq-node ( i -- i ) pat-seq pfr-node lfa-bracket-drop ;
+: pfr-seq ( i -- i ) 4 pfr-elems# 0= if lfa-e-pat-none lfa-fail then pfr-seq-node ;
+: pfr-contra ( i -- i ) 5 pfr-one pfr-seq-node ;
+: pfr-end-list ( i -- i )
+  pfr pfr-closer @ dup 3 = if drop pfr-top exit then 4 = if pfr-seq else pfr-contra then ;
 
 \ ---- The items and closers: a word list searched by spelling (each
 \ word ( i -- i more? )); any other token is a name.
@@ -139,3 +149,16 @@ set-current
 1 0 ' lft-build-pattern tac-shape-new constant tac-shape-pattern
 : lft-build-rintro ( i shape -- ) lft-values drop 4 pat-read ;
 0 0 ' lft-build-rintro tac-shape-new constant tac-shape-rintro
+: lft-build-contra ( i shape -- ) lft-values drop 5 pat-read ;
+0 0 ' lft-build-contra tac-shape-new constant tac-shape-contra
+\ by-contra: NAME and by-contra: the name, or this, as a sequence of one
+\ rintro pattern (Batteries' by_contra h, rintro h); rfl is the item.
+: lft-contra-seq ( i -- ) pat-seq 0 pat-node lft-done ;
+: lft-contra-item ( i c-addr u -- i )
+  2dup s" rfl" lfa-token= if 2drop pat-rfl pat-leaf exit then lft-given 1 pat-span! ;
+: lft-build-contra-name ( i shape -- )
+  drop lfa-name-token lft-contra-item lft-contra-seq ;
+: lft-build-contra-this ( i shape -- )
+  drop s" this" lft-hypothesis 1 pat-span! lft-contra-seq ;
+0 1 ' lft-build-contra-name tac-shape-new constant tac-shape-contra-name
+0 0 ' lft-build-contra-this tac-shape-new constant tac-shape-contra-this

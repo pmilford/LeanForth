@@ -410,8 +410,8 @@ reason = "TB2: by_contra_core tries Classical.byContradiction first (a decidable
 [[fault]]
 id = "tb2c-contra-no-intro"
 file = "src/front/tactics/by-contra.fs"
-old = '''tac-k-by-contra-core tac-k-intro 2 tac-shape-name'''
-new = '''tac-k-by-contra-core 1 tac-shape-name'''
+old = '''tac-k-by-contra-core tac-k-rintro 2 tac-shape-contra-name'''
+new = '''tac-k-by-contra-core 1 tac-shape-contra-name'''
 test = "$GFORTH tests/front/tactics/batch-c/test.fs"
 reason = "TB2: by_contra h does not introduce h (rintro h)"
 

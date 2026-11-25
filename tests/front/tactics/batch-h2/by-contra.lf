@@ -1,0 +1,98 @@
+\ by-contra[ pat ] and by-contra: with a pattern (plan row TB2, piece E,
+\ slice E2b; Batteries' by_contra pat, by_contra_core then rintro (pat);
+\ batch-h2.lean). Each goal is a negation, so by_contra_core's first
+\ alternative changes it to p -> False, unless said otherwise.
+
+\ A tuple: the conjunction split.
+\ Lean: theorem bc_tuple (a b : Nat) (k : ¬b = a) : ¬(a = b ∧ b = a) := by
+\         by_contra ⟨hab, hba⟩
+\         contradiction
+theorem bc_tuple
+  Nat explicit: a  Nat explicit: b
+  b a = ¬ explicit: k
+  a b = b a = ∧ ¬
+:= by
+  by-contra[ << hab hba >> ]
+  by-contradiction
+end bc_tuple
+
+\ Alternatives: one goal for each side of the disjunction.
+\ Lean: theorem bc_alts (a b : Nat) (h : ¬a = b) (k : ¬b = a) : ¬(a = b ∨ b = a) := by
+\         by_contra h1 | h2
+\         contradiction
+\         contradiction
+theorem bc_alts
+  Nat explicit: a  Nat explicit: b
+  a b = ¬ explicit: h  b a = ¬ explicit: k
+  a b = b a = ∨ ¬
+:= by
+  by-contra[ h1 | h2 ]
+  by-contradiction
+  by-contradiction
+end bc_alts
+
+\ rfl: the equation introduced is substituted away.
+\ Lean: theorem bc_rfl (a b : Nat) (h : ¬a = a) : ¬a = b := by
+\         by_contra rfl
+\         contradiction
+theorem bc_rfl
+  Nat explicit: a  Nat explicit: b
+  a a = ¬ explicit: h
+  a b = ¬
+:= by
+  by-contra[ rfl ]
+  by-contradiction
+end bc_rfl
+
+\ The same through by-contra: rfl (Lean's by_contra rfl too).
+\ Lean: theorem bc_rfl_word (a b : Nat) (h : ¬a = a) : ¬a = b := by
+\         by_contra rfl
+\         contradiction
+theorem bc_rfl_word
+  Nat explicit: a  Nat explicit: b
+  a a = ¬ explicit: h
+  a b = ¬
+:= by
+  by-contra: rfl
+  by-contradiction
+end bc_rfl_word
+
+\ A name on a goal that is no negation: Decidable.byContradiction.
+\ Lean: theorem bc_name (a b : Nat) (h : a = b) : a = b := by
+\         by_contra k
+\         contradiction
+theorem bc_name
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  by-contra[ k ]
+  by-contradiction
+end bc_name
+
+\ -: introduced and cleared.
+\ Lean: theorem bc_clear (h : False) : ¬True := by
+\         by_contra -
+\         exact h
+theorem bc_clear
+  False explicit: h
+  True ¬
+:= by
+  by-contra[ - ]
+  ' h by-exact
+end bc_clear
+
+\ A tuple inside an alternative.
+\ Lean: theorem bc_nest (a b : Nat) (h : ¬a = b) : ¬((a = b ∧ b = a) ∨ a = b) := by
+\         by_contra ⟨h1, _⟩ | h2
+\         contradiction
+\         contradiction
+theorem bc_nest
+  Nat explicit: a  Nat explicit: b
+  a b = ¬ explicit: h
+  a b = b a = ∧ a b = ∨ ¬
+:= by
+  by-contra[ << h1 _ >> | h2 ]
+  by-contradiction
+  by-contradiction
+end bc_nest

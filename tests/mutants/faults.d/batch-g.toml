@@ -74,8 +74,8 @@ equivalent = "the only targets a later split reverts are an existential's fields
 [[fault]]
 id = "rcases-top-as-sequence"
 file = "src/front/pattern-syntax.fs"
-old = '''  3 pfr-close pfr pfr-elems @ 1 <> if lfa-e-pat-one lfa-fail then'''
-new = '''  3 pfr-close'''
+old = ''': pfr-one ( i closer -- i ) pfr-elems# 1 <> if lfa-e-pat-one lfa-fail then ;'''
+new = ''': pfr-one ( i closer -- i ) pfr-elems# drop ;'''
 test = "$GFORTH tests/front/tactics/batch-g/test.fs"
 reason = "TB2 E1: by-rcases[ x y ] is read as Lean's rcases h with x y would be, not refused 474 (test.fs's 474 pair)"
 

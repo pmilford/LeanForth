@@ -904,7 +904,7 @@
   "words": 0
  },
  "src/front/tactics/by-contra.fs": {
-  "globals": 3,
+  "globals": 4,
   "long lines": 0,
   "long words": 0,
   "rstack": 0,

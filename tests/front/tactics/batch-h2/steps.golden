@@ -1,0 +1,23 @@
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"bc_tuple","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nk : ¬b = a\n⊢ ¬(a = b ∧ b = a)","goals_after":["a b : Nat\nk : ¬b = a\nhab : a = b\nhba : b = a\n⊢ False"],"parent":0,"source":"15:3","step":1,"tactic":"by_contra","word":"by-contra["}
+{"goal_before":"a b : Nat\nk : ¬b = a\nhab : a = b\nhba : b = a\n⊢ False","goals_after":[],"parent":0,"source":"16:3","step":2,"tactic":"contradiction","word":"by-contradiction"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"bc_alts","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":3}}
+{"goal_before":"a b : Nat\nh : ¬a = b\nk : ¬b = a\n⊢ ¬(a = b ∨ b = a)","goals_after":["case inl\na b : Nat\nh : ¬a = b\nk : ¬b = a\nh1 : a = b\n⊢ False","case inr\na b : Nat\nh : ¬a = b\nk : ¬b = a\nh2 : b = a\n⊢ False"],"parent":0,"source":"29:3","step":1,"tactic":"by_contra","word":"by-contra["}
+{"goal_before":"case inl\na b : Nat\nh : ¬a = b\nk : ¬b = a\nh1 : a = b\n⊢ False","goals_after":["case inr\na b : Nat\nh : ¬a = b\nk : ¬b = a\nh2 : b = a\n⊢ False"],"parent":0,"source":"30:3","step":2,"tactic":"contradiction","word":"by-contradiction"}
+{"goal_before":"case inr\na b : Nat\nh : ¬a = b\nk : ¬b = a\nh2 : b = a\n⊢ False","goals_after":[],"parent":0,"source":"31:3","step":3,"tactic":"contradiction","word":"by-contradiction"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"bc_rfl","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : ¬a = a\n⊢ ¬a = b","goals_after":["a : Nat\nh : ¬a = a\n⊢ False"],"parent":0,"source":"43:3","step":1,"tactic":"by_contra","word":"by-contra["}
+{"goal_before":"a : Nat\nh : ¬a = a\n⊢ False","goals_after":[],"parent":0,"source":"44:3","step":2,"tactic":"contradiction","word":"by-contradiction"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"bc_rfl_word","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : ¬a = a\n⊢ ¬a = b","goals_after":["a : Nat\nh : ¬a = a\n⊢ False"],"parent":0,"source":"56:3","step":1,"tactic":"by_contra","word":"by-contra:"}
+{"goal_before":"a : Nat\nh : ¬a = a\n⊢ False","goals_after":[],"parent":0,"source":"57:3","step":2,"tactic":"contradiction","word":"by-contradiction"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"bc_name","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a = b\n⊢ a = b","goals_after":["a b : Nat\nh : a = b\nk : ¬a = b\n⊢ False"],"parent":0,"source":"69:3","step":1,"tactic":"by_contra","word":"by-contra["}
+{"goal_before":"a b : Nat\nh : a = b\nk : ¬a = b\n⊢ False","goals_after":[],"parent":0,"source":"70:3","step":2,"tactic":"contradiction","word":"by-contradiction"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"bc_clear","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"h : False\n⊢ ¬True","goals_after":["h : False\n⊢ False"],"parent":0,"source":"81:3","step":1,"tactic":"by_contra","word":"by-contra["}
+{"goal_before":"h : False\n⊢ False","goals_after":[],"parent":0,"source":"82:7","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"bc_nest","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":3}}
+{"goal_before":"a b : Nat\nh : ¬a = b\n⊢ ¬(a = b ∧ b = a ∨ a = b)","goals_after":["case inl\na b : Nat\nh : ¬a = b\nh1 : a = b\nright✝ : b = a\n⊢ False","case inr\na b : Nat\nh : ¬a = b\nh2 : a = b\n⊢ False"],"parent":0,"source":"95:3","step":1,"tactic":"by_contra","word":"by-contra["}
+{"goal_before":"case inl\na b : Nat\nh : ¬a = b\nh1 : a = b\nright✝ : b = a\n⊢ False","goals_after":["case inr\na b : Nat\nh : ¬a = b\nh2 : a = b\n⊢ False"],"parent":0,"source":"96:3","step":2,"tactic":"contradiction","word":"by-contradiction"}
+{"goal_before":"case inr\na b : Nat\nh : ¬a = b\nh2 : a = b\n⊢ False","goals_after":[],"parent":0,"source":"97:3","step":3,"tactic":"contradiction","word":"by-contradiction"}
