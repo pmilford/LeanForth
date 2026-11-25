@@ -217,7 +217,7 @@ reason = "review simp-sd-a 4: a lemma filed under another function is read: that
 [[fault]]
 id = "sd-lhs-any-relation"
 file = "src/front/simp-data.fs"
-old = ''': sd-lhs-fun ( e -- name ) dup sd-relation? if sd-same-call else drop -1 then ;'''
+old = ''': sd-lhs-fun ( e -- name ) dup sd-relation? if sd-same-call exit then drop -1 ;'''
 new = ''': sd-lhs-fun ( e -- name ) sd-call drop ;'''
 test = "$GFORTH tests/front/simp-data.fs"
 reason = "review simp-sd-a 4: the conclusion's own head taken for fun (Eq, not the left side's function)"

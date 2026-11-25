@@ -134,7 +134,7 @@ end-structure
 \ The constant both sides call with as many arguments; else -1.
 : sd-same-call ( e -- name )
   sd-sides sd-call 2>r sd-call 2dup 2r> d= if drop else 2drop -1 then ;
-: sd-lhs-fun ( e -- name ) dup sd-relation? if sd-same-call else drop -1 then ;
+: sd-lhs-fun ( e -- name ) dup sd-relation? if sd-same-call exit then drop -1 ;
 : sd-conclusion ( d -- e ) elab-type@ elab-tier expr-pi-end ;
 : sdc-lhs-fun ( c -- name ) sdc sdc-decl @ sd-conclusion sd-lhs-fun ;
 : sdc-head ( value c -- outcome )
