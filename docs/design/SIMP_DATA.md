@@ -226,7 +226,7 @@ lists them (plan FE9's [axiom] gate). Nothing here adds an axiom.
 
 - **Where it lives.** The simp core is Meta-level code that `by-simp`, `norm_num1`, `ring_nf`, `simp_all` and
   `field_simp` all call: `src/front/meta-tactic/simp*.fs`. Only the `by-simp*` words go into `src/front/tactics/`
-  (error codes 300-339, as the plug-in design reserves).
+  (error codes 500-539: 300-339, once reserved by the plug-in design, hold the runner's codes 300-309; see TACTIC_SIMP.md).
 - **Runner services simp needs**, to be added to the plug-in design's list (its appendix D): the location reader
   (`at h`, `at *`); bracket modifiers (`-foo`, `*`, `↓`/`↑`, `←`, set and simproc names); a configuration reader
   (`+arith`, `(config := …)`); replacing or clearing a hypothesis; handing helper theorems to the kernel before the

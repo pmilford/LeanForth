@@ -29,6 +29,7 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
+- 2026-11-24, 23:32: the Later list's parallel items 1 and 2 are **done** on main 9a882569 (done check [2026-11-24-jobs-default-done.md](../development/done-checks/2026-11-24-jobs-default-done.md); pushed, origin/main 7e7059d8): `check` of an export uses 4 workers by default (decide-slice 4.13 s -> 1.89 s, Init 1,015 s -> 287 s), and `--resources` shows each worker's busy and waiting time. The design of `simp` ([TACTIC_SIMP.md](../design/TACTIC_SIMP.md)) is reviewed and revised; the owner's approval is open, no code. In work: pattern slice E2b, under Forth review. Earlier:
 - 2026-11-24, 22:42: the Later list's parallel items 1 and 2 are **tested on branch `jobs-default` and
   Forth-reviewed** ([review](../development/forth-reviews/2026-11-24-jobs-default.md)), not merged, not done:
   findings 1-10, 12 and 13 fixed on the branch (1, a trust finding: with workers the check's start time lay

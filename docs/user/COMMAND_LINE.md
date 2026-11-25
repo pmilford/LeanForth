@@ -1276,6 +1276,13 @@ without `--resources` does not have. Measured on
 287.0 s without `--resources` (load 2 to 5), 306.8 and 316.1 s with it
 (load 5), and 415.3 s for the build before the counters (load 8 to 10):
 the differences are the machine's load, not the counting.
+A LeanForth text is checked one declaration at a time under the default, so
+`--resources` shows no workers lines for it. In the JSON report
+(`measured.workers`) the same times are microseconds, with the workers under
+`each` in their order. On a small export the workers wait more: on the
+1,290-declaration `tests/front/decide-slice.ndjson` three of four workers
+waited about 40% of the run (measured 2026-11-24: 1.89 s against 4.13 s at
+`--jobs 1`), because close dependencies leave fewer declarations ready at once.
 
 **Fuel**, a check's unit of work, is read from the checker's own counters
 after each check. For an accepted declaration it is exact: with a budget
