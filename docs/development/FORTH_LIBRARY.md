@@ -2108,6 +2108,23 @@ a `src/lib` library: its keys are Lean's, made by `discr-keys.fs`
 the same trie was private (FE1e3); simp's lemma sets (SP1b) are its next
 caller.
 
+Simp's first slice (plan FE9, SL1a-1, branch `simp-sl1a-1`, 2026-11-25,
+tested on its branch, not reviewed) adds Lean's `getMatch` and
+`getMatchWithExtra` as modes of the same walk, not a second walk:
+`lf-dtree-match` and `lf-dtree-match-extra ( e tree out -- outcome )`
+(two cells a candidate: the value and its count of extra arguments) take
+`discr-keys.fs`'s `lf-dt-match-key` (a metavariable of the term is
+`other`); `mayMatchPrefix` scans the roots (linear in the number of roots,
+cheap for `simp only`'s small trees; Init's default set, SL3a, may want a
+root index by head). `lf-dt-path-head` is `mkPath` with `noIndexAtArgs`
+(a hypothesis's or bracket term's keys). Its callers come with simp's own
+files; today only `tests/front/simp-meta.fs` calls them. The same branch
+adds the shared Meta words those files need: meta-config.fs's whnfCore
+settings and simp's three scopes, `lf-with-new-depth` (meta-must.fs),
+`lf-meta-fun-deps` (fun-info.fs), `lf-congr-simp-kinds` (the new
+`congr-thms.fs`) and app-builder.fs's `mkOfEqTrue`, `mkEqTrue`,
+`mkEqFalse` and the shortcuts of `mkCongrFun` and `mkCongr`.
+
 - **Algorithm.** A tree record holds Lean's root map (a `lib/htab.fs`
   table of root numbers, keyed by `elab-key=` and `elab-key-hash`) and the
   tries: nodes (key, parent, children, values) and value cells in slabs.
