@@ -36,14 +36,14 @@ s" simp" tac-k-simp-only lf-tactic-lean!
 
 \ ---- The set: simpOnlyBuiltins, then each rule in order.
 : tso-prop? ( e -- flag ) lf-meta-is-prop lf-must ;
-: tso-builtin ( c-addr u -- )
-  lfa-intern lf-menv-find? 0= if lf-tac-unported then true lf-simp-add-decl ;
+: tso-builtin ( c-addr u -- ) lfa-intern lf-menv-find lf-must true lf-simp-add-decl ;
 : tso-decl ( node -- )
-  syn-a@ lfa-decl-name lf-menv-find? 0= if lf-tac-unported then
+  syn-a@ lfa-decl-name lf-menv-find lf-must
   dup lf-menv-type tso-prop? 0= if lf-tac-unported then true lf-simp-add-decl ;
+\ A hypothesis's or a variable's node elaborates to its free variable.
 : tso-hyp ( node -- )
-  -1 false lf-tac-elab-term dup lf-term-tag@ lf-tag-fvar <> if lf-tac-unported then
-  dup lf-infer! tso-prop? 0= if lf-tac-unported then true lf-simp-add-hyp ;
+  -1 false lf-tac-elab-term dup lf-infer! tso-prop? 0= if lf-tac-unported then
+  true lf-simp-add-hyp ;
 : tso-rule ( i k -- )
   2dup lf-tac-arg-symm? if lf-tac-unported then lf-tac-arg dup syn-kind@ case
     syn-k-const of tso-decl endof

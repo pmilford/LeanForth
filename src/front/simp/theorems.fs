@@ -17,9 +17,7 @@
 \   `_simp_1` and is unsupported until SL3d); its left side's full keys
 \   (mkPath, noIndexAtArgs false, 470); its rfl flag Lean's defeq tag
 \   (isRflProof of a constant: simp-data.fs's simp-defeq?); a perm theorem
-\   (isPerm, 291: here any theorem whose sides are two metavariables or
-\   applications of the same head to as many arguments) unsupported until
-\   SL3d (acLt).
+\   (isPerm, 291, below) unsupported until SL3d (acLt).
 \ - lf-simp-add-hyp ( h post -- ): mkSimpTheoremFromExpr (502) of the
 \   hypothesis h (a free variable), origin .stx (Elab/Tactic/Simp.lean:
 \   363): its type, whnf'd under mkIndexConfig (lf-with-simp-index), must
@@ -44,6 +42,7 @@ require ../../lib/context.fs
 require ../discr-tree.fs
 require ../simp-data.fs
 require ../app-builder.fs
+require ./types.fs
 
 begin-structure /sth
   field: sth-proof   \ the declaration, or the hypothesis's free variable
@@ -82,14 +81,29 @@ end-structure
   rot dup lf-simp-thm-post? sth-tree dup lf-dtree-ready lf-must lf-dtree-insert lf-must ;
 
 \ ---- The keys (mkSimpTheoremKeys, 380): the left side of an Eq.
-\ isPerm (291), kept on the side of caution: two metavariables, or two
-\ applications of the same head to as many arguments, may be a perm.
-: sth-heads ( lhs rhs -- hl hr flag ) lf-meta-head-args >r swap lf-meta-head-args r> = ;
+\ isPerm (291): two metavariables unify (isDefEq); two applications are
+\ a perm when their heads and then each argument pair, left to right,
+\ are; anything else is Lean's == (term-eqv.fs). Below the top, two
+\ different compound terms (applications, binders, lets, projections,
+\ annotations), which Lean walks into, are unsupported here.
+lf-tag-sort lf-tag-symbolic-sort lf-tag-constant lf-tag-fvar lf-tag-mvar lf-tag-lit
+  lf-tag-str lf-tag-bvar 8 lf-tags constant sth-leaf-tags
+: sth-compound? ( e -- flag ) lf-term-tag@ sth-leaf-tags lf-tag-in? 0= ;
+: sth-mvars? ( a b -- flag ) lf-mvar? swap lf-mvar? and ;
+: sth-inner? ( a b -- flag )
+  2dup sth-mvars? if lf-defeq! exit then
+  2dup lf-meta-eqv lf-must if 2drop true exit then
+  sth-compound? swap sth-compound? and if lf-unported then false ;
+: sth-pair? ( l r n j -- l r n flag )
+  2>r over 2r@ lf-simp-arg over 2r@ lf-simp-arg sth-inner? 2r> drop swap ;
+: sth-args? ( l r n -- flag )
+  dup 0 ?do i sth-pair? 0= if drop 2drop false unloop exit then loop drop 2drop true ;
+: sth-heads? ( l r -- flag ) lf-meta-head swap lf-meta-head swap sth-inner? ;
 : sth-perm? ( lhs rhs -- flag )
-  2dup lf-mvar? swap lf-mvar? and if 2drop true exit then
-  sth-heads >r lf-meta-eqv lf-must r> and ;
-: sth-lhs ( type -- lhs )
-  lf-eq? 0= if lf-unported then rot drop 2dup sth-perm? if lf-unported then drop ;
+  over lf-meta-args# over lf-meta-args# over <> if drop 2drop false exit then
+  dup 0= if drop sth-inner? exit then
+  >r 2dup sth-heads? if r> sth-args? else r> drop 2drop false then ;
+: sth-lhs ( type -- lhs ) lf-simp-sides 2dup sth-perm? if lf-unported then drop ;
 : sth-decl-path ( d -- k n ) lf-const-meta-applied nip sth-lhs lf-dt-path lf-must ;
 : sth-decl-keyed ( d -- k n ) ['] sth-decl-path lf-with-simp-keys ;
 : sth-decl-keys ( d -- k n ) ['] sth-decl-keyed lf-with-new-depth ;

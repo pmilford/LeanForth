@@ -77,8 +77,7 @@ begin-structure /sm  field: sm-steps  field: sm-max  end-structure
 /sm context-record: sm
 /memo context-record: sm-cache
 :noname ( -- ) sm-cache memo-free ; context-teardown
-: sm-visit-none ( x frames -- x frames 0 ) 0 ;
-' sm-visit-none context-frames: sm-frames
+' frame-return context-frames: sm-frames   \ its visitor: frame-open never runs it
 begin-structure /sa
   field: sa-e   \ the visit's term: simpLoop's e, or the application
   field: sa-h   \ a proof kept across a child's visit
@@ -135,7 +134,7 @@ lf-tag-let lf-tag-let-nondep lf-tag-projection lf-tag-annotation lf-tag-lit 5 lf
 \ ---- isOfNatNatLit, isOfScientificLit, isCharLit (Main.lean:39-64).
 : sm-raw? ( e -- flag ) lf-tag-lit lf-term-tag? ;
 : sm-of-nat? ( e -- flag )
-  dup lf-meta-head-args >r s" OfNat.ofNat" lf-meta-const-named? r@ 3 < 0= and
+  dup lf-meta-head-args >r s" OfNat.ofNat" lf-meta-const-named? r@ 3 = and
   if r> 1 lf-simp-arg sm-raw? else r> 2drop false then ;
 : sm-char? ( e -- flag )
   dup 1 s" Char.ofNat" lf-meta-app-of? if lf-term-second@ sm-raw? else drop false then ;
@@ -150,16 +149,16 @@ lf-tag-let lf-tag-let-nondep lf-tag-projection lf-tag-annotation lf-tag-lit 5 lf
 : sm-lemmas? ( d' -- flag ) simp-congr-lemmas lf-must nip 0<> ;
 : sm-congr-lemmas? ( f -- flag )
   dup lf-term-const? 0= if drop false exit then
-  lf-const-name lf-menv-data-decl if sm-lemmas? else false then ;
+  lf-const-name lf-menv-data-decl dup if drop sm-lemmas? then ;   \ no data: no lemmas
 : sm-congr-check ( e -- )
   lf-meta-head dup sm-congr-lemmas? if lf-unported then
   lf-congr-simp-kinds lf-must lf-congr-plain? 0= if lf-unported then ;
 
 \ ---- The dsimp guard.
-: sm-plain-const? ( c -- flag ) sm-head-decl if sm-struct-proj? 0= else true then ;
+: sm-plain-const? ( c -- flag ) lf-const-name lf-menv-find lf-must sm-struct-proj? 0= ;
 : sm-stable-node? ( a -- flag )
-  dup lf-term-tag@ case lf-tag-sort of drop true endof
-    lf-tag-constant of sm-plain-const? endof
+  dup lf-sort? if drop true exit then
+  dup lf-term-tag@ case lf-tag-constant of sm-plain-const? endof
     lf-tag-fvar of lf-fvar-let? 0= endof nip false swap endcase ;
 : sm-rfl-free? ( a -- flag )
   dup lf-simp-pre lf-simp-rfl-match? swap lf-simp-post lf-simp-rfl-match? or 0= ;
@@ -168,7 +167,7 @@ lf-tag-let lf-tag-let-nondep lf-tag-projection lf-tag-annotation lf-tag-lit 5 lf
 
 \ ---- simpAppUsingCongr (Types.lean:732): the head, then each argument.
 0 constant sm-way-simp   1 constant sm-way-inst   2 constant sm-way-dsimp
-: sm-prefix ( -- p ) sa sa-e @ sa sa-n @ sa sa-i @ - 1- sr-strip ;
+: sm-prefix ( -- p ) sa sa-e @ sa sa-n @ sa sa-i @ - 1- lf-simp-strip ;
 : sm-arg ( -- a ) sm-prefix lf-term-second@ ;
 : sm-fr! ( e h -- ) sa sa-r 2! ;
 : sm-fr@ ( -- e h ) sa sa-r 2@ ;
@@ -197,7 +196,7 @@ defer sm-simp-call ( e cont -- e frames xt )
   dup sm-push dup lf-meta-args# sa sa-n ! lf-meta-head ['] sm-app-head sm-simp-call ;
 : sm-app ( e -- ... )
   dup sm-literal? if lf-simp-none sm-done exit then dup sm-congr-check sm-app-open ;
-lf-tag-sort lf-tag-lit lf-tag-str 3 lf-tags constant sm-plain-tags
+lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-str 4 lf-tags constant sm-plain-tags
 : sm-fvar ( e -- e ) dup lf-fvar-let? if lf-unported then ;
 : sm-leaf-of ( e tag -- e' )
   case lf-tag-constant of sm-reduce-step endof   lf-tag-mvar of lf-instantiate! endof

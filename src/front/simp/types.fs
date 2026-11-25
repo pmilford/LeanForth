@@ -21,6 +21,16 @@
 \ - lf-simp-congr-fun ( e fe fh a -- e' h ): mkCongrFun' (682): fe a with
 \   no proof when fh is none; with one (Lean's congrFun α (fun x => βx) f
 \   fe fh a) unsupported until slice SL1b.
+\ - lf-simp-extra-args ( e n e' h -- e'' h' ): Result.addExtraArgs (617)
+\   of the result ( e' h ) with e's last n arguments: e' applied to them,
+\   its proof none when h is, else h through Meta.mkCongrFun on each
+\   (app-builder.fs's lf-mk-congr-fun).
+\ - lf-simp-strip ( e n -- e' ): e less its last n arguments;
+\   lf-simp-arg ( e n j -- a ): argument j (from 0) of e's last n
+\   (Expr.getArg! of an application to n arguments).
+\ - lf-simp-sides ( type -- lhs rhs ): the sides of a theorem's type, an
+\   Eq; any other type unsupported (shouldPreprocess's helper theorems,
+\   slice SL3d).
 \ Every word throws as the builders do (meta-must.fs). Untrusted: the
 \ kernel checks every proof. State: the context record stc, the five
 \ cells of the lf-simp-congr call running.
@@ -33,6 +43,9 @@ require ../app-builder.fs
 
 -1 constant lf-simp-none
 : lf-simp-none? ( h -- flag ) lf-simp-none = ;
+: lf-simp-strip ( e n -- e' ) 0 ?do lf-term-first@ loop ;
+: lf-simp-arg ( e n j -- a ) - 1- lf-simp-strip lf-term-second@ ;
+: lf-simp-sides ( type -- lhs rhs ) lf-eq? 0= if lf-unported then >r nip r> ;
 : lf-simp-proof ( e h -- p ) dup lf-simp-none? if drop lf-mk-eq-refl else nip then ;
 : lf-simp-trans ( h1 e2 h2 -- e2 h )
   rot dup lf-simp-none? if drop exit then
@@ -69,5 +82,11 @@ end-structure
 : lf-simp-congr ( e fe fh ae ah -- e' h ) stc! st-fe st-ae lf-mk-app st-proof ;
 : lf-simp-congr-fun ( e fe fh a -- e' h )
   swap lf-simp-none? 0= if lf-unported then lf-mk-app nip lf-simp-none ;
+
+\ ---- addExtraArgs (Types.lean:617).
+: st-congr-fun ( h a -- h' ) over lf-simp-none? if drop else lf-mk-congr-fun then ;
+: st-extra ( e' h a -- e'' h' ) >r swap r@ lf-mk-app swap r> st-congr-fun ;
+: lf-simp-extra-args ( e n e' h -- e'' h' )
+  2over nip 0 ?do 2over i lf-simp-arg st-extra loop 2>r 2drop 2r> ;
 
 base !   \ the BASE this file was loaded with

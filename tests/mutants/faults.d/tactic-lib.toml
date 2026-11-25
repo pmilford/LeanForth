@@ -304,8 +304,8 @@ reason = "a2-i review F1: mkAppM takes \"no instance\" for found and assigns the
 [[fault]]
 id = "lib-app-m-assignable-left"
 file = "src/front/app-builder.fs"
-old = '''  dup ['] abl-assignable? lf-term-holds? lf-must if abl-fail then'''
-new = '''  dup ['] abl-assignable? lf-term-holds? lf-must drop'''
+old = '''  dup lf-meta-has-assignable? if abl-fail then'''
+new = '''  dup lf-meta-has-assignable? drop'''
 test = "GFORTH=$GFORTH python3 tests/front/check_whnf.py --golden"
 reason = "a2-i review F1: mkAppM's result keeps an assignable metavariable unrejected (Lean: result contains metavariables); check_whnf.py's mkAppM congrArg #[u] expects rejected"
 

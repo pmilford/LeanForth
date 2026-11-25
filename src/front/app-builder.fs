@@ -74,6 +74,9 @@
 \                                         no loose bound variable (simp/main.fs)
 \   lf-meta-has-mvar? ( e -- flag outcome ) Expr.hasMVar: a term or level
 \                                         metavariable reached (core/reach.fs)
+\   lf-meta-has-assignable? ( e -- flag )  hasAssignableMVar's term part: a
+\                                         metavariable of the current depth
+\                                         reached (mkAppM's check; simp/rewrite.fs)
 \ Levels pass on the stack (never through a global); at most abl-most
 \ levels or arguments a call. AppBuilder's private infer is inferType then
 \ whnfD. mkAppM walks the constant's type in a new metavariable depth
@@ -324,8 +327,9 @@ end-structure
 : abm-synths ( -- ) abm abm-insts# @ 0 ?do abm abm-insts i cells + @ abm-synth loop ;
 : abl-assignable? ( leaf -- flag )
   dup lf-mvar? if lf-mvar-assignable? else drop false then ;
+: lf-meta-has-assignable? ( e -- flag ) ['] abl-assignable? lf-term-holds? lf-must ;
 : abl-closed ( e -- e )
-  dup ['] abl-assignable? lf-term-holds? lf-must if abl-fail then
+  dup lf-meta-has-assignable? if abl-fail then
   dup lf-meta-has-mvar? lf-must if lf-unported then ;
 : abm-run ( -- e )
   abm abm-d @ lf-meta-const-fresh lf-must dup abm abm-app ! lf-infer! abm abm-type !

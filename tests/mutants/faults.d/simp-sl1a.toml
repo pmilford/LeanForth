@@ -3,8 +3,9 @@
 # settings, discr-keys.fs's head-only keys, discr-tree.fs's match queries,
 # congr-thms.fs's kinds); read with faults.toml as one list (scripts/mutants.py).
 # The simp loop's own faults (post-before-pre, cache-ignored, rfl-step-kept,
-# step-check-after-increment, congrfun-for-congrfun-prime, dsimp-guard-off) are at
-# the end, each caught by tests/front/tactics/simp-1/test.fs.
+# step-check-after-increment, congrfun-for-congrfun-prime, dsimp-guard-off,
+# perm-heads-only, synth-class-quick, sort-symbolic-refused) are at the end, each
+# caught by tests/front/tactics/simp-1/test.fs.
 
 [[fault]]
 id = "head-keys-full"
@@ -125,3 +126,27 @@ old = ''': sm-dsimp ( a -- a ) dup sm-kept? 0= if lf-unported then ;'''
 new = ''': sm-dsimp ( a -- a ) ;'''
 test = "$GFORTH tests/front/tactics/simp-1/test.fs"
 reason = "SL1a: an argument dsimp would visit (dsimp is not ported) is kept as it is, where Lean's dsimp may change it"
+
+[[fault]]
+id = "perm-heads-only"
+file = "src/front/simp/theorems.fs"
+old = '''  >r 2dup sth-heads? if r> sth-args? else r> drop 2drop false then ;'''
+new = '''  >r 2dup sth-heads? r> drop nip nip ;'''
+test = "$GFORTH tests/front/tactics/simp-1/test.fs"
+reason = "SL1a: isPerm (SimpTheorems.lean:291) decided by the heads alone, so h : f a = f b is a perm theorem and refused"
+
+[[fault]]
+id = "synth-class-quick"
+file = "src/front/simp/rewrite.fs"
+old = ''': sr-class? ( type -- flag ) lf-class? lf-must dup if nip then ;'''
+new = ''': sr-class? ( type -- flag ) lf-meta-class-none? 0= ;'''
+test = "$GFORTH tests/front/tactics/simp-1/test.fs"
+reason = "SL1a: synthesizeArgs (Rewrite.lean:58) asks isClassQuick?'s undecided answer for isClass?, so an unassigned Nat argument needs an instance"
+
+[[fault]]
+id = "sort-symbolic-refused"
+file = "src/front/simp/main.fs"
+old = '''lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-str 4 lf-tags constant sm-plain-tags'''
+new = '''lf-tag-sort lf-tag-lit lf-tag-str 3 lf-tags constant sm-plain-tags'''
+test = "$GFORTH tests/front/tactics/simp-1/test.fs"
+reason = "SL1a: a Sort in its symbolic form (the elaborator's) is no plain leaf of simpStep (Main.lean), so simp refuses it"

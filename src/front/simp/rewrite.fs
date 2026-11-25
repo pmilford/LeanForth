@@ -14,16 +14,15 @@
 \   transparency), its left side unified with e less its extra arguments
 \   at mkMetaConfig (lf-with-simp-meta); then synthesizeArgs (58): a
 \   metavariable left unassigned whose type is a proposition (the
-\   discharger, SL2) or may be a class (instance synthesis, SL1a-2) is
+\   discharger, SL2) or is a class (instance synthesis, SL1a-2) is
 \   unsupported; the proof none for an rfl theorem (implicitDefEqProofs),
-\   else the value applied to the metavariables, refused (none) when one
-\   is left; the result refused when it equals e (Lean's ==, term-eqv.fs)
-\   or, for an rfl theorem, holds a metavariable left; a type with
-\   binderNameHint unsupported (resolveBinderNameHint, 152);
-\   addExtraArgs (Types.lean:617) with Meta.mkCongrFun on each extra
-\   argument (app-builder.fs: Eq.refl alone, else unsupported).
-\ - lf-simp-arg ( e n k -- a ): argument k (from 0) of e, an application
-\   to n arguments (Expr.getArg!).
+\   else the value applied to the metavariables, refused (none) when it
+\   holds an assignable metavariable (hasAssignableMVar,
+\   app-builder.fs's lf-meta-has-assignable?); the result refused when
+\   it equals e (Lean's ==, term-eqv.fs); a type with binderNameHint
+\   unsupported (resolveBinderNameHint, 152); the result refused when it
+\   holds an assignable metavariable; then addExtraArgs
+\   (simp/types.fs's lf-simp-extra-args).
 \ - lf-simp-rfl-match? ( e tree -- flag ): whether a theorem with the rfl
 \   flag is among e's candidates (the dsimp guard of simp/main.fs).
 \ Throws as meta-must.fs's words do. Untrusted: a rewrite's proof is
@@ -38,6 +37,7 @@ require ../../lib/lib.fs
 require ../../lib/slab.fs
 require ../../lib/sort.fs
 require ../../lib/context.fs
+require ../instances.fs
 require ./types.fs
 require ./theorems.fs
 
@@ -61,12 +61,7 @@ end-structure
 : sr-pair ( i -- thm extra ) 2* sr-cands slab-at 2@ swap ;
 
 \ ---- tryTheoremCore's term: e less its extra arguments, and those.
-: sr-strip ( e n -- e' ) 0 ?do lf-term-first@ loop ;
-: lf-simp-arg ( e n j -- a ) - 1- sr-strip lf-term-second@ ;
-: sr-congr-fun ( h a -- h' ) over lf-simp-none? if drop else lf-mk-congr-fun then ;
-: sr-extras ( e' h -- e'' h' )
-  srt srt-n @ 0 ?do srt srt-e @ srt srt-n @ i lf-simp-arg >r
-    swap r@ lf-mk-app swap r> sr-congr-fun loop ;
+: sr-extras ( h e' -- e'' h' ) >r >r srt srt-e 2@ swap r> r> swap lf-simp-extra-args ;
 
 \ ---- getValue and the telescope.
 : sr-mvar ( app mvar kind -- app' ) drop dup sr-xs slab-push lf-must lf-mk-app ;
@@ -76,39 +71,35 @@ end-structure
 : sr-open ( t -- )
   sr-xs slab-clear sr-value >r dup lf-infer! r> ['] sr-mvar
   lf-forall-meta-telescope-reducing sr-keep ;
-: sr-sides ( -- lhs rhs ) srt srt-type @ lf-eq? 0= if lf-unported then rot drop ;
-: sr-e0 ( -- e ) srt srt-e 2@ swap sr-strip ;   \ srt-e, srt-n a pair
+: sr-sides ( -- lhs rhs ) srt srt-type @ lf-simp-sides ;
+: sr-e0 ( -- e ) srt srt-e 2@ swap lf-simp-strip ;   \ srt-e, srt-n a pair
 : sr-unifies? ( -- flag ) sr-sides drop sr-e0 ['] lf-defeq! lf-with-simp-meta ;
 
 \ ---- synthesizeArgs: an unassigned argument of a proposition or of a
-\ type that may be a class.
+\ class (isClass?, instances.fs's lf-class?).
 : sr-x ( i -- x ) sr-xs slab-at @ ;
 : sr-open? ( x -- flag ) lf-instantiate! lf-mvar? ;
-: sr-needs? ( x -- flag )
-  lf-infer! dup lf-meta-is-prop lf-must swap lf-meta-class-none? 0= or ;
+: sr-class? ( type -- flag ) lf-class? lf-must dup if nip then ;
+: sr-needs? ( x -- flag ) lf-infer! dup lf-meta-is-prop lf-must swap sr-class? or ;
 : sr-check-x ( x -- ) dup sr-open? if sr-needs? if lf-unported then else drop then ;
 : sr-synthesize ( -- ) sr-xs slab-count 0 ?do i sr-x sr-check-x loop ;
-: sr-left? ( -- flag ) false sr-xs slab-count 0 ?do i sr-x sr-open? or loop ;
-: sr-occurs ( e acc m -- e acc' ) >r over r> swap lf-mvar-occurs? lf-must or ;
-: sr-in-x ( e acc x -- e acc' ) lf-instantiate! dup lf-mvar? if sr-occurs else drop then ;
-: sr-in? ( e -- flag ) false sr-xs slab-count 0 ?do i sr-x sr-in-x loop nip ;
 
 \ ---- tryTheoremCore's go: the rewrite, or none.
 : sr-rfl? ( -- flag ) srt srt-thm @ lf-simp-thm-rfl? ;
 : sr-proof ( -- h true | false )
   sr-rfl? if lf-simp-none true exit then
-  sr-left? if false exit then srt srt-app @ lf-instantiate! true ;
+  srt srt-app @ lf-instantiate! dup lf-meta-has-assignable? if drop false else true then ;
 : sr-hint-node? ( node -- flag ) s" binderNameHint" lf-meta-const-named? ;
 : sr-hint? ( type -- flag ) ['] sr-hint-node? lf-term-holds-node? lf-must ;
 : sr-rhs ( -- rhs ) sr-sides nip lf-instantiate! ;
 : sr-same? ( rhs -- flag ) sr-e0 lf-instantiate! lf-meta-eqv lf-must ;
 : sr-result ( h -- e' h true | false )
   sr-rhs dup sr-same? if 2drop false exit then
-  sr-rfl? if dup sr-in? if 2drop false exit then then
-  srt srt-type @ sr-hint? if lf-unported then swap sr-extras true ;
+  srt srt-type @ sr-hint? if lf-unported then
+  dup lf-meta-has-assignable? if 2drop false exit then sr-extras true ;
 : sr-go ( t -- e' h true | false )
   sr-open sr-unifies? 0= if false exit then
-  sr-synthesize sr-proof if sr-result else false then ;
+  sr-synthesize sr-proof dup if drop sr-result then ;
 : sr-try ( e t n -- e' h true | false )
   srt srt-n ! dup srt srt-thm ! swap srt srt-e ! ['] sr-go lf-with-new-depth ;
 
