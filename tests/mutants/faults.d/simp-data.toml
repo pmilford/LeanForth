@@ -85,8 +85,8 @@ reason = "SD-a: data without defeq tags (format 3) answers 'not defeq'"
 [[fault]]
 id = "sd-clear-keeps-records"
 file = "src/front/simp-data.fs"
-old = ''': sd-clear ( -- ) simp-congrs slab-clear simp-hyps slab-clear sd-index memo-clear ;'''
-new = ''': sd-clear ( -- ) simp-hyps slab-clear sd-index memo-clear ;'''
+old = ''': sd-clear ( -- ) simp-congrs slab-clear sd-index memo-clear ;'''
+new = ''': sd-clear ( -- ) sd-index memo-clear ;'''
 test = "$GFORTH tests/front/simp-data.fs"
 reason = "SD-a: a refused or later read keeps the congr records of the one before"
 

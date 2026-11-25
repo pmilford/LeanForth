@@ -1108,7 +1108,8 @@ create ed-tag-members  s" name" counted, s" tag" counted, 0 0 counted,
 : ed-defeq-fits ( d tag -- d tag outcome )
   dup elab-tag-defeq <> if outcome-ok exit then
   ed-v4? 0= if ed-malformed exit then over kind-thm ed-of-kind nip ;
-: ed-tag-read ( d tag -- outcome ) ed-defeq-fits ok-then? if ed-tag-fact else nip then ;
+: ed-tag-read ( d tag -- outcome )
+  ed-defeq-fits dup ok? if drop ed-tag-fact else nip nip then ;
 : ed-on-tag ( value -- outcome )
   dup ed-tag-members ed-shape? 0= if drop ed-malformed exit then
   dup c" name" ed-member ed-no-type ok-then? 0= if nip exit then
@@ -1560,7 +1561,7 @@ create ed-head-keys
 \ Format 4 (the number): 3.2's kinds and inert nodes, the added kinds.
 : ed-v4! ( flag -- ) dup elab elab-v4 ! dup elab elab-v31 ! elab elab-v32 ! ;
 : ed-head-v4 ( index -- flag ) s" 4" ed-natural= dup ed-v4! ;
-: ed-head-v4-or-3 ( index -- flag ) dup ed-head-v4 if drop true else ed-head-v3? then ;
+: ed-head-v4-or-3 ( index -- flag ) dup ed-head-v4 swap ed-head-v3? or ;
 : ed-head-version ( value i -- outcome )
   drop c" format_version" ed-member dup ed-head-v31 if drop true else ed-head-v4-or-3 then
   ed-e-version ed-or-other ;
@@ -1735,6 +1736,8 @@ synonym elab-put ed-put                  ( addr x outcome xt -- outcome )
 synonym elab-on-form ed-on-form          ( value form -- outcome )
 synonym elab-array-items ed-array-items  ( index xt -- outcome )
 synonym elab-type-pis ed-type-pis        ( d -- n )
+synonym elab-numbers ed-numbers          ( span index -- outcome ) \ u32s into elab-orders
+synonym elab-span@ ed-span@              ( span -- addr n )
 : elab-format4? ( -- flag ) elab-loaded? ed-v4? and ;
 : ed-tagged-at? ( tag d -- tag flag ) over elab-tagged? ;
 : elab-tag-count ( tag -- n ) elab-facts slab-count ['] ed-tagged-at? count-index ;

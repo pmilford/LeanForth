@@ -56,8 +56,7 @@ T{ s" tests/front/simp-data/plain32.elab.ndjson" fx simp-data? s" ite" top simp-
 
 \ Every damaged file refused: outcome, line, code; nothing kept.
 : refused ( c-addr u -- outcome line code kept )
-  fx elab-error-line elab-error-code simp-congr-count simp-hyps slab-count +
-  simp-defeq-count + ;
+  fx elab-error-line elab-error-code simp-congr-count simp-defeq-count + ;
 create fx-buf 128 allot
 : fx+ ( u c-addr n -- u' ) >r over fx-buf + r@ move r> + ;
 : fixture ( "name" -- c-addr u )
@@ -90,7 +89,7 @@ T{ simp-data? good simp-congr-count -> false outcome-ok 3 }T
 \ The heap: every allocation of a read of the good file refused in turn
 \ (the kind's slabs and memo given back before each run, so that each
 \ first claim allocates): full or the same three lemmas, never another.
-: anew ( -- ) simp-congrs sweep-slab-anew simp-hyps sweep-slab-anew sd-index memo-free ;
+: anew ( -- ) simp-congrs sweep-slab-anew elab-orders sweep-slab-anew sd-index memo-free ;
 ' anew sweep-slabs-xt !
 : read-good ( e -- x outcome ) drop good simp-congr-count swap ;
 T{ 0 ' read-good heap-sweep swap 0> -> 0 true }T

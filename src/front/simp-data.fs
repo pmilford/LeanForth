@@ -40,7 +40,8 @@
 \
 \ State: a context memo, sd-index, of a function's run (its first record
 \ and length, under the key f 0) and of each lemma's record (key d 1), and
-\ two context slabs, the records and their places; emptied by every
+\ a context slab of the records (their places a span of elab-data.fs's
+\ elab-orders); emptied by every
 \ reset of the data (the kind's clear), freed with the context.
 \ Loads in decimal whatever BASE is, then restores it.
 
@@ -50,17 +51,17 @@ require ../lib/memo.fs
 require ./elab-data.fs
 
 begin-structure /simp-congr
-  field: sdc-decl   field: sdc-fun   field: sdc-priority   field: sdc-rank
-  field: sdc-hyps   field: sdc-hyps#   \ its hypotheses' places in simp-hyps
+  field: sdc-decl   field: sdc-priority   \ a pair: simp-congr@
+  field: sdc-fun   field: sdc-rank
+  field: sdc-hyps   field: sdc-hyps#   \ its hypotheses' places: a span of elab-orders
 end-structure
 /memo context-record: sd-index
 /simp-congr context-slab: simp-congrs
-1 cells context-slab: simp-hyps
 :noname ( -- ) sd-index memo-free ; context-teardown
 0 constant sd-fun-role   1 constant sd-lemma-role
 
 : sdc ( c -- addr ) simp-congrs slab-at ;
-: sd-clear ( -- ) simp-congrs slab-clear simp-hyps slab-clear sd-index memo-clear ;
+: sd-clear ( -- ) simp-congrs slab-clear sd-index memo-clear ;
 : sd-ready ( -- outcome )
   sd-index memo-live? if outcome-ok else 2 2 sd-index memo-init then ;
 : sd-order-bad ( -- outcome ) elab-e-congr-order elab-refuse ;
@@ -93,14 +94,8 @@ end-structure
   sdc swap c" fun" elab-member elab-decl ['] sdc-fun elab-put ;
 : sdc-priority! ( value c -- outcome )
   sdc swap c" priority" elab-member elab-u32 ['] sdc-priority elab-put ;
-: sd-hyp-item ( item -- outcome )
-  elab-u32 ok-then? if simp-hyps slab-push elab-roomed then ;
-: sd-span-close ( addr -- ) dup sdc-hyps @ simp-hyps slab-since swap sdc-hyps# ! ;
-: sdc-hyps! ( value c -- outcome )
-  sdc simp-hyps slab-count over sdc-hyps !
-  swap c" hyps" elab-member ['] sd-hyp-item elab-array-items swap sd-span-close ;
-: simp-congr-hyps ( c -- addr n )
-  sdc dup sdc-hyps @ simp-hyps slab-at swap sdc-hyps# @ ;
+: sdc-hyps! ( value c -- outcome ) sdc sdc-hyps swap c" hyps" elab-member elab-numbers ;
+: simp-congr-hyps ( c -- addr n ) sdc sdc-hyps elab-span@ ;
 \ Increasing places, each below the lemma's leading binders.
 : sd-hyp-next ( limit prev h -- limit h flag ) tuck < >r 2dup > r> and ;
 : sd-hyps-fit? ( limit addr n -- flag )
@@ -132,7 +127,7 @@ sd-congr-form elab-add-kind constant simp-congr-kind
 : simp-congr-lemmas ( f -- c n outcome )
   simp-data? 0= if drop 0 0 outcome-unsupported exit then
   sd-run ?dup if sd-run@ else 0 0 then outcome-ok ;
-: simp-congr@ ( c -- thm priority ) sdc dup sdc-decl @ swap sdc-priority @ ;
+: simp-congr@ ( c -- thm priority ) sdc cell-pair@ ;
 : simp-congr-fun ( c -- f ) sdc sdc-fun @ ;
 : simp-congr-rank ( c -- rank ) sdc sdc-rank @ ;
 : simp-congr-count ( -- n ) simp-congrs slab-count ;
