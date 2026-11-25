@@ -106,6 +106,10 @@ T{ ra rb lf-mk-eq tagged 0 lf-goal-revert-kept nip -> 0 }T
 \ Two asked (slice E2a, substCore's): in the order asked, then h (preserveOrder).
 T{ ra rb lf-mk-eq tagged rb ra lf-run2 lf-goal-revert-kept nip dup 0 run@ lf-local-fvar
    over 1 run@ lf-local-fvar rot 2 run@ lf-local-fvar -> rb ra rh }T
+\ h asked before b, which its type mentions (Lean's revertFailure): thrown
+\ invalid, the goal left open.
+T{ ra rb lf-mk-eq tagged dup rh rb lf-run2 ' lf-goal-revert-kept code2 swap open?
+   -> thrown-invalid true }T
 \ intro-kept: b, then h hidden as it was; an anonymous binder a, hidden.
 g1' kept1 2 lf-goal-intro-kept constant xs1 constant g1''
 T{ xs1 run-count g1'' view# g1'' 1 s" b" named? g1'' 2 s" h" named? -> 2 3 true true }T

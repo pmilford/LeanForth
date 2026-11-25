@@ -300,7 +300,13 @@ and 6 complete. Files: `injection.lf` (fields, names, too many names, different 
 two gaps). Wrong twins: `w-dep-elim`, `w-hidden-indices` (generalizeIndices' re-intro), `w-noconf-decidable` (two constructors of
 `Decidable`, which has no ctorIdx in Lean: Lean's "Missing Decidable.ctorIdx"). Faults: `noconf-equal-ctors`,
 `prop-fields-counted`, `index-eq-dropped`, `aux-indices-kept`, `ctoridx-from-builder`, `solved-alt-kept`,
-`solved-alt-unassigned`.
+`solved-alt-unassigned`. Task **E4-revert-order** (the Forth review of E2a, finding 6): `lf-goal-revert-kept`
+refuses a local asked that depends on one asked after it (collectForwardDeps' revertFailure check, revert.fs's
+`mrv-ordered`, fault `revert-kept-order-unchecked`), but as invalid, since no tactic of E2a can ask so. E4's
+generalizeIndices reverts several indices, and is the first caller that could: give the refusal Lean's own text
+("failed to create binder due to failure when reverting variable dependencies", Meta/Basic.lean:1132, from
+MetavarContext.lean:1074) as a new error code (errors.fs, LEANFORTH_WORDS.md, LANGUAGE_REFERENCE.md), with a wrong
+twin if a text can reach it.
 
 **E5, `tests/front/tactics/batch-k/`: the rest (about 220 lines).** acyclic, the group bracket for typed pieces and
 `@`, several targets, obtain's typed forms, `cases h : e`, Quot; spellings decided first (questions 4, 5).
