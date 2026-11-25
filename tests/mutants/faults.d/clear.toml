@@ -31,7 +31,8 @@ reason = "TB1: the variable cleared tested against itself (Lean passes over its 
 [[fault]]
 id = "tb1-clear-target-unchecked"
 file = "src/front/meta-tactic/goal.fs"
-old = '''  over lf-goal-type over lf-depends-on? lf-must if lfa-e-clear-target mcl-refuse then ;'''
+old = '''  over lf-goal-type over lf-depends-on? lf-must
+  if lfa-e-clear-target lf-tac-ex-quoted then ;'''
 new = '''  ;'''
 test = "$GFORTH tests/front/tactics/clear/test.fs"
 reason = "TB1: clear without its target test: Lean's 'target depends on a' becomes the outcome face's bare refusal"

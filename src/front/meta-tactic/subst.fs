@@ -118,8 +118,6 @@ require ./assert.fs
 : msb-framed ( goal term code -- )
   >r 0 ['] lf-tac-nothing. rot 4 ['] lf-tac-framed-with. lf-tac-detail-n
   r> lf-tac-stop ;
-: msb-named ( goal fvar code -- )
-  swap ['] lf-tac-quoted-after. lf-tac-inline lf-tac-ex ;
 \ matchEq? of a type instantiated (instantiateMVars of each side, which
 \ gives the same nodes): its two sides.
 : msb-sides? ( t -- lhs rhs true | false )
@@ -261,12 +259,12 @@ end-structure
 : mse-plain ( flags -- fs' goal' ) >r mse-goal@ mse-h@ r> mse-core ;
 : mse-reduced ( type flags -- fs' goal' )
   >r mse-h@ mse-assert mse-intro swap mse-h@ lf-goal-clear! swap r> mse-core ;
-: mse-same? ( e e' -- flag ) lf-meta-eqv lf-must ;
 : mse-by-rhs ( lhs rhs rhs' -- fs' goal' )
-  tuck mse-same? if 2drop lf-subst-symm mse-plain exit then
+  tuck lf-meta-eqv lf-must if 2drop lf-subst-symm mse-plain exit then
   lf-mk-eq lf-subst-symm mse-reduced ;
 : mse-by-lhs ( lhs rhs lhs' -- fs' goal' )
-  rot over mse-same? if 2drop 0 mse-plain exit then swap lf-mk-eq 0 mse-reduced ;
+  rot over lf-meta-eqv lf-must if 2drop 0 mse-plain exit then
+  swap lf-mk-eq 0 mse-reduced ;
 : mse-var? ( e -- e' flag ) lf-whnf! dup lf-meta-fvar? ;
 : mse-sides ( -- lhs rhs ) mse-type lf-match-eq? 0= if mse-not-form then rot drop ;
 : mse-eq-run ( -- fs' goal' )
@@ -291,7 +289,7 @@ end-structure
 : msv-has? ( x k -- x flag ) msv-local 0<> ;
 : msv-find ( goal x -- goal x k )
   dup lf-mctx-view lf-view-count ['] msv-has? find-index 0= if
-  lfa-e-subst-none msb-named then ;
+  lfa-e-subst-none lf-tac-ex-quoted then ;
 : msv-let. ( x -- outcome ) drop s"  is a let-declaration" lf-pp-emit outcome-ok ;
 : msv-is-let ( goal x -- )
   ['] lf-tac-quoted-after. lf-tac-inline 0 ['] msv-let. lf-tac-inline

@@ -561,15 +561,15 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 472 | invalid | a pattern's bar \| goes between two items |
 | 473 | invalid | this closer does not close the pattern's open bracket |
 | 474 | invalid | by-obtain[ and by-rcases[ take one pattern |
-| 470 | invalid | Tactic `rcases` failed: |
-| 471 | invalid | Tactic `rcases` failed: |
 | 481 | invalid | by-rintro[ takes one pattern or more |
 | 475 | invalid | Tactic `subst` failed: argument must be an equality proof |
-| 476 | invalid | Tactic `subst` failed: (then 'x' occurs at, the term) |
-| 477 | invalid | Tactic `subst` failed: invalid equality proof, it is not of the form (then (x = t) or (t = x), the type, after WHNF, variable expected, but obtained) |
-| 478 | invalid | Tactic `subst` failed: invalid equality proof, it is not of the form (then (x = t) or (t = x), the type) |
-| 479 | invalid | Tactic `subst` failed: did not find equation for eliminating (then 'x') |
-| 480 | invalid | Tactic `subst` failed: variable (then 'x' is a let-declaration) |
+| 476 | invalid | Tactic `subst` failed: |
+| 477 | invalid | Tactic `subst` failed: invalid equality proof, it is not of the form |
+| 478 | invalid | Tactic `subst` failed: invalid equality proof, it is not of the form |
+| 479 | invalid | Tactic `subst` failed: did not find equation for eliminating |
+| 480 | invalid | Tactic `subst` failed: variable |
+| 470 | invalid | Tactic `rcases` failed: |
+| 471 | invalid | Tactic `rcases` failed: |
 | 387 | invalid | Tactic `right` failed: target is not an inductive datatype |
 | 388 | invalid | Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors |
 | 456 | invalid | Type mismatch: The rewritten hypothesis |

@@ -375,9 +375,8 @@ end-structure
 442 lfa-lean s" Tactic `clear` failed: target depends on"
   lfa-code: lfa-e-clear-target
 : mcl-depends. ( fvar -- outcome ) s"  depends on" lf-pp-emit lf-tac-quoted-after. ;
-: mcl-refuse ( goal fvar code -- ) swap ['] lf-tac-quoted-after. lf-tac-inline lf-tac-ex ;
 : mcl-known ( goal fvar -- goal fvar )
-  over lf-goal-view over lf-view-has? 0= if lfa-e-clear-unknown mcl-refuse then ;
+  over lf-goal-view over lf-view-has? 0= if lfa-e-clear-unknown lf-tac-ex-quoted then ;
 \ localDeclDependsOn of local k, fvar's own passed over (lctx.forM: the
 \ oldest first).
 : mcl-dep? ( fvar k -- fvar flag )
@@ -389,7 +388,8 @@ end-structure
 : mcl-locals ( goal fvar -- goal fvar )
   dup lf-mctx-view lf-view-count ['] mcl-dep? find-index if mcl-dependent then ;
 : mcl-target ( goal fvar -- goal fvar )
-  over lf-goal-type over lf-depends-on? lf-must if lfa-e-clear-target mcl-refuse then ;
+  over lf-goal-type over lf-depends-on? lf-must
+  if lfa-e-clear-target lf-tac-ex-quoted then ;
 : mcl-run ( goal fvar -- goal' ) mcl-known mcl-locals mcl-target lf-goal-clear lf-must ;
 : lf-goal-clear! ( goal fvar -- goal' )
   over lf-goal-not-assigned drop over ['] mcl-run lf-with-goal ;

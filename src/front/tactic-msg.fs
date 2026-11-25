@@ -42,6 +42,8 @@
 \       "Tactic `t` failed" with or without ": msg", then the goal after a
 \       blank line (the goal layer's errors: assumption 381, constructor
 \       382 and 383, apply 384, introN 94, left and right 385-388)
+\   lf-tac-ex-quoted ( goal x code -- )  the same with 'x' after the
+\       text (clear's 440, 442; subst's 479)
 \   lf-tac-type-mismatch ( e type expected code -- )  an error at the
 \       step running whose detail is lf-has-type-but-expected.'s (exact's
 \       Type mismatch 96, setMotiveArg's 212)
@@ -119,6 +121,8 @@ require ./meta-must.fs
 : lf-tac-inline ( x xt -- ) lf-author-code if 2drop exit then lf-tac-detail lfa-inline ;
 : lf-tac-failed ( xt code -- ) >r 0 swap lf-tac-detail r> lf-tac-stop ;
 : lf-tac-ex ( goal code -- ) swap ['] lf-tac-goal-of. lf-tac-detail lf-tac-stop ;
+: lf-tac-ex-quoted ( goal x code -- )
+  swap ['] lf-tac-quoted-after. lf-tac-inline lf-tac-ex ;
 : lf-tac-type-mismatch ( e type expected code -- )
   >r 3 ['] lf-has-type-but-expected. lf-tac-detail-n r> lf-tac-stop ;
 \ A Lean error's detail (tactic-run.fs's lf-tac-lean-detail): its term

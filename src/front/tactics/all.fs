@@ -32,8 +32,8 @@ require ./replace.fs
 require ./revert.fs
 require ./rewrite.fs
 require ./rfl.fs
-require ./rintro.fs
 require ./right.fs
+require ./rintro.fs
 require ./rwa.fs
 require ./specialize.fs
 require ./subst.fs

@@ -185,6 +185,13 @@
 472	1	-	a pattern's bar | goes between two items
 473	1	-	this closer does not close the pattern's open bracket
 474	1	-	by-obtain[ and by-rcases[ take one pattern
+481	1	-	by-rintro[ takes one pattern or more
+475	1	lean	Tactic `subst` failed: argument must be an equality proof
+476	1	lean	Tactic `subst` failed:
+477	1	lean	Tactic `subst` failed: invalid equality proof, it is not of the form
+478	1	lean	Tactic `subst` failed: invalid equality proof, it is not of the form
+479	1	lean	Tactic `subst` failed: did not find equation for eliminating
+480	1	lean	Tactic `subst` failed: variable
 470	1	lean	Tactic `rcases` failed:
 471	1	lean	Tactic `rcases` failed:
 387	1	lean	Tactic `right` failed: target is not an inductive datatype
@@ -326,8 +333,12 @@ reserved by-replace: word
 reserved by-revert word
 reserved by-revert[ word
 reserved by-right word
+reserved by-rintro[ word
 reserved by-rwa[ word
 reserved by-specialize word
+reserved by-subst word
+reserved by-subst[ word
+reserved by-subst-vars word
 reserved by-swap word
 reserved by-symm word
 kind 1 by 0 by run
@@ -383,7 +394,11 @@ kind 50 by-replace: 0 replace run
 kind 51 by-revert 0 revert run
 kind 52 by-revert[ 0 revert run
 kind 53 by-right 0 right run
-kind 54 by-rwa[ 0 rwa run
-kind 55 by-specialize 0 specialize run
-kind 56 by-swap 0 swap run
-kind 57 by-symm 0 symm run
+kind 54 by-rintro[ 0 rintro run
+kind 55 by-rwa[ 0 rwa run
+kind 56 by-specialize 0 specialize run
+kind 57 by-subst 0 subst run
+kind 58 by-subst[ 0 subst run
+kind 59 by-subst-vars 0 subst_vars run
+kind 60 by-swap 0 swap run
+kind 61 by-symm 0 symm run

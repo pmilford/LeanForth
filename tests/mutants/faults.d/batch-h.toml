@@ -23,8 +23,8 @@ reason = "TB2 E2a: a goal that depends on h gets Eq.ndrec of a two-binder motive
 [[fault]]
 id = "reduced-path-skipped"
 file = "src/front/meta-tactic/subst.fs"
-old = '''  tuck mse-same? if 2drop lf-subst-symm mse-plain exit then'''
-new = '''  tuck mse-same? drop true if 2drop lf-subst-symm mse-plain exit then'''
+old = '''  tuck lf-meta-eqv lf-must if 2drop lf-subst-symm mse-plain exit then'''
+new = '''  tuck lf-meta-eqv lf-must drop true if 2drop lf-subst-symm mse-plain exit then'''
 test = "$GFORTH tests/front/tactics/batch-h/test.fs"
 reason = "TB2 E2a: h : n = id m goes to substCore as it is, whose right side is no variable (477), where Lean asserts n = m first (test.fs's id m text expects 0)"
 

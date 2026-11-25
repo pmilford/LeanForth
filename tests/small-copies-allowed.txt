@@ -9,3 +9,4 @@ src/front/tactic-core.fs:lf-tac-arg-span  a field of the step's argument beside 
 src/front/fvar-subst.fs:fsb-key  the key of a substitution's pair (a run of two cells), not another record's first cell
 src/front/fvar-subst.fs:fsb-val  the term of a substitution's pair, not another record's second cell
 src/front/meta-tactic/meta-induction.fs:lf-rinfo-decl  a field of RecursorInfo's run, not ElimInfo's (elim.fs's lf-elim-decl reads another record at the same cell)
+src/front/tactic-msg.fs:lf-tac-nothing.  the tactic messages' empty part (an xt for lf-tac-framed-with.), replacing rewrite.fs's mrw-nothing. of the same body; the other words with the body drop outcome-ok are each their own module's outcome step (one library word for all of them: a follow-up for the Forth review)
