@@ -138,6 +138,9 @@ T{ budget cell-spend? budget @ -> false -3 }T
 T{ 5 budget ' cell-spend? rs-checked budget @ -> 5 true 0 }T
 \ first-nonzero (reuse-d): the first of two that is not zero, else zero.
 T{ 3 4 first-nonzero 0 4 first-nonzero -2 0 first-nonzero 0 0 first-nonzero -> 3 4 -2 0 }T
+\ ascii-upper?: A to Z only, both ends in, their neighbours and a high byte out.
+T{ char A ascii-upper? char Z ascii-upper? char M ascii-upper? -> true true true }T
+T{ char @ ascii-upper? char [ ascii-upper? char a ascii-upper? 195 ascii-upper? -> false false false false }T
 \ first-or-second (cleanup-families-1): x1 for place 1, x2 for any other.
 T{ 3 4 1 first-or-second 3 4 2 first-or-second 3 4 0 first-or-second 3 4 -1 first-or-second
    -> 3 4 4 4 }T

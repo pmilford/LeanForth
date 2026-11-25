@@ -1979,9 +1979,9 @@ reason = "a literal of eleven digits (with leading zeros) is accepted"
 
 [[fault]]
 id = "ir-z-not-folded"
-file = "src/program/ir-reader.fs"
-old = ''': ir-upper? ( char -- flag ) [char] A [char] Z 1+ within ;'''
-new = ''': ir-upper? ( char -- flag ) [char] A [char] Z within ;'''
+file = "src/lib/bounds.fs"
+old = ''': ascii-upper? ( char -- flag ) [char] A [char] Z 1+ within ;'''
+new = ''': ascii-upper? ( char -- flag ) [char] A [char] Z within ;'''
 test = "$GFORTH tests/program/ir-reader.fs"
 reason = "Z is not folded to z, unlike Gforth's name lookup: the reader's tests define Zap and call it as ZAP, and refuse Z after z"
 

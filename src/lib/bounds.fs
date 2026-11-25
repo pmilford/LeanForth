@@ -5,7 +5,7 @@
 \ set (a negative u) never fits. No state.
 \ Interface: cell-pair@ cell-pair! cell-triple@ cell-triple! between? upto?
 \ range-at in-ranges? cells-zero? cells= index? cells-index cells-has?
-\ cell-at@ pair-at record-at first-nonzero first-or-second one-of2?
+\ cell-at@ pair-at record-at first-nonzero ascii-upper? first-or-second one-of2?
 \ one-of3? cell-tally cell-spend? epoch+ d+! d-floor cell-counted, cell-count
 \ cell-counted! cell-counted+! cell-counted-left cell-counted+?. Requires
 \ portability.fs, outcome.fs (any?, 2dup-under) and module.fs; helpers are
@@ -95,6 +95,8 @@ lf-lib set-current
 \ of two steps that give 0 for success (an ior, an image). The same code
 \ as outcome.fs's outcome-and, whose ok is 0; that one names outcomes.
 : first-nonzero ( x1 x2 -- x ) over if drop else nip then ;
+\ An ASCII capital letter (A to Z; a byte of a UTF-8 sequence never is one).
+: ascii-upper? ( char -- flag ) [char] A [char] Z 1+ within ;
 \ x1 when n is 1, else x2: one of two values by its place from 1.
 : first-or-second ( x1 x2 n -- x ) 1 = if drop else nip then ;
 \ Whether x equals a or b (one-of2?), or one of a, b and c (one-of3?):

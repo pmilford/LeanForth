@@ -409,8 +409,7 @@ end-structure
   >r begin dup while over c@ r@ execute while 1 /string repeat then r> drop ;
 
 \ Case folding: Gforth finds names ignoring the case of A-Z only.
-: ir-upper? ( char -- flag ) [char] A [char] Z 1+ within ;
-: ir-lower ( char -- char' ) dup ir-upper? if [char] a [char] A - + then ;
+: ir-lower ( char -- char' ) dup ascii-upper? if [char] a [char] A - + then ;
 : ir-lower! ( c-addr -- ) dup c@ ir-lower swap c! ;
 : ir-lower-all ( c-addr u -- ) chars over + swap ?do i ir-lower! 1 chars +loop ;
 \ A copy of a token in lower case, valid until the next token.

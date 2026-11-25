@@ -71,7 +71,7 @@ end-structure
 
 \ Names compare with A-Z read as a-z; the table and definitions keep them
 \ in lower case.
-: pv-lower ( char -- char' ) dup [char] A [char] Z 1+ within if bl or then ;
+: pv-lower ( char -- char' ) dup ascii-upper? if bl or then ;
 : pv-fold ( c-addr u -- ) chars over + swap ?do i c@ pv-lower i c! 1 chars +loop ;
 : pv-same-char? ( c-addr1 c-addr2 -- flag ) c@ swap c@ pv-lower = ;
 \ Whether c-addr1 u, folded, is the lower-case text at c-addr2.
