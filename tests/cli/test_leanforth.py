@@ -2522,7 +2522,9 @@ class Jobs(unittest.TestCase):
             self.assertEqual(self.text("--jobs", value, *args), serial, value)
             status, out, _ = run("check", "--resources", "--jobs", value, *args)
             self.assertEqual(status, 0, value)
-            workers = int(re.search(r"\n  workers: (\d+) \(--jobs\)", out).group(1))
+            # fewer cores than asked: the line says so (review finding 12)
+            workers = int(re.search(r"\n  workers: (\d+) \(--jobs " + value + r", \d+ cores?\)\n",
+                                    out).group(1))
             self.assertTrue(1 < workers <= max(os.cpu_count(), 2) and workers <= 1024, workers)
             self.assertIn("60 declarations: 60 accepted", out)
 
