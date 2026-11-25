@@ -122,6 +122,30 @@ class Slowest(unittest.TestCase):
         self.assertIn("--resources", done.stderr)
 
 
+class Failures(unittest.TestCase):
+    def test_no_engine(self):
+        """A gforth-fast that is not there: status 5 and one line saying so, no traceback."""
+        env = dict(os.environ, GFORTH_FAST="/nonexistent/gforth-fast")
+        done = subprocess.run(["sh", str(ROOT / "scripts/profile-check.sh"),
+                               "tests/reference/constant-fixture.ndjson"], cwd=ROOT, env=env,
+                              capture_output=True, text=True, timeout=30)
+        self.assertEqual(done.returncode, 5)
+        self.assertNotIn("Traceback", done.stderr)
+        self.assertIn("gforth-fast", done.stderr)
+
+    def test_command_not_run(self):
+        """The sampler given a command that cannot run: its exit status 127, one message."""
+        with tempfile.TemporaryDirectory() as tmp:
+            env = dict(os.environ, PROF_SYMS=os.path.join(tmp, "none.syms"))
+            done = subprocess.run([PYTHON, str(ROOT / "scripts/profile-sample.py"),
+                                   os.path.join(tmp, "samples"), "0.01", "--",
+                                   "/nonexistent/command"], env=env,
+                                  capture_output=True, text=True, timeout=30)
+        self.assertEqual(done.returncode, 127)
+        self.assertNotIn("Traceback", done.stderr)
+        self.assertIn("cannot run /nonexistent/command", done.stderr)
+
+
 @unittest.skipUnless(os.environ.get("GFORTH_FAST"), "GFORTH_FAST names no gforth-fast")
 class Whole(unittest.TestCase):
     def test_small_export(self):

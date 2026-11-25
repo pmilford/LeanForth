@@ -28,6 +28,7 @@ its symbol table's source positions (2026-11-25).
 import bisect
 import ctypes
 import os
+import signal
 import sys
 import time
 
@@ -36,6 +37,7 @@ libc.ptrace.restype = ctypes.c_long
 libc.ptrace.argtypes = [ctypes.c_long, ctypes.c_long, ctypes.c_void_p, ctypes.c_void_p]
 PTRACE_CONT, PTRACE_GETREGS = 7, 12
 PTRACE_SEIZE, PTRACE_INTERRUPT = 0x4206, 0x4207
+PTRACE_O_EXITKILL = 0x100000  # the traced check dies with the sampler
 REGS = ("r15 r14 r13 r12 rbp rbx r11 r10 r9 r8 rax rcx rdx rsi rdi orig_rax rip cs "
         "eflags rsp ss fs_base gs_base ds es fs gs").split()
 
@@ -118,8 +120,26 @@ def main(argv):
     if pid == 0:
         fd = os.open("/dev/null", os.O_RDONLY)
         os.dup2(fd, 0)
-        os.execvp(cmd[0], cmd)
-    if libc.ptrace(PTRACE_SEIZE, pid, None, None) != 0:
+        try:
+            os.execvp(cmd[0], cmd)
+        except OSError as e:
+            print("profile-sample: cannot run %s: %s" % (cmd[0], e.strerror), file=sys.stderr)
+            os._exit(127)
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
+    try:
+        return sample(out, interval, pid, symf)
+    finally:  # never leave the check running: killed and reaped
+        try:  # a child already reaped is no longer ours: no kill
+            wp, st = os.waitpid(pid, os.WNOHANG)
+            if wp == 0 or os.WIFSTOPPED(st):
+                os.kill(pid, signal.SIGKILL)
+                os.waitpid(pid, 0)
+        except ChildProcessError:
+            pass
+
+
+def sample(out, interval, pid, symf):
+    if libc.ptrace(PTRACE_SEIZE, pid, None, ctypes.c_void_p(PTRACE_O_EXITKILL)) != 0:
         print("profile-sample: ptrace seize failed, errno", ctypes.get_errno(), file=sys.stderr)
         return 5
     sym = mem = lib = code = None
@@ -147,7 +167,10 @@ def main(argv):
             status = st
             break
         regs = Regs()
-        libc.ptrace(PTRACE_GETREGS, pid, None, ctypes.byref(regs))
+        if libc.ptrace(PTRACE_GETREGS, pid, None, ctypes.byref(regs)) != 0:
+            print("profile-sample: cannot read registers (x86-64 Linux only), errno",
+                  ctypes.get_errno(), file=sys.stderr)
+            return 5
         if lib is None:
             lib, code = regions(pid, sym, mem)
         key = ";".join(stack_of(regs, sym, mem, lib, code))

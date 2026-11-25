@@ -21,6 +21,8 @@ if [ -z "$export_file" ] || [ -z "$GFORTH_FAST" ]; then
   echo "usage: GFORTH_FAST=PATH scripts/profile-check.sh EXPORT" >&2
   exit 2
 fi
+[ "$(uname -m)" = x86_64 ] || { echo "profile-check: x86-64 Linux only" >&2; exit 5; }
+[ -x "$GFORTH_FAST" ] || { echo "profile-check: no gforth-fast at $GFORTH_FAST" >&2; exit 5; }
 root=$(cd "$(dirname "$0")/.." && pwd -P) || exit 5
 out=${PROFILE_OUT:-build/profile}
 mkdir -p "$out" || exit 5
