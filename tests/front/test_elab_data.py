@@ -575,7 +575,7 @@ def format1_cases():
         ("no header", "\n".join(GOOD.read_text().split("\n")[1:]), 4, 1, "no header"),
         ("another format", assemble(GOOD_RECORDS, format="lean-elab"), 4, 1,
          "not elaboration data"),
-        ("another format version", assemble(GOOD_RECORDS, format_version=4, extra=1), 2, 1,
+        ("another format version", assemble(GOOD_RECORDS, format_version=5, extra=1), 2, 1,
          "another format version"),
         ("format version 1", format1_text(), 2, 1, "another format version"),
         ("format version 2", format2_text(), 2, 1, "another format version"),
