@@ -548,7 +548,7 @@ lf-recheck-skipped 1+ constant lf-recheck-early
   dup ['] lf-env-write catch ?dup if nip lf-env-unpublish outcome-invalid true exit then
   swap lf-env-ended ;
 \ Publish the candidate in this context (E4): (outcome false) once its
-\ slot is final; (invalid true), with nothing written, inside a job or a
+\ slot is final; (invalid true), with nothing published, inside a job or a
 \ check (G-P1), or when the candidate has no slot to publish (no check's
 \ snapshot of the valid current environment, or its slot already final),
 \ and as lf-env-guarded says. It drops the stamp first (environment.fs,

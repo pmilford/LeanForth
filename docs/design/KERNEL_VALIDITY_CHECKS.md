@@ -271,7 +271,8 @@ checks. Size 20-40 lines. Done only if slice 2's measurement confirms its predic
   `lf-env-finish`, `?keep` (environment.fs); `store-at?` and `store-count-valid?` (lib/store.fs); the
   I2 test-build pattern and `task+!` (lib/task.fs) for the cross-check counter; `htab-live?`,
   `slab-live?` (slice 2).
-- New words: `lf-env-held?`, `lf-env-hold`, `lf-env-unhold` (kernel-specific, environment.fs);
+- New words: `lf-env-held?`, `lf-env-hold`, `lf-env-unhold`, `lf-env-held@`, `lf-env-over?`
+  (the last two from the Forth review's L2; kernel-specific, environment.fs);
   `store-room-open?` (general, src/lib/store.fs, slice 2); a range-only memo probe in lib/memo.fs
   (general, slice 2). No copy of an existing word: `store-open?` is rewritten as
   `store-count-valid?` and `store-room-open?`, so the room test lives once.

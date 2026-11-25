@@ -8783,9 +8783,8 @@ old = '''  lf-input-sealed? ['] store-mark-valid? lf-input-all? and
   ['] slab-mark-valid? lf-input-slabs-all? and
   lf-name-used @ lf-input-bytes @ >= and ;'''
 new = '''  true ;'''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "rvS12 L3: lf-input-intact? always true"
-equivalent = "defence in depth: a broken term or level seal at the root is still refused by the store roots every pass checks first (diagnostic 22 or 27), so the seal rows end invalid either way"
+test = "$GFORTH tests/core/environment.fs"
+reason = "rvS12 L3: lf-input-intact? always true (killable since kernel-validity-1: the environment's input rows)"
 
 [[fault]]
 id = "fx9-env-still-always"

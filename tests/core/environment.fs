@@ -344,7 +344,7 @@ env-free
 
 \ ---------------------------------------------------------------------------
 \ The stamp (docs/design/KERNEL_VALIDITY_CHECKS.md, slice 1): lf-env-begin's
-\ full check holds the environment in the candidate (held@), and inside the
+\ full check holds the environment in the candidate (lf-env-held@), and inside the
 \ check lf-env-ours answers from it while the environment's address and
 \ identity and the input's fingerprint match; any mismatch runs the full
 \ check. The finish, a clear (every begin and view) and the hand-over drop
@@ -355,12 +355,18 @@ require ../support/store-faults.fs
 lf-env constant env-s
 env-s lf-envh-identity @ constant id-s
 ' syn-check 3 checked-run
-T{ held@ 3 lf-env-begin held@ env-s = -> 0 outcome-ok true }T
-T{ outcome-ok lf-env-finish held@ -> 0 }T
-T{ 3 lf-env-begin lf-env-clear held@ -> outcome-ok 0 }T
-T{ 3 lf-env-begin lf-env-view held@ -> outcome-ok outcome-ok 0 }T
-T{ 3 lf-env-begin 0 lf-env-begin held@ -> outcome-ok outcome-invalid 0 }T
-T{ 3 lf-env-begin 4 lf-env-hand-over-at held@ -> outcome-ok outcome-invalid true 0 }T
+T{ lf-env-held@ 3 lf-env-begin lf-env-held@ env-s = -> 0 outcome-ok true }T
+T{ outcome-ok lf-env-finish lf-env-held@ -> 0 }T
+T{ 3 lf-env-begin lf-env-clear lf-env-held@ -> outcome-ok 0 }T
+T{ 3 lf-env-begin lf-env-view lf-env-held@ -> outcome-ok outcome-ok 0 }T
+T{ 3 lf-env-begin 0 lf-env-begin lf-env-held@ -> outcome-ok outcome-invalid 0 }T
+\ A spent context's begin holds nothing; a finish with any outcome and a
+\ THROW's lf-env-thrown drop the stamp. unspend mends the spent flag.
+: unspend ( -- ) false lf-env-worker lf-worker-spent ! ;
+T{ lf-env-spend 3 lf-env-begin lf-env-held@ unspend -> outcome-invalid 0 }T
+T{ 3 lf-env-begin drop outcome-rejected lf-env-finish lf-env-held@ -> 0 }T
+T{ 3 lf-env-begin drop -1 lf-env-thrown lf-env-held@ unspend -> 0 }T
+T{ 3 lf-env-begin 4 lf-env-hand-over-at lf-env-held@ -> outcome-ok outcome-invalid true 0 }T
 \ Inside the check the stamp answers. Each fact below, broken after the
 \ begin, is one only the full check reads (the input's term seal, the
 \ identity serial, the pool's seal), so lf-env-ours still gives the
@@ -397,14 +403,16 @@ T{ 3 lf-env-begin env-t lf-env-use ours? -> outcome-ok outcome-ok false }T
 T{ env-s lf-env-use ours? -> outcome-ok true }T
 T{ 0 env-s lf-envh-identity ! ours? id-s env-s lf-envh-identity ! ours? -> false true }T
 : stamp-and-throw ( -- ) 3 lf-env-begin drop -79 throw ;
-T{ ' stamp-and-throw catch held@ env-s = ours? -> -79 true true }T
-T{ lf-input-reset held@ env-s = ours? -> true false }T
+T{ ' stamp-and-throw catch lf-env-held@ env-s = ours? -> -79 true true }T
+T{ lf-input-reset lf-env-held@ env-s = ours? -> true false }T
 main-input
-T{ held@ env-s = ours? -> true false }T
+T{ lf-env-held@ env-s = ours? -> true false }T
 env-t lf-env-free drop env-free
-\ A new environment, perhaps made where env-s was: not the one held.
+\ A new environment made where env-s was (the row checks the address is
+\ reused, so it cannot silently stop testing this): not the one held.
 8 fresh-env
-T{ held@ env-s = ours? 3 lf-env-begin held@ lf-env = -> true false outcome-ok true }T
+T{ lf-env env-s = lf-env-held@ env-s = ours? -> true true false }T
+T{ 3 lf-env-begin lf-env-held@ lf-env = -> outcome-ok true }T
 lf-env-clear env-free
 
 \ ---------------------------------------------------------------------------

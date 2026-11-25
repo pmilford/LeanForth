@@ -457,8 +457,9 @@ end-structure
 : lf-env-live? ( env -- flag )
   ?dup 0= if false exit then
   dup lf-env-sane? if lf-env-pooled? else drop false then ;
-: lf-env-input? ( env -- flag )
-  lf-envh-input @ lf-input-fingerprint = lf-input-intact? and ;
+\ Whether env was made over this context's input (its fingerprint).
+: lf-env-over? ( env -- flag ) lf-envh-input @ lf-input-fingerprint = ;
+: lf-env-input? ( env -- flag ) lf-env-over? lf-input-intact? and ;
 : lf-env-valid? ( env -- flag ) dup lf-env-live? if lf-env-input? else drop false then ;
 \ The current environment, when it is live and this context's input is
 \ intact and the one it was made over.
@@ -602,10 +603,11 @@ end-structure
 \ Inside a check nothing else the full check reads changes (the design's
 \ section 1); a mismatch runs the full check, as every publication does.
 : lf-env-hold ( env -- ) lf-env-cand lf-cand-held ! ;
+: lf-env-held@ ( -- env|0 ) lf-env-cand lf-cand-held @ ;
 : lf-env-unhold ( -- ) 0 lf-env-hold ;
 : lf-env-held? ( env -- flag )
-  dup 0= over lf-env-cand lf-cand-held @ <> or if drop false exit then
-  dup lf-env-mine? swap lf-envh-input @ lf-input-fingerprint = and ;
+  dup 0= over lf-env-held@ <> or if drop false exit then
+  dup lf-env-mine? swap lf-env-over? and ;
 : lf-env-ours ( -- env true | false )
   lf-env dup lf-env-held? if true exit then drop
   lf-env-current 0= if false exit then dup lf-env-mine? ?keep ;
