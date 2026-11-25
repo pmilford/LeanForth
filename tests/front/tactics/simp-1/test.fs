@@ -265,6 +265,17 @@ s" Nat.add_zero" set-of
 ' slabs-anew sweep-slabs-xt !
 T{ n+0 ' simp-pass heap-sweep nip -> 0 }T
 
+\ ---- Review of 2026-11-25 (M2, low 2). visitPostContinue: a post
+\ rewrite's result is simplified again, so h1 : a = b, then h3 : b = c
+\ take a to c (single-pass).
+b0 c0 lf-mk-eq s" h3" binder constant h3
+lf-simp-set-new  h1 true lf-simp-add-hyp  h3 true lf-simp-add-hyp
+T{ a0 simp drop -> c0 }T
+\ A proof is kept whole, even one with an argument a rule rewrites:
+\ Eq.refl (n + 0) (proof-visited).
+s" Nat.add_zero" set-of
+T{ n+0 lf-mk-eq-refl dup simp >r = r> -> true lf-simp-none }T
+
 \ ---- 7. by-simp-only[ ] through its text: closed by of_eq_true or
 \ True.intro, a target replaced with a proof (h) or by defeq (Nat.add_zero
 \ an rfl theorem), Lean's 500.

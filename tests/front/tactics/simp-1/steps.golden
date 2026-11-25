@@ -14,3 +14,15 @@
 {"goal_before":"a b : Nat\nh : a ≤ b\n⊢ a ≤ b ∧ a ≤ b","goals_after":[],"parent":0,"source":"69:3","step":1,"tactic":"simp","word":"by-simp-only["}
 {"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_same_head","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
 {"goal_before":"a b : Nat\nh : a + 1 = b + 1\n⊢ a + 1 + 1 = b + 1 + 1","goals_after":[],"parent":0,"source":"80:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_mul_zero","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"n : Nat\n⊢ n * 0 = 0","goals_after":[],"parent":0,"source":"91:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_mul_one","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"n : Nat\n⊢ n * 1 = n","goals_after":[],"parent":0,"source":"99:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_mul_one_twice","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a : Nat\n⊢ a * 1 * 1 = a","goals_after":[],"parent":0,"source":"107:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_zero_add_mul_one","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"n : Nat\n⊢ 0 + n = n * 1","goals_after":[],"parent":0,"source":"115:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_sub_self","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a : Nat\n⊢ a + 1 - (a + 1) = 0","goals_after":[],"parent":0,"source":"124:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_chain","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b c : Nat\nh : a = b\nh2 : b = c\n⊢ a = c","goals_after":[],"parent":0,"source":"135:3","step":1,"tactic":"simp","word":"by-simp-only["}

@@ -83,6 +83,23 @@ T{ let-n lf-meta-no-zeta with-bits nip let-n core -> outcome-unsupported n0 outc
 T{ rec-z core nip rec-z dup lf-meta-no-iota with-bits -rot =
    -> outcome-unsupported outcome-ok true }T
 T{ x0 ' lf-infer lf-with-simp-keys swap s" Nat" lf-meta-const-named? -> outcome-ok true }T
+\ Review of 2026-11-25, low 1. withInferTypeConfig: inside lf-infer the
+\ settings are the defaults, so g n infers with g : T, the let T := Nat
+\ -> Nat unfolded by zetaDelta (infer-at-defaults); after it simp's are
+\ in force again (infer-restore).
+: type0 ( -- t ) 1 lf-term-symbolic-sort lf-made! ;
+type0 nat nat lf-term-pi lf-made! s" T" let-binder constant t0
+t0 s" g" binder constant g0
+: infer-flags ( -- type outcome flags ) g0 n0 lf-mk-app lf-infer lf-defeq-flags ;
+T{ ' infer-flags lf-with-simp-index lf-meta-no-zeta-delta and 0<> swap rot
+   s" Nat" lf-meta-const-named? -> true outcome-ok true }T
+\ withImplicitConfig: defeq compares a postponed implicit argument at the
+\ defaults, so @Eq U y y =?= @Eq Nat y y with the let U := Nat
+\ (defeq-flags-dropped).
+type0 nat s" U" let-binder constant u0   u0 s" y" binder constant y0
+: eq-nat-y ( -- e ) n0 n0 lf-mk-eq lf-term-first@ lf-term-first@ y0 lf-mk-app y0 lf-mk-app ;
+: implicit-dq ( -- flag outcome ) y0 y0 lf-mk-eq eq-nat-y lf-meta-defeq ;
+T{ ' implicit-dq lf-with-simp-meta -> true outcome-ok }T
 
 \ ---- 3. Keys: head-only paths, match keys.
 : eq-nn ( -- e ) n0 n0 lf-mk-eq ;

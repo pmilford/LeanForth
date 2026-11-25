@@ -166,3 +166,70 @@ old = '''  if lf-tac-unported then dup tso-type tso-shaped? if lf-tac-unported t
 new = '''  if lf-tac-unported then lf-mk-eq-true ;'''
 test = "$GFORTH tests/front/tactics/simp-1/test.fs"
 reason = "SL1a-2: preprocess (SimpTheorems.lean:344-380) turns an Iff, Ne, Not, And or pi hypothesis into other theorems; taken as p = True, h : True ∧ True is a rule no Lean run has"
+
+# The review of 2026-11-25 (docs/development/forth-reviews/2026-11-25-simp-sl1a-1.md):
+# evalNat's operands (M1), visitPostContinue (M2), the proof check, and
+# the settings of inferType and isDefEq's implicit arguments (low 1, 2).
+[[fault]]
+id = "evalnat-operands-unread"
+file = "src/front/nat-offset.fs"
+old = ''': no-unported-step ( t -- code outcome ) true no no-part ! no-push-sides ;'''
+new = ''': no-unported-step ( t -- code outcome ) drop 0 outcome-unsupported ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "M1: ?n * 0 has no value in Lean's evalNat (an unassigned metavariable among the operands); answered unsupported, Nat.mul_zero's pattern never unifies with n * 0"
+
+[[fault]]
+id = "evalnat-part-summed"
+file = "src/front/nat-offset.fs"
+old = '''  no no-part @ if outcome-unsupported no-none else no no-acc @ true outcome-ok then ;'''
+new = '''  no no-acc @ true outcome-ok ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "M1: an operation not ported whose operands all have values gets their sum as its value (2 * 3 would be 5)"
+
+[[fault]]
+id = "evalnat-assigned-mvar-none"
+file = "src/front/nat-offset.fs"
+old = '''  over lf-mvar? if nip no-push 0 swap else 2drop 0 outcome-unsupported then ;'''
+new = '''  2drop 1 outcome-ok ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "M1: match_expr instantiates an assigned metavariable; read as no value, ?h + 2 with ?h := 3 has none, and an application of an assigned one is not refused"
+
+[[fault]]
+id = "single-pass"
+file = "src/front/simp/main.fs"
+old = '''  over sm-act-e lf-eqv! if sm-finish else sm-again then ;'''
+new = '''  sm-finish ;'''
+test = "$GFORTH tests/front/tactics/simp-1/test.fs"
+reason = "M2: visitPostContinue's simpLoop again after a post rewrite skipped; h : a = b, h2 : b = c leave a as b"
+
+[[fault]]
+id = "proof-visited"
+file = "src/front/simp/main.fs"
+old = '''  drop dup sm-proof? if lf-simp-none sm-done exit then ['] frame-return sm-loop-call ;'''
+new = '''  drop ['] frame-return sm-loop-call ;'''
+test = "$GFORTH tests/front/tactics/simp-1/test.fs"
+reason = "low 2: simp's isProof check skipped; Eq.refl (n + 0) is visited and its argument rewritten"
+
+[[fault]]
+id = "infer-restore"
+file = "src/front/infer.fs"
+old = '''  ['] if-run if-defaults lf-meta-with ;'''
+new = '''  if-defaults lf-meta-config! if-run ;'''
+test = "$GFORTH tests/front/simp-meta.fs"
+reason = "low 1: withInferTypeConfig's defaults left in force after inferType, simp's zetaDelta := false lost"
+
+[[fault]]
+id = "infer-at-defaults"
+file = "src/front/infer.fs"
+old = '''  ['] if-run if-defaults lf-meta-with ;'''
+new = '''  ['] if-run lf-defeq-flags lf-defeq-mode lf-meta-with ;'''
+test = "$GFORTH tests/front/simp-meta.fs"
+reason = "low 1: inferType under simp's settings, not withInferTypeConfig's defaults; g n with g : T, T := Nat -> Nat a let, cannot be inferred"
+
+[[fault]]
+id = "defeq-flags-dropped"
+file = "src/front/defeq.fs"
+old = ''': de-mode-at ( i*x xt -- j*x ) df df-flags @ df df-mode @ lf-meta-with ;'''
+new = ''': de-mode-at ( i*x xt -- j*x ) df df-mode @ lf-meta-at ;'''
+test = "$GFORTH tests/front/simp-meta.fs"
+reason = "low 1: isDefEq's whnf steps at the flags in force, not df-flags; withImplicitConfig's defaults lost, @Eq U y y =?= @Eq Nat y y with the let U := Nat false"

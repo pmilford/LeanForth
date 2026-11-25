@@ -26,11 +26,17 @@
 \ The shapes it matches use term-eqv.fs's lf-meta-app-of? and
 \ lf-meta-nth-arg.
 \ Values are unsigned cells (below 2^64 on a 64-bit host), added and
-\ compared unsigned. Never a guess: unsupported for a literal, a sum or
-\ an offset beyond a cell, an operation Lean's evalNat also evaluates that is not
-\ ported (subtraction, multiplication, division, modulo and power:
-\ Nat.sub, Sub.sub, HSub.hSub and the others, by name and number of
-\ arguments), an instance of Add.add or HAdd.hAdd in an offset that is
+\ compared unsigned. A metavariable is read as Lean's match_expr reads it
+\ (instantiateMVarsIfMVarApp): an assigned one's value is evaluated, an
+\ unassigned one has no value. Never a guess: unsupported for a literal,
+\ a sum or an offset beyond a cell, an application of an assigned
+\ metavariable, a value that needs an operation Lean's evalNat also
+\ evaluates that is not ported (subtraction, multiplication, division,
+\ modulo and power: Nat.sub, Sub.sub, HSub.hSub and the others, by name
+\ and number of arguments; their two operands are still evaluated, as
+\ Lean's arms do, so one without a value leaves the whole without one;
+\ Lean's warning for an exponent past exponentiation.threshold is not
+\ given), an instance of Add.add or HAdd.hAdd in an offset that is
 \ not Nat's own node for node (Lean then asks isDefEq at instances
 \ transparency). A constant's name is made in the context's name store
 \ when it has none yet, as Lean's mkNatLit and mkNatAdd name constants
@@ -38,7 +44,8 @@
 \ marks; a text's run has its own names, S1 merge B).
 \ Outcomes: ok; unsupported as above; full when a store or the heap has
 \ no room; invalid for a level store whose first level is not zero.
-\ Untrusted. State: the record no (the value so far and the
+\ Untrusted. State: the record no (the value so far, whether an
+\ operation not ported was passed, and the
 \ universe-argument pairs of a constant being made) and the slab
 \ no-stack (the terms still to evaluate), in the checker context (ADR
 \ 0009). Loads in decimal whatever BASE is, then restores it.
@@ -56,10 +63,12 @@ require ../core/constant-term-boundary.fs
 require ../core/generation-handles.fs
 require ../core/mvar-leaves.fs
 require ./meta-spine.fs
+require ./mvars.fs
 require ./term-eqv.fs
 
 begin-structure /no
   field: no-acc           \ evalNat: the value so far
+  field: no-part          \ and whether it passed an operation not ported
   field: no-e             \ isOffset?: the term not yet taken apart
   field: no-off           \ and the offset so far
   field: no-out           \ isOffset?: the outcome that ended a layer
@@ -162,17 +171,11 @@ texts-end constant no-ops6
   dup 1 4 lf-meta-nth-arg no-inst-addnat? if no-push-sides else drop 1 outcome-ok then ;
 : no-hadd-step ( t -- code outcome )
   dup 3 6 lf-meta-nth-arg no-inst-hadd? if no-push-sides else drop 1 outcome-ok then ;
-\ An operation not ported whose last argument or the one before holds a
-\ free variable has no value either: Lean's evalNat (Offset.lean:28-60)
-\ fails at a free variable or an instance guard it reaches (branch
-\ s2-tactics: n * 0); it skips type arguments, so this assumes the free
-\ variable is not only in one of an operand's (as in S2's inputs).
-: no-fvar-operand? ( t -- flag )
-  dup lf-term-second@ lf-meta-has-fvar? swap lf-term-first@ lf-term-second@
-    lf-meta-has-fvar?
-  or ;
-: no-unported-step ( t -- code outcome )
-  no-fvar-operand? if 1 outcome-ok else 0 outcome-unsupported then ;
+\ An operation not ported: its two operands evaluated as Lean's arms
+\ evaluate them (Offset.lean:48-63), no-part marking that the value is
+\ not known; its instance is not read, as a guard Lean fails also leaves
+\ no value, and a run whose every leaf has one answers unsupported.
+: no-unported-step ( t -- code outcome ) true no no-part ! no-push-sides ;
 : no-sum-step ( t -- code outcome )
   dup 4 s" Add.add" lf-meta-app-of? if no-addc-step exit then
   dup 6 s" HAdd.hAdd" lf-meta-app-of? if no-hadd-step exit then
@@ -181,16 +184,25 @@ texts-end constant no-ops6
   dup lf-meta-succ? if no-succ-step exit then
   dup 2 s" Nat.add" lf-meta-app-of? if no-push-sides exit then
   dup 3 s" OfNat.ofNat" lf-meta-app-of? if no-ofnat-step else no-sum-step then ;
+\ A term whose head is a metavariable: an assigned one's value, or no
+\ value; an application of an assigned one unsupported (Lean instantiates
+\ it and beta-reduces).
+: no-mvar-step ( t -- code outcome )
+  dup lf-meta-head lf-mvar-value 0= if drop 1 outcome-ok exit then
+  over lf-mvar? if nip no-push 0 swap else 2drop 0 outcome-unsupported then ;
 : no-step ( t -- code outcome )
+  dup lf-meta-head lf-mvar? if no-mvar-step exit then
   dup lf-term-tag@ lf-tag-lit = if no-lit-step exit then
   dup 0 s" Nat.zero" lf-meta-app-of? if drop 0 outcome-ok exit then
   dup lf-meta-app? if no-app-step else drop 1 outcome-ok then ;
 : no-none ( outcome -- 0 false outcome ) 0 swap false swap ;
 : no-run ( -- n flag outcome )
   begin no-stack slab-count 0> while no-pop no-step ok-then? 0= if no-none exit then
-    if outcome-ok no-none exit then repeat no no-acc @ true outcome-ok ;
+    if outcome-ok no-none exit then repeat
+  no no-part @ if outcome-unsupported no-none else no no-acc @ true outcome-ok then ;
 : lf-meta-eval-nat ( e -- n flag outcome )
-  0 no no-acc ! no-stack slab-clear no-push dup ok? if drop no-run else no-none then ;
+  0 no no-acc ! false no no-part ! no-stack slab-clear
+  no-push dup ok? if drop no-run else no-none then ;
 
 \ ---- isOffset?: one layer of no-e at a time, the offset in no-off. A
 \ layer's code: none, Nat.succ a, an addition a + b, an addition whose

@@ -79,3 +79,58 @@ theorem simp_same_head
 := by
   by-simp-only[ ' h ]
 end simp_same_head
+\ Lean: theorem simp_mul_zero (n : Nat) : n * 0 = 0 := by
+\         simp only [Nat.mul_zero]
+\ The theorem's pattern ?n * 0 is unified with n * 0 pattern first, as
+\ Lean's tryTheoremCore does (review M1 of 2026-11-25: evalNat's
+\ operands, src/front/nat-offset.fs).
+theorem simp_mul_zero
+  Nat explicit: n
+  n 0 * 0 =
+:= by
+  by-simp-only[ ' Nat.mul_zero ]
+end simp_mul_zero
+\ Lean: theorem simp_mul_one (n : Nat) : n * 1 = n := by
+\         simp only [Nat.mul_one]
+theorem simp_mul_one
+  Nat explicit: n
+  n 1 * n =
+:= by
+  by-simp-only[ ' Nat.mul_one ]
+end simp_mul_one
+\ Lean: theorem simp_mul_one_twice (a : Nat) : a * 1 * 1 = a := by
+\         simp only [Nat.mul_one]
+theorem simp_mul_one_twice
+  Nat explicit: a
+  a 1 * 1 * a =
+:= by
+  by-simp-only[ ' Nat.mul_one ]
+end simp_mul_one_twice
+\ Lean: theorem simp_zero_add_mul_one (n : Nat) : 0 + n = n * 1 := by
+\         simp only [Nat.zero_add, Nat.mul_one]
+theorem simp_zero_add_mul_one
+  Nat explicit: n
+  0 n + n 1 * =
+:= by
+  by-simp-only[ ' Nat.zero_add ' Nat.mul_one ]
+end simp_zero_add_mul_one
+\ Lean: theorem simp_sub_self (a : Nat) : (a + 1) - (a + 1) = 0 := by
+\         simp only [Nat.sub_self]
+\ The pattern ?n - ?n: its variable met twice.
+theorem simp_sub_self
+  Nat explicit: a
+  a 1 + a 1 + - 0 =
+:= by
+  by-simp-only[ ' Nat.sub_self ]
+end simp_sub_self
+\ Lean: theorem simp_chain (a b c : Nat) (h : a = b) (h2 : b = c) : a = c := by
+\         simp only [h, h2]
+\ h's result b is simplified again (visitPostContinue): h2 makes it c
+\ (review M2 of 2026-11-25).
+theorem simp_chain
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  b c = explicit: h2
+  a c =
+:= by
+  by-simp-only[ ' h ' h2 ]
+end simp_chain

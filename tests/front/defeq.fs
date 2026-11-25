@@ -204,6 +204,22 @@ T{ l0 1 s" OfNat.ofNat" cn nat app 2 nlit app fk app lf-meta-eval-nat -> 0 false
 : nat-op ( a b c-addr u -- t ) 0 -rot cn rot app swap app ;
 T{ 2 nlit 1 nlit s" Nat.sub" nat-op lf-meta-eval-nat -> 0 false outcome-unsupported }T
 T{ 2 nlit 3 nlit s" Nat.mul" nat-op lf-meta-eval-nat -> 0 false outcome-unsupported }T
+\ An operation not ported has its operands evaluated as Lean's arms do:
+\ an unassigned metavariable or a free variable among them, at any
+\ depth, leaves no value (review M1 of simp-sl1a-1: ?n * 0).
+: mul0 ( a -- t ) 0 nlit s" Nat.mul" nat-op ;
+T{ ?n mul0 lf-meta-eval-nat fk 2 nlit s" Nat.sub" nat-op lf-meta-eval-nat
+   -> 0 false outcome-ok 0 false outcome-ok }T
+T{ 2 nlit ?n nat-add mul0 lf-meta-eval-nat -> 0 false outcome-ok }T
+\ match_expr reads an assigned metavariable as its value; an application
+\ of one (?f is assigned a lambda) is not ported.
+T{ own-mark ?h 3 nlit dq ?h 2 nlit nat-add lf-meta-eval-nat own-back
+   -> true outcome-ok 5 true outcome-ok }T
+T{ ?f lf-meta-eval-nat ?f fk app lf-meta-eval-nat -> 0 false outcome-ok 0 false outcome-unsupported }T
+\ So the theorem's pattern unifies on either side (tryTheoremCore puts it
+\ on the left).
+T{ own-mark ?n mul0 fk mul0 dq ?n inst fk same own-back -> true outcome-ok true }T
+T{ own-mark fk mul0 ?n mul0 dq ?n inst fk same own-back -> true outcome-ok true }T
 T{ succ fk app lf-meta-offset fk 2 ofnat hadd lf-meta-offset -> fk 1 true outcome-ok fk 2 true outcome-ok }T
 T{ fk lf-meta-offset 2swap 2drop -> false outcome-ok }T
 T{ fk 0 lf-meta-mk-offset zero 3 lf-meta-mk-offset swap 3 ofnat same
