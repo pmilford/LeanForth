@@ -89,6 +89,8 @@ def swap(old, new, records=GOOD):
 CASES = {
     "good": (assemble(GOOD), "ok", 0, 0),
     "plain32": (assemble([], "3.2"), "ok", 0, 0),
+    "plain3": (assemble([], 3), "ok", 0, 0),
+    "plain31": (assemble([], "3.1"), "ok", 0, 0),
     "v3-congr": (assemble(GOOD[:3], 3), "invalid", 2, 11),
     "v32-defeq": (assemble([T_ADD], "3.2"), "invalid", 2, 10),
     "v5": (assemble(GOOD, 5), "unsupported", 1, 7),

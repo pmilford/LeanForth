@@ -50,9 +50,15 @@ T{ s" tests/front/simp-slice.elab.ndjson" fx simp-congr-count simp-defeq-count
 T{ s" ite" top simp-congr-lemmas swap simp-congr@ drop s" zero_add" nat simp-defeq?
    -> 1 outcome-ok s" ite_congr" top false outcome-ok }T
 
-\ Format 3.2: read, but no simp data: unsupported.
-T{ s" tests/front/simp-data/plain32.elab.ndjson" fx simp-data? s" ite" top simp-congr-lemmas
-   -> outcome-ok false 0 0 outcome-unsupported }T
+\ Formats 3, 3.1 and 3.2: read, but no simp data: both questions unsupported.
+: older ( c-addr u -- outcome flag c n outcome flag outcome )
+  fx simp-data? s" ite" top simp-congr-lemmas s" add_zero" nat simp-defeq? ;
+T{ s" tests/front/simp-data/plain32.elab.ndjson" older
+   -> outcome-ok false 0 0 outcome-unsupported false outcome-unsupported }T
+T{ s" tests/front/simp-data/plain31.elab.ndjson" older
+   -> outcome-ok false 0 0 outcome-unsupported false outcome-unsupported }T
+T{ s" tests/front/simp-data/plain3.elab.ndjson" older
+   -> outcome-ok false 0 0 outcome-unsupported false outcome-unsupported }T
 
 \ Every damaged file refused: outcome, line, code; nothing kept.
 : refused ( c-addr u -- outcome line code kept )

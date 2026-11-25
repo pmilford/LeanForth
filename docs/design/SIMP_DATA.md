@@ -132,6 +132,11 @@ Commands and full tables: appendix A. "Not in export": no declaration of the exp
 The tool stays (`scripts/export-elab.sh` runs `scripts/export_elab.lean`, then `scripts/export_elab.py` finishes and
 binds) and gains record kinds; format 4 is format 3 plus:
 
+*Numbering (2026-11-25, review of slice SD-a):* the number 4 is what slice SD-a writes and reads: format 3.2 plus
+the `congr` records and the `defeq` tag ([ELABORATION_DATA.md](../programming/ELABORATION_DATA.md), "Format 4").
+The other additions below come with slice SD-b as format `"4.1"` (a text, as `"3.1"` and `"3.2"` were introduced),
+which SD-a's reader refuses as another version (error 7), never misreads.
+
 | Kind | Members | From |
 | --- | --- | --- |
 | `simp_set` | `name`, `simprocs` (its simproc set or null) | `simpExtensionMapRef`, `simpAttrNameToSimprocAttrName` |

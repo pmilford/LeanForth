@@ -404,7 +404,7 @@ printed with its text (`at line 2 (error 12): unknown name`):
 | 4 | `not one JSON value within the limits` | invalid (full past 65,536 tokens or 8 levels) | a line that is not JSON |
 | 5 | `no header` | invalid | line 1 is not `{"elab_data": {...}}` |
 | 6 | `not elaboration data` | invalid | the header's format is another |
-| 7 | `another format version` | unsupported | `format_version` is none of the number 3 and the texts `"3.1"` and `"3.2"` (formats 1 and 2 among them) |
+| 7 | `another format version` | unsupported | `format_version` is none of the numbers 3 and 4 and the texts `"3.1"` and `"3.2"` (formats 1 and 2 among them, and `"4.1"`) |
 | 8 | `another Lean version` | unsupported | written by another Lean version or revision |
 | 9 | `elaboration data of another export` | invalid | `export_sha256` is not the library's |
 | 10 | `malformed line` | invalid | a member missing, added or of the wrong type; a malformed name or key; discriminant names that are not one per discriminant; an inert node in a format-3 file, or whose `key` is no text |

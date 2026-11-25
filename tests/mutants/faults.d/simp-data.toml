@@ -229,3 +229,13 @@ old = '''  dup 1- sd-priority@ swap sd-priority@ u< 0= ;'''
 new = '''  drop true ;'''
 test = "$GFORTH tests/front/simp-data.fs"
 reason = "review simp-sd-a 5: a run whose priorities rise is read (Lean's insert keeps them falling)"
+
+# --- review simp-sd-a, finding 7: the reviewer's F5, recorded as equivalent.
+[[fault]]
+id = "ed-format4-unloaded"
+file = "src/front/elab-data.fs"
+old = ''': elab-format4? ( -- flag ) elab-loaded? ed-v4? and ;'''
+new = ''': elab-format4? ( -- flag ) ed-v4? ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "review simp-sd-a 7: format 4 answered without loaded data"
+equivalent = "review simp-sd-a finding 7: the v4 flag is set only while a format-4 header is read and is cleared with elab-loaded? by every reset (ed-head-clear: elab-reset, a refused read, the start of the next read); nothing asks simp-data? during a read, so ed-v4? is true only when the data is loaded"
