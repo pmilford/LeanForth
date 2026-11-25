@@ -35,6 +35,7 @@ require ./rfl.fs
 require ./right.fs
 require ./rwa.fs
 require ./specialize.fs
+require ./subst.fs
 require ./swap.fs
 require ./symm.fs
 require ./trivial.fs

@@ -19,13 +19,16 @@
 \       without them (Lean's reduceLocalContext); goal assigned
 \       goal' x1 .. xn (elimMVar's mkAppN of the new metavariable)
 \   lf-goal-revert-kept ( goal fvars -- goal' kept )  MVarId.revert with
-\       preserveOrder true as Meta induction asks it (Induction.lean:229):
-\       the same goal' (one free variable asked, as every caller of slice
-\       E1 asks, gives the order preserveOrder false gives: the one asked,
-\       then its dependents oldest first; several asked are not supported
-\       yet, E4's indices), and kept, a run of the reverted locals in that
-\       order (lctx-views.fs's records, which never change: each one's
-\       name, kind and inaccessible flag, for goal.fs's
+\       preserveOrder true as Meta induction (Induction.lean:229) and
+\       substCore (Subst.lean:34) ask it: goal' of the same kind, the
+\       binders in collectForwardDeps' preserveOrder order
+\       (MetavarContext.lean): the locals asked, in the order asked, then
+\       every later local depending on one reverted, oldest first (a
+\       local asked must not depend on one asked after it, Lean's
+\       revertFailure: no caller asks so, subst asks a variable, then an
+\       equation over it, and it is not checked); and kept, a run of the
+\       reverted locals in that order (lctx-views.fs's records, which
+\       never change: each one's name, kind and inaccessible flag, for goal.fs's
 \       lf-goal-intro-kept to put back, as Lean's introNP keeps a
 \       binder's name, hygienic or not); none asked gives goal and 0
 \   lf-goal-revert-after ( goal fvar -- goal' n )  MVarId.revertAfter
@@ -68,6 +71,7 @@ begin-structure /mrv
   field: mrv-goal        \ the goal
   field: mrv-in          \ the free variables asked for, a run
   field: mrv-out         \ the reverted, a run, oldest first
+  field: mrv-keep        \ true: preserveOrder (the asked first, as asked)
 end-structure
 /mrv context-slab: mrv-frames
 : mrv ( -- frame ) mrv-frames slab-last ;
@@ -87,12 +91,19 @@ end-structure
 : mrv-reverted? ( fvar -- flag ) dup mrv-asked? if drop true else mrv-depends? then ;
 : mrv-plain ( k -- k ) dup lf-local-detail-at? if outcome-unsupported lf-must then ;
 : mrv-push ( fvar -- ) mrv mrv-out lf-run+! ;
-: mrv-local ( k -- )
-  dup lf-mctx-fvar mrv-reverted? if mrv-plain lf-mctx-fvar mrv-push else drop then ;
+: mrv-take ( k flag -- ) if mrv-plain lf-mctx-fvar mrv-push else drop then ;
+: mrv-local ( k -- ) dup lf-mctx-fvar mrv-reverted? mrv-take ;
+\ preserveOrder: the asked are out first, in their order; a local asked
+\ is only checked, a dependent follows them.
+: mrv-local-kept ( k -- )
+  dup lf-mctx-fvar dup mrv-asked? if drop mrv-plain drop exit then mrv-depends? mrv-take ;
 : mrv-in-view ( i -- )
   mrv-in@ lf-mctx-view swap lf-view-has? 0= if outcome-invalid lf-must then ;
+: mrv-seed ( -- xt ) mrv-in# 0 ?do i mrv-in@ mrv-push loop ['] mrv-local-kept ;
+: mrv-each ( -- xt ) mrv mrv-keep @ if mrv-seed else ['] mrv-local then ;
 : mrv-collect ( -- )
-  mrv-in# 0 ?do i mrv-in-view loop lf-mctx-view lf-view-count 0 ?do i mrv-local loop ;
+  mrv-in# 0 ?do i mrv-in-view loop mrv-each
+  lf-mctx-view lf-view-count 0 ?do i over execute loop drop ;
 
 \ ---- The new goal: (x1 : T1) -> .. -> T in the context without them, its
 \ tag the goal's; the goal assigned it applied to x1 .. xn.
@@ -118,9 +129,9 @@ end-structure
 : mrv-none? ( goal fvars -- goal 0 true | goal fvars false )
   dup run-count if false else drop 0 true then ;
 : lf-goal-revert ( goal fvars -- goal' n ) mrv-none? if exit then ['] mrv-run mrv-framed ;
+: mrv-keep-run ( -- goal' kept ) true mrv mrv-keep ! mrv-run-kept ;
 : lf-goal-revert-kept ( goal fvars -- goal' kept )
-  dup run-count 1 > if outcome-unsupported lf-must then
-  mrv-none? if exit then ['] mrv-run-kept mrv-framed ;
+  mrv-none? if exit then ['] mrv-keep-run mrv-framed ;
 
 \ ---- revertAfter: the locals after fvar, a run.
 : mrv-fvar+ ( run view i -- run' view )

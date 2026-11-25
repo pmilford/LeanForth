@@ -374,9 +374,8 @@ end-structure
 441 lfa-lean s" Tactic `clear` failed: variable" lfa-code: lfa-e-clear-depends
 442 lfa-lean s" Tactic `clear` failed: target depends on"
   lfa-code: lfa-e-clear-target
-: mcl-fvar. ( fvar -- outcome ) s"  " lf-pp-emit lf-tac-quoted. ;
-: mcl-depends. ( fvar -- outcome ) s"  depends on" lf-pp-emit mcl-fvar. ;
-: mcl-refuse ( goal fvar code -- ) swap ['] mcl-fvar. lf-tac-inline lf-tac-ex ;
+: mcl-depends. ( fvar -- outcome ) s"  depends on" lf-pp-emit lf-tac-quoted-after. ;
+: mcl-refuse ( goal fvar code -- ) swap ['] lf-tac-quoted-after. lf-tac-inline lf-tac-ex ;
 : mcl-known ( goal fvar -- goal fvar )
   over lf-goal-view over lf-view-has? 0= if lfa-e-clear-unknown mcl-refuse then ;
 \ localDeclDependsOn of local k, fvar's own passed over (lctx.forM: the
@@ -385,7 +384,7 @@ end-structure
   lf-mctx-fvar 2dup = if drop false exit then
   over lf-local-depends-on? lf-must ;
 : mcl-dependent ( goal fvar k -- )
-  lf-mctx-fvar ['] mcl-fvar. lf-tac-inline
+  lf-mctx-fvar ['] lf-tac-quoted-after. lf-tac-inline
   ['] mcl-depends. lf-tac-inline lfa-e-clear-depends lf-tac-ex ;
 : mcl-locals ( goal fvar -- goal fvar )
   dup lf-mctx-view lf-view-count ['] mcl-dep? find-index if mcl-dependent then ;

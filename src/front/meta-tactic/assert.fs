@@ -39,6 +39,12 @@
 \       inaccessible one stays so), goal' the result. Not supported yet
 \       (thrown unsupported): a hypothesis another local depends on, which
 \       revert takes along (Lean reintroduces them all)
+\   lf-goal-intro1-as ( goal local -- goal' fvar )  intro1P after an
+\       assert of the hypothesis local's name (heqToEq's and substEq's,
+\       Subst.lean:132, :184; changeLocalDecl's introNP 1): introN 1
+\       given local's name, or 0 (the binder's own name, made
+\       inaccessible) when local's is inaccessible, so a hidden name
+\       stays hidden; the binder's own kind; fvar the new hypothesis
 \   lf-goal-try-clear ( goal fvar -- goal' )  MVarId.tryClear
 \       (Clear.lean:48-51): goals.fs's lf-goal-clear, or goal itself when
 \       it refuses (replace's, specialize's)
@@ -193,12 +199,14 @@ end-structure
   mat mat-type @ over lf-term-second@ lf-term-pi lf-made! swap lf-meta-named lf-must ;
 : mat-retyped ( goal1 -- goal2 )
   dup lf-goal-type mat-checked mat-domain lf-goal-replace-target-defeq ;
-: mat-reintro ( goal2 addr -- goal3 )
-  mat-old-local mat-own over ! dup >r 0 1 r> cell+ lf-goal-intro-n ;
-: mat-change-run ( addr -- goal' ) mat-revert1 mat-retyped swap mat-reintro ;
+: mat-intro1 ( goal local addr -- goal' fvar )
+  swap mat-own over ! dup >r 0 1 r@ cell+ lf-goal-intro-n r> cell+ @ ;
+: lf-goal-intro1-as ( goal local -- goal' fvar )
+  2 mat-cells ['] mat-intro1 lf-with-cells ;
+: mat-change-run ( -- goal' )
+  mat-revert1 mat-retyped mat-old-local lf-goal-intro1-as drop ;
 : mat-changed ( goal fvar type -- goal' )
-  mat mat-type ! mat mat-old ! mat mat-goal !
-  2 mat-cells ['] mat-change-run lf-with-cells ;
+  mat mat-type ! mat mat-old ! mat mat-goal ! mat-change-run ;
 : lf-goal-change-local-decl ( goal fvar type -- goal' )
   mat-frames ['] mat-changed lf-with-record ;
 

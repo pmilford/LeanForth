@@ -15,6 +15,17 @@
 \   lf-mk-eq-refl ( a -- h )              mkEqRefl (65)
 \   lf-mk-eq-symm ( h -- h' )             mkEqSymm (98)
 \   lf-mk-eq-trans ( h1 h2 -- h )         mkEqTrans (110)
+\   lf-mk-eq-of-heq ( h -- h' )           mkEqOfHEq (166, check true):
+\                                         eq_of_heq.{u} α a b h, h's type
+\                                         through infer HEq α a β b with α
+\                                         and β defeq (else rejected)
+\   lf-mk-eq-ndrec ( motive h1 h2 -- e ), lf-mk-eq-rec ( motive h1 h2 -- e )
+\       mkEqNDRec (413), mkEqRec (428): h1 when h2 is an Eq.refl
+\       application; else c.{u1, u2} α a motive h1 b h2, α a b the
+\       equation of h2's type through infer, u2 α's level, u1 the sort
+\       that ends the motive's type through infer after one binder (two
+\       for Eq.rec); any other shape rejected (Lean's "equality proof
+\       expected", "invalid motive"); substitution's (meta-tactic/subst.fs)
 \   lf-mk-expected-prop-hint ( h p -- h' ) mkExpectedPropHint (29)
 \   lf-mk-expected-type-hint ( e type -- e' ) mkExpectedTypeHint (35):
 \                                         id.{u} type e, u type's level
@@ -73,17 +84,19 @@
 \ mkAppM's), some x, which plain isDefEq (the transparency in force) must
 \ fit; entries left at a type whnfD makes no pi: rejected.
 \ Not ported yet: mkCongr,
-\ mkCongrFun, mkEqNDRec, mkOfEqTrue, mkEqTrue (the simp core, which
-\ brings their first callers).
+\ mkCongrFun, mkOfEqTrue, mkEqTrue (the simp core, which brings their
+\ first callers); mkHEq, mkHEqRefl and mkHEqOfEq (no caller yet).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: abl-cells (one call's levels or arguments, read before any other
-\ builder runs) and abm-frames (a frame per mkAppM open, meta-must.fs's
-\ lf-with-record), in the checker
-\ context (ADR 0009). Loads in decimal whatever BASE is, then restores it.
+\ builder runs), abm-frames (a frame per mkAppM open, meta-must.fs's
+\ lf-with-record) and abr-frames (one per mkEqNDRec or mkEqRec open), in
+\ the checker context (ADR 0009). Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/slab.fs
+require ../lib/bounds.fs
+require ../lib/context.fs
 require ../core/terms.fs
 require ../core/levels.fs
 require ../core/names.fs
@@ -355,4 +368,51 @@ end-structure
 : abl-heq-at ( t -- α a β b true | t false )
   dup 4 s" HEq" lf-meta-app-of? if abl-args4 true else false then ;
 : lf-match-heq? ( t -- α a β b true | false ) ['] abl-heq-at abl-helper ;
+
+\ ---- mkEqOfHEq (166): eq_of_heq.{u} α a b h when α and β are defeq.
+: abl-homogeneous ( α a β b -- α a b )
+  >r >r over r> lf-defeq! 0= if abl-fail then r> ;
+: lf-mk-eq-of-heq ( h -- h' )
+  dup abl-infer-d abl-heq-at 0= if abl-fail then abl-homogeneous
+  s" eq_of_heq" abl-eq-app swap lf-mk-app ;
+
+\ ---- mkEqNDRec (413), mkEqRec (428): a frame per call open.
+begin-structure /abr
+  field: abr-motive      \ the motive
+  field: abr-minor       \ h1
+  field: abr-major       \ h2
+  field: abr-alpha       \ h2's equation: α,
+  field: abr-lhs         \ a
+  field: abr-rhs         \ and b
+end-structure
+/abr context-slab: abr-frames
+: abr ( -- frame ) abr-frames slab-last ;
+\ The motive's type through infer, its one or two binders, then a sort:
+\ inferType of the motive with its lambdas opened by new locals, as
+\ inferType opens a lambda (lambdaTelescope; infer.fs takes no lambda
+\ over a pi, plan FE1c): the type of the body, which must be a sort
+\ (else rejected, "invalid motive"). A motive that is no lambda (none of
+\ subst's) is not supported yet (thrown unsupported).
+: abl-sort-level ( t -- u )
+  dup lf-tag-symbolic-sort lf-term-tag? 0= if abl-fail then lf-term-first@ ;
+: abr-open ( lam x -- body ) swap lf-term-second@ swap lf-meta-instantiate1 lf-must ;
+: abr-lam ( lam xt -- u1 )
+  over lf-term-lam? 0= if outcome-unsupported lf-must then
+  >r dup lf-term-first@ 0 lf-binder-default r> lf-with-local-decl ;
+: abr-in1 ( lam x -- u1 ) abr-open lf-infer! abl-sort-level ;
+: abr-in2 ( lam x -- u1 ) abr-open ['] abr-in1 abr-lam ;
+: abr-levels ( xt -- u1 u2 ) abr abr-motive @ swap abr-lam abr abr-alpha @ lf-level! ;
+: abr-eq! ( -- ) abr abr-major @ abl-infer-d abl-eq abr abr-alpha cell-triple! ;
+: abr-head ( c -- f )
+  abr abr-alpha @ lf-mk-app abr abr-lhs @ lf-mk-app abr abr-motive @ lf-mk-app ;
+: abr-tail ( f -- e )
+  abr abr-minor @ lf-mk-app abr abr-rhs @ lf-mk-app abr abr-major @ lf-mk-app ;
+: abr-run ( xt c-addr u -- e )
+  abr abr-major @ abl-refl? if 2drop drop abr abr-minor @ exit then
+  abr-eq! rot abr-levels 2 lf-mk-const abr-head abr-tail ;
+: abr-framed ( motive h1 h2 xt c-addr u -- e )
+  2>r >r abr abr-motive cell-triple! r> 2r> abr-run ;
+: abl-rec ( motive h1 h2 xt c-addr u -- e ) abr-frames ['] abr-framed lf-with-record ;
+: lf-mk-eq-ndrec ( motive h1 h2 -- e ) ['] abr-in1 s" Eq.ndrec" abl-rec ;
+: lf-mk-eq-rec ( motive h1 h2 -- e ) ['] abr-in2 s" Eq.rec" abl-rec ;
 base !   \ the BASE this file was loaded with

@@ -1,0 +1,40 @@
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_right","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a = b\n⊢ b = a","goals_after":["a : Nat\n⊢ a = a"],"parent":0,"source":"14:7","step":1,"tactic":"subst","word":"by-subst"}
+{"goal_before":"a : Nat\n⊢ a = a","goals_after":[],"parent":0,"source":"15:3","step":2,"tactic":"rfl","word":"by-rfl"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_left","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a = Nat.succ b\n⊢ a = Nat.succ b","goals_after":["b : Nat\n⊢ Nat.succ b = Nat.succ b"],"parent":0,"source":"27:7","step":1,"tactic":"subst","word":"by-subst"}
+{"goal_before":"b : Nat\n⊢ Nat.succ b = Nat.succ b","goals_after":[],"parent":0,"source":"28:3","step":2,"tactic":"rfl","word":"by-rfl"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_dep_before","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nk : b = a\nh : a = b\n⊢ a = b","goals_after":["a : Nat\nk : a = a\n⊢ a = a"],"parent":0,"source":"41:7","step":1,"tactic":"subst","word":"by-subst"}
+{"goal_before":"a : Nat\nk : a = a\n⊢ a = a","goals_after":[],"parent":0,"source":"42:7","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_dep_after","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a = b\nk : b = a\n⊢ a = b","goals_after":["a : Nat\nk : a = a\n⊢ a = a"],"parent":0,"source":"54:7","step":1,"tactic":"subst","word":"by-subst"}
+{"goal_before":"a : Nat\nk : a = a\n⊢ a = a","goals_after":[],"parent":0,"source":"55:7","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_rec","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a = b\n⊢ h = h","goals_after":["a : Nat\n⊢ @Eq.refl Nat a = @Eq.refl Nat a"],"parent":0,"source":"67:7","step":1,"tactic":"subst","word":"by-subst"}
+{"goal_before":"a : Nat\n⊢ @Eq.refl Nat a = @Eq.refl Nat a","goals_after":[],"parent":0,"source":"68:3","step":2,"tactic":"rfl","word":"by-rfl"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_rec_left","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a = Nat.succ b\n⊢ h = h","goals_after":["b : Nat\n⊢ @Eq.refl Nat (Nat.succ b) = @Eq.refl Nat (Nat.succ b)"],"parent":0,"source":"81:7","step":1,"tactic":"subst","word":"by-subst"}
+{"goal_before":"b : Nat\n⊢ @Eq.refl Nat (Nat.succ b) = @Eq.refl Nat (Nat.succ b)","goals_after":[],"parent":0,"source":"82:3","step":2,"tactic":"rfl","word":"by-rfl"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_heq","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : @HEq Nat a Nat b\n⊢ b = a","goals_after":["a : Nat\n⊢ a = a"],"parent":0,"source":"94:7","step":1,"tactic":"subst","word":"by-subst"}
+{"goal_before":"a : Nat\n⊢ a = a","goals_after":[],"parent":0,"source":"95:3","step":2,"tactic":"rfl","word":"by-rfl"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_reduced","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"n m : Nat\nh : n = @id Nat m\n⊢ m = n","goals_after":["n : Nat\n⊢ n = n"],"parent":0,"source":"108:7","step":1,"tactic":"subst","word":"by-subst"}
+{"goal_before":"n : Nat\n⊢ n = n","goals_after":[],"parent":0,"source":"109:3","step":2,"tactic":"rfl","word":"by-rfl"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_var_right","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a = b\n⊢ b = a","goals_after":["a : Nat\n⊢ a = a"],"parent":0,"source":"121:7","step":1,"tactic":"subst","word":"by-subst"}
+{"goal_before":"a : Nat\n⊢ a = a","goals_after":[],"parent":0,"source":"122:3","step":2,"tactic":"rfl","word":"by-rfl"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_var_left","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a = b\n⊢ b = a","goals_after":["b : Nat\n⊢ b = b"],"parent":0,"source":"134:7","step":1,"tactic":"subst","word":"by-subst"}
+{"goal_before":"b : Nat\n⊢ b = b","goals_after":[],"parent":0,"source":"135:3","step":2,"tactic":"rfl","word":"by-rfl"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_many","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b c : Nat\nh1 : a = b\nh2 : b = c\n⊢ c = a","goals_after":["a : Nat\n⊢ a = a"],"parent":0,"source":"147:3","step":1,"tactic":"subst","word":"by-subst["}
+{"goal_before":"a : Nat\n⊢ a = a","goals_after":[],"parent":0,"source":"148:3","step":2,"tactic":"rfl","word":"by-rfl"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_skip","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a = b\np : True\n⊢ True","goals_after":["a : Nat\np : True\n⊢ True"],"parent":0,"source":"160:7","step":1,"tactic":"subst","word":"by-subst"}
+{"goal_before":"a : Nat\np : True\n⊢ True","goals_after":[],"parent":0,"source":"161:7","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_hidden","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":3}}
+{"goal_before":"a b c : Nat\nh : a = b ∧ b = a\n⊢ b = a","goals_after":["a b c : Nat\nhab : a = b\nright✝ : b = a\n⊢ b = a"],"parent":0,"source":"175:7","step":1,"tactic":"obtain","word":"by-obtain["}
+{"goal_before":"a b c : Nat\nhab : a = b\nright✝ : b = a\n⊢ b = a","goals_after":["a c : Nat\nright✝ : a = a\n⊢ a = a"],"parent":0,"source":"176:9","step":2,"tactic":"subst","word":"by-subst"}
+{"goal_before":"a c : Nat\nright✝ : a = a\n⊢ a = a","goals_after":[],"parent":0,"source":"177:3","step":3,"tactic":"assumption","word":"by-assumption"}

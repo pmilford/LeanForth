@@ -1,0 +1,178 @@
+\ by-subst and by-subst[ ] (plan row TB2, piece E, slice E2a; Lean's
+\ subst h, Elab/Tactic/BuiltinTactic.lean's evalSubst over
+\ Meta/Tactic/Subst.lean; batch-h.lean).
+
+\ The right side a variable: b eliminated (symm), Eq.ndrec.
+\ Lean: theorem sb_right (a b : Nat) (h : a = b) : b = a := by
+\         subst h
+\         rfl
+theorem sb_right
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a =
+:= by
+  ' h by-subst
+  by-rfl
+end sb_right
+
+\ The right side no variable: the left one, a, eliminated (h.symm).
+\ Lean: theorem sb_left (a b : Nat) (h : a = Nat.succ b) : a = Nat.succ b := by
+\         subst h
+\         rfl
+theorem sb_left
+  Nat explicit: a  Nat explicit: b
+  a ' Nat.succ b $ = explicit: h
+  a ' Nat.succ b $ =
+:= by
+  ' h by-subst
+  by-rfl
+end sb_left
+
+\ A hypothesis depending on b, before the equation: reverted after it
+\ (preserveOrder) and introduced again, as k : a = a.
+\ Lean: theorem sb_dep_before (a b : Nat) (k : b = a) (h : a = b) : a = b := by
+\         subst h
+\         exact k
+theorem sb_dep_before
+  Nat explicit: a  Nat explicit: b
+  b a = explicit: k  a b = explicit: h
+  a b =
+:= by
+  ' h by-subst
+  ' k by-exact
+end sb_dep_before
+
+\ The same after the equation.
+\ Lean: theorem sb_dep_after (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         subst h
+\         exact k
+theorem sb_dep_after
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  ' h by-subst
+  ' k by-exact
+end sb_dep_after
+
+\ The goal depends on h itself: Eq.rec, the motive over b and h.
+\ Lean: theorem sb_rec (a b : Nat) (h : a = b) : h = h := by
+\         subst h
+\         rfl
+theorem sb_rec
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  ' h ' h =
+:= by
+  ' h by-subst
+  by-rfl
+end sb_rec
+
+\ The same with the left side eliminated: the motive over a and
+\ _h : Nat.succ b = a, h replaced by _h.symm.
+\ Lean: theorem sb_rec_left (a b : Nat) (h : a = Nat.succ b) : h = h := by
+\         subst h
+\         rfl
+theorem sb_rec_left
+  Nat explicit: a  Nat explicit: b
+  a ' Nat.succ b $ = explicit: h
+  ' h ' h =
+:= by
+  ' h by-subst
+  by-rfl
+end sb_rec_left
+
+\ An HEq of one type: made an equation (heqToEq), then substituted.
+\ Lean: theorem sb_heq (a b : Nat) (h : HEq a b) : b = a := by
+\         subst h
+\         rfl
+theorem sb_heq
+  Nat explicit: a  Nat explicit: b
+  ' HEq a $ b $ explicit: h
+  b a =
+:= by
+  ' h by-subst
+  by-rfl
+end sb_heq
+
+\ The right side a variable only after whnf (id m): the reduced equation
+\ asserted, introduced, the old one cleared (substReduced).
+\ Lean: theorem sb_reduced (n m : Nat) (h : n = id m) : m = n := by
+\         subst h
+\         rfl
+theorem sb_reduced
+  Nat explicit: n  Nat explicit: m
+  n ' id m $ = explicit: h
+  m n =
+:= by
+  ' h by-subst
+  by-rfl
+end sb_reduced
+
+\ A variable: its equation found (substVar), b on the right.
+\ Lean: theorem sb_var_right (a b : Nat) (h : a = b) : b = a := by
+\         subst b
+\         rfl
+theorem sb_var_right
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a =
+:= by
+  ' b by-subst
+  by-rfl
+end sb_var_right
+
+\ A on the left.
+\ Lean: theorem sb_var_left (a b : Nat) (h : a = b) : b = a := by
+\         subst a
+\         rfl
+theorem sb_var_left
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a =
+:= by
+  ' a by-subst
+  by-rfl
+end sb_var_left
+
+\ Several names, each in the goal the one before left.
+\ Lean: theorem sb_many (a b c : Nat) (h1 : a = b) (h2 : b = c) : c = a := by
+\         subst h1 h2
+\         rfl
+theorem sb_many
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h1  b c = explicit: h2
+  c a =
+:= by
+  by-subst[ h1 h2 ]
+  by-rfl
+end sb_many
+
+\ Nothing depends on b or h: both cleared, no Eq.ndrec (tryToSkip).
+\ Lean: theorem sb_skip (a b : Nat) (h : a = b) (p : True) : True := by
+\         subst h
+\         exact p
+theorem sb_skip
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  True explicit: p
+  True
+:= by
+  ' h by-subst
+  ' p by-exact
+end sb_skip
+
+\ A hidden hypothesis (right✝ : b = a) reverted and introduced again
+\ stays hidden; assumption still finds it.
+\ Lean: theorem sb_hidden (a b c : Nat) (h : a = b ∧ b = a) : b = a := by
+\         obtain ⟨hab, _⟩ := h
+\         subst hab
+\         assumption
+theorem sb_hidden
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = b a = ∧ explicit: h
+  b a =
+:= by
+  ' h by-obtain[ << hab _ >> ]
+  ' hab by-subst
+  by-assumption
+end sb_hidden

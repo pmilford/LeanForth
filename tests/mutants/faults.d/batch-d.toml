@@ -196,10 +196,10 @@ reason = "TB2 3a: the hypothesis's type is not changed (the pi's domain kept)"
 [[fault]]
 id = "tb3a-change-name-lost"
 file = "src/front/meta-tactic/assert.fs"
-old = '''  mat-old-local mat-own over ! dup >r 0 1 r> cell+ lf-goal-intro-n ;'''
-new = '''  0 over ! dup >r 0 1 r> cell+ lf-goal-intro-n ;'''
+old = '''  swap mat-own over ! dup >r 0 1 r@ cell+ lf-goal-intro-n r> cell+ @ ;'''
+new = '''  nip 0 over ! dup >r 0 1 r@ cell+ lf-goal-intro-n r> cell+ @ ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
-reason = "TB2 3a: the changed hypothesis comes back inaccessible, so a later step cannot name it"
+reason = "TB2 3a: the changed hypothesis comes back inaccessible, so a later step cannot name it (lf-goal-intro1-as, shared since TB2 E2a with heqToEq and substEq)"
 
 # ---- meta-tactic/symm.fs, app-builder.fs
 [[fault]]

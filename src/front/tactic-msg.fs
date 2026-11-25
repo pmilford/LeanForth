@@ -11,6 +11,10 @@
 \       instantiated, on its own line, indented, to the message's sink
 \   lf-tac-inline. ( term -- outcome )  inlineExpr: `term`
 \   lf-tac-quoted. ( term -- outcome )  m!"'{e}'": 'term' (clear's)
+\   lf-tac-quoted-after. ( term -- outcome )  a space, then 'term' (a name
+\       in clear's and subst's first lines)
+\   lf-tac-nothing. ( x -- outcome )  prints nothing (a framed term with no
+\       part before its goal: subst's, rewrite's)
 \   lf-tac-spaced. ( term xt -- outcome )  a space, `term`, then xt ( --
 \       outcome ) when that printed (getFVarId's and rcases' first lines)
 \   lf-tac-line. ( c-addr u term -- outcome )  a label, then the term
@@ -71,6 +75,8 @@ require ./meta-must.fs
 : tmg-in ( term c-addr -- outcome ) dup tmg-mark swap lf-tac-term. swap tmg-mark ;
 : lf-tac-inline. ( term -- outcome ) s" `" drop tmg-in ;
 : lf-tac-quoted. ( term -- outcome ) s" '" drop tmg-in ;
+: lf-tac-quoted-after. ( term -- outcome ) s"  " lf-pp-emit lf-tac-quoted. ;
+: lf-tac-nothing. ( x -- outcome ) drop outcome-ok ;
 : lf-tac-spaced. ( term xt -- outcome )
   >r s"  " lf-pp-emit lf-tac-inline. r> ok-and ;
 : lf-tac-goal-of. ( goal -- outcome ) s\" \n" lf-pp-emit lf-goal-print ;

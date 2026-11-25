@@ -51,7 +51,7 @@ require ./meta-must.fs
 : lf-replace-fvar ( e fvar v -- e' ) swap 1 frp-cells ['] frp-at lf-with-cells ;
 
 \ ---- Pairs, and finding a key.
-: lf-fsubst-pair ( fvar e -- pair ) 0 rot lf-run+ swap lf-run+ ;
+: lf-fsubst-pair ( fvar e -- pair ) lf-run2 ;
 : fsb-key ( pair -- fvar ) 0 run@ ;
 : fsb-val ( pair -- e ) 1 run@ ;
 : fsb-is? ( fs fvar k -- fs fvar flag ) >r over r> run@ fsb-key over = ;
