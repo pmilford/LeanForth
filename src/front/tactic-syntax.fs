@@ -511,11 +511,10 @@ end-structure
 : lft-header ( kind -- ) lft-headed-new lft-tag! lft-headed ;
 
 \ A block of names ends at pos: it held a tactic (lft-held), and its
-\ names go (with cut?, lft-block-close; always, lft-names-end).
+\ names go with cut? (lft-block-close).
 : lft-cut-names ( addr -- ) tac-entries @ lfa-entries-cut ;
 : lft-close-names ( pos addr cut? -- ) if lft-cut-names else drop then lft-close ;
 : lft-block-close ( pos cut? -- ) lft-open lft-rec lft-held swap lft-close-names ;
-: lft-names-end ( pos -- ) true lft-block-close ;
 \ An alternative ends with its last tactic, at the next | or by-end, its
 \ names cut when its shape says so (an induction's; not first's, whose
 \ goals keep them, TACTIC_BLOCKS.md 2).

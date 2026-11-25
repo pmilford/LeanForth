@@ -14216,8 +14216,8 @@ quick = true
 [[fault]]
 id = "fe-tac-hypothesis-scope-leak"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-names-end ( pos -- ) true lft-block-close ;'''
-new = ''': lft-names-end ( pos -- ) false lft-block-close ;'''
+old = ''': lft-alt-cut ( -- ) lft-read-from tac-block-cuts lft-open-has? lft-block-close ;'''
+new = ''': lft-alt-cut ( -- ) lft-read-from false lft-block-close ;'''
 test = "$GFORTH tests/front/tactic-syntax.fs"
 reason = "FE1g-2: an alternative's or case's hypotheses stay in scope after its block ends (ih after by-end: error 1 expected)"
 

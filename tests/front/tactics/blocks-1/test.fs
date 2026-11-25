@@ -270,6 +270,12 @@ T{ hh s" by-probe-try { ' k by-exact } by-end ' h by-exact" tactic-ran -> 0 }T
 \ q1 is accepted; review tb2-blocks1 finding 2).
 T{ hh s" by-probe-try b a = by-have-by: j ' h by-exact by-end by-end ' h by-exact" tactic-ran
    -> 0 }T
+\ A done block opened with recover false inside a block that recovers (a
+\ by-any-goals pass): an error leaving it is final by the recover below
+\ it, true (490 while the pass's save is open), not by its own, false
+\ (which would let the pass take it back: 469). TB2 blocks slice 3.
+T{ hh s" by-any-goals by-probe-block ' k by-exact by-end by-end" tactic-ran -> 490 }T
+lf-tac-forget
 \ Q8: a term error (467, the logged class) in a have-by inside the
 \ handler is thrown, as Lean's errToSorry, cleared by withoutRecover and
 \ kept by the have-by's fresh Tactic.run, throws it, and the handler

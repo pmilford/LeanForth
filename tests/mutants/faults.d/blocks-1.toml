@@ -118,7 +118,7 @@ file = "src/front/tactic-run.fs"
 old = ''': lfr-below-recover ( k -- flag ) 1- lfr-recover-at ;'''
 new = ''': lfr-below-recover ( k -- flag ) lfr-recover-at ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
-reason = "TB2 blocks 1 review 2: whether an error leaving a nested block is final read from the block's own recover, not the one below it: blocks-1 test.fs's thrown error in a have-by in the probe try is final (96, not 0)"
+reason = "TB2 blocks 1 review 2: whether an error leaving an admitting block is final read from the block's own recover, not the one below it: blocks-1 test.fs's by-any-goals by-probe-block ' k by-exact ... text lets the pass take the error back, 469, not 490 (since TB2 blocks slice 3 a nested block reads its tfr-sorry, so a done block opened with recover false is the case)"
 
 [[fault]]
 id = "tb2b1-recover-below-first"
