@@ -558,5 +558,102 @@ T{ plant-run -> true }T
   paged? unstage context-main context-use rot context-free throw ;
 T{ leaves-paged -> true true }T
 
+\ ---------------------------------------------------------------------------
+\ The fused reads (plan 9.4.8z2, docs/design/KERNEL_TERM_READS.md): every
+\ term number from -2 to past the store's last record, input and store
+\ nodes, and some far numbers, read by core/terms.fs's words and by the
+\ chains they replaced, kept here as they were: the same validity,
+\ identity, tag, fields, data word, record address and input code; the
+\ same after the store grew (its block moved), and in a second context
+\ with its own view and store while the first keeps its own.
+: old-base ( -- n ) lf-term-view lf-tview-base @ ;
+: old-input? ( index -- flag ) old-base u< ;
+: old-slot ( index -- addr ) old-base - lf-terms store-slot ;
+: old-tin-at ( index -- addr ) 1 rshift /quad * lf-term-view lf-tview-records @ + ;
+: old-tin-code ( index -- x )
+  dup 1 and swap old-tin-at quad-head u32@ head-tag swap lf-tin-entry @ ;
+: old-tin-first@ ( index -- first )
+  dup old-tin-code dup lf-tin-plain?
+  if drop old-tin-at quad-a u32@ lf-tin-child else lf-tin-other@ drop then ;
+: old-tin-second@ ( index -- second )
+  dup old-tin-code dup lf-tin-plain?
+  if drop old-tin-at quad-b u32@ lf-tin-child else lf-tin-other@ nip then ;
+: old-valid? ( index -- flag )
+  dup old-input? if lf-tin-valid? else old-base - lf-terms store-at? then ;
+: old-id ( index -- identity | 0 )
+  dup old-valid? 0= if drop 0 exit then
+  dup old-input? if invert else old-base - lf-terms store-identity @ then ;
+: old-tag@ ( index -- tag )
+  dup old-input? if old-tin-code lf-tin-tag-mask and else old-slot u32@ then ;
+: old-first@ ( index -- first )
+  dup old-input? if old-tin-first@ else old-slot lf-term-first-at + u32@ then ;
+: old-second@ ( index -- second )
+  dup old-input? if old-tin-second@ else old-slot lf-term-second-at + u32@ then ;
+: old-data ( index -- data )
+  dup old-input? if lf-tin-data else old-slot lf-term-data-at + u32@ then ;
+: old-fields ( index -- tag first second )
+  dup old-input? if dup old-tag@ swap lf-tin-fields@ else old-slot lf-term-fields@ then ;
+: new-id ( index -- identity | 0 ) lf-term-identity 0= if 0 then ;
+variable rd   variable rd-count
+\ Whether xt-new and xt-old ( n -- x ) give the same for term number rd.
+: rd-same? ( xt-new xt-old -- flag ) rd @ swap execute >r rd @ swap execute r> = ;
+: 3= ( a b c d e f -- flag ) 3 pick = >r 3 pick = >r 3 pick = r> and r> and nip nip nip ;
+: checks-same? ( -- flag )
+  ['] lf-term-valid? ['] old-valid? rd-same? ['] new-id ['] old-id rd-same? and
+  ['] lf-term-input? ['] old-input? rd-same? and ;
+: node-same? ( -- flag )
+  ['] lf-term-tag@ ['] old-tag@ rd-same? ['] lf-term-first@ ['] old-first@ rd-same? and
+  ['] lf-term-second@ ['] old-second@ rd-same? and
+  ['] lf-term-data-word ['] old-data rd-same? and rd @ lf-term-fields rd @ old-fields 3= and ;
+\ An input number's record, its code and both; a valid store node's slot.
+: tin-both? ( -- flag ) rd @ lf-tin-record rd @ old-tin-code = swap rd @ old-tin-at = and ;
+: place-same? ( -- flag )
+  rd @ old-input? if ['] lf-tin-at ['] old-tin-at rd-same? tin-both? and
+    ['] lf-tin-code ['] old-tin-code rd-same? and exit then
+  rd @ old-valid? if ['] lf-term-slot ['] old-slot rd-same? else true then ;
+: reads-same? ( n -- flag )
+  rd ! 1 rd-count +! checks-same? place-same? and rd @ old-valid? if node-same? and then ;
+: far-same? ( -- flag )
+  max-n reads-same? max-n invert reads-same? and 1 31 lshift reads-same? and ;
+: reads-agree? ( -- flag )
+  far-same? lf-term-base lf-term-count @ + 3 + -2 do i reads-same? and loop ;
+\ Some store nodes made with sharing off, until the store's block moved.
+: term-block ( -- addr ) lf-terms store-block @ ;
+: grown ( -- moved? )
+  term-block false lf-term-sharing!
+  begin term-block over = while 977 lf-term-bvar 2drop repeat
+  true lf-term-sharing! term-block <> ;
+\ The input numbers that are terms, and the store's records.
+: node-kinds ( -- valid-inputs stores )
+  0 lf-term-base 0 ?do i lf-term-valid? - loop lf-term-count @ ;
+\ kinds.ndjson: over 1,000 input terms (lets and projections read in
+\ place) and a few store nodes.
+T{ s" tests/core/reexport/kinds.ndjson" fed node-kinds 0> swap 1000 > 0 rd-count ! reads-agree?
+   -> outcome-ok true true true }T
+lf-term-base constant kinds-base
+T{ grown reads-agree? lf-term-count @ 0> lf-term-base kinds-base = -> true true true true }T
+\ Invalid numbers are refused alike: past the store, an even number that
+\ carries no node, far numbers.
+T{ lf-term-base lf-term-count @ + dup lf-term-valid? swap new-id -1 new-id max-n lf-term-valid?
+   -> false 0 0 false }T
+\ A second context, fed marks.ndjson (copies in its store) from a stage
+\ of its own, reads its own nodes; the first context's are unchanged.
+create stg2 /stage allot
+create fdd2 /feed allot
+: fed2 ( c-addr u -- outcome )
+  16 stg2 stage-init ok? must stg2 stage-load-unchecked ok? must stg2 fdd2 lf-feed ;
+context-new throw constant ctx2
+ctx2 context-use
+T{ s" tests/core/stage-cases/marks.ndjson" fed2 lf-term-count @ 0> lf-term-base kinds-base =
+   reads-agree? -> outcome-ok true false true }T
+T{ grown reads-agree? -> true true }T
+context-main context-use
+T{ lf-term-base kinds-base = reads-agree? -> true true }T
+unstage
+ctx2 context-use  lf-name-detach stg2 stage-free  context-main context-use
+ctx2 context-free throw
+T{ rd-count @ 1000 > -> true }T
+." Fused term reads against the old chains: " rd-count @ . ." numbers agree" cr
+
 cases-done
 bye

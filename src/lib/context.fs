@@ -79,9 +79,9 @@
 \ context-unbalanced ?call-balanced call-balanced allocate0 /context-header
 \ context-owner context-bytes context-main context-seal context-sealed?
 \ context? context-idle? context-use context-record: context-store:
-\ context-walk: context-walk2: context-frames: context-slab: context-setup
-\ context-teardown context-need context-needs context-new context-free
-\ context-claim context-release context-catch. Every other word is private
+\ context-offset context-walk: context-walk2: context-frames: context-slab:
+\ context-setup context-teardown context-need context-needs context-new
+\ context-free context-claim context-release context-catch. Every other word is private
 \ (lf-lib-private; ADR 0010): tests reach it with `lf-lib-private order+`.
 \
 \ State: the layout record, context-layout, with the stated stack needs
@@ -275,6 +275,14 @@ lf-lib set-current
   >r 2dup r@ store-plan? 0= abort" context-store: bad shape"
   2dup store-size ['] member-store member: member-shape!
   r> over member-base ! member-add ;
+\ The offset from the current context's start of addr, an address inside
+\ one of its members (a field of a record member, a store header's cell):
+\ the same in every context, so a word can add it, as one literal, to
+\ lf-context @, as a member's own address word does (member-body), and
+\ reach that cell with one fetch of the context. Example:
+\   2 cells context-record: pos   pos cell+ context-offset constant pos-y
+\   : pos-y@ ( -- n ) lf-context @ pos-y + @ ;
+: context-offset ( addr -- u ) lf-context @ - ;
 lf-lib-private set-current
 \ A context's walks are growable (walk.fs): capacity is their first room;
 \ their heap blocks are freed with the context (walks-free, below).

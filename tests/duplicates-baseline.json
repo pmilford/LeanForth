@@ -931,6 +931,16 @@
   "reason": "false positive: a two-way choice on a flag or a field between two different words",
   "tokens": 7
  },
+ "7b1d368100da": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/core/terms.fs:lf-term-first@",
+   "src/core/terms.fs:lf-term-second@"
+  ],
+  "reason": "accepted: the term store's two field readers, from the input tier or the own slot, the base fetched once (plan 9.4.8z2, the same pair as before); they are the checker's hottest words, and a shared word taking the field would cost every read a call",
+  "tokens": 13
+ },
  "7c73ccf93620": {
   "copies": 4,
   "kind": "shape",
@@ -1233,16 +1243,6 @@
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
   "tokens": 7
- },
- "9a3f5742b584": {
-  "copies": 2,
-  "kind": "shape",
-  "members": [
-   "src/core/terms.fs:lf-term-first@",
-   "src/core/terms.fs:lf-term-second@"
-  ],
-  "reason": "accepted: the term store's two field readers, from the input tier or the own slot, one line each; they are the checker's hottest words, and a shared word taking the field would cost every read a call",
-  "tokens": 10
  },
  "9c4d1e9f37a9": {
   "copies": 2,

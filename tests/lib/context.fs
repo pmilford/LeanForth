@@ -107,11 +107,25 @@ T{ c-rec c-terms < c-terms c-levels < -> true true }T
 T{ c-levels c-walk < c-walk c-pairs < -> true true }T
 T{ c-pairs 3 walk2-size + lf-context @ context-bytes + > -> false }T
 T{ c-rec lf-context @ - /context-header < c-rec aligned c-rec = -> false true }T
+\ context-offset (plan 9.4.8z2): the offset of a cell inside a member (a
+\ record's second cell, a store header's count) from the context's start;
+\ a word adding it to lf-context @ reaches that cell in the current
+\ context, after the main context moved and in a new context (below).
+c-rec cell+ context-offset constant rec-y
+c-terms store-count context-offset constant terms-count
+: rec-y@ ( -- x ) lf-context @ rec-y + @ ;
+: terms-count@ ( -- n ) lf-context @ terms-count + @ ;
+T{ rec-y c-rec cell+ lf-context @ - = rec-y c-rec lf-context @ - - -> true 1 cells }T
+T{ c-terms store-count lf-context @ - terms-count = c-rec ' context-offset rs-checked
+   c-rec lf-context @ - = -> true true }T
+T{ 9 c-rec cell+ ! rec-y@ terms-count@ c-terms store-count @ = 0 c-rec cell+ ! -> 9 true }T
 
 \ A later declaration keeps the main context's contents, wherever it moves.
 42 c-rec !  c-terms store-new 2drop
 1 cells context-record: c-late
 T{ c-rec @ c-terms store-count @ c-late @ lf-context @ context-main = -> 42 1 0 true }T
+T{ 8 c-rec cell+ ! rec-y@ terms-count@ c-rec cell+ context-offset rec-y = 0 c-rec cell+ !
+   -> 8 1 true }T
 
 \ Setup words run at once in the main context, and in every new context.
 variable setups  0 setups !
@@ -230,6 +244,11 @@ context-main context-use
 T{ c-rec @ c-terms store-count @ -> 42 1 }T
 ctx1 context-use
 T{ c-rec @ c-terms store-count @ -> 7 2 }T
+\ In the new context the same offsets reach its own cells.
+T{ c-rec cell+ context-offset rec-y = 5 c-rec cell+ ! rec-y@ terms-count@ -> true 5 2 }T
+context-main context-use
+T{ rec-y@ terms-count@ -> 0 1 }T
+ctx1 context-use  0 c-rec cell+ !
 
 \ A failing setup word: no context, the THROW code, the current context kept.
 1 hook-fails !

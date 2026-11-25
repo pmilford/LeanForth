@@ -1,0 +1,125 @@
+# Planted faults of the fused term reads (docs/design/KERNEL_TERM_READS.md, its
+# binding changes after the review; branch kernel-reads-1, 2026-11-25, plan 9.4.8z2):
+# lf-term-base and lf-tin-at read the view with one fetch of the context
+# (lib/context.fs's context-offset), lf-term-at and lf-term-id-at a store record and
+# its identity from the term store's block and capacity, the field reads and checked
+# reads fetch the base once, and hash-fmix is one definition. The rows: tests/core/
+# check-declaration-ndjson.fs, "The fused reads" (each word against the chain it
+# replaced, input and store nodes, after growth, in a second context),
+# tests/core/terms.fs, tests/lib/hash32.fs and tests/lib/context.fs. Read with
+# tests/mutants/faults.toml as one list.
+
+[[fault]]
+id = "kr1-valid-no-range"
+file = "src/core/terms.fs"
+old = '''  lf-term-base 2dup u< if drop lf-tin-valid? exit then - lf-terms store-at? ;'''
+new = '''  lf-term-base 2dup u< if drop lf-tin-valid? exit then 2drop true ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "the fused lf-term-valid? without store-at?: a number past the store's records reads as a node"
+quick = true
+
+[[fault]]
+id = "kr1-valid-no-dispatch"
+file = "src/core/terms.fs"
+old = '''  lf-term-base 2dup u< if drop lf-tin-valid? exit then - lf-terms store-at? ;'''
+new = '''  lf-term-base - lf-terms store-at? ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "the fused lf-term-valid? without the input test: every input node is taken for a store index below 0 and refused"
+
+[[fault]]
+id = "kr1-valid-input-unchecked"
+file = "src/core/terms.fs"
+old = '''  lf-term-base 2dup u< if drop lf-tin-valid? exit then - lf-terms store-at? ;'''
+new = '''  lf-term-base 2dup u< if 2drop true exit then - lf-terms store-at? ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "the fused lf-term-valid? without lf-tin-valid?: an input number that names no term (an even one carrying nothing, a leaf without its entry) is valid"
+
+[[fault]]
+id = "kr1-identity-input-unchecked"
+file = "src/core/terms.fs"
+old = '''  dup lf-tin-valid? 0= if drop false exit then lf-term-input-identity true ;'''
+new = '''  lf-term-input-identity true ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "lf-term-identity gives an identity to an input number that names no term"
+
+[[fault]]
+id = "kr1-identity-store-unchecked"
+file = "src/core/terms.fs"
+old = '''  dup lf-terms store-at? 0= if drop false exit then lf-term-id-at @ true ;'''
+new = '''  lf-term-id-at @ true ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "lf-term-identity reads an identity past the store's records (a handle to a node that does not exist)"
+
+[[fault]]
+id = "kr1-slot-raw-index"
+file = "src/core/terms.fs"
+old = ''': lf-term-slot ( index -- addr ) lf-term-base - lf-term-at ;'''
+new = ''': lf-term-slot ( index -- addr ) lf-term-at ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "the slot from a wrong base: under a view the term number is taken for the store index, the record of another node"
+
+[[fault]]
+id = "kr1-tag-raw-index"
+file = "src/core/terms.fs"
+old = '''  lf-term-base 2dup u< if drop lf-tin-tag@ exit then - lf-term-at u32@ ;'''
+new = '''  lf-term-base 2dup u< if drop lf-tin-tag@ exit then drop lf-term-at u32@ ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "lf-term-tag@ reads a store node's tag at its term number, not its store index: another record's under a view"
+
+[[fault]]
+id = "kr1-base-main-context"
+file = "src/core/terms.fs"
+old = ''': lf-term-base ( -- n ) lf-context @ lf-tview-base-at + @ ;'''
+new = ''': lf-term-base ( -- n ) context-main lf-tview-base-at + @ ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "a stale base: the main context's view in every context, so a worker with a view of its own splits its numbers at another base"
+
+[[fault]]
+id = "kr1-at-main-context"
+file = "src/core/terms.fs"
+old = '''  4 lshift lf-context @ lf-terms-at +'''
+new = '''  4 lshift context-main lf-terms-at +'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "a stale block: the main context's term store read in every context, so a worker reads another store's records"
+
+[[fault]]
+id = "kr1-id-at-records"
+file = "src/core/terms.fs"
+old = ''': lf-term-id-at ( r -- addr ) cells lf-context @ lf-terms-at + store-block @ + ;'''
+new = ''': lf-term-id-at ( r -- addr ) cells lf-context @ lf-terms-at + dup store-block @ swap store-capacity @ cells + + ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "store-identities off by the capacity: an identity read from the records' part of the block"
+
+[[fault]]
+id = "kr1-tin-at-offset"
+file = "src/core/terms.fs"
+old = ''': lf-tin-at ( index -- addr ) 1 rshift /quad * lf-context @ lf-tview-records-at + @ + ;'''
+new = ''': lf-tin-at ( index -- addr ) 1 rshift /quad * lf-context @ lf-tview-base-at + @ + ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "the fused read takes the records address from another field of the view (its base)"
+
+[[fault]]
+id = "kr1-tin-record-other"
+file = "src/core/terms.fs"
+old = '''  if drop nip quad-b u32@ lf-tin-child else nip lf-tin-other@ nip then ;'''
+new = '''  if drop nip quad-a u32@ lf-tin-child else nip lf-tin-other@ nip then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "an input node's second child read from the record's first field"
+
+[[fault]]
+id = "kr1-fmix-shift"
+file = "src/lib/hash32.fs"
+old = '''  dup 16 rshift xor hash-m1 * u32-mask and dup 13 rshift xor'''
+new = '''  dup 16 rshift xor hash-m1 * u32-mask and dup 12 rshift xor'''
+test = "$GFORTH tests/lib/hash32.fs"
+reason = "a wrong shift in the fused hash-fmix: another hash, which no table would notice"
+quick = true
+
+[[fault]]
+id = "kr1-context-offset-cell"
+file = "src/lib/context.fs"
+old = ''': context-offset ( addr -- u ) lf-context @ - ;'''
+new = ''': context-offset ( addr -- u ) lf-context @ - cell+ ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "the offset word off by a cell: a word built on it reads the next cell of the member"
+quick = true

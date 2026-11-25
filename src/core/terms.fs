@@ -169,6 +169,20 @@ store-header context-record: lf-terms
   lf-term-default /lf-term 0 lf-terms store-heap-init ok? 0= abort" terms: no heap" ;
 ' lf-terms-make context-setup
 :noname ( -- ) lf-terms store-heap-free ; context-teardown
+\ The store's header from the context in one fetch (lib/context.fs's
+\ context-offset: one literal), for the reads below (plan 9.4.8z2).
+lf-terms context-offset constant lf-terms-at
+\ A record's address from its store index r (its term number less
+\ lf-term-base) and its identity cell's: from the block and capacity of
+\ the header, without store-identities' branch, since this store is
+\ always a heap store (lf-terms-make aborts otherwise); a record is 16
+\ bytes (the shift; checked here). Unchecked, as store-slot.
+/lf-term 16 <>
+[if] .( terms.fs: lf-term-at shifts by 4, so a record must be 16 bytes) cr abort [then]
+: lf-term-at ( r -- addr )
+  4 lshift lf-context @ lf-terms-at +
+  dup store-block @ swap store-capacity @ cells + + ;
+: lf-term-id-at ( r -- addr ) cells lf-context @ lf-terms-at + store-block @ + ;
 ' lf-terms column-group: lf-term-columns
 :noname ( -- ) lf-term-columns columns-setup ; context-setup
 :noname ( -- ) lf-term-columns columns-free ; context-teardown
@@ -209,14 +223,18 @@ begin-structure /lf-tview
                                  \ is found (lf-term-horizon!)
 end-structure
 /lf-tview context-record: lf-term-view
-: lf-term-base ( -- n ) lf-term-view lf-tview-base @ ;
+\ The view's base and records address, each read with one fetch of the
+\ context (the member's and the field's offsets one literal).
+lf-term-view lf-tview-base context-offset constant lf-tview-base-at
+lf-term-view lf-tview-records context-offset constant lf-tview-records-at
+: lf-term-base ( -- n ) lf-context @ lf-tview-base-at + @ ;
 : lf-term-tier ( -- tier ) lf-term-view lf-tview-tier @ ;
 : lf-term-viewed? ( -- flag ) lf-term-tier 0<> ;
 \ Whether a number names an input node (it may still be no term).
 : lf-term-input? ( index -- flag ) lf-term-base u< ;
 \ A store record's address from its term number. Unchecked: the number
 \ names a record of the store (lf-term-valid?, not an input node).
-: lf-term-slot ( index -- addr ) lf-term-base - lf-terms store-slot ;
+: lf-term-slot ( index -- addr ) lf-term-base - lf-term-at ;
 
 \ Term numbers of the view (compact-store plan step S5, parts 4-5): the
 \ tier's record u is term 2u + 1, and term 2u is the node the record
@@ -281,9 +299,12 @@ lf-tin-binders
 lf-tin-lets
 
 \ An input record and its parts. Unchecked: index < lf-term-base.
-: lf-tin-at ( index -- addr ) 1 rshift /quad * lf-term-view lf-tview-records @ + ;
-: lf-tin-code ( index -- x )
-  dup 1 and swap lf-tin-at quad-head u32@ head-tag swap lf-tin-entry @ ;
+\ lf-tin-record gives the record's address with its code, so that a
+\ reader of one of its fields finds the record once.
+: lf-tin-at ( index -- addr ) 1 rshift /quad * lf-context @ lf-tview-records-at + @ + ;
+: lf-tin-record ( index -- addr x )
+  dup lf-tin-at tuck quad-head u32@ head-tag swap 1 and lf-tin-entry @ ;
+: lf-tin-code ( index -- x ) lf-tin-record nip ;
 : lf-tin-leaf? ( x -- flag ) lf-tin-leaf-bit and 0<> ;
 : lf-tin-plain? ( x -- flag ) lf-tin-leaf-bit lf-tin-modes or and 0= ;
 
@@ -371,11 +392,11 @@ create lf-tfields-hooks /htab-hooks allot
 : lf-tin-fields@ ( index -- first second )
   dup lf-tin-code dup lf-tin-plain? if drop lf-tin-pair@ else lf-tin-other@ then ;
 : lf-tin-first@ ( index -- first )
-  dup lf-tin-code dup lf-tin-plain?
-  if drop lf-tin-at quad-a u32@ lf-tin-child else lf-tin-other@ drop then ;
+  dup lf-tin-record dup lf-tin-plain?
+  if drop nip quad-a u32@ lf-tin-child else nip lf-tin-other@ drop then ;
 : lf-tin-second@ ( index -- second )
-  dup lf-tin-code dup lf-tin-plain?
-  if drop lf-tin-at quad-b u32@ lf-tin-child else lf-tin-other@ nip then ;
+  dup lf-tin-record dup lf-tin-plain?
+  if drop nip quad-b u32@ lf-tin-child else nip lf-tin-other@ nip then ;
 \ The binder name and information (0 explicit .. 3 instance implicit) of
 \ an input lambda or Pi, from its record (C1 keeps them for printing; the
 \ checker's rules ignore them); a let's lambda has the let's name and is
@@ -433,16 +454,20 @@ create lf-tbind-hooks /htab-hooks allot
 \ for an input node that the view holds it as a term, so
 \ a corrupted shape, seal or generation is refused at the root, never
 \ found by a read; a corrupted count still refuses every read.
+\ Each read below fetches lf-term-base once: an index below it is an
+\ input node, else index - base is the store's (plan 9.4.8z2).
 : lf-term-count-valid? ( -- flag ) lf-terms store-count-valid? ;
 : lf-term-valid? ( index -- flag )
-  dup lf-term-input? if lf-tin-valid? else lf-term-base - lf-terms store-at? then ;
+  lf-term-base 2dup u< if drop lf-tin-valid? exit then - lf-terms store-at? ;
 : lf-term-root? ( index -- flag )
   lf-term-count-valid? if lf-term-valid? else drop false then ;
 \ A live node's identity; identities never roll back and never wrap.
+: lf-tin-identity ( index -- identity true | false )
+  dup lf-tin-valid? 0= if drop false exit then lf-term-input-identity true ;
+: lf-term-store-identity ( r -- identity true | false )
+  dup lf-terms store-at? 0= if drop false exit then lf-term-id-at @ true ;
 : lf-term-identity ( index -- identity true | false )
-  dup lf-term-valid? 0= if drop false exit then
-  dup lf-term-input? if lf-term-input-identity
-  else lf-term-base - lf-terms store-identity @ then true ;
+  lf-term-base 2dup u< if drop lf-tin-identity exit then - lf-term-store-identity ;
 \ A node with its identity, 0 when it is not live (a pass then refuses it).
 : lf-term-handle ( index -- index identity ) dup lf-term-identity 0= if 0 then ;
 
@@ -453,22 +478,24 @@ create lf-tbind-hooks /htab-hooks allot
   dup u32@ over lf-term-first-at + u32@ rot lf-term-second-at + u32@ ;
 \ Unchecked: the node's tag and fields, input or store.
 : lf-term-fields ( index -- tag first second )
-  dup lf-term-input? if dup lf-tin-tag@ swap lf-tin-fields@ exit then
-  lf-term-slot lf-term-fields@ ;
+  lf-term-base 2dup u< if drop dup lf-tin-tag@ swap lf-tin-fields@ exit then
+  - lf-term-at lf-term-fields@ ;
 : lf-term-read ( index -- tag first second true | false )
   dup lf-term-valid? if lf-term-fields true else drop false then ;
 \ One field of a node. Unchecked: the index must already be validated,
 \ for instance by an earlier lf-term-read of the same node, under a
 \ checked root; no field read checks the header.
 : lf-term-tag@ ( index -- tag )
-  dup lf-term-input? if lf-tin-tag@ else lf-term-slot u32@ then ;
+  lf-term-base 2dup u< if drop lf-tin-tag@ exit then - lf-term-at u32@ ;
 \ Whether a term's tag is in a set of lf-tags (front/meta-spine.fs's
 \ lf-meta-tag-in?, moved here).
 : lf-term-in? ( index mask -- flag ) swap lf-term-tag@ swap lf-tag-in? ;
 : lf-term-first@ ( index -- first )
-  dup lf-term-input? if lf-tin-first@ else lf-term-slot lf-term-first-at + u32@ then ;
+  lf-term-base 2dup u< if drop lf-tin-first@
+  else - lf-term-at lf-term-first-at + u32@ then ;
 : lf-term-second@ ( index -- second )
-  dup lf-term-input? if lf-tin-second@ else lf-term-slot lf-term-second-at + u32@ then ;
+  lf-term-base 2dup u< if drop lf-tin-second@
+  else - lf-term-at lf-term-second-at + u32@ then ;
 \ The node's kind, by its tag, unchecked as lf-term-tag@: a tag; an
 \ application, lambda, Pi or bound variable; a binary node (two
 \ children) or a binder (lambda or Pi). A constant's is
@@ -536,8 +563,8 @@ lf-data-ranges 3 * constant lf-data-flags
   lf-tin-proj-leaf = if drop 0 else lf-tin-data@ then ;
 \ A node's data word as made. Unchecked: the index is valid.
 : lf-term-data-word ( index -- data )
-  dup lf-term-input? if lf-tin-data exit then
-  lf-term-slot lf-term-data-at + u32@ ;
+  lf-term-base 2dup u< if drop lf-tin-data exit then
+  - lf-term-at lf-term-data-at + u32@ ;
 \ Lean's cached node data, or false for a node without (see the header)
 \ or an index that is not allocated.
 : lf-term-data@ ( node -- data true | false )

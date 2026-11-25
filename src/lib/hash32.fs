@@ -34,12 +34,14 @@ $C2B2 16 lshift $AE35 or constant hash-m2
 $811C 16 lshift $9DC5 or constant fnv-basis
 16777619 constant fnv-prime
 : hash-mul ( h m -- h' ) * u32-mask and ;
-: hash-shift ( h n -- h' ) over swap rshift xor ;
 
 lf-lib set-current
-\ Murmur3's finaliser: h is 0 .. 2^32-1, and so is the result.
+\ Murmur3's finaliser: h is 0 .. 2^32-1, and so is the result. Each step
+\ h xor (h >> n), or h * m masked to 32 bits as hash-mul does, written out
+\ in one definition: it runs for every hash (plan 9.4.8z2).
 : hash-fmix ( h -- h' )
-  16 hash-shift hash-m1 hash-mul 13 hash-shift hash-m2 hash-mul 16 hash-shift ;
+  dup 16 rshift xor hash-m1 * u32-mask and dup 13 rshift xor
+  hash-m2 * u32-mask and dup 16 rshift xor ;
 \ Mix the low 32 bits of x into the hash h.
 : hash-step ( h x -- h' ) xor u32-mask and hash-fmix ;
 \ A record of three fields a, b, c: a's finaliser, then b and c mixed in
