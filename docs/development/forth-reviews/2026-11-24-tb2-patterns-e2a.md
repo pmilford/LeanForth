@@ -173,3 +173,16 @@ Fixed on branch `tb2-patterns-e2a` (2026-11-24), one commit an item:
 The side note on intro (`by-intro: h` and `by-rintro[ h ]` on `¬a = b` with `k : ¬a = a` in context, 93 where
 Lean accepts; older than the branch): a row of the intro entry in TACTIC_STATUS.md and a line of plan row 9.4.8t,
 in the documentation commit that adds this report.
+
+## Re-check of the fixes (2026-11-24)
+
+The independent re-check of the fix commits `7e9a394b..c770457c` (read only: stacks traced by hand, a count of
+every fault's text) verified findings 2 to 6 and the style points as resolved, and the five one-line edits in
+kernel, core and import files as behaviour-preserving token for token (`drop-ok` is exactly `drop outcome-ok`,
+loaded before every user): nothing the checker or the import accepts, rejects, reads or writes changes. One
+blocking item, fixed in `e679a51a`: finding 1's `lf-heq-homogeneous? ( α a β b -- α a b flag )` raised app-builder.fs's
+return-stack baseline from 38 to 42 where a factoring serves; the HEq is now read as one term
+(`lf-match-heq-term?`, `lf-heq-homogeneous? ( heq -- heq flag )`, `lf-heq-sides`), the baseline is back at 38 and
+subst.fs lost a `rot`. A note, not blocking: batch-g's test could build its two-item run with `lf-run2`. Verdict:
+merge once that factoring is in and the tier passes.
+
