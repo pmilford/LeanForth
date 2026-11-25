@@ -534,6 +534,8 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 468 | invalid | <;> follows no tactic of its block (t1 <;> t2) |
 | 453 | invalid | at[ follows no tactic word that takes a location |
 | 454 | invalid | at[ takes hypothesis names and \|-, or * alone, up to ] |
+| 490 | unsupported | Lean logs this error and goes on; a block around may take it back: not followed yet |
+| 469 | invalid | Tactic failed on all goals: |
 | 440 | invalid | Tactic `clear` failed: unknown variable |
 | 441 | invalid | Tactic `clear` failed: variable |
 | 442 | invalid | Tactic `clear` failed: target depends on |
