@@ -255,7 +255,7 @@ rr-reset rr-no-source
 : rr-on-meta ( record -- outcome )
   rr-exporter-meta ['] meta-lean-version run-record rr-lean rr-meta-one
   ['] meta-lean-githash run-record rr-githash rr-meta-one drop outcome-ok ;
-: rr-any ( record -- outcome ) drop outcome-ok ;
+: rr-any ( record -- outcome ) drop-ok ;
 : rr-handlers ( export -- )
   dup export-handlers-clear kind-count 0 do ['] rr-any i 2 pick export-handler ! loop
   ['] rr-on-meta kind-meta rot export-handler ! ;

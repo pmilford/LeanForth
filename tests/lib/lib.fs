@@ -670,6 +670,12 @@ T{ 0 step-trail ! 3 outcome-ok ' step-d ok-with ' step-e ok-with ' step-d ok-wit
   -> 3 outcome-exhausted 33 }T
 T{ 4 outcome-ok ' step-d ' withed rs-checked 4 outcome-full ' step-d ' withed rs-checked
   -> 4 outcome-ok 4 4 outcome-full 0 }T
+\ drop-ok: a step ( x -- outcome ) that accepts any x, a failing outcome
+\ or a value outside the vocabulary among them; as a step of a chain.
+T{ 5 drop-ok 7 outcome-rejected drop-ok -1 drop-ok -> outcome-ok 7 outcome-ok outcome-ok }T
+T{ 9 outcome-ok ' drop-ok ok-with 9 outcome-full ' drop-ok ok-with
+  -> 9 outcome-ok 9 outcome-full }T
+T{ 3 ' drop-ok rs-checked -> outcome-ok }T
 \ ok-each: the step ( i*x k -- i*x outcome ) for k = 0 .. n-1 while ok;
 \ it sees the values below k and may replace them (a fold); n <= 0 runs
 \ nothing. step-k keeps a trail of the k it saw and fails at k = 3.

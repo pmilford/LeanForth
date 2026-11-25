@@ -125,7 +125,7 @@ create cin-hash /import-hash allot
 : cin-level@ ( i -- level ) cells cin-levels + @ ;
 : cin-expr@ ( i -- index identity ) 2* cells cin-exprs + 2@ ;
 : cin-root ( i -- term ) cin-expr@ drop ;
-: cin-pass-by ( record -- outcome ) drop outcome-ok ;
+: cin-pass-by ( record -- outcome ) drop-ok ;
 \ Store x in cell i of a table: true, or false past its capacity.
 : cin-store ( x i table capacity -- flag )
   cin-cell if ! true else drop false then ;

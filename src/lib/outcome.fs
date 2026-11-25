@@ -5,7 +5,8 @@
 \ out of fuel (exhausted: more time would help) and running out of room
 \ (full: more memory or a larger limit would help) are distinct, and
 \ neither is ever ok. Chains of steps that stop at the first failure:
-\ outcome-and, outcome-steps, ok-and, ok-with, the ok-then and ok-keep
+\ outcome-and, outcome-steps, ok-and, ok-with, drop-ok (a step that
+\ accepts any value), the ok-then and ok-keep
 \ words, and the loops ok-each and ok-fold; the tests over every index,
 \ all? (a flag) and ok-all? (a flag and an outcome), with ok-true? their
 \ stop test, and over some index, any? and ok-any? (ok-found? its stop
@@ -76,6 +77,10 @@ get-current lf-lib set-current   \ every word below is public, in lf-lib
 \ The same for a step ( x -- outcome ) of x, which stays below for the
 \ next. Example: `file outcome-ok ['] size-ok ok-with ['] sum-ok ok-with nip`.
 : ok-with ( x outcome xt -- x outcome ) over ok? if nip over swap execute else drop then ;
+\ A step ( x -- outcome ) that accepts any x: a table's entry for a value
+\ with nothing to check, a part with nothing to print. Example:
+\ `' drop-ok , ' size-ok , 0 ,` as outcome-steps' list.
+: drop-ok ( x -- outcome ) drop outcome-ok ;
 \ The same for a step that gives a result, with one or two values kept
 \ below it for the next step: keep them and give true, or drop them, keep
 \ the result beside the failing outcome and give false.

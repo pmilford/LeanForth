@@ -147,7 +147,7 @@ end-structure
 : ly-name ( n ly -- n' outcome ) lp-names swap ly-fam ly-fam-xlate ;
 : ly-level ( n ly -- n' outcome ) lp-levels swap ly-fam ly-fam-xlate ;
 : ly-e ( n ly -- n' outcome ) lp-exprs swap ly-fam ly-fam-xlate ;
-: ly-number ( u ly -- u outcome ) drop outcome-ok ;
+: ly-number ( u ly -- u outcome ) drop-ok ;
 \ Bytes of a pool (names' or texts'): the layer's own, inside the pool.
 : ly-fam-bytes ( offset len fam -- c-addr u flag )
   >r over r@ ly-fam-first @ u< if r> drop 2drop 0 0 false exit then

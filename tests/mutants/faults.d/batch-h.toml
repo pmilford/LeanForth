@@ -1,8 +1,9 @@
 # Planted faults of case patterns, slice E2a (plan row TB2, piece E: src/front/meta-tactic/
 # subst.fs, app-builder.fs's mkEqNDRec, mkEqRec and mkEqOfHEq, revert.fs's preserveOrder,
-# rcases.fs's rfl and rintro, pattern-syntax.fs's rintro top level, tactics/subst.fs), read with
+# rcases.fs's rfl and rintro, pattern-syntax.fs's rintro top level, tactics/subst.fs, and
+# lib/outcome.fs's drop-ok), read with
 # faults.toml as one list (scripts/mutants.py). Each is caught by the test it names
-# (tests/front/tactics/batch-h/test.fs, batch-g/test.fs or batch-h/check.py).
+# (tests/front/tactics/batch-h/test.fs, batch-g/test.fs, batch-h/check.py or tests/lib/lib.fs).
 
 [[fault]]
 id = "subst-left-first"
@@ -115,3 +116,11 @@ old = '''  abr abr-major @ abl-refl? if abr abr-minor @ exit then'''
 new = '''  abr abr-major @ abl-refl? drop false if abr abr-minor @ exit then'''
 test = "$GFORTH tests/front/tactics/batch-h/test.fs"
 reason = "TB2 E2a: mkEqNDRec builds Eq.ndrec over a major Eq.refl, where Lean gives the minor itself (test.fs's mot1 rfa rfa: the minor's cell)"
+
+[[fault]]
+id = "drop-ok-keeps-value"
+file = "src/lib/outcome.fs"
+old = ''': drop-ok ( x -- outcome ) drop outcome-ok ;'''
+new = ''': drop-ok ( x -- outcome ) outcome-sane ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "TB2 E2a review (finding 3): drop-ok passes its value on as the outcome, so a table's pass-through entry fails on any value but 0 (lib.fs's 5 drop-ok expects ok)"

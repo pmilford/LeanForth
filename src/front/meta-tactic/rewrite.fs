@@ -153,7 +153,7 @@ end-structure
 : mrw-at ( a -- flag )   \ isDefEq (inferType (eAbst.instantiate1 a)) eType
   mrw mrw-abst @ swap lf-meta-instantiate1 lf-must lf-infer! mrw mrw-etype @
   lf-tac-defeq lf-must ;
-: mrw-dependent. ( x -- outcome ) ['] lf-tac-nothing. mrw-motive@ mrw-framed. ;
+: mrw-dependent. ( x -- outcome ) ['] drop-ok mrw-motive@ mrw-framed. ;
 : mrw-independent ( -- )
   mrw mrw-alpha @ s" _a" lfa-intern lf-binder-default ['] mrw-at lf-with-local-decl
   0= if ['] mrw-dependent. lfa-e-tac-motive-dep lf-tac-failed then ;

@@ -116,7 +116,7 @@ require ./assert.fs
 \ A term framed: indented, then the goal after a blank line (the detail of
 \ 476 and 478); a name quoted after the first line's text.
 : msb-framed ( goal term code -- )
-  >r 0 ['] lf-tac-nothing. rot 4 ['] lf-tac-framed-with. lf-tac-detail-n
+  >r 0 ['] drop-ok rot 4 ['] lf-tac-framed-with. lf-tac-detail-n
   r> lf-tac-stop ;
 \ matchEq? of a type instantiated (instantiateMVars of each side, which
 \ gives the same nodes): its two sides.

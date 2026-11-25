@@ -160,8 +160,7 @@ end-structure
   swap lf-scratch-top? 0= if drop outcome-invalid exit then
   lf-scratch-newest lf-sentry-marks swap execute -1 lf-scratch-depth +! ;
 \ Let the newest mark go, keeping what was made since.
-: lf-scratch-kept ( scratch -- outcome ) drop outcome-ok ;
-: lf-scratch-drop ( mark -- outcome ) ['] lf-scratch-kept lf-scratch-using ;
+: lf-scratch-drop ( mark -- outcome ) ['] drop-ok lf-scratch-using ;
 \ Give back everything made since the newest mark (lf-scratch-rollback),
 \ or only its terms (lf-scratch-discard), and let it go.
 : lf-scratch-back ( mark -- outcome ) ['] lf-scratch-rollback lf-scratch-using ;

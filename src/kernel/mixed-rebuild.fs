@@ -23,7 +23,7 @@ require ../core/terms.fs
 : lf-rebuild-invalid ( -- -1 outcome ) outcome-invalid no-result ;
 : lf-rebuild-full ( -- -1 outcome ) outcome-full no-result ;
 : lf-rebuild-bad ( node frames -- -1 outcome ) 2drop lf-rebuild-invalid ;
-: lf-rebuild-keep ( node frames -- node outcome ) drop outcome-ok ;
+: lf-rebuild-keep ( node frames -- node outcome ) drop-ok ;
 \ A visit's step that returns what xt ( node frames -- result outcome )
 \ gives for its node.
 : lf-rebuild-return ( node frames xt -- result outcome frames 0 )
