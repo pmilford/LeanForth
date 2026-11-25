@@ -64,6 +64,7 @@ require ../../lib/slab.fs
 require ../../lib/memo.fs
 require ../../lib/frame.fs
 require ../../lib/context.fs
+require ../../core/terms.fs
 require ../meta-tactic/goal.fs
 require ../congr-thms.fs
 require ./types.fs
@@ -105,6 +106,7 @@ end-structure
 : sm-remember ( e' h e -- e' h ) >r 2dup r> 0 sm-cache memo-claim lf-must 2! ;
 : sm-count ( -- ) sm sm-steps @ sm sm-max @ > if lf-unported then 1 sm sm-steps +! ;
 : sm-act-e ( -- e ) sa sa-e @ ;
+: sm-i ( -- i ) sa sa-i @ ;   : sm-n ( -- n ) sa sa-n @ ;
 : sm-finish ( e' h -- e' h frames 0 ) sm-act-e sm-remember sm-pop sm-done ;
 
 \ ---- reduceStep (Main.lean:213): the steps not ported refused.
@@ -166,20 +168,20 @@ lf-tag-let lf-tag-let-nondep lf-tag-projection lf-tag-annotation lf-tag-lit 5 lf
 
 \ ---- simpAppUsingCongr (Types.lean:732): the head, then each argument.
 0 constant sm-way-simp   1 constant sm-way-inst   2 constant sm-way-dsimp
-: sm-prefix ( -- p ) sa sa-e @ sa sa-n @ sa sa-i @ - 1- lf-pp-fns ;
+: sm-prefix ( -- p ) sm-act-e sm-n sm-i - 1- lf-term-fns ;
 : sm-arg ( -- a ) sm-prefix lf-term-second@ ;
 : sm-fr! ( e h -- ) sa sa-r 2! ;
 : sm-fr@ ( -- e h ) sa sa-r 2@ ;
 : sm-next ( e h -- ) sm-fr! 1 sa sa-i +! ;
 : sm-arrow? ( -- flag ) sm-prefix lf-term-first@ lf-infer! lf-whnf-d! lf-arrow? ;
 : sm-dep-way ( -- way ) sm-arrow? 0= sm-way-dsimp and ;   \ sm-way-simp is 0
-: sm-info ( -- m ) sa sa-e @ lf-meta-head sa sa-n @ lf-meta-fun-deps lf-must ;
+: sm-info ( -- m ) sm-act-e lf-meta-head sm-n lf-meta-fun-deps lf-must ;
 : sm-way ( -- way )
-  sm-info sa sa-i @ > 0= if sm-dep-way exit then
-  sa sa-i @ lf-param-instance? lf-must if sm-way-inst exit then
-  sa sa-i @ lf-param-fwd-deps? if sm-dep-way else sm-way-simp then ;
+  sm-info sm-i > 0= if sm-dep-way exit then
+  sm-i lf-param-instance? lf-must if sm-way-inst exit then
+  sm-i lf-param-fwd-deps? if sm-dep-way else sm-way-simp then ;
 : sm-fun-only ( a -- ) >r sm-prefix sm-fr@ r> lf-simp-congr-fun sm-next ;
-: sm-more? ( -- flag ) sa sa-i @ sa sa-n @ < ;
+: sm-more? ( -- flag ) sm-i sm-n < ;
 defer sm-simp-arg ( a -- a frames xt )
 : sm-kept ( way -- ) sm-arg swap sm-way-dsimp = if sm-dsimp then sm-fun-only ;
 : sm-app-args ( -- ... frames next )

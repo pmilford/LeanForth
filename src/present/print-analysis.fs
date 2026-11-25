@@ -11,6 +11,7 @@
 \ whatever the depth.
 
 require ../lib/find.fs
+require ../core/terms.fs
 require ./print-levels.fs
 require ../core/literals.fs
 require ../core/string-literals.fs
@@ -26,10 +27,9 @@ require ../core/unsupported-forms.fs
 lf-tag-app lf-tag-projection 2 lf-tags constant lf-pp-app-tags
 : lf-pp-app-tag? ( tag -- flag ) lf-pp-app-tags lf-tag-in? ;
 : lf-pp-applied? ( term -- flag ) lf-pp-tag if lf-pp-app-tag? else false then ;
-\ Unchecked: k bodies down a chain, k functions down a spine. A negative
-\ k (only after a forbidden reset from a sink) counts as none.
+\ Unchecked: k bodies down a chain. A negative k (only after a forbidden
+\ reset from a sink) counts as none.
 : lf-pp-bodies ( node k -- node' ) 0 max 0 ?do lf-term-second@ loop ;
-: lf-pp-fns ( node k -- node' ) 0 ?do lf-term-first@ loop ;
 \ Comparisons answer inside the printer with ok for equal and rejected for
 \ different; rejected here is an answer, never a verdict, and
 \ lf-pp-decided turns it into a false flag beside ok. Any other outcome is
@@ -270,7 +270,7 @@ lf-tag-projection lf-tag-let lf-tag-let-nondep 3 lf-tags constant lf-pp-pair-kin
 : lf-pp-visible? ( app i -- flag )
   swap lf-pp-head 2dup lf-pp-explicit? if 2drop drop true exit then
   drop lf-pp-params drop swap lf-pp-kind-at lf-binder-default = ;
-: lf-pp-arg-at ( app i -- arg ) over lf-pp-head nip 1- swap - lf-pp-fns lf-term-second@ ;
+: lf-pp-arg-at ( app i -- arg ) over lf-pp-head nip swap lf-term-arg ;
 \ How many arguments are shown; the last one shown, else -1.
 : lf-pp-arg-shown? ( app i -- app flag ) over swap lf-pp-visible? ;
 : lf-pp-shown# ( app -- count ) dup lf-pp-head nip ['] lf-pp-arg-shown? count-index ;

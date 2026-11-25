@@ -173,6 +173,14 @@ T{ x0 unsupported? -> true }T
 \ arguments is no literal (isAppOfArity 3): it is visited, and its type
 \ argument, a pi, is one dsimp would visit (unsupported, not kept).
 T{ s" Char.ofNat" lf-mk-const0 65 nlit lf-mk-app kept? lf-simp-steps -> true lf-simp-none 1 }T
+\ OfScientific.ofScientific _ _ m _ e with m and e raw literals is
+\ a literal too (isOfScientificLit); simp's slice declares no OfScientific,
+\ so the term is built by name (its shape is all sm-literal? reads; its
+\ type cannot be inferred, so simp itself is not run on it). With e no
+\ raw literal it is no literal (review low 3 of 2026-11-25).
+: raw-sci ( m e -- t ) >r >r s" OfScientific.ofScientific" lf-mk-const0 nat lf-mk-app
+  nat lf-mk-app r> lf-mk-app s" Bool.true" lf-mk-const0 lf-mk-app r> lf-mk-app ;
+T{ 2 nlit n0 raw-sci sm-literal? 2 nlit 3 nlit raw-sci sm-literal? -> false true }T
 : ofnat-f ( -- t ) s" OfNat" zero-level lf-mk-const1 nat>nat lf-mk-app 5 nlit lf-mk-app ;
 ofnat-f s" i5" binder constant i5
 : five-n ( -- e )

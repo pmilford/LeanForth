@@ -38,6 +38,8 @@ theorem simp_sub_self (a : Nat) : (a + 1) - (a + 1) = 0 := by
   simp only [Nat.sub_self]
 theorem simp_chain (a b c : Nat) (h : a = b) (h2 : b = c) : a = c := by
   simp only [h, h2]
+theorem simp_one_mul (n : Nat) : 1 * n = n := by
+  simp only [Nat.one_mul]
 theorem u_hyp_prop (h : True) : True := by
   simp only [h]
 theorem u_def (a : Nat) : Nat.add a 0 = a := by
@@ -70,5 +72,6 @@ def dump (n : Name) : MetaM Unit := do
 #eval do
   for n in [``simp_add_zero, ``simp_hyp, ``simp_hyp_whole, ``simp_true, ``simp_self,
       ``simp_symm, ``simp_prop, ``simp_same_head, ``simp_mul_zero, ``simp_mul_one,
-      ``simp_mul_one_twice, ``simp_zero_add_mul_one, ``simp_sub_self, ``simp_chain, ``u_at, ``u_hyp_prop, ``u_def, ``u_literal] do
+      ``simp_mul_one_twice, ``simp_zero_add_mul_one, ``simp_sub_self, ``simp_chain,
+      ``simp_one_mul, ``u_at, ``u_hyp_prop, ``u_def, ``u_literal] do
     dump n

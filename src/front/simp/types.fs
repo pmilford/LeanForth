@@ -25,7 +25,7 @@
 \   of the result ( e' h ) with e's last n arguments: e' applied to them,
 \   its proof none when h is, else h through Meta.mkCongrFun on each
 \   (app-builder.fs's lf-mk-congr-fun); the arguments read with
-\   term-eqv.fs's lf-meta-nth-arg (Expr.getArg!).
+\   core/terms.fs's lf-term-arg (Expr.getArg!).
 \ - lf-simp-sides ( type -- lhs rhs ): the sides of a theorem's type, an
 \   Eq; any other type unsupported (shouldPreprocess's helper theorems,
 \   slice SL3d).
@@ -37,6 +37,7 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../../lib/lib.fs
 require ../../lib/context.fs
+require ../../core/terms.fs
 require ../app-builder.fs
 
 -1 constant lf-simp-none
@@ -83,6 +84,6 @@ end-structure
 : st-congr-fun ( h a -- h' ) over lf-simp-none? if drop else lf-mk-congr-fun then ;
 : st-extra ( e' h a -- e'' h' ) >r swap r@ lf-mk-app swap r> st-congr-fun ;
 : lf-simp-extra-args ( e n e' h -- e'' h' )
-  2over nip 0 ?do 2over i swap lf-meta-nth-arg st-extra loop 2>r 2drop 2r> ;
+  2over nip 0 ?do 2over i lf-term-arg st-extra loop 2>r 2drop 2r> ;
 
 base !   \ the BASE this file was loaded with

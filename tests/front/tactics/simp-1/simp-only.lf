@@ -134,3 +134,11 @@ theorem simp_chain
 := by
   by-simp-only[ ' h ' h2 ]
 end simp_chain
+\ Lean: theorem simp_one_mul (n : Nat) : 1 * n = n := by
+\         simp only [Nat.one_mul]
+theorem simp_one_mul
+  Nat explicit: n
+  1 n * n =
+:= by
+  by-simp-only[ ' Nat.one_mul ]
+end simp_one_mul

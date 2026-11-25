@@ -925,3 +925,10 @@ lf-tag-bvar lf-tag-sort 1+ = lf-tag-lam lf-tag-app 1+ = and lf-tag-pi lf-tag-lam
 : lf-term-lam ( annotation body -- index true | false ) lf-tag-lam lf-term-binary ;
 \ Dependent function type: domain, then body. Nothing is typed.
 : lf-term-pi ( domain body -- index true | false ) lf-tag-pi lf-term-binary ;
+\ Down an application spine, unchecked as lf-term-first@ is: the function
+\ k applications up, and argument i (the first 0) of an application with
+\ n arguments (Lean's getArg!). The shared word of the peel loops the
+\ kernel, the front end and the printer had copied (review B1 of
+\ 2026-11-25).
+: lf-term-fns ( app k -- f ) 0 ?do lf-term-first@ loop ;
+: lf-term-arg ( app n i -- a ) - 1- lf-term-fns lf-term-second@ ;

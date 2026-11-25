@@ -329,4 +329,13 @@ T{ lf-tag-app tag-app ' lf-term-input-leaf-tag catch nip nip -> -2 }T
 T{ lf-tag-app 0 tag-app ' lf-term-input-leaf-twin catch nip nip nip -> -2 }T
 T{ lf-term-unshared-tags @ lf-tin-leaf-tags @ tag-app 1 lf-tin-entry @ tag-app 0 lf-tin-entry @
    -> unshared-before leaf-before app-code app-twin }T
+\ lf-term-fns and lf-term-arg (review B1 of 2026-11-25): in (#0 #1) #2
+\ the function two up is #0, one up (#0 #1); argument 0 is #1, 1 is #2.
+lf-term-reset
+0 lf-term-bvar drop constant tb0   1 lf-term-bvar drop constant tb1
+2 lf-term-bvar drop constant tb2
+tb0 tb1 lf-term-app drop tb2 lf-term-app drop constant tb012
+T{ tb012 0 lf-term-fns tb012 2 lf-term-fns tb012 1 lf-term-fns lf-term-second@
+   -> tb012 tb0 tb1 }T
+T{ tb012 2 0 lf-term-arg tb012 2 1 lf-term-arg tb012 1 0 lf-term-arg -> tb1 tb2 tb2 }T
 bye

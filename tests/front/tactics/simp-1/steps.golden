@@ -26,3 +26,5 @@
 {"goal_before":"a : Nat\n⊢ a + 1 - (a + 1) = 0","goals_after":[],"parent":0,"source":"124:3","step":1,"tactic":"simp","word":"by-simp-only["}
 {"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_chain","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
 {"goal_before":"a b c : Nat\nh : a = b\nh2 : b = c\n⊢ a = c","goals_after":[],"parent":0,"source":"135:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_one_mul","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"n : Nat\n⊢ 1 * n = n","goals_after":[],"parent":0,"source":"143:3","step":1,"tactic":"simp","word":"by-simp-only["}

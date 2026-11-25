@@ -33,6 +33,7 @@
 \ State: none of its own; simp's set (simp/theorems.fs) is emptied after
 \ each run.
 
+require ../../lib/texts.fs
 require ../tactic-api.fs
 require ../simp/main.fs
 
@@ -48,10 +49,11 @@ s" simp" tac-k-simp-only lf-tactic-lean!
   dup lf-menv-type tso-prop? 0= if lf-tac-unported then true lf-simp-add-decl ;
 \ preprocess's cases: an equation (with <-, its Eq.symm), or p = True.
 : tso-type ( h -- t ) lf-infer! ['] lf-whnf-r! lf-with-simp-index ;
+texts-begin texts+ Iff Not And Ne
+texts-end constant tso-shapes
 : tso-shaped? ( t -- flag )   \ a pi, Iff, Not, Ne or And: SL1b
-  dup lf-term-pi? if drop true exit then lf-meta-head
-  dup s" Iff" lf-meta-const-named? over s" Not" lf-meta-const-named? or
-  over s" And" lf-meta-const-named? or swap s" Ne" lf-meta-const-named? or ;
+  dup lf-term-pi? if drop true exit then
+  lf-meta-head ['] lf-meta-const-named? tso-shapes texts-find 0<> ;
 : tso-prop ( h symm? -- h' )
   if lf-tac-unported then dup tso-type tso-shaped? if lf-tac-unported then lf-mk-eq-true ;
 : tso-preprocess ( h symm? -- h' )

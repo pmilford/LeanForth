@@ -220,6 +220,11 @@ T{ ?f lf-meta-eval-nat ?f fk app lf-meta-eval-nat -> 0 false outcome-ok 0 false 
 \ on the left).
 T{ own-mark ?n mul0 fk mul0 dq ?n inst fk same own-back -> true outcome-ok true }T
 T{ own-mark fk mul0 ?n mul0 dq ?n inst fk same own-back -> true outcome-ok true }T
+\ evalNat's work slab refused at each size (slab-sweep): full, never
+\ another value.
+: eval-pass ( e -- n outcome ) lf-meta-eval-nat nip ;
+' no-stack sweep-slab-xt !
+T{ 2 ofnat 3 ofnat hadd ' eval-pass slab-sweep swept? -> true }T
 T{ succ fk app lf-meta-offset fk 2 ofnat hadd lf-meta-offset -> fk 1 true outcome-ok fk 2 true outcome-ok }T
 T{ fk lf-meta-offset 2swap 2drop -> false outcome-ok }T
 T{ fk 0 lf-meta-mk-offset zero 3 lf-meta-mk-offset swap 3 ofnat same

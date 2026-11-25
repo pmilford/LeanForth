@@ -129,7 +129,7 @@ require ./meta-spine.fs
 : lf-meta-app-of? ( t n c-addr u -- flag )
   2>r over lf-meta-args# = if lf-meta-head 2r> lf-meta-const-named?
   else drop 2r> 2drop false then ;
-: lf-meta-nth-arg ( t i n -- a ) swap - 1- 0 ?do lf-term-first@ loop lf-term-second@ ;
+: lf-meta-nth-arg ( t i n -- a ) swap lf-term-arg ;
 : lf-meta-app-arg ( t i -- a ) over lf-meta-args# lf-meta-nth-arg ;
 \ Nat.succ x (Lean's match_expr Nat.succ _): toNatLit?, isOffset,
 \ evalNat and getFunInfo's shapes.

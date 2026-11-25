@@ -233,3 +233,21 @@ old = ''': de-mode-at ( i*x xt -- j*x ) df df-flags @ df df-mode @ lf-meta-with 
 new = ''': de-mode-at ( i*x xt -- j*x ) df df-mode @ lf-meta-at ;'''
 test = "$GFORTH tests/front/simp-meta.fs"
 reason = "low 1: isDefEq's whnf steps at the flags in force, not df-flags; withImplicitConfig's defaults lost, @Eq U y y =?= @Eq Nat y y with the let U := Nat false"
+
+# core/terms.fs's spine words, shared by the front end, the printer and simp
+# (review B1 of 2026-11-25).
+[[fault]]
+id = "term-fns-second"
+file = "src/core/terms.fs"
+old = ''': lf-term-fns ( app k -- f ) 0 ?do lf-term-first@ loop ;'''
+new = ''': lf-term-fns ( app k -- f ) 0 ?do lf-term-second@ loop ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "B1: the spine walked down the argument side; the function k applications up is lost"
+
+[[fault]]
+id = "term-arg-from-end"
+file = "src/core/terms.fs"
+old = ''': lf-term-arg ( app n i -- a ) - 1- lf-term-fns lf-term-second@ ;'''
+new = ''': lf-term-arg ( app n i -- a ) nip lf-term-fns lf-term-second@ ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "B1: argument i counted from the last argument, not the first (Expr.getArg!)"

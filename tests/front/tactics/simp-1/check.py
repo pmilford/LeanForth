@@ -23,7 +23,7 @@ FILES = [(D + "simp-only.lf", ["simp_add_zero=propext", "simp_hyp=propext",
                                "simp_same_head=propext", "simp_mul_zero=propext",
                                "simp_mul_one=propext", "simp_mul_one_twice=propext",
                                "simp_zero_add_mul_one=propext", "simp_sub_self=propext",
-                               "simp_chain=propext"])]
+                               "simp_chain=propext", "simp_one_mul=propext"])]
 WRONG = [(D + "w-no-progress.lf", 500, "`simp` made no progress", ""),
          (D + "w-head-only.lf", 500, "`simp` made no progress", ""),
          (D + "w-unused-rule-closes.lf", 90, "No goals to be solved", "")]

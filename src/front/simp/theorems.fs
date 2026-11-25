@@ -41,6 +41,7 @@ require ../../lib/slab.fs
 require ../../lib/context.fs
 require ../discr-tree.fs
 require ../simp-data.fs
+require ../term-eqv.fs
 require ../app-builder.fs
 require ./types.fs
 
@@ -67,8 +68,7 @@ end-structure
 : lf-simp-thm-rfl? ( t -- flag ) sth sth-rfl @ ;
 
 \ ---- The record: found by its proof, else claimed.
-\ sth-proof and sth-decl? are a pair: 2@ gives ( decl? proof ).
-: sth-same? ( proof decl? t -- flag ) >r swap r> sth 2@ d= ;
+: sth-same? ( proof decl? t -- flag ) sth dup sth-proof @ swap sth-decl? @ d= ;
 : sth-find ( proof decl? -- t true | false )
   lf-simp-thms# 0 ?do 2dup i sth-same? if 2drop i true unloop exit then loop 2drop false ;
 : sth-new ( proof decl? -- t )
@@ -94,11 +94,10 @@ lf-tag-sort lf-tag-symbolic-sort lf-tag-constant lf-tag-fvar lf-tag-mvar lf-tag-
   2dup sth-mvars? if lf-defeq! exit then
   2dup lf-eqv! if 2drop true exit then
   sth-compound? swap sth-compound? and if lf-unported then false ;
-: sth-pair? ( l r n j -- l r n flag )
-  2>r over 2r@ swap lf-meta-nth-arg over 2r@ swap lf-meta-nth-arg
-  sth-inner? 2r> drop swap ;
+: sth-pair? ( l r j -- l r flag )
+  >r 2dup r@ lf-meta-app-arg swap r> lf-meta-app-arg swap sth-inner? ;
 : sth-args? ( l r n -- flag )
-  dup 0 ?do i sth-pair? 0= if drop 2drop false unloop exit then loop drop 2drop true ;
+  0 ?do i sth-pair? 0= if 2drop false unloop exit then loop 2drop true ;
 : sth-heads? ( l r -- flag ) lf-meta-head swap lf-meta-head swap sth-inner? ;
 : sth-perm? ( lhs rhs -- flag )
   over lf-meta-args# over lf-meta-args# over <> if drop 2drop false exit then
