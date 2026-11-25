@@ -1101,6 +1101,36 @@ slices. Measured 2026-11-11 on Init (five assorted theorems, 360 of 57,919
 declarations): accepted by LeanForth and by Lean's official checker. A slice's
 verdicts are those of its declarations only, with the same rules.
 
+### Test exports cut from Init
+
+The front end's tests run on two slices of the pinned Init export
+(lean4export 3.1.0, Lean 4.35.0 `eb6cafb7`; machine-local, in the main
+checkout's `.claude/work/IM/init.ndjson`), each cut from a roots file in the
+repository: `tests/front/decide-slice` (from `decide-slice.roots`, grown
+for plan slice ops-c1) and `tests/front/patterns-slice` (from
+`patterns-slice.roots`: decide's roots and the declarations the case
+pattern slices need, TACTIC_PATTERNS.md section 5; 1,073 declarations).
+Each is made by four commands, from the repository root (shown for the
+patterns slice; the decide slice is the same with its own names):
+
+```sh
+python3 -I scripts/export-slice.py .claude/work/IM/init.ndjson \
+  $(cat tests/front/patterns-slice.roots) > tests/front/patterns-slice.ndjson
+scripts/ndjson-reexport.sh tests/front/patterns-slice.ndjson COPY   # a fixed point: "identical"
+python3 scripts/export_manifest.py tests/front/patterns-slice.ndjson
+scripts/export-elab.sh tests/front/patterns-slice.elab.ndjson \
+  tests/front/patterns-slice.ndjson Init                            # pinned Lean
+```
+
+The slicer keeps the export's order and header; the re-export must print
+"identical" (the review of slice E2b reproduced the committed file byte for
+byte, sha256 `ade176ae…`); the manifest is written beside the export
+(`.ndjson.manifest.json`), and `export-elab.sh` writes the elaboration data
+and records its SHA-256 in that manifest (`elab_records_sha256`).
+`bin/leanforth check` verifies the manifest by default, and batch-h2's
+`test.fs` fails when a declaration the design lists is missing. The two
+slices are nearly equal (plan row 9.4.8v: one is to be retired).
+
 ### Engine gate
 
 `bin/leanforth` runs `check`, `replay` and `print` on `gforth-fast` by default
