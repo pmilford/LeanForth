@@ -11,3 +11,5 @@ src/front/fvar-subst.fs:fsb-val  the term of a substitution's pair, not another 
 src/front/meta-tactic/meta-induction.fs:lf-rinfo-decl  a field of RecursorInfo's run, not ElimInfo's (elim.fs's lf-elim-decl reads another record at the same cell)
 src/front/rcases.fs:rcs-target@  the target of a pending run's first triple (node, s, target), not another record's third cell
 src/front/elab-data.fs:ed-type@  the type field of a staged declaration, beside elab-decl-name its name field: two fields, not a copy
+src/core/terms.fs:lf-term-fns  the shared word the kernel's copies (lf-iota-peel, lf-quot-peel and the others) move to in plan row 9.4.8z2 (review B1 of 2026-11-25); src/kernel is not changed on branch simp-sl1a-1
+src/core/terms.fs:lf-term-arg  the shared word the kernel's lf-iota-arg, lf-ind-arg and the others move to in plan row 9.4.8z2 (review B1 of 2026-11-25)

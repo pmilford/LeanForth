@@ -61,8 +61,8 @@ end-structure
 : sr-pair ( i -- thm extra ) 2* sr-cands slab-at 2@ swap ;
 
 \ ---- tryTheoremCore's term: e less its extra arguments, and those.
-: srt-e+n ( -- e n ) srt srt-e @ srt srt-n @ ;
-: sr-extras ( h e' -- e'' h' ) swap srt-e+n 2swap lf-simp-extra-args ;
+: srt-e@ ( -- e ) srt srt-e @ ;   : srt-n@ ( -- n ) srt srt-n @ ;
+: sr-extras ( h e' -- e'' h' ) swap srt-e@ srt-n@ 2swap lf-simp-extra-args ;
 
 \ ---- getValue and the telescope.
 : sr-mvar ( app mvar kind -- app' ) drop dup sr-xs slab-push lf-must lf-mk-app ;
@@ -73,7 +73,7 @@ end-structure
   sr-xs slab-clear sr-value >r dup lf-infer! r> ['] sr-mvar
   lf-forall-meta-telescope-reducing sr-keep ;
 : sr-sides ( -- lhs rhs ) srt srt-type @ lf-simp-sides ;
-: sr-e0 ( -- e ) srt-e+n lf-term-fns ;
+: sr-e0 ( -- e ) srt-e@ srt-n@ lf-term-fns ;
 : sr-unifies? ( -- flag ) sr-sides drop sr-e0 ['] lf-defeq! lf-with-simp-meta ;
 
 \ ---- synthesizeArgs: an unassigned argument of a proposition or of a

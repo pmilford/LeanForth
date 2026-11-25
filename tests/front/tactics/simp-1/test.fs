@@ -282,7 +282,7 @@ T{ a0 simp drop -> c0 }T
 \ A proof is kept whole, even one with an argument a rule rewrites:
 \ Eq.refl (n + 0) (proof-visited).
 s" Nat.add_zero" set-of
-T{ n+0 lf-mk-eq-refl dup simp >r = r> -> true lf-simp-none }T
+T{ n+0 lf-mk-eq-refl kept? -> true lf-simp-none }T
 
 \ ---- 7. by-simp-only[ ] through its text: closed by of_eq_true or
 \ True.intro, a target replaced with a proof (h) or by defeq (Nat.add_zero
