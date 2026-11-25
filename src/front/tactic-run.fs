@@ -977,17 +977,16 @@ lfr-states# 2* 0 xt-table: lfr-states
 \ goes down the frames from the top: one that admits makes it final (Lean
 \ logs it: closeUsingOrAdmit when the block below recovers, a nested
 \ block, Term.runTactic, when its own errToSorry is true, review
-\ tb2-blocks1 finding 1; lfr-mark: 490 while a save is open); one that
-\ holds a save and whose mode takes errors (mode-fail) has the state put
-\ back to its save, the error forgotten, and its mode-fail run, and the
-\ loop goes on; none above base, or any other code, is thrown on.
+\ tb2-blocks1 finding 1, which is the block below's recover too, as
+\ recover implies errToSorry, review tb2-blocks3 finding 1; lfr-mark:
+\ 490 while a save is open); one that holds a save and whose mode takes
+\ errors (mode-fail) has the state put back to its save, the error
+\ forgotten, and its mode-fail run, and the loop goes on; none above
+\ base, or any other code, is thrown on.
 : lfr-below-recover ( k -- flag ) 1- lfr-recover-at ;
 : lfr-frame-flag? ( k bit -- flag ) swap lfr-mode-at swap lfr-mode-flag? ;
-: lfr-own-sorry ( k -- flag ) lfr-frame tfr-sorry @ ;
-: lfr-admit-final? ( k -- flag )
-  dup lfr-fresh-recover lfr-frame-flag? if lfr-own-sorry else lfr-below-recover then ;
 : lfr-final-at? ( k -- flag )
-  dup lfr-admits lfr-frame-flag? if lfr-admit-final? else drop false then ;
+  dup lfr-admits lfr-frame-flag? if lfr-below-recover else drop false then ;
 : lfr-handler? ( k -- flag )
   lfr-frame dup lfr-saved? swap tfr-mode @ mode-fail @ 0<> and ;
 \ (The topmost frame that decides; one below base is the caller's loop's.)

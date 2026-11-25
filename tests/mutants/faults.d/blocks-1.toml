@@ -107,7 +107,7 @@ reason = "TB2 blocks 1 review 6: a macro's rules run withoutRecover as first's (
 id = "tb2b1-final-never"
 file = "src/front/tactic-run.fs"
 old = ''': lfr-final-at? ( k -- flag )
-  dup lfr-admits lfr-frame-flag? if lfr-admit-final? else drop false then ;'''
+  dup lfr-admits lfr-frame-flag? if lfr-below-recover else drop false then ;'''
 new = ''': lfr-final-at? ( k -- flag ) drop false ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
 reason = "TB2 blocks 1: an error leaving an admitting block over one that recovers is not final: blocks-1 test.fs's brace in a have-by in the probe try is taken back (not 490 final, TB2 blocks slice 3)"

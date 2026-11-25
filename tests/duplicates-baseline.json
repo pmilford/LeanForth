@@ -1601,7 +1601,7 @@
    "src/front/tactic-run.fs:lfr-advance",
    "src/front/tactic-run.fs:lfr-alt-mode"
   ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after the front branches merge; came with main's s2-unfold and s1-synth-b)",
+  "reason": "planned: 9.4.8k front batch (reuse-front, after the front branches merge; came with main's s2-unfold and s1-synth-b) for ed-lv-object and lfr-advance; lfr-alt-mode (TB2 blocks 3) only shares the shape, a flag choosing one of two constants, no copy to extract (review tb2-blocks3 finding 4)",
   "tokens": 7
  },
  "c8ab582adafb": {
@@ -1645,7 +1645,7 @@
    "src/kernel/env-schedule.fs:lf-sch-builtins-make",
    "src/program/verify-runner.fs:pv-work"
   ],
-  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front",
+  "reason": "planned: 9.4.8k front batch (reuse-front, after s2-unfold merge A): every copy in src/front but lft-bare-alt (TB2 blocks 3), which shares only lft-arrow! lft-opened with lft-headed: a shape, no copy to extract (review tb2-blocks3 finding 4)",
   "tokens": 6
  },
  "cb3247c9476a": {
