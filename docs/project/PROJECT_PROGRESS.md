@@ -30,6 +30,15 @@ status changes when this date is older than them. Stages are those of the
 
 **Now**
 - 2026-11-24, 22:06: plan row TB2's case patterns, slice E2a, are **done** on main da2dd131 (done check [2026-11-24-tb2-patterns-e2a-done.md](../development/done-checks/2026-11-24-tb2-patterns-e2a-done.md): the checker's own 9 theorems accepted, 5 wrong variants refused, after a first NOT DONE for a gap in the reference; pushed, origin/main 27ab87d4). In work on their branches: pattern slice E2b (`tb2-patterns-e2b`), the `--jobs` default of 4 with the workers' busy and waiting time in `--resources` (`jobs-default`, under Forth review); the design of `simp` is written and under its design review. Earlier:
+- 2026-11-24, 20:50: the Later list's parallel items 1 and 2 are **tested on branch `jobs-default`**, not
+  Forth-reviewed, not merged, not done. (1) `check` without `--jobs` runs 4 workers, or the hardware threads when
+  fewer (owner, 2026-11-23, [OWNER_DECISIONS.md](OWNER_DECISIONS.md)); a LeanForth text, `--record`, `print` and
+  `replay` stay one at a time; same output as `--jobs 1` on every small export of the command-line tests; `Init`
+  1,014.8 s at `--jobs 1` against 287.0 s with the default; small exports no slower, so no size rule. (2)
+  `--resources` and the JSON report's `measured` give a run with workers' plan and jobs' run times and the busy and
+  waiting seconds of the driving task and of each worker (on `Init` at 4 workers: each worker waits about 8 of
+  281 s, the driving task is busy 23 s), and the snapshot save as a phase; optional JSON members within versions
+  0.4 and 0.5. Next: the Forth review, the tier, the merge. Earlier:
 - 2026-11-24, 20:34: plan row TB2's case patterns, slice E2a, are **tested on branch `tb2-patterns-e2a` and
   Forth-reviewed** ([review](../development/forth-reviews/2026-11-24-tb2-patterns-e2a.md)): findings 1-6 and style
   points a-d fixed on the branch (one HEq reader and `lf-heq-homogeneous?` in app-builder.fs; `lf-run1` beside
@@ -285,10 +294,12 @@ status changes when this date is older than them. Stages are those of the
   and the owner's order of the same day (none started; fitted in beside the tactic slices, lower priority, by
   complexity; not before the usage reset of 2026-11-24):
   1. `--jobs` defaults to 4 (owner: "so the rest of the computer is still ok to run"; 1 today; 4 workers are 3.5
-     times faster on Init), the verdicts unchanged; the user documents give the measured curve.
+     times faster on Init), the verdicts unchanged; the user documents give the measured curve. **Tested on
+     branch `jobs-default` (2026-11-24), not reviewed, not merged.**
   2. Performance monitoring in `--resources` (owner: "the stall time monitor should be there, along with other
      performance monitoring items"): each worker's busy and waiting seconds, the driver's time, the planning time,
-     the stage, feed and publish phases.
+     the stage, feed and publish phases. **Tested on branch `jobs-default` (2026-11-24), not reviewed, not merged**:
+     publishing is the driving task's busy time; the snapshot save is a phase of its own.
   3. One process for many texts (owner's question of 2026-11-23): a Forth program loads the library once (an export,
      checked, or a snapshot), then for each `.lf` file runs it, resets the front end's state and goes on, each file
      with its own verdict and exit status; the tactic tests' drivers then pass their files in one call, where today

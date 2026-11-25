@@ -429,7 +429,7 @@ wrong word builds a different term, which the checker checks as it is.
 | Command | What it does |
 | --- | --- |
 | `check [--env EXPORT \| --snapshot FILE] [--no-manifest] [--fuel N] [--resources] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--memory-per-check MB] [--elab-data DATA] [--elab-fuel N] [--steps FILE\|-] FILE.lf` | Check a [LeanForth text](#checking-leanforth-text): its declarations built by LeanForth's words and checked as an export's, against the library export EXPORT (its manifest checked unless `--no-manifest`) or a snapshot FILE when one is given; a text that stops with an error is not checked; DATA, the library's [elaboration data](../programming/ELABORATION_DATA.md), is checked against the library first, and refused data stops the run |
-| `check [--no-manifest] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--memory-per-check MB] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs); with `--memory-per-check MB`, give each check [at most MB megabytes of scratch](#memory-per-check---memory-per-check); with `--progress`, write [a status line](#progress-and-partial-results---progress) to standard error every minute; with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
+| `check [--no-manifest] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--jobs N] [--progress[=SECONDS]] [--memory-per-check MB] [--save-snapshot FILE] EXPORT` | Check every declaration of a Lean export of any size, in file order; with `--resources`, also print the [resource report](#the-resource-report); with `--json`, print [one JSON report](#json-output) instead of text; with `--jobs N`, check with [N workers at once](#parallel-checking---jobs) (default 4); with `--memory-per-check MB`, give each check [at most MB megabytes of scratch](#memory-per-check---memory-per-check); with `--progress`, write [a status line](#progress-and-partial-results---progress) to standard error every minute; with `--save-snapshot FILE`, also write the checked environment to FILE ([snapshots](#snapshots---save-snapshot-and---snapshot)) |
 | `check --snapshot FILE [--snapshot LAYER ...] [--fuel N] [--resources] [--json] [--checked] [--strict-axioms] [--any-lean-version] [--no-manifest] [--jobs N] [--save-snapshot LAYER] [--snapshot-stale-ok] [EXPORT]` | Report the verdicts a [snapshot](#snapshots---save-snapshot-and---snapshot) and its layers hold, each labelled as taken from it and not re-checked (of one of the two previous verdict versions, [carrying](#older-snapshots-two-verdict-versions-back) what this build's changes cannot reach and checking the rest); with EXPORT, check it against them, taking what they vouch for and checking the rest, and with `--save-snapshot`, write what was checked as a layer; without EXPORT, `--save-snapshot NEW` writes the snapshot again with this build's versions (an upgrade): for development and research only |
 | `check [--no-manifest] [--fuel N] [--checked] [--strict-axioms] --record RECORD EXPORT` | Check a small export (read straight into the checker's stores) and also write its [run record](#run-records-and-replay) |
 | `replay [--no-manifest] [--fuel N] [--checked] EXPORT RECORD` | Check the export again and compare the new run record with RECORD; print the replay report |
@@ -488,7 +488,8 @@ Options:
   `--checked`).
 - `--jobs N` (`check` only, not with `--record`) checks with N workers at
   once ([parallel checking](#parallel-checking---jobs)); N is at least 1,
-  and 1, the default, checks one declaration at a time. The output is the
+  and 1 checks one declaration at a time; the default is 4 (owner,
+  2026-11-23), one for a LeanForth text and with `--record`. The output is the
   same whatever N is. N is cut to the number of cores (and to the job
   pool's queue of 1024): more workers could not run at once. The workers
   share one copy of the input; each adds only its own scratch and caches
@@ -915,10 +916,56 @@ step of plan task 6.5.2 can keep it, with a change to the checker.
 
 `check --jobs N` checks with N workers at once (plan tasks 6.5.4 and
 7.3.1, 2026-11-11; its [kernel] review is pending). The output is the
-same as with `--jobs 1`, the default, byte for byte but for the resource
-report's times, memory and workers line, and the JSON report but for
-`measured`: every verdict, diagnostic and fuel count, the counts and the
-exit status. How:
+same as with `--jobs 1`, one declaration at a time, byte for byte but for
+the resource report's times, memory and workers lines, and the JSON
+report but for `measured`: every verdict, diagnostic and fuel count, the
+counts and the exit status.
+
+**The default is 4 workers** (owner, 2026-11-23: "make the jobs default 4,
+so the rest of the computer is still ok to run"; until then it was 1):
+`check EXPORT` and `check --snapshot FILE [EXPORT]` without `--jobs` run 4
+workers, or as many as the machine has hardware threads when that is
+fewer (the count Linux lists in `/sys/devices/system/cpu/online`; a host
+without that file counts one, and so checks one at a time, as it would
+with any `--jobs`). `--jobs N` still sets the count, `--jobs 1` one at a
+time. Three runs stay one at a time without `--jobs`: a LeanForth text
+(`FILE.lf`, whose input no worker can share; the note "--jobs does not
+apply to LeanForth text yet" is printed only when `--jobs N` above 1 is
+given), `check --record` (whose reader is serial; an explicit `--jobs N`
+above 1 with it is still a mistake, exit 4), and `print` and `replay`,
+which take no `--jobs`. The resource report's workers line says where the
+count came from: `workers: 4 (the default), on 10 cores`, or
+`(--jobs)`.
+
+Why 4: on this machine (Ryzen 5 7600X, 5 cores of 2 threads each, 39 GB)
+the speed-up per CPU second falls past 4 workers, because two threads
+then share a core, and the stage and the feed stay serial. All of `Init`
+(59,349 declarations, 345 MB, all accepted; `check --resources --jobs N`
+on gforth-fast, load about 0.1, measured 2026-11-23,
+[PARALLEL_REVIEW.md](../development/PARALLEL_REVIEW.md)):
+
+| workers | wall s | user CPU s | speed-up | check CPU against 1 worker | peak memory | feed s |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 969.8 | 969.0 | 1.00 | 1.00 | 614 MB | 1.4 |
+| 2 | 524.1 | 1,020.5 | 1.85 | 1.06 | 783 MB | 2.7 |
+| **4** | **279.3** | **1,035.1** | **3.47** | **1.07** | **907 MB** | **4.1** |
+| 8 | 188.6 | 1,297.7 | 5.14 | 1.34 | 1,025 MB | 7.0 |
+| 10 | 176.1 | 1,442.9 | 5.51 | 1.49 | 1,111 MB | 8.4 |
+
+So 4 workers give 3.5 times the speed for 7% more CPU and leave half the
+cores free; 10 are the fastest here (`--jobs 10`). Small exports are not
+slower with the default (2026-11-24, gforth-fast, median of 7 runs each,
+`check --no-manifest`, `--jobs 1` against the default): `chain.ndjson` (1
+declaration) 0.282 against 0.290 s, `jobs/wide60.ndjson` (60) 0.281
+against 0.284 s, within the runs' spread; `nested.ndjson` (107) 0.383
+against 0.316 s; the tests' 579-declaration slice 0.98 against 0.56 s and
+the 1,291-declaration slice 4.26 against 1.97 s; all of `Init` 1,014.8 s
+(`--jobs 1`) against 287.0 s (the default), 3.5 times faster, at a load of
+2 to 5 from other runs. No input is so small that
+the workers cost more than the noise, so the default does not depend on
+the input's size.
+
+How the run is parallel:
 
 - each worker is a context of its own that reads one shared input in
   place, the one the run fed (the staged export, its declarations, the
@@ -954,8 +1001,10 @@ exit status. How:
 (`GFORTH_ENV=off`), so a file Gforth 1.0 would load first (the one
 `GFORTH_ENV` names, or `~/.config/gforthrc0`) cannot change a run.
 
-How this is tested: the command-line tests compare `--jobs 2` to `4` with
-`--jobs 1` on every small export, text and JSON; `make
+How this is tested: the command-line tests compare `--jobs 2` to `4`, and
+the default, with `--jobs 1` on every small export, text and JSON
+(accepted, rejected, unsupported, unknown, out of fuel, over the memory
+limit per check, malformed); `make
 test-parallel-stress` checks 5,000 generated declarations 5 times (20 in
 the daily run) with twice as many workers as cores against the serial run; and the daily run
 (`make parallel-init`, [TESTING_STRATEGY.md](../development/TESTING_STRATEGY.md)) checks all of
@@ -1131,7 +1180,10 @@ progress: 754 s elapsed; 120000/729263 declarations final (16%); 119990 accepted
 
 `--resources` adds a report after the summary (plan task 6.5.2, the
 command line's part): the wall and CPU time of each phase — staging,
-feeding, checking — and of the whole run so far, in seconds; the
+feeding, checking, saving a snapshot when one is written — and of the
+whole run so far, in seconds; for a run with workers, the plan's and the
+jobs' run's seconds and each task's busy and waiting seconds ([the
+workers' time](#the-workers-time)); the
 process's peak resident memory (`VmHWM` in `/proc/self/status`; on a host
 without it, `not measured on this host`) and the bytes of heap blocks the
 stage holds while the checks run (its export-index maps, which only
@@ -1144,10 +1196,11 @@ and the ten declarations that used the most, most first, those of equal
 fuel in file order. Times and memory differ from run to run, and the
 engine with how the tool is run; everything else is the same on every
 run, as in this example, where the time, memory and engine lines are
-left out:
+left out, and one worker runs (`--jobs 1`; [the workers' time](#the-workers-time)
+shows what 4 add):
 
 ```console
-$ bin/leanforth check --resources tests/cli/inductive.ndjson | grep -v -E "^  (stage|feed|check|total) |^  (memory|engine): "
+$ bin/leanforth check --resources --jobs 1 tests/cli/inductive.ndjson | grep -v -E "^  (stage|feed|check|total) |^  (memory|engine): "
 Two: accepted; axioms: none
 Two.first: accepted; axioms: none
 Two.second: accepted; axioms: none
@@ -1165,6 +1218,52 @@ resources:
           113 Two.swap (accepted)
            58 Two (accepted)
 ```
+
+With `--save-snapshot`, a row `save` between `check` and `total` gives
+the time writing the snapshot took; without it there is no such row.
+
+#### The workers' time
+
+A run with workers (the default, or `--jobs N` above 1) adds, under the
+workers line, the wall seconds of the plan (which declaration waits for
+which) and of the jobs' run, both parts of the check phase, and what each
+task spent in the jobs' run: the driving task, which hands the checks out,
+publishes each result and rolls the worker's scratch back, is busy doing
+that and waiting for a job to end; each worker is busy checking and
+waiting when it has no check to do (the rest of the run); `total` adds the
+workers up. "Workers stalled" is their waiting time. All of `Init`, 4
+workers (the default), gforth-fast, 2026-11-24, at a load of about 5
+from other runs:
+
+```text
+  workers: 4 (the default), on 10 cores
+    checks handed out 57919, run again 0, not ready 0, forced 0, workers replaced 0
+    plan 2.947 s, jobs' run 281.181 s
+    time (s)      busy  waiting
+    driving     23.461  257.719
+    worker  1  273.475    7.705
+    worker  2  272.800    8.381
+    worker  3  273.419    7.761
+    worker  4  273.281    7.900
+    total     1092.976   31.748
+```
+
+So on `Init` the workers stall 2.8% of the jobs' run (about 8 of 281
+seconds each), and the driving task, which publishes every result, is
+busy 8% of it: neither limits 4 workers.
+
+Each worker's busy and waiting seconds add up to the jobs' run (to the
+millisecond shown), and so do the driving task's. The workers time their
+own checks (two clock readings a check, in the worker); the driving task
+times its waits; the plan and the run are timed around them. A worker
+replaced after a THROW counts only its replacement's time. Counting
+costs two clock readings a declaration (about 119,000 on `Init`) and one a
+wait, well under a second of the run's 1,100 CPU seconds; it runs whether
+or not `--resources` is given, so the option only prints. Measured on
+`Init` at 4 workers on 2026-11-24, with other runs loading the machine:
+287.0 s without `--resources` (load 2 to 5), 306.8 and 316.1 s with it
+(load 5), and 415.3 s for the build before the counters (load 8 to 10):
+the differences are the machine's load, not the counting.
 
 **Fuel**, a check's unit of work, is read from the checker's own counters
 after each check. For an accepted declaration it is exact: with a budget
@@ -1211,7 +1310,7 @@ exit status 0
 | `fuel` | `perDeclaration`, `total` (of the known), `unknown` (how many are not known) and `top` (the ten that used the most) |
 | `input` | declarations, term numbers (two per expression record read in place: the record and the lambda or leaf a let or projection carries; then the store's own nodes), levels and constant references fed, and the stage's names; null when nothing was fed |
 | `exitStatus` | the command's [exit status](#exit-status), 0 to 6 |
-| `measured` | `microseconds` (wall and CPU of `stage`, `feed`, `check` and `total`; null on a host without clocks), `peakResidentBytes` and `stageBytes` (null when not known), and `engine`, the file name of the Gforth program that ran ([the engine](#the-engine); null outside `bin/leanforth`) |
+| `measured` | `microseconds` (wall and CPU of `stage`, `feed`, `check`, `save` (only with `--save-snapshot`) and `total`; null on a host without clocks), `peakResidentBytes` and `stageBytes` (null when not known), and `engine`, the file name of the Gforth program that ran ([the engine](#the-engine); null outside `bin/leanforth`); `workers`, only for a run with workers on a host with clocks: `plan` and `run` (wall and CPU of the schedule's plan and of the jobs' run, both within `check`), `driver` and each worker in `each` (`busy` and `waiting` microseconds in the jobs' run: [the workers' time](#the-workers-time)), and `busy` and `waiting`, all workers' together. `save` and `workers` are optional members added within versions 0.4 and 0.5 on 2026-11-24, as `anyLeanVersion` and `memoryPerCheck` were: a report of a run without them is as before |
 
 The engine is in `measured`, not in `settings`: it says how the run was
 made, not what it found, and keeping it apart makes the report of a

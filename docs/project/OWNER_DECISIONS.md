@@ -1948,3 +1948,19 @@ Owner, 2026-11-22, on the one page of [TACTIC_PATTERNS.md](../design/TACTIC_PATT
 The owner also asked (same day) whether the line estimates are well factored and build reusable tactic-library
 words; the E1 brief asks its review whether the existing eliminator (`elim.fs`) can be rebuilt on the new
 low-level induction step, removing code.
+
+
+## Four workers by default, and the workers' time in the report (2026-11-23)
+
+Owner, 2026-11-23, on the parallel review ([PARALLEL_REVIEW.md](../development/PARALLEL_REVIEW.md)): "make the
+jobs default 4, so the rest of the computer is still ok to run", and "the stall time monitor should be there, along
+with other performance monitoring items". Done on branch `jobs-default` (2026-11-24):
+1. `check` of an export or a snapshot without `--jobs` runs 4 workers, or the machine's hardware threads when fewer;
+   `--jobs N` is unchanged, `--jobs 1` one at a time. A LeanForth text, `check --record`, `print` and `replay` stay
+   one at a time without the option; the text's note and the refusal of `--jobs` with `--record` still need an
+   explicit `--jobs N` above 1. Small exports measured no slower with 4 workers, so the default does not depend on
+   the input's size ([COMMAND_LINE.md](../user/COMMAND_LINE.md#parallel-checking---jobs), with Init's curve).
+2. `--resources` and the JSON report's `measured` give a run with workers' plan and jobs' run times and each task's
+   busy and waiting seconds: the driving task, every worker, and all workers together; the snapshot save is a
+   timed phase. The JSON members are optional ones added within report versions 0.4 and 0.5, as `anyLeanVersion`
+   (2026-11-10) and `memoryPerCheck` (2026-11-11) were; no version number changed.
