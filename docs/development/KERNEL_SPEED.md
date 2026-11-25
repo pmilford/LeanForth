@@ -18,7 +18,8 @@ recomputed from run 2; sections 3 to 7 and the counts are run 1's (and its count
 ## In short
 
 - LeanForth checks Init (59,349 declarations, 57,919 checks) in 952 s on one worker (measured; 968 s with
-  stage and feed, under the profiler). Lean's kernel takes 38.4 s for the same declarations and nanoda 44 s
+  stage and feed, under the profiler; 824 s with the environment stamp of branch `kernel-validity-1`,
+  section 10). Lean's kernel takes 38.4 s for the same declarations and nanoda 44 s
   (recorded, [lean-kernel-profile-2026-11-02](measurements/lean-kernel-profile-2026-11-02/README.md)):
   **24.8 times** Lean.
 - The algorithms are Lean's, and their shares match Lean's and nanoda's: instantiation and universe
@@ -343,6 +344,20 @@ rollback's own work (1.5) and the cache keys' liveness (`lf-fvars-live?`, 3.1, a
 The rows below candidate 1 keep the overlap deductions of the first version, which assumed that candidate
 1 took every validity word: their own points are therefore low (candidate 6 may take up to the 3.1 above,
 candidate 3 part of the 8.0), and their seconds left move only by candidate 1's change.
+
+**Measured after slice 1** (2026-11-25, branch `kernel-validity-1` with the source of 0a76195b against main 90667b10;
+`check --jobs 1 --no-manifest --resources --json` of `.claude/work/IM/init.ndjson` on Gforth 1.0
+`gforth-fast`, one run each, one after the other, on a machine shared with another agent's tests). Main:
+967.4 s wall, check phase 952.7 s (load average 0.6 at the start, 2.1 at the end). Branch: 839.7 s wall,
+check phase 823.9 s (load 2.2 at the start, 6.2 at the end). The stamp takes 128.9 s, **13.5 points** of
+the 952.7 s (measured; the design review's estimate was 14.1-14.6, and the second run had the higher load):
+Init's check is now about 21.5 times Lean's 38.4 s (recorded), against 24.8. Both reports are identical
+outside `measured`, `settings` and `run`: 59,349 declarations accepted, 1 not proved, fuel 654,719,715,
+the same axiom sets. At `--jobs 4` the branch took 352.8 s wall (check phase 332.6 s wall, 1,074 s CPU) at
+load 5.9-8.5, with the same report; it is not compared with the 287 s recorded on 2026-11-24 for main,
+since the machine was loaded. The decide slice (`tests/front/decide-slice.ndjson`, 1,290 declarations)
+went from 3.75 s to 3.10 s of check phase at one worker (load 1.0), with identical reports at 1 and 4
+workers.
 
 So: the algorithm changes (1, 2, 5, 6, 7) take 23-30 points, 666-732 s, **17 to 19 times Lean**; with 3
 and 4 as Forth macros 557-652 s, **14.5 to 17 times**; native hashing and probe 535-630 s, 14 to 16.4
