@@ -627,11 +627,17 @@ class ExitCodes(unittest.TestCase):
                                 f'"{ROOT}/tests/support/alloc-fail.fs" "$main" '
                                 f'-e "{k} af-arm-throw" "$@"\n')
                 stub.chmod(stub.stat().st_mode | stat.S_IXUSR)
-                status, out, err = run("check", COMPOSITION, gforth=str(stub))
+                status, out, err = run("check", "--jobs", "1", COMPOSITION, gforth=str(stub))
                 self.assertEqual((status, out.splitlines(), err), (5, lines, ""), k)
+                if k == 24:     # the check of the last declaration threw: workers too
+                    for jobs in [[], ["--jobs", "2"]]:
+                        status, out, err = run("check", *jobs, COMPOSITION, gforth=str(stub))
+                        self.assertEqual((status, out.splitlines()[-2:], err),
+                                         (5, lines[-2:], ""), jobs)
                 # With --json: a THROW outside a check leaves no report; one
                 # inside a check, a whole report of a run that stopped.
-                status, out, err = run("check", "--json", COMPOSITION, gforth=str(stub))
+                status, out, err = run("check", "--json", "--jobs", "1", COMPOSITION,
+                                       gforth=str(stub))
                 if k == 1:
                     self.assertEqual((status, out.splitlines(), err), (5, lines, ""))
                     continue
@@ -1322,6 +1328,9 @@ def as_labelled(got, version):
     accepted declaration."""
     back = json.loads(json.dumps(got))
     back["schemaVersion"] = version
+    measured = back.get("measured") or {}
+    measured.pop("workers", None)
+    (measured.get("microseconds") or {}).pop("save", None)
     if back.get("schema") == "leanforth-check-report":
         back["label"] = OLD_LABEL
     for d in back["declarations"]:
@@ -1994,7 +2003,7 @@ class Resources(unittest.TestCase):
     """check --resources (plan task 6.5.2, the command line's part)."""
 
     def test_report(self):
-        status, out, err = run("check", "--resources", INDUCTIVE)
+        status, out, err = run("check", "--resources", "--jobs", "1", INDUCTIVE)
         lines = out.splitlines()
         self.assertEqual((status, err, lines[:9]),
                          (0, "", run("check", INDUCTIVE)[1].splitlines() + ["resources:"]))
@@ -2017,7 +2026,8 @@ class Resources(unittest.TestCase):
     def test_stable_but_for_time_and_memory(self):
         def steady(out):
             return [line for line in out.splitlines()
-                    if not re.match(r"^  (stage|feed|check|total) |^  memory: ", line)]
+                    if not re.match(r"^  (stage|feed|check|total) |^  memory: |"
+                                    r"^    (plan|driving|worker|total) ", line)]
         args = ["--resources", "--no-manifest", "tests/core/reexport/kinds.ndjson"]
         self.assertEqual(steady(run("check", *args)[1]), steady(run("check", *args)[1]))
 
@@ -3099,7 +3109,7 @@ class Progress(unittest.TestCase):
     def test_same_output(self):
         for args in [[INDUCTIVE], ["--fuel", "3000", "tests/cli/nested.ndjson"],
                      ["--no-manifest", "tests/cli/jobs/wide60.ndjson"]]:
-            for jobs in [[], ["--jobs", "3"]]:
+            for jobs in [["--jobs", "1"], ["--jobs", "3"]]:
                 plain = run("check", *jobs, *args)
                 self.assertEqual(plain[2], "", args)
                 for form in ["--progress=0", "--progress"]:
@@ -3124,7 +3134,7 @@ class Progress(unittest.TestCase):
     def test_json(self):
         status, want, _ = report(INDUCTIVE)
         want.pop("measured")
-        code, out, err = run("check", "--progress=0", "--json", INDUCTIVE)
+        code, out, err = run("check", "--progress=0", "--json", "--jobs", "1", INDUCTIVE)
         self.assertEqual(code, status)
         self.assertEqual(len(self.lines(err)), 7)
         got = json.loads(out)

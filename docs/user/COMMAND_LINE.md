@@ -1004,7 +1004,10 @@ How the run is parallel:
 How this is tested: the command-line tests compare `--jobs 2` to `4`, and
 the default, with `--jobs 1` on every small export, text and JSON
 (accepted, rejected, unsupported, unknown, out of fuel, over the memory
-limit per check, malformed); `make
+limit per check, malformed), and an internal fault in the last
+declaration's check (until 2026-11-24 a run with workers then ended with
+exit 4 and without the line "the run stopped", where the serial run gives
+5 and the line; found when the default became 4); `make
 test-parallel-stress` checks 5,000 generated declarations 5 times (20 in
 the daily run) with twice as many workers as cores against the serial run; and the daily run
 (`make parallel-init`, [TESTING_STRATEGY.md](../development/TESTING_STRATEGY.md)) checks all of

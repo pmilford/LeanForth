@@ -888,8 +888,11 @@ name-table: ck-pline-parts
   lf-sched-stop lf-input-count < if lf-sched-stop 1+ exit then
   lf-sched-broken? if lf-sched-reached else lf-input-count then ;
 : ck-jobs-stepped ( -- n ) ck-jobs-reached ck-final ;
+\ The run stopped where the serial run would have: short of the end, or at
+\ a stop (a THROW, a publisher's fault), the last declaration's too.
+: ck-jobs-stopped? ( n -- flag ) lf-input-count < lf-sched-stop lf-input-count < or ;
 : ck-jobs-facts ( -- )
-  ck-jobs-stepped dup ck-state ck-stepped ! dup lf-input-count < ck-stop! drop
+  ck-jobs-stepped dup ck-state ck-stepped ! dup ck-jobs-stopped? ck-stop! drop
   dup 0 ?do i ck-jobs-trail loop ck-unkeep ;
 \ A tick after each job checks the input and gives out what became final
 \ (ck-advance); before each declaration is handed out the input is

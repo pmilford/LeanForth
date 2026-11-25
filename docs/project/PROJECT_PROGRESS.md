@@ -34,7 +34,8 @@ status changes when this date is older than them. Stages are those of the
   Forth-reviewed, not merged, not done. (1) `check` without `--jobs` runs 4 workers, or the hardware threads when
   fewer (owner, 2026-11-23, [OWNER_DECISIONS.md](OWNER_DECISIONS.md)); a LeanForth text, `--record`, `print` and
   `replay` stay one at a time; same output as `--jobs 1` on every small export of the command-line tests; `Init`
-  1,014.8 s at `--jobs 1` against 287.0 s with the default; small exports no slower, so no size rule. (2)
+  1,014.8 s at `--jobs 1` against 287.0 s with the default; small exports no slower, so no size rule; a THROW
+  in the last declaration's check now stops a run with workers as it stops the serial run (exit 5, was 4). (2)
   `--resources` and the JSON report's `measured` give a run with workers' plan and jobs' run times and the busy and
   waiting seconds of the driving task and of each worker (on `Init` at 4 workers: each worker waits about 8 of
   281 s, the driving task is busy 23 s), and the snapshot save as a phase; optional JSON members within versions

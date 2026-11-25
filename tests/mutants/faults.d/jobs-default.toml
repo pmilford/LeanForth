@@ -139,3 +139,11 @@ old = '''  ." resources:" cr cli-times. cli-memory. cli-engine. cli-jobs. cli-sp
 new = '''  ." resources:" cr cli-times. cli-memory. cli-engine. cli-jobs. cli-input.'''
 test = "python3 tests/cli/test_leanforth.py Jobs.test_spent"
 reason = "--resources leaves out the plan, the jobs' run and every task's busy and waiting time"
+
+[[fault]]
+id = "jd-last-throw-unstopped"
+file = "src/cli/check-run.fs"
+old = '''  ck-jobs-stepped dup ck-state ck-stepped ! dup ck-jobs-stopped? ck-stop! drop'''
+new = '''  ck-jobs-stepped dup ck-state ck-stepped ! dup lf-input-count < ck-stop! drop'''
+test = "python3 tests/cli/test_leanforth.py ExitCodes.test_5_thrown"
+reason = "with workers, a THROW in the last declaration's check is not a stopped run: exit 4 and no stop line, where the serial run gives 5"
