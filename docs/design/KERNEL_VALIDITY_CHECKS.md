@@ -342,3 +342,39 @@ The speed document's candidate 1 states an invariant "to be verified". Against t
 - The validity family counts `lf-term-input?` (a dispatch, `terms.fs:216`), `lf-term-valid?` (the
   per-read range check that ADR 0016 C8 already reduced to `store-at?`) and the rollback's work under
   `lf-input-all?`: 9.5 points that moving checks cannot remove.
+
+## Changes after the design review (2026-11-25, binding; they replace the text above where they differ)
+
+From the independent review, [2026-11-25-kernel-validity-checks.md](../development/design-reviews/2026-11-25-kernel-validity-checks.md)
+(verdict: approve with changes). The numbers are that review's findings.
+
+1. **The stamp is also cleared at the top of `lf-env-hand-over`** (the word that publishes), not only in
+   `lf-env-finish`, `lf-env-clear` and `lf-env-hand-over-at`, so that every publication runs the full check.
+   A test row: begin, break the input, `lf-env-hand-over` with no finish, expect `invalid true`; a planted
+   fault drops this clear.
+2. **The tripwire compares three cells**: the environment's address, its identity and the input's fingerprint
+   (as `lf-env-input?` does), so a stamp left set (after `lf-sch-rerun`, or a THROW out of `replayed?`'s
+   `asked?`) is harmless after a new or reset input. The main reset rule is that `lf-env-begin` always clears
+   the candidate first.
+3. **Planted faults**: new faults on `lf-env-sane?`, `lf-env-pooled?`, `lf-env-input?`, `lf-env-valid?` and
+   `lf-env-live?` (none exist today), killed by the new mid-check rows; a moved-snapshot row for
+   `fx9-env-still-always`, or its "equivalent" note kept.
+4. **The fail-closed table**: the per-pass store roots catch a broken seal only; a rollback below a mark or a
+   `store-clear` is caught at step 7's rollback or at the hand-over. That is why change 1 matters.
+5. **Verified by the review, no longer open**: the pool readers `lf-dep-at` and `lf-look-cell` never run
+   inside a check (risk (b) and its deduction are dropped); the scheduler and the context maker call no
+   environment-changing word; no store or input reset is reachable from the kernel; block checks take one
+   begin; both THROW paths clear the stamp; the front end works under views, where the fast path is never
+   taken, so it keeps today's checks and cost.
+6. `lf-check-begin`'s `lf-env-checking` takes the fast path (harmless: `lf-input-read` re-runs
+   `lf-input-intact?` itself).
+7. **No cross-check counter and no second build**: the exit check and change 3's rows test the invariant on
+   the build users run.
+8. **Class of work, decided**: behaviour-preserving kernel refactoring (Forth review, full tier with every
+   pinned-Lean comparison, reported afterwards). The first diagnostic noted inside a check whose state a
+   test deliberately breaks may name a different step; no export can reach that. `replayed?`'s lookups have
+   no exit check and feed only the "why" explanation, never a verdict.
+9. **Gain, recomputed**: 14.1-14.6 points, about 134-139 s of 952 s (estimate on run 2's shares); Init about
+   813-818 s, about 21.2 times Lean. The fast path measured 4.4 ns a call in a micro-benchmark.
+10. **Size and cost**: about 15-20 Forth lines, 70-100 test lines; one before/after timing pair of Init at
+    `--jobs 1` and one after at `--jobs 4`, the profile optional; about 0.4-0.6 M tokens (estimate).
