@@ -164,7 +164,7 @@ reason = "TB2: the reverted locals introduced again inaccessible (introNP keeps 
 [[fault]]
 id = "tb2-replace-holes-taken"
 file = "src/front/meta-must.fs"
-old = ''': lf-open-mvar-free ( e -- e ) dup lf-has-open-mvar? if outcome-unsupported lf-must then ;'''
+old = ''': lf-open-mvar-free ( e -- e ) dup lf-has-open-mvar? if lf-unported then ;'''
 new = ''': lf-open-mvar-free ( e -- e ) ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: a type with an open metavariable taken (findMaxFVar would look at its context)"
@@ -197,7 +197,7 @@ reason = "TB2: delta? without its universe-argument count test"
 [[fault]]
 id = "tb2-delta-theorem"
 file = "src/front/meta-tactic/delta.fs"
-old = ''': mdl-theorem ( kind -- kind ) dup lf-kind-theorem = if outcome-unsupported lf-must then ;'''
+old = ''': mdl-theorem ( kind -- kind ) dup lf-kind-theorem = if lf-unported then ;'''
 new = ''': mdl-theorem ( kind -- kind ) ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: a theorem's name leaves the term as it is, where Lean would put the proof in"

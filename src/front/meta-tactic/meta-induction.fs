@@ -135,20 +135,20 @@ end-structure
 : mri-n ( -- n ) mri-info lf-rinfo-args ;
 : mri-pi ( k -- pi ) mri-d lf-menv-type swap 0 ?do lf-term-second@ loop ;
 : mri-at ( n bvar -- k )
-  dup lf-term-bvar? 0= if outcome-unsupported lf-must then lf-bvar-binder ;
+  dup lf-term-bvar? 0= if lf-unported then lf-bvar-binder ;
 : mri-args# ( -- m ) mri mri-concl @ lf-meta-args# ;
 : mri-motive ( -- k ) mri-n mri mri-concl @ lf-meta-head mri-at ;
-: mri-major ( -- k ) mri-args# 0= if outcome-unsupported lf-must then
+: mri-major ( -- k ) mri-args# 0= if lf-unported then
   mri-n mri mri-concl @ lf-term-second@ mri-at ;
 \ The major's type, I applied: I's constant, and parameter k its argument k.
 : mri-itype ( -- t ) mri-info lf-rinfo-major mri-pi lf-term-first@ ;
 : mri-iconst ( -- const )
-  mri-itype lf-meta-head dup lf-term-const? 0= if outcome-unsupported lf-must then ;
+  mri-itype lf-meta-head dup lf-term-const? 0= if lf-unported then ;
 : mri-param ( k -- ) mri-info lf-rinfo-major over mri-itype swap lf-meta-app-arg mri-at
-  <> if outcome-unsupported lf-must then ;
+  <> if lf-unported then ;
 : mri-params# ( -- n ) mri-info lf-rinfo-params ;
 : mri-params ( -- )
-  mri-params# mri-itype lf-meta-args# > if outcome-unsupported lf-must then
+  mri-params# mri-itype lf-meta-args# > if lf-unported then
   mri-params# 0 ?do i mri-param loop ;
 \ getUnivLevelPos: the motive's sort's level (getMotiveLevel: Prop, -1
 \ here, or a parameter), else one of I's levels, the parameter's.
@@ -156,7 +156,7 @@ end-structure
   mri-params# mri-pi lf-term-first@ lf-meta-forall-body# drop ;
 : mri-sort ( -- level|-1 )
   mri-motive-sort dup lf-prop? if drop -1 exit then
-  dup lf-tag-symbolic-sort lf-term-tag? 0= if outcome-unsupported lf-must then
+  dup lf-tag-symbolic-sort lf-term-tag? 0= if lf-unported then
   lf-term-first@ ;
 : mri-param-level? ( level name -- flag )
   over lf-level-tag@ lf-level-tag-param <> if 2drop false exit then
@@ -166,7 +166,7 @@ end-structure
 : mri-ilevel? ( const name k -- const name flag ) >r over r> lf-const-level@
   over mri-param-level? ;
 : mri-ilevel ( name -- k ) mri-iconst swap over lf-const-levels#
-  ['] mri-ilevel? find-index 0= if outcome-unsupported lf-must then nip ;
+  ['] mri-ilevel? find-index 0= if lf-unported then nip ;
 : mri-univ ( name -- pos ) dup mri-motive-level? if drop -1 else mri-ilevel then ;
 : mri-levels ( -- ) mri-d lf-menv-params 0 ?do i over cell-at@ mri-univ mri+ loop drop ;
 : mri-start ( d -- ) lf-decl-telescope mri mri-concl ! mri mri-out ! ;
@@ -221,10 +221,10 @@ end-structure
 \ is reduced further once headed by an inductive type), headed by I.
 : mid-itype ( fvar -- t ) lf-infer! lf-whnf! ;
 : mid-typed ( major -- major )
-  dup mid-itype lf-meta-head-name 0= if outcome-unsupported lf-must then
-  mid-info@ lf-rinfo-type lf-name-same? 0= if outcome-unsupported lf-must then ;
+  dup mid-itype lf-meta-head-name 0= if lf-unported then
+  mid-info@ lf-rinfo-type lf-name-same? 0= if lf-unported then ;
 : mid-checked ( major -- major )
-  mid-info@ lf-rinfo-indices if outcome-unsupported lf-must then mid-typed ;
+  mid-info@ lf-rinfo-indices if lf-unported then mid-typed ;
 \ Revert the major and its dependents, introduce the major again.
 : mid-revert ( goal major -- goal2 )
   lf-run1 lf-goal-revert-kept dup mid mid-kept ! 1 lf-goal-intro-kept 0 run@
@@ -237,7 +237,7 @@ end-structure
 : mid-motive-at? ( info k -- info flag ) over swap lf-rinfo-level 0< ;
 : mid-prop-only ( -- )
   mid-info@ dup lf-rinfo-levels# ['] mid-motive-at? any? nip if exit then
-  mid-level lf-level-tag@ lf-level-tag-zero <> if outcome-unsupported lf-must then ;
+  mid-level lf-level-tag@ lf-level-tag-zero <> if lf-unported then ;
 : mid-levels ( -- u1 .. un n )
   mid-info@ lf-rinfo-levels# dup 0 ?do mid-info@ i lf-rinfo-level mid-ulevel swap loop ;
 : mid-const ( -- e ) mid-info@ lf-rinfo-decl lf-menv-name mid-levels lf-mk-const-id ;
@@ -255,7 +255,7 @@ end-structure
 : mid-apply ( x -- )
   mid mid-rec @ over lf-mk-app mid mid-rec ! mid mid-rtype @ lf-term-second@ swap
   lf-meta-instantiate1 lf-must mid mid-rtype ! 1 mid mid-pos +! ;
-: mid-app ( x -- ) mid-pi lf-term-pi? 0= if outcome-unsupported lf-must then mid-apply ;
+: mid-app ( x -- ) mid-pi lf-term-pi? 0= if lf-unported then mid-apply ;
 : mid-param ( type k -- type ) over swap lf-meta-app-arg mid-app ;
 : mid-params ( -- )
   mid mid-major @ mid-itype mid-info@ lf-rinfo-params 0 ?do i mid-param loop drop ;
@@ -274,7 +274,7 @@ end-structure
   lf-goal-new lf-must ;
 : mid-fields# ( mvar -- n )
   lf-goal-type lf-target-arity mid mid-arity @ -
-  dup 0< if outcome-unsupported lf-must then ;
+  dup 0< if lf-unported then ;
 : mid-names@ ( -- names ) mid mid-names @ mid mid-minor @ run@0 ;
 : mid-extras ( -- kept n ) mid mid-kept @ 1 run-after lf-must dup run-count ;
 \ The major try-cleared, the fields introduced, then the other reverted.
@@ -297,7 +297,7 @@ end-structure
   mid-goal@ lf-goal-type lf-target-arity mid mid-arity ! mid-info@ lf-rinfo-params 1+
   mid mid-pos ! ;
 : mid-end ( -- subgoals )
-  mid mid-done @ 0= if outcome-unsupported lf-must then
+  mid mid-done @ 0= if lf-unported then
   mid-goal@ mid mid-rec @ lf-mvar-assign lf-must mid mid-out @ ;
 : mid-rest ( -- subgoals )
   mid-prefix mid-start begin mid-more? while mid-step repeat mid-end ;

@@ -81,7 +81,7 @@ require ./apply.fs
   drop lf-tac-ex 0 ;
 : mco-decl ( head -- d ) lf-match-const-induct lf-found ;   \ its inductive type
 : mco-ctors ( head -- items n )
-  mco-decl lf-menv-data ?dup 0= if outcome-unsupported lf-must then lf-ity-ctors@ ;
+  mco-decl lf-menv-data ?dup 0= if lf-unported then lf-ity-ctors@ ;
 \ Constructor k at the head's levels (mkConst ctor us).
 : mco-ctor ( head k -- name ) swap mco-ctors drop swap cells + @ ;
 : mco-const ( head name -- e ) swap lf-const-levels lf-mk-const-id ;

@@ -80,8 +80,8 @@ reason = "review s3a-decide B2: lf-term-holds-node? shows the test leaves only, 
 [[fault]]
 id = "s3a-decide-let-node-unseen"
 file = "src/front/tactics/decide.fs"
-old = '''  dup ['] tdc-let? lf-term-holds-node? lf-must if outcome-unsupported lf-must then ;'''
-new = '''  dup ['] tdc-let? lf-term-holds? lf-must if outcome-unsupported lf-must then ;'''
+old = '''  dup ['] tdc-let? lf-term-holds-node? lf-must if lf-unported then ;'''
+new = '''  dup ['] tdc-let? lf-term-holds? lf-must if lf-unported then ;'''
 test = "$GFORTH tests/front/tactics/decide/test.fs"
 reason = "review s3a-decide B2: a let expression with a free variable in P is not seen, so it gives 251 (invalid) where Lean's zetaReduce would remove it (not ported: unsupported)"
 

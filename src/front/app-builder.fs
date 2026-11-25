@@ -301,7 +301,7 @@ end-structure
   dup lf-mvar? if lf-mvar-assignable? else drop false then ;
 : abl-closed ( e -- e )
   dup ['] abl-assignable? lf-term-holds? lf-must if abl-fail then
-  dup lf-meta-has-mvar? lf-must if outcome-unsupported lf-must then ;
+  dup lf-meta-has-mvar? lf-must if lf-unported then ;
 : abm-run ( -- e )
   abm abm-d @ lf-meta-const-fresh lf-must dup abm abm-app ! lf-infer! abm abm-type !
   begin abm-done? 0= while abm-step repeat abm-synths abm abm-app @ lf-instantiate!
@@ -412,7 +412,7 @@ end-structure
   dup lf-tag-symbolic-sort lf-term-tag? 0= if abl-fail then lf-term-first@ ;
 : abr-open ( lam x -- body ) swap lf-term-second@ swap lf-meta-instantiate1 lf-must ;
 : abr-lambda ( lam -- lam dom name bi )
-  dup lf-term-lam? 0= if outcome-unsupported lf-must then
+  dup lf-term-lam? 0= if lf-unported then
   dup lf-term-first@ 0 lf-binder-default ;
 : abr-in1 ( lam x -- u1 ) abr-open lf-infer! abl-sort-level ;
 : abr-lam1 ( lam -- u1 ) abr-lambda ['] abr-in1 lf-with-local-decl ;

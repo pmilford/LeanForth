@@ -60,7 +60,7 @@ s" native_decide" tac-k-native-decide lf-tactic-lean!
 \ lf-meta-let-fvar?): not ported, unsupported.
 : tdc-let? ( t -- flag ) dup lf-let? swap lf-meta-let-fvar? or ;
 : tdc-zeta ( p -- p )
-  dup ['] tdc-let? lf-term-holds-node? lf-must if outcome-unsupported lf-must then ;
+  dup ['] tdc-let? lf-term-holds-node? lf-must if lf-unported then ;
 : tdc-pre ( type -- p )
   lf-instantiate! dup lf-meta-has-fvar? if tdc-zeta then
   dup lf-meta-has-mvar? lf-must if ['] lf-tac-indented. lfa-e-decide-mvars tdc-fail then

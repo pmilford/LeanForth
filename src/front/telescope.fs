@@ -102,7 +102,7 @@ require ./meta-must.fs
 : lf-binder-kind-at ( pi d k -- kind true | false )
   tl-decl-kind if nip true else tl-node-kind then ;
 : lf-binder-kind! ( pi d k -- kind )
-  lf-binder-kind-at 0= if outcome-unsupported lf-must then ;
+  lf-binder-kind-at 0= if lf-unported then ;
 \ A walk's binder kind: d and k in two cells at addr (d first).
 : lf-walk-kind ( pi addr -- kind ) cell-pair@ lf-binder-kind! ;
 : lf-binder-name ( pi -- name ) lf-binder-of if drop else 0 then ;
@@ -219,7 +219,7 @@ end-structure
 \ details", MetavarContext.lean), for x_0 only, whose let needs no lift
 \ (else unsupported). mkLambdaFVars' and mkForallFVars' callers give none:
 \ unsupported, as for ?n of any other kind.
-: tl-unported ( body i -- t ) outcome-unsupported lf-must ;
+: tl-unported ( body i -- t ) lf-unported ;
 : tl-value ( i -- v ) dup tl-x lf-fvar-value lf-instantiate! swap tl-abstract ;
 : tl-let-of ( i lam -- let )
   swap dup tl-x lf-fvar-nondep? swap tl-value -rot lf-let-make lf-made! ;
@@ -276,7 +276,7 @@ defer tl-bind-in ( e addr n view mode -- e' )
 : tl-elim ( e addr n -- e' )
   >r over swap r> tle! dup lf-mvar-open? 0= if exit then
   tle-view tle-sees? 0= if exit then
-  tle-tail? 0= if outcome-unsupported lf-must then tle tle-xs @ tle tle-n @ tl-revert ;
+  tle-tail? 0= if lf-unported then tle tle-xs @ tle tle-n @ tl-revert ;
 \ elimMVarDeps beyond that case: a metavariable left in e (delayed-
 \ assigned, or inside e) that sees one of the variables, or has no
 \ context, is refused (unsupported; Lean would revert it). The test
@@ -285,7 +285,7 @@ defer tl-bind-in ( e addr n view mode -- e' )
 : tl-sees-xs? ( x leaf -- x flag )
   dup lf-mvar? 0= if drop false exit then lf-mvar-view 0= if true exit then tle-sees? ;
 : tl-closed ( e -- e )
-  dup 0 ['] tl-sees-xs? lf-term-holds-with? lf-must if outcome-unsupported lf-must then ;
+  dup 0 ['] tl-sees-xs? lf-term-holds-with? lf-must if lf-unported then ;
 : tl-binding ( e addr n view mode -- e' )
   2>r 2>r lf-instantiate! 2r@ tl-elim tl-closed 2r> 2r> tl-bound ;
 ' tl-binding is tl-bind-in

@@ -271,7 +271,7 @@ end-structure
 \ might still make one (infer.fs's lf-whnf-firm?).
 : mti-binding? ( t -- flag ) dup lf-term-pi? swap lf-let? or ;
 : mti-none ( t -- )
-  lf-whnf-firm? lf-must 0= if outcome-unsupported lf-must then
+  lf-whnf-firm? lf-must 0= if lf-unported then
   mti mti-goal @ lfa-e-tac-no-intro lf-tac-ex ;
 : mti-reduced ( t -- pi ) lf-whnf-core lf-must dup lf-term-pi? if exit then dup mti-none ;
 : mti-binder ( -- pi )
@@ -426,7 +426,7 @@ end-structure
 : mrf ( -- frame ) mrf-frames slab-last ;
 \ getType' (Util.lean:80): whnf at the transparency in force, instantiated.
 : mtg-eq-of ( goal -- t ) lf-goal-type lf-whnf! lf-instantiate! ;
-: mtg-is-eq ( t -- t ) dup lf-eq? if 2drop drop exit then outcome-unsupported lf-must ;
+: mtg-is-eq ( t -- t ) dup lf-eq? if 2drop drop exit then lf-unported ;
 : mtg-inst2 ( a b -- a' b' ) lf-instantiate! swap lf-instantiate! swap ;   \ b first
 : mrf-eq! ( t -- ) dup mrf mrf-eq ! lf-eq? drop mtg-inst2 mrf mrf-sides 2! drop ;
 \ eq_refl's isDefEq: at the transparency the step runs at (default;
@@ -447,7 +447,7 @@ end-structure
   dup lf-meta-app2? if exit then
   mrf mrf-goal @ ['] mrf-hint. lf-tac-detail lfa-e-rfl-binary lf-tac-stop ;
 : mrf-rel ( t -- t )
-  mrf-binary dup 4 s" HEq" lf-meta-app-of? if outcome-unsupported lf-must then ;
+  mrf-binary dup 4 s" HEq" lf-meta-app-of? if lf-unported then ;
 : mrf-whnf-r ( -- )
   mrf mrf-goal @ lf-goal-type lf-instantiate! lf-whnf-r! mrf-rel
   dup mrf mrf-eq ! lf-meta-args2 mrf mrf-sides 2! ;

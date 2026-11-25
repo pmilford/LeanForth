@@ -16147,8 +16147,8 @@ reason = "FE1g-4 (design 8.3): rfl closes p = q with Eq.refl without isDefEq"
 [[fault]]
 id = "fe-rfl-non-eq"
 file = "src/front/meta-tactic/goal.fs"
-old = ''': mtg-is-eq ( t -- t ) dup lf-eq? if 2drop drop exit then outcome-unsupported lf-must ;'''
-new = ''': mtg-is-eq ( t -- t ) dup lf-meta-head-args nip 3 = if exit then outcome-unsupported lf-must ;'''
+old = ''': mtg-is-eq ( t -- t ) dup lf-eq? if 2drop drop exit then lf-unported ;'''
+new = ''': mtg-is-eq ( t -- t ) dup lf-meta-head-args nip 3 = if exit then lf-unported ;'''
 test = "$GFORTH tests/front/tactic-basic.fs"
 reason = "FE1g-4 (design 8.3): the Eq head check dropped, so a relation of three arguments (R p p p since plan 9.4.8l; Ne p q is a pi after getType''s whnf) reaches eq_refl where Lean's apply_rfl would look for @[refl] lemmas"
 

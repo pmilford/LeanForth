@@ -335,7 +335,7 @@ reason = "TB2 3a: delta's message at h lacks Lean's at h2"
 [[fault]]
 id = "tb3a-rfl-heq-sides"
 file = "src/front/meta-tactic/goal.fs"
-old = '''  mrf-binary dup 4 s" HEq" lf-meta-app-of? if outcome-unsupported lf-must then ;'''
+old = '''  mrf-binary dup 4 s" HEq" lf-meta-app-of? if lf-unported then ;'''
 new = '''  mrf-binary ;'''
 test = "$GFORTH tests/front/tactics/batch-d/test.fs"
 reason = "TB2 3a: HEq's last two arguments taken for sides (Lean special-cases HEq first)"
@@ -344,7 +344,7 @@ reason = "TB2 3a: HEq's last two arguments taken for sides (Lean special-cases H
 id = "tb3a-rfl-noneq-unsupported"
 file = "src/front/meta-tactic/goal.fs"
 old = '''  mrf-eq-of? 0= if mrf-apply-rfl exit then'''
-new = '''  mrf-eq-of? 0= if outcome-unsupported lf-must then'''
+new = '''  mrf-eq-of? 0= if lf-unported then'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-d/check.py"
 reason = "TB2 3a: rfl on a goal that is no Eq not supported (rwa on a ≤ c stays unsupported)"
 

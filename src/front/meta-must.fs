@@ -8,6 +8,8 @@
 \                                     outcome word's throwing face is the
 \                                     word followed by lf-must
 \   lf-made! ( flag -- )              a term store's false thrown as full
+\   lf-unported ( -- )                a case not ported yet thrown
+\                                     unsupported (99 at a tactic)
 \   lf-run+ ( run x -- run' )         run-push's throwing face (lib/runs.fs)
 \   lf-run+! ( x addr -- )            the run in the cell at addr made
 \                                     that run, then x (a frame's list)
@@ -158,6 +160,7 @@ end-structure
   dup ok? if drop exit then 0 mmf mmf-code !
   outcome-sane lf-meta-throw-base swap - throw ;
 : lf-made! ( flag -- ) 0= if outcome-full lf-must then ;
+: lf-unported ( -- ) outcome-unsupported lf-must ;
 : lf-run+ ( run x -- run' ) run-push lf-must ;
 : lf-run+! ( x addr -- ) tuck @ swap lf-run+ swap ! ;
 : lf-run1 ( x -- run ) run-one lf-must ;
@@ -195,7 +198,7 @@ end-structure
   ['] lf-meta-defeq-guarded lf-with-approx outcome-sane lf-must ;
 : lf-instantiate! ( e -- e' ) lf-instantiate-mvars lf-must ;
 : lf-has-open-mvar? ( e -- flag ) ['] lf-mvar-open? lf-term-holds? lf-must ;
-: lf-open-mvar-free ( e -- e ) dup lf-has-open-mvar? if outcome-unsupported lf-must then ;
+: lf-open-mvar-free ( e -- e ) dup lf-has-open-mvar? if lf-unported then ;
 \ isDefEq with the elaborator's flags (TermElabM's setElabConfig: foApprox
 \ and ctxApprox) added to the configuration in force, at transparency mode
 \ (lf-meta-with: defeq's own configuration and mode put back however it

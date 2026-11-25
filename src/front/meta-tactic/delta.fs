@@ -120,7 +120,7 @@ end-structure
 \ name leaves e (no value), a theorem's is not ported.
 : mdl-kind ( name -- kind )
   dup mdl mdl-name ! lf-menv-find lf-must dup mdl mdl-decl ! lf-menv-kind ;
-: mdl-theorem ( kind -- kind ) dup lf-kind-theorem = if outcome-unsupported lf-must then ;
+: mdl-theorem ( kind -- kind ) dup lf-kind-theorem = if lf-unported then ;
 : mdl-run ( e -- e' ) mdl-hooks mdl-dw dw-on-terms dw-run lf-must ;
 : lf-delta-expand ( e name -- e' )
   mdl-kind mdl-theorem lf-kind-definition = if mdl-run then ;

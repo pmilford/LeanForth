@@ -89,7 +89,7 @@ end-structure
 : mrv-dep? ( lfvar k -- lfvar flag ) mrv-out@ over swap lf-local-depends-on? lf-must ;
 : mrv-depends? ( fvar -- flag ) mrv-out# ['] mrv-dep? find-index mrv-found ;
 : mrv-reverted? ( fvar -- flag ) dup mrv-asked? if drop true else mrv-depends? then ;
-: mrv-plain ( k -- k ) dup lf-local-detail-at? if outcome-unsupported lf-must then ;
+: mrv-plain ( k -- k ) dup lf-local-detail-at? if lf-unported then ;
 : mrv-push ( fvar -- ) mrv mrv-out lf-run+! ;
 : mrv-take ( k flag -- ) if mrv-plain lf-mctx-fvar mrv-push else drop then ;
 : mrv-local ( k -- ) dup lf-mctx-fvar mrv-reverted? mrv-take ;
