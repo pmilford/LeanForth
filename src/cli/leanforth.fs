@@ -281,7 +281,7 @@ manifest: cli-manifest
 : cli-jobs-unset ( -- n )
   cli-takes-jobs? cli-text-file? 0= and if cli-jobs-default else 1 then ;
 \ cli-jobs is 0 exactly when --jobs was not given: the default fills it.
-: cli-workers ( -- n ) cli-jobs dup 0= cli-jobs-unset and or ;
+: cli-workers ( -- n ) cli-jobs 0= if cli-jobs-unset exit then cli-jobs ;
 \ check: the megabytes (of 2^20 bytes) each declaration's check may hold
 \ in scratch (--memory-per-check; core/scratch-meter.fs); 0, the
 \ default, sets no limit but the heap's. A check past it is full.
@@ -691,10 +691,12 @@ create cli-fed-ops
 : cli-seconds ( ms -- c-addr u ) ['] do-seconds in-decimal ;
 : cli-us>s ( d-us -- c-addr u ) 1000 um/mod nip cli-seconds ;
 : cli-second. ( d-us -- ) cli-us>s 9 type-right ;
+\ A row's last column (each value is read as it is printed: no swaps).
+: cli-row-end ( d-us -- ) cli-second. cr ;
 \ Phase k's row: its name, then its wall and CPU times.
 : cli-row ( k -- )
   ."   " dup ck-phase-name 8 type-left
-  dup ck-phase-wall cli-second. ck-phase-cpu cli-second. cr ;
+  dup ck-phase-wall cli-second. ck-phase-cpu cli-row-end ;
 \ The save's row only when a snapshot was to be written (ck-shown-phases).
 : cli-times. ( -- )
   ck-timed? 0= if ."   time: not measured on this host" cr exit then
@@ -772,12 +774,12 @@ create cli-fed-ops
   ." , jobs' run " ck-run-wall cli-sec. cr ;
 : cli-task. ( c-addr u -- ) ."     " 9 type-left ;
 : cli-driver. ( -- )
-  s" driving" cli-task. ck-driver-busy cli-second. ck-driver-waiting cli-second. cr ;
+  s" driving" cli-task. ck-driver-busy cli-second. ck-driver-waiting cli-row-end ;
 : cli-worker-label ( k -- ) ."     worker" 1+ u>decimal 3 type-right ;
 : cli-worker. ( k -- )
-  dup cli-worker-label dup lf-sched-busy cli-second. ck-waiting cli-second. cr ;
+  dup cli-worker-label dup lf-sched-busy cli-second. ck-waiting cli-row-end ;
 : cli-all. ( -- )
-  s" total" cli-task. ck-busy-all cli-second. ck-waiting-all cli-second. cr ;
+  s" total" cli-task. ck-busy-all cli-second. ck-waiting-all cli-row-end ;
 : cli-workers-spent. ( -- ) lf-sched-workers 0 ?do i cli-worker. loop cli-all. ;
 : cli-tasks-head. ( -- ) ."     time (s)      busy  waiting" cr ;
 : cli-tasks. ( -- ) cli-plan. cli-tasks-head. cli-driver. cli-workers-spent. ;

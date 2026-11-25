@@ -225,13 +225,16 @@ require ./check-run.fs
 \ 2026-11-24, so a report without --resources is as before): the plan's and the
 \ jobs' run's times, then the microseconds the driving task and each
 \ worker were busy and waiting in that run, and all workers' together.
-: cj-busy ( d -- ) cj-object s" busy" cj-us ;
-: cj-waiting ( d -- ) s" waiting" cj-us cj-end-object ;
-: cj-driver ( -- ) s" driver" cj-key ck-driver-busy cj-busy ck-driver-waiting cj-waiting ;
-: cj-worker ( k -- ) dup lf-sched-busy cj-busy ck-waiting cj-waiting ;
+\ Each value is read as it is written, so no pair is swapped.
+: cj-busy ( d -- ) s" busy" cj-us ;
+: cj-waiting ( d -- ) s" waiting" cj-us ;
+: cj-driver-spent ( -- ) ck-driver-busy cj-busy ck-driver-waiting cj-waiting ;
+: cj-driver ( -- ) s" driver" cj-key cj-object cj-driver-spent cj-end-object ;
+: cj-spent ( k -- ) dup lf-sched-busy cj-busy ck-waiting cj-waiting ;
+: cj-worker ( k -- ) cj-object cj-spent cj-end-object ;
 : cj-each ( -- )
   s" each" cj-key cj-array lf-sched-workers 0 ?do i cj-worker loop cj-end-array ;
-: cj-all ( -- ) ck-busy-all s" busy" cj-us ck-waiting-all s" waiting" cj-us ;
+: cj-all ( -- ) ck-busy-all cj-busy ck-waiting-all cj-waiting ;
 : cj-run-times ( -- )
   cj-object ck-plan-clock s" plan" cj-clock ck-run-clock s" run" cj-clock ;
 : cj-workers-body ( -- ) cj-run-times cj-driver cj-each cj-all cj-end-object ;

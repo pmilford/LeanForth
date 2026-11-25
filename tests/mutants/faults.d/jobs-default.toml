@@ -16,7 +16,7 @@ quick = true
 [[fault]]
 id = "jd-explicit-ignored"
 file = "src/cli/leanforth.fs"
-old = ''': cli-workers ( -- n ) cli-jobs dup 0= cli-jobs-unset and or ;'''
+old = ''': cli-workers ( -- n ) cli-jobs 0= if cli-jobs-unset exit then cli-jobs ;'''
 new = ''': cli-workers ( -- n ) cli-jobs-unset ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "an explicit --jobs N is replaced by the default: --jobs 1 no longer checks one at a time"
@@ -96,7 +96,7 @@ reason = "the scheduler gets no clock: every busy and waiting time is 0"
 [[fault]]
 id = "jd-run-untimed"
 file = "src/cli/check-run.fs"
-old = ''': ck-sched-timed ( -- ) ck-sub-begin ck-sched-run ck-state ck-jobs-time ck-sub-end ;'''
+old = ''': ck-sched-timed ( -- ) ['] ck-sched-run ck-run-clock ck-timing ;'''
 new = ''': ck-sched-timed ( -- ) ck-sched-run ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "the jobs' run is not timed: busy and waiting no longer add up to it"
@@ -104,7 +104,7 @@ reason = "the jobs' run is not timed: busy and waiting no longer add up to it"
 [[fault]]
 id = "jd-plan-untimed"
 file = "src/cli/check-run.fs"
-old = ''': ck-planned ( -- outcome ) ck-sub-begin lf-sched-plan ck-state ck-plan-time ck-sub-end ;'''
+old = ''': ck-planned ( -- outcome ) ['] lf-sched-plan ck-plan-clock ck-timing ;'''
 new = ''': ck-planned ( -- outcome ) lf-sched-plan ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "the plan's time is reported as 0"

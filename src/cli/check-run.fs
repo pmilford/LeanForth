@@ -925,12 +925,14 @@ name-table: ck-pline-parts
 : ck-waiting-all ( -- d ) 0 0 lf-sched-workers 0 ?do i ck-waiting d+ loop ;
 : ck-driver-waiting ( -- d ) lf-sched-waited ;
 : ck-driver-busy ( -- d ) ck-driver-waiting ck-less ;
-\ The plan and the jobs' run timed; the scheduler given the clock.
-: ck-planned ( -- outcome ) ck-sub-begin lf-sched-plan ck-state ck-plan-time ck-sub-end ;
+\ The plan and the jobs' run timed (ck-timing: xt run as a part of the
+\ check phase, its time in clock); the scheduler given the clock.
+: ck-timing ( i*x xt clock -- j*x ) >r ck-sub-begin execute r> ck-sub-end ;
+: ck-planned ( -- outcome ) ['] lf-sched-plan ck-plan-clock ck-timing ;
 : ck-sched-words! ( -- ) ck-tick! ck-pre! ['] ck-wall-now lf-sched-clock! ;
 : ck-sched-run ( -- )
   ck-check-word ['] ck-keep ['] ck-worker-new ['] lf-sched-run context-catch throw ;
-: ck-sched-timed ( -- ) ck-sub-begin ck-sched-run ck-state ck-jobs-time ck-sub-end ;
+: ck-sched-timed ( -- ) ['] ck-sched-run ck-run-clock ck-timing ;
 : ck-jobs-run ( -- ) ck-sched-words! ck-sched-timed ck-jobs-facts ;
 \ The pool is started before the run, so that a refusal (no threads, as
 \ near the process limit) leaves the whole run to the serial one, with the
