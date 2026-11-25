@@ -1111,8 +1111,8 @@ T{ 3 overwrite-facts -> outcome-invalid true serial-overwritten }T
   ['] type cj-writer jw-start cj-object cj-workers cj-end-object cj-writer jw-end drop ;
 : plan-json ( -- c-addr u ) s\" {\"workers\":{\"plan\":{\"wall\":" ;
 : spent-text ( jobs -- c-addr u c-addr' u' )
-  fresh >r nested rot run-with ['] cli-spent. >string-execute ['] workers-json
-  >string-execute ck-release r> back ;
+  fresh >r nested rot run-with true ck-resources! ['] cli-spent. >string-execute
+  ['] workers-json >string-execute ck-release r> back ;
 : tasks-line ( -- c-addr u ) s\" \n    time (s)      busy  waiting\n    driving  " ;
 T{ 3 spent-text plan-json holds? -rot 2dup s" jobs' run" holds? -rot tasks-line holds?
    -> true true true }T
@@ -1123,19 +1123,28 @@ T{ 1 spent-text nip rot drop -> 0 2 }T
 : measured-json ( -- )
   ['] type cj-writer jw-start cj-object cj-measured cj-end-object cj-writer jw-end drop ;
 : report-texts ( -- c-addr u c-addr' u' )
-  fresh >r nested 3 run-with ['] cli-resources. >string-execute ['] measured-json
-  >string-execute ck-release r> back ;
+  fresh >r nested 3 run-with true ck-resources! ['] cli-resources. >string-execute
+  ['] measured-json >string-execute ck-release r> back ;
 T{ report-texts 2dup s\" \"total\":{\"wall\":" holds? -rot s\" \"workers\":{\"plan\":" holds?
    2swap 2dup s\" \n  check  " holds? -rot s" jobs' run" holds? -> true true true true }T
 T{ report-texts 2swap s" save" holds? -rot s" save" holds? -> false false }T
+\ Without --resources (ck-resources!, false after ck-start) neither report
+\ gives the workers' times: check --json's measured member is as before.
+: unasked-texts ( -- c-addr u c-addr' u' )
+  fresh >r nested 3 run-with ['] cli-spent. >string-execute ['] measured-json
+  >string-execute ck-release r> back ;
+T{ unasked-texts s" workers" holds? -rot nip -> false 0 }T
 [then]
 \ The save is a phase of the report only when a snapshot was to be
-\ written (here none is: the run did not check), in text and JSON.
+\ written (here none is: the run did not check), in text and JSON, and
+\ the resources were asked for (ck-resources!; JSON without them as before).
 : save-file ( -- c-addr u ) s" tests/cli/never-saved.lfsn" ;
-: save-shown ( -- before after absent? )
-  fresh >r 20000000 ck-start ck-saving ck-phase-shown? save-file s" {}" ck-snapshot-save drop
-  ck-saving ck-phase-shown? save-file absent? ck-release r> back ;
-T{ save-shown -> false true true }T
+: save-shown ( asked? -- before after absent? )
+  fresh >r 20000000 ck-start ck-resources! ck-saving ck-phase-shown?
+  save-file s" {}" ck-snapshot-save drop ck-saving ck-phase-shown? save-file absent?
+  ck-release r> back ;
+T{ true save-shown -> false true true }T
+T{ false save-shown -> false false true }T
 T{ ck-staging ck-phase-shown? ck-total ck-phase-shown? ck-saving ck-phase-name s" save" compare
    -> true true 0 }T
 \ Every worker lost: each check of the two first declarations throws and

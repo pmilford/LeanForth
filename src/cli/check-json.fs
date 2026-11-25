@@ -209,7 +209,7 @@ require ./check-run.fs
   cj-key cj-object cj-wall clock-cpu 2@ s" cpu" cj-us cj-end-object ;
 : cj-phase ( k -- ) dup ck-time swap ck-phase-name cj-clock ;
 \ The save ("save", an optional member added within versions 0.4 and 0.5
-\ on 2026-11-24) only when a snapshot was to be written.
+\ on 2026-11-24) only when a snapshot was to be written, with --resources.
 : cj-times ( -- )
   s" microseconds" cj-key ck-timed? 0= if cj-null exit then
   ck-finish cj-object ['] cj-phase ck-shown-phases cj-end-object ;
@@ -220,8 +220,9 @@ require ./check-run.fs
 \ display text; null when not known.
 : cj-engine ( -- )
   s" engine" cj-key ck-engine dup if nt-text cj-shown cj-string else 2drop cj-null then ;
-\ A run with workers on a host with clocks ("workers", an optional member
-\ added within versions 0.4 and 0.5 on 2026-11-24): the plan's and the
+\ A run with workers on a host with clocks, with --resources (ck-spent?;
+\ "workers", an optional member added within versions 0.4 and 0.5 on
+\ 2026-11-24, so a report without --resources is as before): the plan's and the
 \ jobs' run's times, then the microseconds the driving task and each
 \ worker were busy and waiting in that run, and all workers' together.
 : cj-busy ( d -- ) cj-object s" busy" cj-us ;
@@ -235,7 +236,7 @@ require ./check-run.fs
   cj-object ck-plan-clock s" plan" cj-clock ck-run-clock s" run" cj-clock ;
 : cj-workers-body ( -- ) cj-run-times cj-driver cj-each cj-all cj-end-object ;
 : cj-workers ( -- )
-  ck-jobs-run? ck-timed? and if s" workers" cj-key cj-workers-body then ;
+  ck-spent? if s" workers" cj-key cj-workers-body then ;
 : cj-measured ( -- )
   s" measured" cj-key cj-object cj-times cj-peak cj-stage-bytes cj-engine cj-workers
   cj-end-object ;

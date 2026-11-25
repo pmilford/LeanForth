@@ -1328,9 +1328,6 @@ def as_labelled(got, version):
     accepted declaration."""
     back = json.loads(json.dumps(got))
     back["schemaVersion"] = version
-    measured = back.get("measured") or {}
-    measured.pop("workers", None)
-    (measured.get("microseconds") or {}).pop("save", None)
     if back.get("schema") == "leanforth-check-report":
         back["label"] = OLD_LABEL
     for d in back["declarations"]:
@@ -2273,6 +2270,23 @@ class AsCopied(unittest.TestCase):
             self.assertEqual(pinned_digest(*args.split()), want, args)
 
 
+NESTED = "tests/cli/nested.ndjson"
+
+
+def before_members(version):
+    """Check report schema `version` as it was before the optional members
+    of 2026-11-24, which a report gives only with --resources: measured's
+    "workers" and its microseconds' "save" (and their $defs/spent) taken
+    out, so that a report with either fails it (additionalProperties
+    false)."""
+    schema = json.loads((ROOT / f"schemas/check-report-{version}.schema.json").read_text())
+    measured = schema["$defs"]["measured"]["properties"]
+    measured.pop("workers")
+    measured["microseconds"]["anyOf"][1]["properties"].pop("save")
+    schema["$defs"].pop("spent")
+    return Validator(schema)
+
+
 class Jobs(unittest.TestCase):
     """check --jobs N (plan tasks 6.5.4, 7.3.1; src/kernel/env-schedule.fs)
     prints exactly what --jobs 1 prints, text and JSON (but for "measured"),
@@ -2356,7 +2370,7 @@ class Jobs(unittest.TestCase):
         workers = [(float(b), float(w)) for _, b, w in rows[1:-1]]
         self.assertAlmostEqual(sum(b for b, _ in workers), float(rows[-1][1]), delta=0.004)
         self.assertGreater(sum(b for b, _ in workers), 0)
-        status, got, _ = report(*args)
+        status, got, _ = report("--resources", *args)
         self.assertEqual((status, JsonReport.schema.errors(got)), (0, []))
         spent = got["measured"]["workers"]
         run_wall = spent["run"]["wall"]
@@ -2369,7 +2383,7 @@ class Jobs(unittest.TestCase):
         self.assertEqual(sum(t["waiting"] for t in spent["each"]), spent["waiting"])
         self.assertLessEqual(spent["plan"]["wall"] + run_wall,
                              got["measured"]["microseconds"]["check"]["wall"])
-        serial = report("--jobs", "1", "tests/cli/nested.ndjson")[1]
+        serial = report("--resources", "--jobs", "1", "tests/cli/nested.ndjson")[1]
         self.assertNotIn("workers", serial["measured"])
         self.assertNotIn("jobs' run", run("check", "--resources", "--jobs", "1",
                                          "tests/cli/nested.ndjson")[1])
@@ -2386,12 +2400,37 @@ class Jobs(unittest.TestCase):
             self.assertEqual(status, 0)
             self.assertRegex(out, r"\n  check +\d+\.\d+ +\d+\.\d+\n  save +\d+\.\d+ +\d+\.\d+\n"
                                   r"  total ")
-            status, got, _ = report(*args)
+            status, got, _ = report("--resources", *args)
             self.assertEqual((status, JsonReport.schema.errors(got)), (0, []))
             self.assertEqual(list(got["measured"]["microseconds"]),
                              ["stage", "feed", "check", "save", "total"])
+            status, got, _ = report(*args)
+            self.assertEqual((status, list(got["measured"]["microseconds"])),
+                             (0, ["stage", "feed", "check", "total"]))
         self.assertNotIn("\n  save ", run("check", "--resources", "tests/cli/nested.ndjson")[1])
         self.assertNotIn("save", report("tests/cli/nested.ndjson")[1]["measured"]["microseconds"])
+
+    def test_default_as_before(self):
+        """Without --resources a check --json report is as it was before the
+        members of 2026-11-24 ("workers", the "save" phase; added under the
+        owner's approval of an additive change): with the default's workers,
+        with --jobs 3 and with --save-snapshot (0.4), and against a snapshot
+        with the default's workers (0.5), each report passes the schema as it
+        was, without those members (additionalProperties false). With
+        --resources the members are there, and the schema as it was refuses
+        them."""
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(Path(tmp) / "inductive.lfsnap")
+            for args in [[NESTED], ["--jobs", "3", NESTED], ["--save-snapshot", base, INDUCTIVE]]:
+                status, got, _ = report(*args)
+                self.assertEqual((status, got["schemaVersion"], before_members("0.4").errors(got)),
+                                 (0, "0.4", []), args)
+            status, got, _ = report("--snapshot", base, DEPENDENT)
+            self.assertEqual((status, got["schemaVersion"], before_members("0.5").errors(got)),
+                             (0, "0.5", []))
+        status, got, _ = report("--resources", NESTED)
+        self.assertEqual((status, JsonReport.schema.errors(got)), (0, []))
+        self.assertNotEqual(before_members("0.4").errors(got), [])
 
     def test_default_with_record(self):
         """--record with no --jobs, or --jobs 1, runs one at a time and writes

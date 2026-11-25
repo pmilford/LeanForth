@@ -120,7 +120,7 @@ reason = "a worker's waiting time is its busy time, not the rest of the run"
 [[fault]]
 id = "jd-save-always-shown"
 file = "src/cli/check-run.fs"
-old = ''': ck-phase-shown? ( k -- flag ) ck-saving <> ck-save-tried? or ;'''
+old = ''': ck-phase-shown? ( k -- flag ) ck-saving <> ck-save-tried? ck-resources? and or ;'''
 new = ''': ck-phase-shown? ( k -- flag ) drop true ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "every report shows a save phase, also when no snapshot was to be written"
@@ -136,8 +136,8 @@ reason = "the save is timed but never reported"
 [[fault]]
 id = "jd-workers-json-missing"
 file = "src/cli/check-json.fs"
-old = '''  ck-jobs-run? ck-timed? and if s" workers" cj-key cj-workers-body then ;'''
-new = '''  ck-jobs-run? ck-timed? and drop ;'''
+old = '''  ck-spent? if s" workers" cj-key cj-workers-body then ;'''
+new = '''  ck-spent? drop ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "the JSON report of a run with workers has no measured workers member"
 
@@ -156,3 +156,30 @@ old = '''  ck-jobs-stepped dup ck-state ck-stepped ! dup ck-jobs-stopped? ck-sto
 new = '''  ck-jobs-stepped dup ck-state ck-stepped ! dup lf-input-count < ck-stop! drop'''
 test = "python3 tests/cli/test_leanforth.py ExitCodes.test_5_thrown"
 reason = "with workers, a THROW in the last declaration's check is not a stopped run: exit 4 and no stop line, where the serial run gives 5"
+
+# Only with --resources (the coordinator's decision of 2026-11-24 under the owner's approval
+# of an additive change, review finding 2): a check --json report without it is as before.
+
+[[fault]]
+id = "jd-workers-unasked"
+file = "src/cli/check-run.fs"
+old = ''': ck-spent? ( -- flag ) ck-jobs-run? ck-timed? and ck-resources? and ;'''
+new = ''': ck-spent? ( -- flag ) ck-jobs-run? ck-timed? and ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "every check --json report of a run with workers gains measured.workers, without --resources: a report main's schema refuses"
+
+[[fault]]
+id = "jd-save-unasked"
+file = "src/cli/check-run.fs"
+old = ''': ck-phase-shown? ( k -- flag ) ck-saving <> ck-save-tried? ck-resources? and or ;'''
+new = ''': ck-phase-shown? ( k -- flag ) ck-saving <> ck-save-tried? or ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "check --json --save-snapshot without --resources gains a save member in measured.microseconds: a report main's schema refuses"
+
+[[fault]]
+id = "jd-resources-unpassed"
+file = "src/cli/leanforth.fs"
+old = '''  cli-any-lean? ck-any-version! cli-resources? ck-resources! cli-progress-apply'''
+new = '''  cli-any-lean? ck-any-version! cli-progress-apply'''
+test = "python3 tests/cli/test_leanforth.py Jobs.test_spent"
+reason = "--resources gives neither the workers' times nor the save phase, in text or JSON"

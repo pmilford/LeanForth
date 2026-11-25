@@ -781,7 +781,7 @@ create cli-fed-ops
 : cli-workers-spent. ( -- ) lf-sched-workers 0 ?do i cli-worker. loop cli-all. ;
 : cli-tasks-head. ( -- ) ."     time (s)      busy  waiting" cr ;
 : cli-tasks. ( -- ) cli-plan. cli-tasks-head. cli-driver. cli-workers-spent. ;
-: cli-spent. ( -- ) ck-jobs-run? ck-timed? and if cli-tasks. then ;
+: cli-spent. ( -- ) ck-spent? if cli-tasks. then ;
 : cli-resources. ( -- )
   ." resources:" cr cli-times. cli-memory. cli-engine. cli-jobs. cli-spent. cli-input.
   cli-fuel. cli-tops. ;
@@ -1000,7 +1000,8 @@ here cli-plain-chars - 2 cells / constant cli-plain-chars#
   cli-fed-ops cli-state run-ops ! 0 cli-state run-printed ! 0 cli-state run-noted !
   rr-release rr-reset cli-fuel @ ck-start
   cli-stale? snap-stale-allowed ! cli-workers ck-jobs!
-  cli-any-lean? ck-any-version! cli-progress-apply cli-per-check-apply
+  cli-any-lean? ck-any-version! cli-resources? ck-resources! cli-progress-apply
+  cli-per-check-apply
   catch ck-release throw cli-restored
   cli-worst @ ;
 : cli-library ( -- code )

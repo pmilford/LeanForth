@@ -22,6 +22,10 @@
 \ - ck-any-version! ( flag -- ), after ck-start: true lets the stage read
 \   an export of any exporter and Lean version, only its format pinned
 \   (stage-any-version!; --any-lean-version), false (ck-start's) not;
+\ - ck-resources! ( flag -- ), after ck-start: true when the report gives
+\   the resources (--resources): only then does it give the save phase
+\   and the workers' times below (the JSON report's members added within
+\   versions 0.4 and 0.5 on 2026-11-24), false (ck-start's) not;
 \ - ck-jobs! ( n -- ), after ck-start: n is cut to the cores and the pool's
 \   queue size (ck-jobs-most); with n above 1 (--jobs), ck-load
 \   also makes n worker contexts, each fed the same stage, and ck-check
@@ -58,8 +62,9 @@
 \   (lf-sched-clock!), what each worker and the driving task spent busy
 \   and waiting in the jobs' run (lf-sched-busy, ck-waiting, ck-busy-all,
 \   ck-waiting-all, ck-driver-busy, ck-driver-waiting: read before
-\   ck-release, the workers still there); ck-snapshot-save is timed as the
-\   phase ck-saving, shown only when a save was asked (ck-phase-shown?);
+\   ck-release, the workers still there; reported only with ck-resources!,
+\   ck-spent?); ck-snapshot-save is timed as the phase ck-saving, shown
+\   only when a save was asked, with ck-resources! (ck-phase-shown?);
 \ - then, before ck-release, the verdicts are read in a snapshot of the
 \   run's own environment (ck-verdicts?, then lf-env-outcome), and the
 \   facts with ck-kept (a run-record.fs /rr-step: outcome, diagnostic,
@@ -216,6 +221,7 @@ begin-structure /ck
   field: ck-faulted              \ true when the run stopped on a fault
   field: ck-began-feed           \ true once the feed began: names attached
   field: ck-any-lean             \ true: an export of any Lean version (ck-any-version!)
+  field: ck-resources-asked      \ true: the report gives the resources (ck-resources!)
   field: ck-jobs-asked           \ workers of a parallel check (ck-jobs!); 0, 1: serial
   field: ck-serial-why           \ why workers were asked for but not used (ck-why-*), or 0
   field: ck-pool-made            \ workers the pool ran with (ck-pool-started?)
@@ -353,10 +359,12 @@ false constant ck-timed?
 : ck-finish ( -- ) ck-state ck-run-mark ck-total ck-time ck-lap ;
 : ck-phase-wall ( k -- d ) ck-time clock-wall 2@ ;
 : ck-phase-cpu ( k -- d ) ck-time clock-cpu 2@ ;
-\ Phase k is in the report: every one but the save, which only when asked;
-\ xt ( k -- ) run on each such phase in order.
+\ Phase k is in the report: every one but the save, which only when asked
+\ and with the resources; xt ( k -- ) run on each such phase in order.
+: ck-resources! ( flag -- ) ck-state ck-resources-asked ! ;
+: ck-resources? ( -- flag ) ck-state ck-resources-asked @ ;
 : ck-save-tried? ( -- flag ) ck-state ck-save-tried @ ;
-: ck-phase-shown? ( k -- flag ) ck-saving <> ck-save-tried? or ;
+: ck-phase-shown? ( k -- flag ) ck-saving <> ck-save-tried? ck-resources? and or ;
 : ck-shown-phases ( xt -- )
   ck-phases 0 do i ck-phase-shown? if i over execute then loop drop ;
 \ Parts of the check phase of a run with workers (see the header): the
@@ -784,6 +792,9 @@ create ck-line ck-line-room 2 + allot
 : ck-lines-on? ( -- flag ) ck-state ck-line-xt @ 0<> ;
 : ck-watching? ( -- flag ) ck-lines-on? ck-state ck-prog-on @ or ;
 : ck-jobs-run? ( -- flag ) ck-parallel? lf-sched-workers 0> and ;
+\ The workers' times are in the report: a run with workers, timed, and
+\ the resources asked for (ck-resources!).
+: ck-spent? ( -- flag ) ck-jobs-run? ck-timed? and ck-resources? and ;
 : ck-jobs-trail ( d -- )
   dup ck-taken? if drop exit then
   dup lf-env-published? over lf-sched-checked? 0= and if ck-trailing else drop then ;

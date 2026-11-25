@@ -1262,7 +1262,9 @@ times its waits; the plan and the run are timed around them. A worker
 replaced after a THROW counts only its replacement's time. Counting
 costs two clock readings a declaration (about 119,000 on `Init`) and one a
 wait, well under a second of the run's 1,100 CPU seconds; it runs whether
-or not `--resources` is given, so the option only prints. Measured on
+or not `--resources` is given, so the option only prints: the text, and
+with `--json` the `workers` member of `measured`, which a JSON report
+without `--resources` does not have. Measured on
 `Init` at 4 workers on 2026-11-24, with other runs loading the machine:
 287.0 s without `--resources` (load 2 to 5), 306.8 and 316.1 s with it
 (load 5), and 415.3 s for the build before the counters (load 8 to 10):
@@ -1313,7 +1315,7 @@ exit status 0
 | `fuel` | `perDeclaration`, `total` (of the known), `unknown` (how many are not known) and `top` (the ten that used the most) |
 | `input` | declarations, term numbers (two per expression record read in place: the record and the lambda or leaf a let or projection carries; then the store's own nodes), levels and constant references fed, and the stage's names; null when nothing was fed |
 | `exitStatus` | the command's [exit status](#exit-status), 0 to 6 |
-| `measured` | `microseconds` (wall and CPU of `stage`, `feed`, `check`, `save` (only with `--save-snapshot`) and `total`; null on a host without clocks), `peakResidentBytes` and `stageBytes` (null when not known), and `engine`, the file name of the Gforth program that ran ([the engine](#the-engine); null outside `bin/leanforth`); `workers`, only for a run with workers on a host with clocks: `plan` and `run` (wall and CPU of the schedule's plan and of the jobs' run, both within `check`), `driver` and each worker in `each` (`busy` and `waiting` microseconds in the jobs' run: [the workers' time](#the-workers-time)), and `busy` and `waiting`, all workers' together. `save` and `workers` are optional members added within versions 0.4 and 0.5 on 2026-11-24, as `anyLeanVersion` and `memoryPerCheck` were: a report of a run without them is as before |
+| `measured` | `microseconds` (wall and CPU of `stage`, `feed`, `check`, `save` (only with `--resources` and `--save-snapshot`) and `total`; null on a host without clocks), `peakResidentBytes` and `stageBytes` (null when not known), and `engine`, the file name of the Gforth program that ran ([the engine](#the-engine); null outside `bin/leanforth`); `workers`, only with `--resources`, for a run with workers on a host with clocks: `plan` and `run` (wall and CPU of the schedule's plan and of the jobs' run, both within `check`), `driver` and each worker in `each` (`busy` and `waiting` microseconds in the jobs' run: [the workers' time](#the-workers-time)), and `busy` and `waiting`, all workers' together. `save` and `workers` are optional members added within versions 0.4 and 0.5 on 2026-11-24 that appear only with `--resources`, as `anyLeanVersion` and `memoryPerCheck` appear only with their options: a report without `--resources` is as before, member for member (a test validates it against the schemas without these members). A `--resources --json` report with either member is refused by the schemas as they were before 2026-11-24, whose `measured` allows no other members |
 
 The engine is in `measured`, not in `settings`: it says how the run was
 made, not what it found, and keeping it apart makes the report of a

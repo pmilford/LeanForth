@@ -1249,7 +1249,7 @@
                   "$ref": "#/$defs/time"
                 },
                 "save": {
-                  "description": "Present only when a snapshot was to be written (--save-snapshot): the time the save took (an optional member added within versions 0.4 and 0.5, 2026-11-24; a report of a run without the option is as before).",
+                  "description": "Present only with --resources, when a snapshot was to be written (--save-snapshot): the time the save took (an optional member added within versions 0.4 and 0.5, 2026-11-24; a report without --resources is as before).",
                   "$ref": "#/$defs/time"
                 },
                 "total": {
@@ -1292,7 +1292,7 @@
           ]
         },
         "workers": {
-          "description": "Present only when the check ran with workers (--jobs N above 1, or the default of 4; owner, 2026-11-23) on a host with clocks, in microseconds: the plan's and the jobs' run's wall and CPU time, both within the check phase; in the jobs' run, the driving task's busy time (handing out, publishing, rolling back) and waiting time (for a job to end); each worker's busy time (its checks) and waiting time (the rest of the jobs' run, when it had no job), in the order the workers were made; and all workers' busy and waiting time together. A worker replaced after a THROW counts its replacement's time only. An optional member added within versions 0.4 and 0.5, 2026-11-24; a report of a run without workers is as before.",
+          "description": "Present only with --resources, when the check ran with workers (--jobs N above 1, or the default of 4; owner, 2026-11-23) on a host with clocks, in microseconds: the plan's and the jobs' run's wall and CPU time, both within the check phase; in the jobs' run, the driving task's busy time (handing out, publishing, rolling back) and waiting time (for a job to end); each worker's busy time (its checks) and waiting time (the rest of the jobs' run, when it had no job), in the order the workers were made; and all workers' busy and waiting time together. A worker replaced after a THROW counts its replacement's time only. An optional member added within versions 0.4 and 0.5, 2026-11-24; a report without --resources, or of a run without workers, is as before.",
           "type": "object",
           "additionalProperties": false,
           "required": [
