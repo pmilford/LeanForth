@@ -29,6 +29,13 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
+- 2026-11-24, 20:34: plan row TB2's case patterns, slice E2a, are **tested on branch `tb2-patterns-e2a` and
+  Forth-reviewed** ([review](../development/forth-reviews/2026-11-24-tb2-patterns-e2a.md)): findings 1-6 and style
+  points a-d fixed on the branch (one HEq reader and `lf-heq-homogeneous?` in app-builder.fs; `lf-run1` beside
+  `lf-run2`; `lib/outcome.fs`'s `drop-ok` in place of seven copies in front, lib, core, import and kernel files;
+  theorem `sb_var_free` and a unit test of a hidden intro, each with a fault; revert-kept refuses an order Lean
+  refuses, as invalid, Lean's text a named task of E4); 27 theorems node for node pinned Lean's (26 before, not 25). Not merged, not
+  done. Next: its tier, merge and done check; then E2b. Earlier:
 - 2026-11-24, 18:41: plan row TB2's case patterns, slice E2a (piece E, design
   [TACTIC_PATTERNS.md](../design/TACTIC_PATTERNS.md) 5, E2 cut into E2a and E2b), are **tested on branch
   `tb2-patterns-e2a`**: `' h by-subst`, `by-subst[ ]`, `by-subst-vars` (Lean's subst, subst_vars), `rfl` in a
