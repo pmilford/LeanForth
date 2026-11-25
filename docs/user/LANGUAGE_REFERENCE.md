@@ -1687,9 +1687,8 @@ goals), LeanForth stops at that first error; the verdict is the same,
 rejected, but Lean may report further errors that LeanForth does not
 (the owner's decision 6). A term error inside a have-by inside a block
 that does not recover (a slice 3 `try`) is final in LeanForth, where Lean
-throws it on and the `try` takes it (Lean's errToSorry, not modelled yet;
-no text can reach it until `by-try` and `by-first` exist, and slice 3
-models it). have-by's unsolved goals are told at `by-have-by:`, Lean's at
+throws it on and the `try` takes it (Lean's errToSorry; slice 3 models it, see
+"Tactic blocks, slice 3" below). have-by's unsolved goals are told at `by-have-by:`, Lean's at
 `by`. `try`, `first`, `any_goals` and `repeat` are slice 3 of the
 design, not built yet.
 
@@ -1801,8 +1800,10 @@ where Lean says unknown identifier (`w-then-name.lf`; both reject,
 TACTIC_STATUS row NR).
 
 **Tactic blocks, slice 3: `by-try`, `by-first`, `by-repeat`, `by-any-goals`**
-(plan row TB2, piece F; design [TACTIC_BLOCKS.md](../design/TACTIC_BLOCKS.md); tested on
-its branch `tb2-blocks3`, not merged, not done; `src/front/tactics/blocks.fs` over the
+(plan row TB2, piece F; design [TACTIC_BLOCKS.md](../design/TACTIC_BLOCKS.md); done on main
+6effda9d, done check [2026-11-25-tb2-blocks3-done.md](../development/done-checks/2026-11-25-tb2-blocks3-done.md);
+a wrong proof text is refused with exit 4, a shape not supported yet with exit 2;
+`src/front/tactics/blocks.fs` over the
 runner's handlers in `src/front/tactic-run.fs`; tests in `tests/front/tactics/blocks-3/`).
 Each is a block closed by `by-end`; the steps inside may be any tactics or blocks. A
 handler block takes back only Lean's own errors: a refusal of LeanForth's (not supported,
@@ -2013,7 +2014,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-decide` | `( -- )` | ordinary | read: a step. Run: assigns the main goal `of_decide_eq_true P I h` after `Decidable.decide P I` reduced to `true`, removes the goal | Proves a closed decidable statement (`2 + 2 = 4`, `10 < 20`, `¬`, `∧`, `∨`, Bool equality) by evaluation; false: error 250; a free variable in the goal: 251; a metavariable: 252; evaluation stuck: 253; no `Decidable` instance: 122; an exponent above 256, or a `let` in a goal with a free variable: 93 (not supported yet). | `decide` |
 | `**` `by-omega` | `( -- )` | designed | n/a | Linear arithmetic over `Nat` and `Int`. | `omega` |
 | `by-native-decide` | `( -- )` | ordinary; always refused, not supported (error 254, exit 2): it rests on `Lean.ofReduceBool` | read: a step. Run: error 254 | Never proves anything: Lean's `native_decide` trusts the compiler through an axiom LeanForth does not accept. | `native_decide` |
-| `**` `by-try`, `by-first`, `<;>`, `by-all-goals`, `by-any-goals`, `by-repeat` | | combinators; designed (TACTIC_BLOCKS.md, slices 2 and 3), the spellings the owner's | n/a | n/a | `try`, `first`, `<;>`, `all_goals`, `any_goals`, `repeat` |
+| `by-try`, `by-first`, `<;>`, `by-all-goals`, `by-any-goals`, `by-repeat` | | combinators; implemented (TACTIC_BLOCKS.md, slices 2 and 3; see "Tactic blocks" above), the spellings the owner's | n/a | n/a | `try`, `first`, `<;>`, `all_goals`, `any_goals`, `repeat` |
 | `**` `by-alt: CASE-TAG HYP-NAME ... =>` | | an open question of the design: spelling alternatives without `\|` | n/a | n/a | `\| tag names =>` |
 | `**` `by-refine`, `by-subst` and others | | named in FE2 §3/FE5 as later tactics; no spelling is fixed (plan row TB2 lists the batches) | n/a | n/a | `refine`, `subst`, ... |
 
@@ -2394,9 +2395,8 @@ which LeanForth never accepts (ADR 0021 D7), so the word is always
 refused: error 254, not supported, exit 2 (`x-dc-native.lf`).
 
 Lean: `decide`, `native_decide`. Not built yet (`**`): `by-omega` (plan
-S4), and the combinators `by-try`, `by-first`, `<;>`, mentioned in
-[FE1G_TACTICS.md](../design/FE1G_TACTICS.md) §3 and §5 without a fixed
-spelling.
+S4). The combinators `by-try`, `by-first` and `<;>` are built (the
+"Tactic blocks" sections above).
 
 ### D.8 `by-obtain[ ]`, `by-rcases[ ]`: case patterns
 
