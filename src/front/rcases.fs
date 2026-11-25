@@ -301,7 +301,7 @@ end-structure
 \ (g.intro (pat.name?.getD `_)); its triple then names the new variable.
 -1 constant rcs-intro
 : rcs-intro1 ( node s -- v )
-  rcs-name run-one lf-must rcs rcs-goal @ swap 1 lf-goal-intro-names 0 run@
+  rcs-name lf-run1 rcs rcs-goal @ swap 1 lf-goal-intro-names 0 run@
   swap rcs rcs-goal ! ;
 : rcs-introduced ( pending -- pending' )
   dup 2 run@ rcs-intro <> if exit then dup 3 run-after lf-must swap 0 run-pair@
@@ -316,8 +316,7 @@ end-structure
 \ (generalizeExceptFVar), matched with the pattern's root.
 : rcs-root ( -- node s ) rcs rcs-step @ lf-tac-args# 1- -1 ;
 : rcs-target ( goal e -- goal' v )
-  dup lf-meta-fvar? if exit then
-  0 swap lf-run+ rcs-root rcs-name lf-run+ lf-goal-generalize swap 0 run@ ;
+  dup lf-meta-fvar? if exit then rcs-root rcs-name lf-run2 lf-goal-generalize swap 0 run@ ;
 : rcs-start ( goal e -- ) rcs-target >r 0 rcs-root r> rcs-triple+ >r 0 0 r> rcs-task+ ;
 : rcs-walk ( -- goals ) rcs-loop rcs rcs-goals @ ;
 : rcs-run ( goal -- goals ) rcs rcs-step @ 0 lf-tac-elab-arg rcs-start rcs-walk ;

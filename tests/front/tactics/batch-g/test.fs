@@ -54,8 +54,6 @@ lf-meta-throw-base outcome-unsupported - constant thrown-unsupported
 : tagged ( type -- goal ) goal dup s" t" lfa-intern lf-mvar-tag! made ;
 : decl ( c-addr u -- d ) lfa-intern lf-menv-find made ;
 : nm ( c-addr u -- name ) lfa-intern ;
-: run1 ( x -- run ) 0 swap lf-run+ ;
-: run2 ( x y -- run ) >r run1 r> lf-run+ ;
 : view# ( goal -- n ) lf-goal-view lf-view-count ;
 : local-at ( goal i -- local ) swap lf-goal-view swap lf-view-local ;
 : named? ( goal i c-addr u -- flag ) 2>r local-at lf-local-name 2r> nm lf-name-same? ;
@@ -100,25 +98,25 @@ nat s" a" binder constant ra
 nat s" b" binder constant rb
 ra rb lf-mk-eq s" h" lf-local-inaccessible local+ constant rh
 ra rb lf-mk-eq tagged constant g1
-g1 rb run1 lf-goal-revert-kept constant kept1 constant g1'
+g1 rb lf-run1 lf-goal-revert-kept constant kept1 constant g1'
 T{ kept1 run-count kept1 0 run@ lf-local-fvar kept1 1 run@ lf-local-fvar -> 2 rb rh }T
 T{ kept1 1 run@ lf-local-inaccessible? kept1 0 run@ lf-local-inaccessible? g1' view# -> true false 1 }T
-T{ g1 rb run1 ' lf-goal-revert-kept code2 -> thrown-invalid }T   \ assigned now
+T{ g1 rb lf-run1 ' lf-goal-revert-kept code2 -> thrown-invalid }T   \ assigned now
 T{ ra rb lf-mk-eq tagged 0 lf-goal-revert-kept nip -> 0 }T
 \ Two asked (slice E2a, substCore's): in the order asked, then h (preserveOrder).
-T{ ra rb lf-mk-eq tagged rb ra run2 lf-goal-revert-kept nip dup 0 run@ lf-local-fvar
+T{ ra rb lf-mk-eq tagged rb ra lf-run2 lf-goal-revert-kept nip dup 0 run@ lf-local-fvar
    over 1 run@ lf-local-fvar rot 2 run@ lf-local-fvar -> rb ra rh }T
 \ intro-kept: b, then h hidden as it was; an anonymous binder a, hidden.
 g1' kept1 2 lf-goal-intro-kept constant xs1 constant g1''
 T{ xs1 run-count g1'' view# g1'' 1 s" b" named? g1'' 2 s" h" named? -> 2 3 true true }T
 T{ g1'' 1 hidden? g1'' 2 hidden? g1'' lf-goal-type ra xs1 0 run@ lf-mk-eq eqv? -> false true true }T
 T{ g1' kept1 0 lf-goal-intro-kept -> g1' 0 }T
-T{ ra rb lf-mk-eq tagged rb run1 lf-goal-revert-kept 3 ' lf-goal-intro-kept code3
+T{ ra rb lf-mk-eq tagged rb lf-run1 lf-goal-revert-kept 3 ' lf-goal-intro-kept code3
    -> thrown-invalid }T   \ kept shorter than n
 fresh
 nat s" a" binder constant za
 nat lf-local-inaccessible anon+ constant zx
-za za lf-mk-eq goal zx run1 lf-goal-revert-kept constant kz constant gz
+za za lf-mk-eq goal zx lf-run1 lf-goal-revert-kept constant kz constant gz
 T{ gz kz 1 lf-goal-intro-kept drop dup 1 s" a" named? swap 1 hidden? -> true true }T
 \ intro-names: a name for each binder in turn; 0 and past the names the
 \ binder's own, hidden.
@@ -126,8 +124,8 @@ fresh
 nat s" a" binder constant na
 nat s" b" binder constant nb
 na nb lf-mk-eq s" h" binder constant nh
-na nb lf-mk-eq goal nb run1 lf-goal-revert-kept drop constant gn
-T{ gn s" x" nm run1 2 lf-goal-intro-names drop dup 1 s" x" named? over 1 hidden? rot 2 hidden?
+na nb lf-mk-eq goal nb lf-run1 lf-goal-revert-kept drop constant gn
+T{ gn s" x" nm lf-run1 2 lf-goal-intro-names drop dup 1 s" x" named? over 1 hidden? rot 2 hidden?
    -> true false true }T
 T{ gn 0 0 lf-goal-intro-names -> gn 0 }T
 
@@ -181,7 +179,7 @@ T{ gi ih s" And.casesOn" decl 0 ' lf-goal-induction code4 -> thrown-invalid }T
 \ constructors and maps h to each one applied.
 ia ib lf-mk-eq ib ia lf-mk-eq or-of s" k" binder constant ik
 ib ia lf-mk-eq tagged constant go
-go ik s" x" nm run1 run1 false lf-goal-cases constant subs-or
+go ik s" x" nm lf-run1 lf-run1 false lf-goal-cases constant subs-or
 : or-goal ( i -- goal ) subs-or swap lf-subgoal-goal ;
 : or-ctor? ( i c-addr u -- flag ) rot subs-or swap lf-subgoal-ctor -rot nm lf-name-same? ;
 T{ subs-or lf-subgoals# 0 or-goal s" t.inl" tag? 1 or-goal s" t.inr" tag? -> 2 true true }T
@@ -235,16 +233,16 @@ fresh
 nat s" a" binder constant ga
 nat s" b" binder constant gb
 ga gb lf-mk-eq goal constant gq
-gq ga run1 s" y" nm lf-run+ lf-goal-generalize constant gq' constant ys
+gq ga lf-run1 s" y" nm lf-run+ lf-goal-generalize constant gq' constant ys
 T{ ys run-count gq' dup view# 1- s" y" named? gq' dup view# 1- hidden? gq open? -> 1 true false false }T
 T{ gq' lf-goal-type ys 0 run@ gb lf-mk-eq eqv? -> true }T
-ga gb lf-mk-eq goal ga run1 0 lf-run+ lf-goal-generalize nip constant gq2
+ga gb lf-mk-eq goal ga lf-run1 0 lf-run+ lf-goal-generalize nip constant gq2
 T{ gq2 dup view# 1- hidden? gq2 dup view# 1- s" x" named? -> true true }T
-T{ gq ga run1 0 lf-run+ ' lf-goal-generalize code2 -> thrown-invalid }T   \ assigned
+T{ gq ga lf-run1 0 lf-run+ ' lf-goal-generalize code2 -> thrown-invalid }T   \ assigned
 \ A goal not type correct once generalized (a in @Eq (a = a) h
 \ (Eq.refl a)): 99, Lean's "result is not type correct".
 ga ga lf-mk-eq s" h" binder constant gh
-T{ gh s" Eq.refl" ga 1 lf-mk-app-m lf-mk-eq goal ga run1 0 lf-run+ ' lf-goal-generalize code2
+T{ gh s" Eq.refl" ga 1 lf-mk-app-m lf-mk-eq goal ga lf-run1 0 lf-run+ ' lf-goal-generalize code2
    -> 99 }T
 
 \ ---- 6. The reader (pattern-syntax.fs) and the walk through text.

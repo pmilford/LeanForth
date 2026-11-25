@@ -31,7 +31,6 @@ lf-meta-throw-base outcome-rejected - constant thrown-rejected
 : binder ( type c-addr u -- fvar ) 0 local+ ;
 : goal ( type -- goal ) 0 lf-mctx-view lf-goal-new made ;
 : nm ( c-addr u -- name ) lfa-intern ;
-: run1 ( x -- run ) 0 swap lf-run+ ;
 : view# ( goal -- n ) lf-goal-view lf-view-count ;
 : local-at ( goal i -- local ) swap lf-goal-view swap lf-view-local ;
 : named? ( goal i c-addr u -- flag ) 2>r local-at lf-local-name 2r> nm lf-name-same? ;

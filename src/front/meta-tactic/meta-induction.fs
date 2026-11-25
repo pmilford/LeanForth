@@ -225,7 +225,7 @@ end-structure
   mid-info@ lf-rinfo-indices if lf-tac-unported then mid-typed ;
 \ Revert the major and its dependents, introduce the major again.
 : mid-revert ( goal major -- goal2 )
-  0 swap lf-run+ lf-goal-revert-kept dup mid mid-kept ! 1 lf-goal-intro-kept 0 run@
+  lf-run1 lf-goal-revert-kept dup mid mid-kept ! 1 lf-goal-intro-kept 0 run@
   mid mid-major ! dup mid mid-goal ! ;
 
 \ ---- mkRecursorAppPrefix, in goal2's context.

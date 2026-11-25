@@ -71,8 +71,8 @@ reason = "TB2 E2a: an HEq of one type is never made an equation, so subst of it 
 [[fault]]
 id = "rintro-name-dropped"
 file = "src/front/rcases.fs"
-old = '''  rcs-name run-one lf-must rcs rcs-goal @ swap 1 lf-goal-intro-names 0 run@'''
-new = '''  2drop 0 run-one lf-must rcs rcs-goal @ swap 1 lf-goal-intro-names 0 run@'''
+old = '''  rcs-name lf-run1 rcs rcs-goal @ swap 1 lf-goal-intro-names 0 run@'''
+new = '''  2drop 0 lf-run1 rcs rcs-goal @ swap 1 lf-goal-intro-names 0 run@'''
 test = "$GFORTH tests/front/tactics/batch-h/test.fs"
 reason = "TB2 E2a: rintro introduces every item hidden, so a name pattern names nothing (test.fs's by-rintro[ k ] ' k by-exact expects 0)"
 
