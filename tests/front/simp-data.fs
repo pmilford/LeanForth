@@ -35,11 +35,11 @@ T{ good simp-data? simp-congr-count simp-congr-kind elab-count simp-defeq-count
    -> outcome-ok true 3 3 1 }T
 T{ s" ite" top simp-congr-lemmas -> 1 2 outcome-ok }T
 T{ 1 simp-congr@ 1 simp-congr-rank 1 simp-congr-fun -> s" ite_congr" top 1000 0 s" ite" top }T
-T{ 2 simp-congr@ 2 simp-congr-rank -> s" add_zero" nat 500 1 }T
+T{ 2 simp-congr@ 2 simp-congr-rank -> s" ite_eq_left" top 500 1 }T
 T{ s" dite" top simp-congr-lemmas 0 simp-congr@ -> 0 1 outcome-ok s" dite_congr" top 1000 }T
 T{ s" add_zero" nat simp-congr-lemmas -> 0 0 outcome-ok }T
 : hyps@ ( c -- h0 .. hn-1 n ) simp-congr-hyps dup >r cells bounds ?do i @ 1 cells +loop r> ;
-T{ 0 hyps@ 2 hyps@ -> 9 10 11 3 0 1 }T
+T{ 0 hyps@ 2 hyps@ -> 9 10 11 3 2 1 }T
 T{ s" add_zero" nat simp-defeq? s" ite_congr" top simp-defeq? s" ite" top simp-defeq?
    -> true outcome-ok false outcome-ok false outcome-ok }T
 
@@ -79,6 +79,10 @@ T{ fixture order-split refused -> outcome-invalid 4 48 0 }T
 T{ fixture order-again refused -> outcome-invalid 4 48 0 }T
 T{ fixture hyps-beyond refused -> outcome-invalid 4 37 0 }T
 T{ fixture hyps-down refused -> outcome-invalid 2 37 0 }T
+T{ fixture fun-other refused -> outcome-invalid 2 37 0 }T
+T{ fixture fun-swapped refused -> outcome-invalid 2 37 0 }T
+T{ fixture not-eq refused -> outcome-invalid 4 37 0 }T
+T{ fixture prio-rising refused -> outcome-invalid 4 48 0 }T
 T{ fixture defeq-def refused -> outcome-invalid 6 14 0 }T
 T{ fixture defeq-twice refused -> outcome-invalid 6 29 0 }T
 T{ fixture tag-unknown refused -> outcome-invalid 6 10 0 }T

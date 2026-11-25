@@ -56,7 +56,7 @@ def defeq(name):
 
 C_DITE = congr(["dite"], ["dite_congr"], [9, 10, 11], 0)
 C_ITE = congr(["ite"], ["ite_congr"], [9, 10, 11], 0)
-C_ITE1 = congr(["ite"], ["Nat", "add_zero"], [0], 1, 500)
+C_ITE1 = congr(["ite"], ["ite_eq_left"], [2], 1, 500)
 T_ADD = defeq(["Nat", "add_zero"])
 GOOD = [C_DITE, C_ITE, C_ITE1, T_ADD]
 
@@ -113,7 +113,13 @@ CASES = {
     "order-split": (assemble([C_ITE, C_DITE, C_ITE1, T_ADD]), "invalid", 4, 48),
     "order-again": (assemble(swap(C_ITE1, C_ITE1.replace('"rank":1', '"rank":0'))),
                     "invalid", 4, 48),
-    "hyps-beyond": (assemble(swap(C_ITE1, C_ITE1.replace("[0]", "[1]"))), "invalid", 4, 37),
+    "hyps-beyond": (assemble(swap(C_ITE1, C_ITE1.replace("[2]", "[6]"))), "invalid", 4, 37),
+    "fun-other": (assemble(swap(C_DITE, C_DITE.replace('["dite"]', '["Decidable","decide"]'))),
+                  "invalid", 2, 37),
+    "fun-swapped": (assemble([C_DITE.replace('["dite"]', '["ite"]'), C_ITE.replace('["ite"]', '["dite"]'),
+                              C_ITE1, T_ADD]), "invalid", 2, 37),
+    "not-eq": (assemble(swap(C_ITE1, congr(["ite"], ["of_eq_true"], [1], 1, 500))), "invalid", 4, 37),
+    "prio-rising": (assemble(swap(C_ITE, C_ITE.replace("1000", "400"))), "invalid", 4, 48),
     "hyps-down": (assemble(swap(C_DITE, C_DITE.replace("[9,10,11]", "[10,9,11]"))),
                   "invalid", 2, 37),
     "defeq-def": (assemble(GOOD + [defeq(["ite"])]), "invalid", 6, 14),

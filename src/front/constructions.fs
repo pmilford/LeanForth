@@ -161,7 +161,6 @@ end-structure
   dup >r more-rec-rules swap rec-item rule-fields-item swap r> aux-tuples tuple-item ;
 
 \ ---- Expressions.
-: app? ( e job -- flag ) aux-tier expr-tag@ tag-app = ;
 : pi-parts ( e job -- head dom ) aux-tier 2dup expr-head@ -rot expr-a@ ;
 \ The telescope words of core/compact-exprs.fs, on the job's tier.
 \ nth-pi requires n <= pi-count (expr-pi-after's precondition; past it
@@ -174,7 +173,7 @@ end-structure
 : pi-count ( e job -- n ) aux-tier expr-pis ;
 \ Binder j of e (nth-pi's order for a type read from the job).
 : pi-at ( j e job -- e' ) >r swap r> nth-pi ;
-: app-head ( e job -- f ) >r begin dup r@ app? while r@ aux-tier expr-a@ repeat r> drop ;
+: app-head ( e job -- f ) aux-tier expr-app-fn ;
 : var-index ( e job -- b )
   aux-tier 2dup expr-tag@ tag-bvar = if expr-a@ else 2drop -1 then ;
 : pi>lam ( head -- head' ) tag-pi tag-lam - - ;

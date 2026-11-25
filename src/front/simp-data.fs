@@ -12,13 +12,15 @@
 \ code), so no answer below comes from a bad record.
 \
 \ A congr record: name, the lemma (a theorem, named by one record at
-\ most: error 47); fun, the function (any declaration); hyps, its
+\ most: error 47); fun, the function, the head of the left side of the
+\ lemma's conclusion (an Eq or an Iff: error 37); hyps, its
 \ hypotheses' places among the lemma's binders (increasing, each below
 \ the number of the leading Pi binders of its type: error 37); priority;
 \ rank, its place in its function's list. One function's records are one
 \ run of lines ranked 0, 1, 2, ... in file order, as the writer sorts
-\ them (error 48 otherwise). Members, names and numbers are checked as
-\ elab-data.fs checks them (errors 10-14, 19, 22 for no room).
+\ them, their priorities falling (error 48 otherwise). Members, names
+\ and numbers are checked as elab-data.fs checks them (errors 10-14, 19,
+\ 22 for no room).
 \
 \ simp-data? ( -- flag ): the data read is of format 4, so the answers
 \ below are Lean's; when it is not (no data, or an older format)
@@ -70,7 +72,9 @@ end-structure
 : sd-run ( f -- a-addr | 0 ) sd-fun-role sd-index memo-at ;
 : sd-run@ ( a-addr -- first n ) dup @ swap cell+ @ ;
 \ Rank r of record c continues the run: c follows its last record, r its length.
-: sd-continues? ( c r a-addr -- flag ) sd-run@ rot over = >r + = r> and ;
+\ The record and rank that continue the run.
+: sd-next ( a-addr -- c r ) sd-run@ tuck + swap ;
+: sd-continues? ( c r a-addr -- flag ) sd-next d= ;
 : sd-extend ( c r a-addr -- outcome )
   dup >r sd-continues? r> swap if cell+ 1 swap +! outcome-ok else drop sd-order-bad then ;
 \ Rank 0 opens the function's run, unless it has one.
@@ -102,13 +106,45 @@ end-structure
   -1 -rot cells bounds ?do
     i @ sd-hyp-next 0= if 2drop false unloop exit then
   1 cells +loop 2drop true ;
+: sd-fit ( flag -- outcome ) if outcome-ok else elab-e-unfit elab-refuse then ;
 : sdc-fit ( value c -- outcome )
-  nip dup sdc sdc-decl @ elab-type-pis swap simp-congr-hyps sd-hyps-fit?
-  if outcome-ok else elab-e-unfit elab-refuse then ;
+  nip dup sdc sdc-decl @ elab-type-pis swap simp-congr-hyps sd-hyps-fit? sd-fit ;
+\ Lean's funName (mkSimpCongrTheorem, SimpCongrTheorems.lean): the
+\ lemma's conclusion, past its written Pis, is Eq _ lhs _ or Iff lhs _
+\ (Expr.eqOrIff?), and fun is the constant at the head of lhs (error 37
+\ otherwise). Lean's other checks of a congr lemma (rhs a call of the
+\ same constant, the hypotheses' shape) are not repeated: the kernel
+\ checks each use of a lemma.
+: sd-a@ ( e -- u ) elab-tier expr-a@ ;   \ an application's function, a constant's name
+: sd-app? ( e -- flag ) elab-tier expr-app? ;
+: sd-const? ( e -- flag ) elab-tier expr-tag@ tag-const = ;
+: sd-arity ( e -- n ) 0 swap begin dup sd-app? while sd-a@ swap 1+ swap repeat drop ;
+\ e's call: the constant at the head of its spine and its number of
+\ arguments; -1 -1 when the head is not a constant.
+: sd-call ( e -- name n )
+  dup elab-tier expr-app-fn dup sd-const? if sd-a@ swap sd-arity else 2drop -1 -1 then ;
+: sd-named ( c-addr u -- name ) 0 -rot elab-tier name-seek-str drop ;   \ -1: absent
+\ The relation a call of n arguments may be: Eq with 3, Iff with 2; else -2.
+: sd-relation-name ( n -- name )
+  dup 3 = if drop s" Eq" sd-named exit then 2 = if s" Iff" sd-named else -2 then ;
+: sd-relation? ( e -- flag ) sd-call sd-relation-name = ;
+: sd-lhs-fun ( e -- name )
+  dup sd-relation? if sd-a@ elab-tier expr-b@ sd-call drop else drop -1 then ;
+: sd-conclusion ( d -- e ) elab-type@ elab-tier expr-pi-end ;
+: sdc-lhs-fun ( c -- name ) sdc sdc-decl @ sd-conclusion sd-lhs-fun ;
+: sdc-head ( value c -- outcome )
+  nip dup sdc-lhs-fun swap sdc sdc-fun @ elab-decl-name = sd-fit ;
 : sdc-rank! ( value c -- outcome )
   sdc swap c" rank" elab-member elab-u32 ['] sdc-rank elab-put ;
 : sdc-run@ ( c -- c r f ) dup sdc dup sdc-rank @ swap sdc-fun @ ;
 : sdc-order ( value c -- outcome ) nip sdc-run@ sd-place ;
+\ Priorities fall along a run, as Lean's insert keeps each list
+\ (SimpCongrTheorems.lean): rank r's at most rank r-1's, record c-1.
+: sd-priority@ ( c -- p ) sdc sdc-priority @ ;
+: sd-falls? ( c -- flag )
+  dup sdc sdc-rank @ 0= if drop true exit then
+  dup 1- sd-priority@ swap sd-priority@ u< 0= ;
+: sdc-falls ( value c -- outcome ) nip sd-falls? if outcome-ok else sd-order-bad then ;
 : sdc-index ( value c -- outcome )
   nip dup sdc sdc-decl @ sd-lemma-role sd-index memo! elab-roomed ;
 create sdc-members
@@ -116,7 +152,7 @@ create sdc-members
   s" rank" counted, 0 0 counted,
 create sdc-form  sdc-members , ' simp-congrs ,
   ' sdc-ready , ' sdc-name! , ' sdc-fun! , ' sdc-priority! , ' sdc-hyps! , ' sdc-fit ,
-  ' sdc-rank! , ' sdc-order , ' sdc-index , 0 ,
+  ' sdc-head , ' sdc-rank! , ' sdc-order , ' sdc-falls , ' sdc-index , 0 ,
 sdc-form ' sd-clear s" congr" elab-add-kind constant simp-congr-kind
 
 \ ---- The questions.

@@ -128,7 +128,7 @@ end-structure
 : lfc-telescope ( e -- n e' )
   0 swap begin dup lfc-tier expr-pi? while
     tuck lfc-explicit swap lfc-tier expr-b@ repeat ;
-: lfc-head ( e -- e' ) begin dup lfc-tag tag-app = while lfc-tier expr-a@ repeat ;
+: lfc-head ( e -- e' ) lfc-tier expr-app-fn ;
 : lfc-const-unfolds? ( e -- flag ) lfc-tier expr-a@ lfc-decl if lfc-def? else false then ;
 : lfc-redex-tag? ( tag -- flag )
   dup tag-lam tag-pi within over let-tag? or over tag-let-body = or

@@ -1761,6 +1761,8 @@ synonym elab-array-items ed-array-items  ( index xt -- outcome )
 synonym elab-type-pis ed-type-pis        ( d -- n )
 synonym elab-numbers ed-numbers          ( span index -- outcome ) \ u32s into elab-orders
 synonym elab-span@ ed-span@              ( span -- addr n )
+synonym elab-tier ed-tier                ( -- tier ) \ the stage's names and terms
+: elab-type@ ( d -- e ) ed-stage staged-type@ ;
 : elab-format4? ( -- flag ) elab-loaded? ed-v4? and ;
 : ed-tagged-at? ( tag d -- tag flag ) over elab-tagged? ;
 : elab-tag-count ( tag -- n ) elab-facts slab-count ['] ed-tagged-at? count-index ;

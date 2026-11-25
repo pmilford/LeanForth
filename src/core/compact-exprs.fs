@@ -124,6 +124,11 @@ require ./compact-levels.fs
 : expr-payload@ ( e tier -- u ) expr-head@ head-payload ;
 : expr-a@ ( e tier -- u ) expr-record quad-a u32@ ;
 : expr-b@ ( e tier -- u ) expr-record quad-b u32@ ;
+\ Whether e is an application; the head of its spine (Lean's
+\ Expr.getAppFn): down the function side to the first node that is not
+\ one. A loop, linear in the arguments.
+: expr-app? ( e tier -- flag ) expr-tag@ tag-app = ;
+: expr-app-fn ( e tier -- f ) begin 2dup expr-app? while tuck expr-a@ swap repeat drop ;
 : expr-data@ ( e tier -- d ) expr-record quad-data u32@ ;
 \ A letE's body, from its second record.
 : expr-body@ ( e tier -- body ) expr-record /quad + quad-a u32@ ;

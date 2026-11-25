@@ -21,8 +21,8 @@ reason = "SD-a: a definition is read as a congruence lemma (error 14 never given
 [[fault]]
 id = "sd-hyps-unchecked"
 file = "src/front/simp-data.fs"
-old = '''  if outcome-ok else elab-e-unfit elab-refuse then ;'''
-new = '''  drop outcome-ok ;'''
+old = '''  nip dup sdc sdc-decl @ elab-type-pis swap simp-congr-hyps sd-hyps-fit? sd-fit ;'''
+new = '''  2drop outcome-ok ;'''
 test = "$GFORTH tests/front/simp-data.fs"
 reason = "SD-a: hypothesis places beyond the lemma's binders or out of order are read (error 37 never given)"
 
@@ -204,3 +204,28 @@ old = '''  ed-added# ed-added-most < 0= abort" elab-add-kind: no room for anothe
 new = '''  ;'''
 test = "$GFORTH tests/front/elab-kinds.fs"
 reason = "review simp-sd-a 1: a kind past elab-kinds-most is written beyond the registry and the counts"
+
+# --- review simp-sd-a, findings 4 and 5: fun is the lemma's head; priorities fall.
+[[fault]]
+id = "sd-fun-any-head"
+file = "src/front/simp-data.fs"
+old = '''  nip dup sdc-lhs-fun swap sdc sdc-fun @ elab-decl-name = sd-fit ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "review simp-sd-a 4: a lemma filed under another function is read: that function's lemma never tried"
+
+[[fault]]
+id = "sd-lhs-any-relation"
+file = "src/front/simp-data.fs"
+old = '''  dup sd-relation? if sd-a@ elab-tier expr-b@ sd-call drop else drop -1 then ;'''
+new = '''  sd-call drop ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "review simp-sd-a 4: the conclusion's own head taken for fun (Eq, not the left side's function)"
+
+[[fault]]
+id = "sd-priority-rising"
+file = "src/front/simp-data.fs"
+old = '''  dup 1- sd-priority@ swap sd-priority@ u< 0= ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "review simp-sd-a 5: a run whose priorities rise is read (Lean's insert keeps them falling)"
