@@ -29,6 +29,7 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
+- 2026-11-25, 13:38: the kernel speed work's slice 1 (plan 9.4.8z1, the per-check environment stamp) is **done** on main 297c7a56 (done check [2026-11-25-kernel-validity-1-done.md](../development/done-checks/2026-11-25-kernel-validity-1-done.md)): `bin/leanforth check --jobs 1 --no-manifest --resources --json` of Init on gforth-fast takes 779.5 s of check phase against 952.7 s before (one run each on a shared machine; about 20-21 times Lean, was 24.8), 246.6 s at four workers, with the same verdicts, fuel and axioms.
 - 2026-11-25, 11:29: the Later list's speed item 4 (a), the measurement, is **done** on main 3a8bf43c (done check [2026-11-25-kernel-speed-measure-done.md](../development/done-checks/2026-11-25-kernel-speed-measure-done.md)): `bin/leanforth check --json --resources EXPORT` gives each declaration's check time, `make profile-check EXPORT=FILE` the tables of where a check spends its time, [KERNEL_SPEED.md](../development/KERNEL_SPEED.md) the measurements (Init 24.8 times Lean). Nothing is sped up yet: the first speed step is designed and approved ([KERNEL_VALIDITY_CHECKS.md](../design/KERNEL_VALIDITY_CHECKS.md), owner 2026-11-25), its slice 1 is being written on branch `kernel-validity-1`.
 - 2026-11-25, 09:36: plan row TB2's tactic blocks, slice 3, are **done** on main 6effda9d (done check [2026-11-25-tb2-blocks3-done.md](../development/done-checks/2026-11-25-tb2-blocks3-done.md): the checker's own 6 theorems with `by-try`, `by-first`, `by-repeat` and `by-any-goals` accepted, 6 wrong ones refused, the documented unsupported shape exit 2; four agree with pinned Lean). Left: plan row 9.4.8y.
 - 2026-11-25, 09:07: simp slice SD-a (plan FE9) is **done** on main e28dfd01 (done check [2026-11-25-simp-sd-a-done.md](../development/done-checks/2026-11-25-simp-sd-a-done.md)): `bin/leanforth check --env tests/front/simp-slice.ndjson --elab-data tests/front/simp-slice.elab.ndjson tests/front/simp-data/sd-id.lf` reads elaboration data of format 4 and prints "2 congruence lemmas, 1 defeq tags"; malformed data is refused (exit 4). It is a data slice: no simp tactic exists yet (next: SL1a with SD-b beside it).
@@ -383,8 +384,9 @@ status changes when this date is older than them. Stages are those of the
      `make profile-check`, `declarationMicroseconds`, [KERNEL_SPEED.md](../development/KERNEL_SPEED.md); not
      reviewed, not merged); (b) the algorithm changes with identical verdicts: the validity
      re-checks removed (2026-11-25: slice 1 of [KERNEL_VALIDITY_CHECKS.md](../design/KERNEL_VALIDITY_CHECKS.md),
-     the checked-environment stamp, plan 9.4.8z1, **written and tested on branch `kernel-validity-1`, not
-     reviewed, not merged, not done**; the owner's approval as behaviour-preserving kernel refactoring is in
+     the checked-environment stamp, plan 9.4.8z1, **done on main 297c7a56** (2026-11-25; done check
+     [2026-11-25-kernel-validity-1-done.md](../development/done-checks/2026-11-25-kernel-validity-1-done.md):
+     Init's check phase 952.7 s -> 779.5 s at one worker, 246.6 s at four, same verdicts); the owner's approval as behaviour-preserving kernel refactoring is in
      OWNER_DECISIONS.md's last section), the cache with a 3.7% hit rate compared with Lean's, and instantiation and universe
      substitution skipped wherever Lean skips them (no loose variables, no universe parameters); (c) lowest: native
      primitives, for now measured only (which two or three would pay, and how much), not built.

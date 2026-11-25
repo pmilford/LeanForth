@@ -18,7 +18,7 @@ recomputed from run 2; sections 3 to 7 and the counts are run 1's (and its count
 ## In short
 
 - LeanForth checks Init (59,349 declarations, 57,919 checks) in 952 s on one worker (measured; 968 s with
-  stage and feed, under the profiler; 824 s with the environment stamp of branch `kernel-validity-1`,
+  stage and feed, under the profiler; 824 s with the environment stamp (on main since 297c7a56; 779.5 s in a later run on main),
   section 10). Lean's kernel takes 38.4 s for the same declarations and nanoda 44 s
   (recorded, [lean-kernel-profile-2026-11-02](measurements/lean-kernel-profile-2026-11-02/README.md)):
   **24.8 times** Lean.
@@ -358,6 +358,13 @@ load 5.9-8.5, with the same report; it is not compared with the 287 s recorded o
 since the machine was loaded. The decide slice (`tests/front/decide-slice.ndjson`, 1,290 declarations)
 went from 3.75 s to 3.10 s of check phase at one worker (load 1.0), with identical reports at 1 and 4
 workers.
+
+**Measured again on main** (2026-11-25 13:19-13:37, main 0f3b3edd, the same command, one run each; another
+agent was working on the machine). `--jobs 1`: check phase 779.5 s, total 794.0 s (load 5.9 at the start,
+1.0 at the end): 173 s, 18.2 points below the 952.7 s above, about 20.3 times Lean. `--jobs 4`: check phase
+246.6 s wall (967.3 s CPU), total 264.6 s (load 2.0 at the start, 5.9 at the end), against 287 s total
+recorded for main on 2026-11-24. The two one-worker pairs put the stamp's gain between 13 and 18 points
+(measured, single runs on a shared machine).
 
 So: the algorithm changes (1, 2, 5, 6, 7) take 23-30 points, 666-732 s, **17 to 19 times Lean**; with 3
 and 4 as Forth macros 557-652 s, **14.5 to 17 times**; native hashing and probe 535-630 s, 14 to 16.4
