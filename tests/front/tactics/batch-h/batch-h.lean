@@ -37,6 +37,9 @@ theorem sb_var_right (a b : Nat) (h : a = b) : b = a := by
 theorem sb_var_left (a b : Nat) (h : a = b) : b = a := by
   subst a
   rfl
+theorem sb_var_free (x y : Nat) (h1 : x = x) (h2 : y = x) : y = y := by
+  subst x
+  exact h1
 theorem sb_many (a b c : Nat) (h1 : a = b) (h2 : b = c) : c = a := by
   subst h1 h2
   rfl
@@ -125,7 +128,7 @@ def dump (n : Name) : MetaM Unit := do
 
 #eval do
   for n in [``sb_right, ``sb_left, ``sb_dep_before, ``sb_dep_after, ``sb_rec, ``sb_rec_left,
-      ``sb_heq, ``sb_reduced, ``sb_var_right, ``sb_var_left, ``sb_many, ``sb_skip, ``sb_hidden,
-      ``rf_exists, ``rf_right, ``rf_left, ``rf_alts, ``rf_cleared, ``ri_name, ``ri_alts,
-      ``ri_tuple, ``ri_rfl, ``ri_clear_rfl, ``ri_nat, ``sv_two, ``sv_var_first] do
+      ``sb_heq, ``sb_reduced, ``sb_var_right, ``sb_var_left, ``sb_var_free, ``sb_many, ``sb_skip,
+      ``sb_hidden, ``rf_exists, ``rf_right, ``rf_left, ``rf_alts, ``rf_cleared, ``ri_name,
+      ``ri_alts, ``ri_tuple, ``ri_rfl, ``ri_clear_rfl, ``ri_nat, ``sv_two, ``sv_var_first] do
     dump n

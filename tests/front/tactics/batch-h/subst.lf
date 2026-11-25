@@ -135,6 +135,20 @@ theorem sb_var_left
   by-rfl
 end sb_var_left
 
+\ An older equation with x on both sides is passed by (its other side not
+\ free of x): h2 eliminates x, and h1 becomes y = y.
+\ Lean: theorem sb_var_free (x y : Nat) (h1 : x = x) (h2 : y = x) : y = y := by
+\         subst x
+\         exact h1
+theorem sb_var_free
+  Nat explicit: x  Nat explicit: y
+  x x = explicit: h1  y x = explicit: h2
+  y y =
+:= by
+  ' x by-subst
+  ' h1 by-exact
+end sb_var_free
+
 \ Several names, each in the goal the one before left.
 \ Lean: theorem sb_many (a b c : Nat) (h1 : a = b) (h2 : b = c) : c = a := by
 \         subst h1 h2

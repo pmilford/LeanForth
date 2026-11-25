@@ -28,16 +28,19 @@
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_var_left","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
 {"goal_before":"a b : Nat\nh : a = b\n⊢ b = a","goals_after":["b : Nat\n⊢ b = b"],"parent":0,"source":"134:7","step":1,"tactic":"subst","word":"by-subst"}
 {"goal_before":"b : Nat\n⊢ b = b","goals_after":[],"parent":0,"source":"135:3","step":2,"tactic":"rfl","word":"by-rfl"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_var_free","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"x y : Nat\nh1 : x = x\nh2 : y = x\n⊢ y = y","goals_after":["y : Nat\nh1 : y = y\n⊢ y = y"],"parent":0,"source":"148:7","step":1,"tactic":"subst","word":"by-subst"}
+{"goal_before":"y : Nat\nh1 : y = y\n⊢ y = y","goals_after":[],"parent":0,"source":"149:8","step":2,"tactic":"exact","word":"by-exact"}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_many","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
-{"goal_before":"a b c : Nat\nh1 : a = b\nh2 : b = c\n⊢ c = a","goals_after":["a : Nat\n⊢ a = a"],"parent":0,"source":"147:3","step":1,"tactic":"subst","word":"by-subst["}
-{"goal_before":"a : Nat\n⊢ a = a","goals_after":[],"parent":0,"source":"148:3","step":2,"tactic":"rfl","word":"by-rfl"}
+{"goal_before":"a b c : Nat\nh1 : a = b\nh2 : b = c\n⊢ c = a","goals_after":["a : Nat\n⊢ a = a"],"parent":0,"source":"161:3","step":1,"tactic":"subst","word":"by-subst["}
+{"goal_before":"a : Nat\n⊢ a = a","goals_after":[],"parent":0,"source":"162:3","step":2,"tactic":"rfl","word":"by-rfl"}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_skip","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
-{"goal_before":"a b : Nat\nh : a = b\np : True\n⊢ True","goals_after":["a : Nat\np : True\n⊢ True"],"parent":0,"source":"160:7","step":1,"tactic":"subst","word":"by-subst"}
-{"goal_before":"a : Nat\np : True\n⊢ True","goals_after":[],"parent":0,"source":"161:7","step":2,"tactic":"exact","word":"by-exact"}
+{"goal_before":"a b : Nat\nh : a = b\np : True\n⊢ True","goals_after":["a : Nat\np : True\n⊢ True"],"parent":0,"source":"174:7","step":1,"tactic":"subst","word":"by-subst"}
+{"goal_before":"a : Nat\np : True\n⊢ True","goals_after":[],"parent":0,"source":"175:7","step":2,"tactic":"exact","word":"by-exact"}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"sb_hidden","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":3}}
-{"goal_before":"a b c : Nat\nh : a = b ∧ b = a\n⊢ b = a","goals_after":["a b c : Nat\nhab : a = b\nright✝ : b = a\n⊢ b = a"],"parent":0,"source":"175:7","step":1,"tactic":"obtain","word":"by-obtain["}
-{"goal_before":"a b c : Nat\nhab : a = b\nright✝ : b = a\n⊢ b = a","goals_after":["a c : Nat\nright✝ : a = a\n⊢ a = a"],"parent":0,"source":"176:9","step":2,"tactic":"subst","word":"by-subst"}
-{"goal_before":"a c : Nat\nright✝ : a = a\n⊢ a = a","goals_after":[],"parent":0,"source":"177:3","step":3,"tactic":"assumption","word":"by-assumption"}
+{"goal_before":"a b c : Nat\nh : a = b ∧ b = a\n⊢ b = a","goals_after":["a b c : Nat\nhab : a = b\nright✝ : b = a\n⊢ b = a"],"parent":0,"source":"189:7","step":1,"tactic":"obtain","word":"by-obtain["}
+{"goal_before":"a b c : Nat\nhab : a = b\nright✝ : b = a\n⊢ b = a","goals_after":["a c : Nat\nright✝ : a = a\n⊢ a = a"],"parent":0,"source":"190:9","step":2,"tactic":"subst","word":"by-subst"}
+{"goal_before":"a c : Nat\nright✝ : a = a\n⊢ a = a","goals_after":[],"parent":0,"source":"191:3","step":3,"tactic":"assumption","word":"by-assumption"}
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"rf_exists","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
 {"goal_before":"a : Nat\nh : @Exists Nat (@Eq Nat a)\nk : a = a\n⊢ a = a","goals_after":["a : Nat\nk : a = a\n⊢ a = a"],"parent":0,"source":"14:7","step":1,"tactic":"obtain","word":"by-obtain["}
 {"goal_before":"a : Nat\nk : a = a\n⊢ a = a","goals_after":[],"parent":0,"source":"15:7","step":2,"tactic":"exact","word":"by-exact"}

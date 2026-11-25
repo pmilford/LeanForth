@@ -23,7 +23,7 @@ ENV = tactic_check.Env("tests/front/decide-slice.ndjson", "tests/front/decide-sl
                        "decide-dump")
 FILES = [(D + "subst.lf", ["sb_right", "sb_left", "sb_dep_before", "sb_dep_after", "sb_rec",
                            "sb_rec_left", "sb_heq", "sb_reduced", "sb_var_right", "sb_var_left",
-                           "sb_many", "sb_skip", "sb_hidden"]),
+                           "sb_var_free", "sb_many", "sb_skip", "sb_hidden"]),
          (D + "rfl.lf", ["rf_exists", "rf_right", "rf_left", "rf_alts", "rf_cleared"]),
          (D + "rintro.lf", ["ri_name", "ri_alts", "ri_tuple", "ri_rfl", "ri_clear_rfl",
                          "ri_nat"]),

@@ -124,3 +124,11 @@ old = ''': drop-ok ( x -- outcome ) drop outcome-ok ;'''
 new = ''': drop-ok ( x -- outcome ) outcome-sane ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "TB2 E2a review (finding 3): drop-ok passes its value on as the outcome, so a table's pass-through entry fails on any value but 0 (lib.fs's 5 drop-ok expects ok)"
+
+[[fault]]
+id = "subst-var-side-not-free"
+file = "src/front/meta-tactic/subst.fs"
+old = ''': msv-free? ( x e -- x flag ) over lf-depends-on? lf-must 0= ;'''
+new = ''': msv-free? ( x e -- x flag ) drop true ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-h/check.py"
+reason = "TB2 E2a review (finding 4): substVar takes the first equation with x alone on a side without checking its other side is free of x, so h1 : x = x is chosen and subst x fails with 'x' occurs at (check.py's sb_var_free)"
