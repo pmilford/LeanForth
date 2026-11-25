@@ -7,8 +7,9 @@ The harness and its usage are tests/front/tactics/tactic_check.py's, against dec
 of Init (tests/front/decide-slice.ndjson, as blocks-1's and blocks-2's), with this slice's
 own Lean twins (blocks-3.lean, blocks-3-wrong.lean) and golden (blocks-3.golden).
 UNSUPPORTED are the texts where Lean logs an error inside a block that may still take it
-back (490, the coordinator's rule): Lean rejects u_any_term and u_any_brace
-(blocks-3-wrong.lean) and accepts u_any_gap (blocks-3.lean, the known gap).
+back (490, the coordinator's rule): Lean rejects u_any_term, u_any_brace, u_try_have_brace and
+u_try_have_brace2 (blocks-3-wrong.lean; a brace that is a have-by's whole body logs) and
+accepts u_any_gap (blocks-3.lean, the known gap).
 OWN is w-try-brace.lf, where Lean says "Unknown identifier `j`" and LeanForth answers its
 own 76 (as batch-g's), so --lean does not ask Lean for its text."""
 import pathlib
@@ -41,7 +42,9 @@ OWN = [(D + "w-try-brace.lf", 76, UNNAMED, "")]   # Lean: Unknown identifier `j`
 UNDECIDED = "Lean logs this error and goes on; a block around may take it back: not followed yet"
 UNSUPPORTED = [(D + "u-any-term.lf", 490, UNDECIDED),
                (D + "u-any-brace.lf", 490, UNDECIDED),
-               (D + "u-any-gap.lf", 490, UNDECIDED)]
+               (D + "u-any-gap.lf", 490, UNDECIDED),
+               (D + "u-try-have-brace.lf", 490, UNDECIDED),
+               (D + "u-try-have-brace2.lf", 490, UNDECIDED)]
 
 if __name__ == "__main__":
     wrong = WRONG if "--lean" in sys.argv else WRONG + OWN

@@ -1613,7 +1613,9 @@ file's own theorems. A block is a group of tactics that works on part
 of the proof. A brace `{ ... }` closes itself; a block a `by-` word opens
 closes with `by-end`. Blocks nest and may run over lines.
 
-- `{ tacs }` is Lean's bullet `· tacs` (and Lean's own `{ tacs }`): the
+- `{ tacs }` is Lean's bullet `· tacs` (and Lean's own `{ tacs }`, which
+  differs only as the whole body of a `have`'s `by` inside `try`: see
+  "Tactic blocks, slice 3"): the
   first goal alone, the tactics, and at `}` no goal may be left; the
   other goals come back after it. Mathematically: one case of a proof
   with several parts, finished before the next. With `h : a = b`, `k : b
@@ -1918,11 +1920,18 @@ accepts: the known gap, until "log and carry on, as Lean"). The same holds for a
 tactic's own alternatives may take back (a macro's rules). Outside such a block the error
 is Lean's rejection, as before. A `by-have-by:` inside `by-try`, `by-repeat` or an
 alternative of `by-first` but the last does not recover either, as in pinned Lean: a brace
-that fails in it is thrown, and the block around takes the whole `have` back, so
-`by-try b a = by-have-by: j { ' h by-exact } by-end by-end` then `' h by-exact` is accepted
-and a later `' j by-exact` is refused (error 76; Lean: "Unknown identifier `j`").
-Mathematically: the failed attempt at b = a leaves nothing behind. Lean:
-`try (have j : b = a := by (· exact h))` / `exact h` (`recover.lf`, `w-try-brace.lf`).
+that fails in it after a step is thrown, and the block around takes the whole `have` back,
+so `by-try b a = by-have-by: j b a = by-show { ' h by-exact } by-end by-end` then
+`' h by-exact` is accepted and a later `' j by-exact` is refused (error 76; Lean: "Unknown
+identifier `j`"). Mathematically: the failed attempt at b = a leaves nothing behind. Lean:
+`try (have j : b = a := by show b = a; (· exact h))` / `exact h` (`recover.lf`,
+`w-try-brace.lf`). A brace that is the `by-have-by:`'s whole body (its first and only
+step) is the exception, observed on pinned Lean: Lean logs the error of `by { exact h }`
+and `by { { exact h } }` there and rejects, while it throws that of `by · exact h`,
+`by (· exact h)` and `by skip; { exact h }` and accepts. So
+`by-try b a = by-have-by: j { ' h by-exact } by-end by-end` then `' h by-exact` answers 490
+(`u-try-have-brace.lf`, `u-try-have-brace2.lf`; never accepted), and outside any
+`by-try`, `by-first` or `by-repeat` the brace's error is Lean's rejection.
 
 A statement's hypothesis is written with a tick when it stands alone,
 `' h by-apply`, because its type is not unfolded to count its arguments

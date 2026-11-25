@@ -191,24 +191,56 @@ T{ hh s" by-try b a = by-have-by: j << ' h >> by-exact by-end by-end ' h by-exac
    -> 0 }T
 T{ hh s" by-try b a = by-have-by: j a b = by-have-by: i << ' h >> by-exact by-end ' k by-exact by-end by-end ' h by-exact"
    tactic-ran -> 0 }T
-\ A brace's or all_goals' error in a have-by under a handler: thrown, as
-\ recover there is errToSorry, false, and the handler takes the have back
-\ (pinned Lean's x3, t09, t11, t12, x4, x5 and q2; 490 before the review
-\ tb2-blocks3 finding 1). j is then unknown (76, Lean's Unknown identifier).
+\ A brace's or all_goals' error in a have-by under a handler, below the
+\ have-by's whole body: thrown, as recover there is errToSorry, false,
+\ and the handler takes the have back (pinned Lean, under try: `by show
+\ b = a; (· exact h)`, `by (· (· exact h))`, `by · exact h` then `exact
+\ k`, `by focus · exact h`; 490 before review tb2-blocks3 finding 1). j
+\ is then unknown (76, Lean's Unknown identifier).
+T{ hh s" by-try b a = by-have-by: j b a = by-show { ' h by-exact } by-end by-end ' h by-exact"
+   tactic-ran -> 0 }T
+T{ hh s" by-try b a = by-have-by: j b a = by-show { ' h by-exact } by-end ' k by-exact by-end ' h by-exact"
+   tactic-ran -> 0 }T
+T{ hh s" { by-try b a = by-have-by: j b a = by-show { ' h by-exact } by-end ' k by-exact by-end ' h by-exact }"
+   tactic-ran -> 0 }T
+T{ hk s" by-constructor <;> by-try b a = by-have-by: j b a = by-show { ' h by-exact } by-end ' j by-exact ' h by-exact by-end ' h by-exact ' k by-exact"
+   tactic-ran -> 0 }T
+T{ hh s" by-first | b a = by-have-by: j b a = by-show { ' h by-exact } by-end ' j by-exact | ' h by-exact by-end"
+   tactic-ran -> 0 }T
+T{ hh s" by-try b a = by-have-by: j b a = by-show { { ' h by-exact } } by-end by-end ' h by-exact"
+   tactic-ran -> 0 }T
+T{ hh s" by-try b a = by-have-by: j { ' h by-exact } ' k by-exact by-end by-end ' h by-exact"
+   tactic-ran -> 0 }T
+T{ hh s" by-try b a = by-have-by: j by-focus { ' h by-exact } by-end by-end by-end ' h by-exact"
+   tactic-ran -> 0 }T
+\ A brace that is a brace's whole body under try: no fresh Tactic.run
+\ below it, thrown (pinned Lean's `try { { exact k } }` is accepted).
+T{ hh s" by-try { { ' k by-exact } } by-end ' h by-exact" tactic-ran -> 0 }T
+T{ hh s" by-try b a = by-have-by: j b a = by-show { ' h by-exact } by-end by-end ' j by-exact"
+   tactic-ran final? -> 76 true }T
+lf-tac-forget
+\ A brace that is the have-by's whole body (its first and only step)
+\ sees Tactic.run's recover, true (lfr-whole?, observed on pinned Lean):
+\ its error, or its goals left at }, is logged, so under try or a first
+\ alternative but the last (a save open) 490, at the top level Lean's
+\ error, final (blocks-3-wrong.lean's u_try_have_brace and
+\ u_try_have_brace2; the re-check of review tb2-blocks3).
 T{ hh s" by-try b a = by-have-by: j { ' h by-exact } by-end by-end ' h by-exact" tactic-ran
-   -> 0 }T
-T{ hh s" by-try b a = by-have-by: j { ' h by-exact } by-end ' k by-exact by-end ' h by-exact"
-   tactic-ran -> 0 }T
-T{ hh s" { by-try b a = by-have-by: j { ' h by-exact } by-end ' k by-exact by-end ' h by-exact }"
-   tactic-ran -> 0 }T
-T{ hk s" by-constructor <;> by-try b a = by-have-by: j { ' h by-exact } by-end ' j by-exact ' h by-exact by-end ' h by-exact ' k by-exact"
-   tactic-ran -> 0 }T
-T{ hh s" by-first | b a = by-have-by: j { ' h by-exact } by-end ' j by-exact | ' h by-exact by-end"
-   tactic-ran -> 0 }T
+   final? -> 490 true }T
+lf-tac-forget
 T{ hh s" by-try b a = by-have-by: j { { ' h by-exact } } by-end by-end ' h by-exact"
-   tactic-ran -> 0 }T
-T{ hh s" by-try b a = by-have-by: j { ' h by-exact } by-end by-end ' j by-exact" tactic-ran
-   final? -> 76 true }T
+   tactic-ran final? -> 490 true }T
+lf-tac-forget
+T{ hh s" by-try b a = by-have-by: j { a b = ' h by-have: x } by-end by-end ' h by-exact"
+   tactic-ran final? -> 490 true }T
+lf-tac-forget
+T{ hh s" by-first | b a = by-have-by: j { ' h by-exact } by-end ' j by-exact | ' h by-exact by-end"
+   tactic-ran final? -> 490 true }T
+lf-tac-forget
+T{ hh s" b a = by-have-by: j { ' h by-exact } by-end ' h by-exact" tactic-ran final? -> 96 true }T
+lf-tac-forget
+T{ hh s" b a = by-have-by: j { { ' h by-exact } } by-end ' h by-exact" tactic-ran final?
+   -> 96 true }T
 lf-tac-forget
 T{ hh s" by-try b a = by-have-by: j by-all-goals ' h by-exact by-end by-end by-end ' j by-exact"
    tactic-ran final? -> 76 true }T

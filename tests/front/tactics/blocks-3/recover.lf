@@ -49,47 +49,49 @@ theorem rec_try_have
   ' h by-exact
 end rec_try_have
 
-\ A brace's error in a have-by inside try (review tb2-blocks3 finding 1):
-\ the have-by's recover is its errToSorry, false, so the brace throws, no
-\ closeUsingOrAdmit log, and try takes the have back (490 before). The
-\ same in try then a failing step, in a brace, after <;>.
+\ A brace's error in a have-by inside try, after a step (review
+\ tb2-blocks3 finding 1): the have-by's recover is its errToSorry, false,
+\ so the brace throws, no closeUsingOrAdmit log, and try takes the have
+\ back (490 before). The same in try then a failing step, in a brace,
+\ after <;>. A brace that is the have-by's whole body logs instead, as
+\ pinned Lean's `by { exact h }` (u-try-have-brace.lf, 490).
 \ Lean: theorem rec_try_brace (a b : Nat) (h : a = b) (k : b = a) : a = b := by
-\         try (have j : b = a := by (· exact h))
+\         try (have j : b = a := by show b = a; (· exact h))
 \         exact h
 theorem rec_try_brace
   Nat explicit: a  Nat explicit: b
   a b = explicit: h  b a = explicit: k
   a b =
 := by
-  by-try b a = by-have-by: j { ' h by-exact } by-end by-end
+  by-try b a = by-have-by: j b a = by-show { ' h by-exact } by-end by-end
   ' h by-exact
 end rec_try_brace
 
 \ Lean: theorem rec_try_brace_fail (a b : Nat) (h : a = b) (k : b = a) : a = b := by
-\         try (have j : b = a := by (· exact h)); exact k
+\         try (have j : b = a := by show b = a; (· exact h)); exact k
 \         exact h
 theorem rec_try_brace_fail
   Nat explicit: a  Nat explicit: b
   a b = explicit: h  b a = explicit: k
   a b =
 := by
-  by-try b a = by-have-by: j { ' h by-exact } by-end ' k by-exact by-end
+  by-try b a = by-have-by: j b a = by-show { ' h by-exact } by-end ' k by-exact by-end
   ' h by-exact
 end rec_try_brace_fail
 
 \ Lean: theorem rec_brace_try (a b : Nat) (h : a = b) (k : b = a) : a = b := by
-\         · try ((have j : b = a := by (· exact h)); exact k)
+\         · try ((have j : b = a := by show b = a; (· exact h)); exact k)
 \           exact h
 theorem rec_brace_try
   Nat explicit: a  Nat explicit: b
   a b = explicit: h  b a = explicit: k
   a b =
 := by
-  { by-try b a = by-have-by: j { ' h by-exact } by-end ' k by-exact by-end ' h by-exact }
+  { by-try b a = by-have-by: j b a = by-show { ' h by-exact } by-end ' k by-exact by-end ' h by-exact }
 end rec_brace_try
 
 \ Lean: theorem rec_then_try (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
-\         constructor <;> try ((have j : b = a := by (· exact h)); exact j; exact h)
+\         constructor <;> try ((have j : b = a := by show b = a; (· exact h)); exact j; exact h)
 \         exact h
 \         exact k
 theorem rec_then_try
@@ -97,7 +99,7 @@ theorem rec_then_try
   a b = explicit: h  b a = explicit: k
   a b = b a = ∧
 := by
-  by-constructor <;> by-try b a = by-have-by: j { ' h by-exact } by-end ' j by-exact ' h by-exact by-end
+  by-constructor <;> by-try b a = by-have-by: j b a = by-show { ' h by-exact } by-end ' j by-exact ' h by-exact by-end
   ' h by-exact
   ' k by-exact
 end rec_then_try

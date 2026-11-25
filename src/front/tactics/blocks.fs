@@ -24,7 +24,8 @@
 \   after those left; a <;> b <;> c is (a <;> b) <;> c, as Lean's.
 \ Lean call list: getUnsolvedGoals, setGoals -> tactic-run.fs's
 \ lf-tac-focus (lf-tac-bracketed, lf-tac-focused); focusAndDone's done and
-\ closeUsingOrAdmit -> the runner's mode lf-mode-done; focus's end ->
+\ closeUsingOrAdmit -> the runner's mode lf-mode-brace (lf-mode-done's,
+\ but a fresh Tactic.run's whole body sees recover true); focus's end ->
 \ lf-mode-focus; evalAllGoals -> lf-mode-per-goal (getGoals, isAssigned:
 \ goals.fs's lf-goals-next-open); <;>'s focus and all_goals ->
 \ lf-mode-then with tac-then (tactic-syntax.fs's then-step). Where
@@ -39,7 +40,7 @@ require ../tactic-api.fs
   lf-tactic-sign: { constant tac-k-brace
 s" braces" tac-k-brace lf-tactic-lean!
 ' lf-tac-bracketed tac-k-brace lf-tactic-action!
-lf-mode-done tac-k-brace lf-tactic-mode!
+lf-mode-brace tac-k-brace lf-tactic-mode!
 
 0 0 0 tac-shape-block lf-tactic: by-focus constant tac-k-focus
 s" focus" tac-k-focus lf-tactic-lean!

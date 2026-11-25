@@ -69,7 +69,7 @@ file = "src/front/tactic-run.fs"
 old = '''  dup lfr-fresh-recover lfr-mode-flag? if lfr-sorry-in else lfr-kept-in then ;'''
 new = '''  dup lfr-fresh-recover lfr-mode-flag? if drop true else lfr-kept-in then ;'''
 test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
-reason = "TB2 blocks 3 review finding 1: a have-by recovers under try (Tactic.run's plain true), so a brace's error in it is logged, not thrown: blocks-3 test.fs's by-try b a = by-have-by: j by-probe ... sees recover true, not false, and the brace text (pinned Lean's x3) answers 490, not 0"
+reason = "TB2 blocks 3 review finding 1: a have-by recovers under try (Tactic.run's plain true), so a brace's error in it is logged, not thrown: blocks-3 test.fs's by-try b a = by-have-by: j by-probe ... sees recover true, not false, and the brace text after by-show (pinned Lean's `by show b = a; (· exact h)`) answers 490, not 0"
 
 # ---- One per risky word
 [[fault]]
@@ -199,3 +199,36 @@ old = '''  lfr-arm dup lfr-hold dup lfg-open lfr-acted lfg-close ;'''
 new = '''  dup lfr-hold dup lfg-open lfr-arm lfr-acted lfg-close ;'''
 test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
 reason = "TB2 blocks 3 review finding 2 (F4): a handler's save is taken after the step's log entry, so a put-back keeps the failed step's entry: blocks-3 test.fs's by-try ' k by-exact by-end ' h by-exact logs 3 entries, not 2 (check.py's steps.golden too)"
+
+# ---- Review tb2-blocks3's re-check: a brace that is a have-by's whole body logs
+[[fault]]
+id = "tb2b3-whole-body-throws"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-below-recover ( k -- flag ) dup lfr-whole? swap 1- lfr-recover-at or ;'''
+new = ''': lfr-below-recover ( k -- flag ) 1- lfr-recover-at ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3 re-check: a brace that is a have-by's whole body throws under try, as one step deeper, so LeanForth accepts what pinned Lean rejects (it logs): blocks-3 test.fs's by-try b a = by-have-by: j { ' h by-exact } by-end by-end ' h by-exact is 0, not 490 (u-try-have-brace.lf)"
+
+[[fault]]
+id = "tb2b3-whole-not-only"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-only-in? ( k -- flag ) dup lfr-first-in? swap 1- lfr-frame lfr-more-in? 0= and ;'''
+new = ''': lfr-only-in? ( k -- flag ) lfr-first-in? ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3 re-check: a brace with steps after it in a have-by is taken for its whole body: blocks-3 test.fs's by-try b a = by-have-by: j { ' h by-exact } ' k by-exact by-end ... (pinned Lean's `by · exact h` then `exact k`, accepted) is 490, not 0"
+
+[[fault]]
+id = "tb2b3-whole-not-first"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-first-in? ( k -- flag ) dup lfr-frame tfr-step @ swap 1- lfr-frame tfr-step @ 1+ = ;'''
+new = ''': lfr-first-in? ( k -- flag ) drop true ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3 re-check: a brace after a step in a have-by is taken for its whole body: blocks-3 test.fs's by-try b a = by-have-by: j b a = by-show { ' h by-exact } by-end by-end ' h by-exact (pinned Lean's `by show b = a; (· exact h)`, accepted) is 490, not 0"
+
+[[fault]]
+id = "tb2b3-whole-any-block"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-in-run? ( k -- flag ) 1- lfr-fresh-recover lfr-frame-flag? ;'''
+new = ''': lfr-in-run? ( k -- flag ) drop true ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3 re-check: a brace that is any block's whole body, not only a fresh Tactic.run's, logs: blocks-3 test.fs's by-try { { ' k by-exact } } by-end ' h by-exact (pinned Lean's try { { exact k } }, accepted) is 490, not 0"

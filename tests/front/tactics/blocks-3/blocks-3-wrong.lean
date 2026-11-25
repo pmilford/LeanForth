@@ -19,9 +19,15 @@ theorem w_any_none (a b : Nat) (h : a = b) : a = b := by
   exact h
   any_goals exact h
 theorem w_try_brace (a b : Nat) (h : a = b) (k : b = a) : a = b := by
-  try (have j : b = a := by (· exact h))
+  try (have j : b = a := by show b = a; (· exact h))
   exact j
 theorem u_any_term (a b : Nat) (h : a = b) : a = b := by
   any_goals exact ⟨h⟩
 theorem u_any_brace (a b : Nat) (h : a = b) (k : b = a) : a = b := by
   any_goals (· exact k)
+theorem u_try_have_brace (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+  try (have j : b = a := by { exact h })
+  exact h
+theorem u_try_have_brace2 (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+  try (have j : b = a := by { { exact h } })
+  exact h

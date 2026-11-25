@@ -74,7 +74,7 @@ reason = "TB2 blocks 1: a block opened while recover is false (and a no-recover 
 [[fault]]
 id = "tb2b1-log-fail-thrown"
 file = "src/front/tactic-run.fs"
-old = ''': lf-tac-logged ( i*x xt -- j*x ) catch lfr-logs? lfr-mark throw ;'''
+old = ''': lf-tac-logged ( i*x xt -- j*x ) catch lf-tac-recover? lfr-mark throw ;'''
 new = ''': lf-tac-logged ( i*x xt -- j*x ) catch false lfr-mark throw ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
 reason = "TB2 blocks 1: Lean's logged class made an ordinary throw: blocks-1 test.fs's by-probe-log at the proof's level is not final"
@@ -115,8 +115,8 @@ reason = "TB2 blocks 1: an error leaving an admitting block over one that recove
 [[fault]]
 id = "tb2b1-below-own-flag"
 file = "src/front/tactic-run.fs"
-old = ''': lfr-below-recover ( k -- flag ) 1- lfr-recover-at ;'''
-new = ''': lfr-below-recover ( k -- flag ) lfr-recover-at ;'''
+old = ''': lfr-below-recover ( k -- flag ) dup lfr-whole? swap 1- lfr-recover-at or ;'''
+new = ''': lfr-below-recover ( k -- flag ) dup lfr-whole? swap lfr-recover-at or ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
 reason = "TB2 blocks 1 review 2: whether an error leaving an admitting block is final read from the block's own recover, not the one below it: blocks-1 test.fs's by-any-goals by-probe-block ' k by-exact ... text lets the pass take the error back, 469, not 490 (since TB2 blocks slice 3 a nested block reads its tfr-sorry, so a done block opened with recover false is the case)"
 

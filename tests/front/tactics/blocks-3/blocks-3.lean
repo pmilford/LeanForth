@@ -91,16 +91,16 @@ theorem rec_try_have (a b : Nat) (h : a = b) (k : b = a) : a = b := by
   try (have j : b = a := by have x : a = b := h)
   exact h
 theorem rec_try_brace (a b : Nat) (h : a = b) (k : b = a) : a = b := by
-  try (have j : b = a := by (· exact h))
+  try (have j : b = a := by show b = a; (· exact h))
   exact h
 theorem rec_try_brace_fail (a b : Nat) (h : a = b) (k : b = a) : a = b := by
-  try (have j : b = a := by (· exact h)); exact k
+  try (have j : b = a := by show b = a; (· exact h)); exact k
   exact h
 theorem rec_brace_try (a b : Nat) (h : a = b) (k : b = a) : a = b := by
-  · try ((have j : b = a := by (· exact h)); exact k)
+  · try ((have j : b = a := by show b = a; (· exact h)); exact k)
     exact h
 theorem rec_then_try (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
-  constructor <;> try ((have j : b = a := by (· exact h)); exact j; exact h)
+  constructor <;> try ((have j : b = a := by show b = a; (· exact h)); exact j; exact h)
   exact h
   exact k
 theorem u_any_gap (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by

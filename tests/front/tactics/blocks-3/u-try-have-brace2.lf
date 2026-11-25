@@ -1,0 +1,16 @@
+\ Not supported yet (490): a brace in a brace that is a have-by's whole
+\ body, inside try (review tb2-blocks3's re-check, its r13). The inner
+\ brace throws, the outer one, the whole body, logs, and pinned Lean
+\ rejects; LeanForth answers 490, never accepted (it accepted before).
+\ Lean twin u_try_have_brace2 in blocks-3-wrong.lean.
+\ Lean: theorem u_try_have_brace2 (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         try (have j : b = a := by { { exact h } })
+\         exact h
+theorem u_try_have_brace2
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-try b a = by-have-by: j { { ' h by-exact } } by-end by-end
+  ' h by-exact
+end u_try_have_brace2

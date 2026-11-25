@@ -497,7 +497,8 @@ defer lf-tac-lean-detail ( term code -- outcome )
 \ errToSorry: an error leaving it is final when the block below it
 \ recovers), lfr-no-recover (withoutRecover inside it) and
 \ lfr-fresh-recover (a fresh Tactic.run: recover inside it its errToSorry,
-\ lfr-recover-in). Lean's
+\ lfr-recover-in), lfr-whole-logs (a brace that is a fresh Tactic.run's
+\ whole body sees its recover true, lfr-whole?). Lean's
 \ recover flag (Elab/Tactic/Basic.lean:42) is each frame's tfr-recover,
 \ the block below's unless a flag sets it, true for the first; frame
 \ fields are outside a save, as Lean's loop variables. A kind's mode is
@@ -511,6 +512,7 @@ end-structure
 1 constant lfr-admits
 2 constant lfr-no-recover
 4 constant lfr-fresh-recover
+32 constant lfr-whole-logs    \ (8 and 16: lfr-saving, lfr-last-bare)
 : lfr-mode-fields ( open end fail flags addr -- addr )
   tuck mode-flags ! tuck mode-fail ! tuck mode-end ! tuck mode-open ! ;
 : lf-block-mode ( open-xt end-xt fail-xt|0 flags -- mode )
@@ -555,6 +557,7 @@ end-structure
   dup tfr-sorry @ if ['] lfr-done-end lfr-finally else lfr-done-end then ;
 : lfr-focus-end ( frame -- ) tfr-rest @ lf-tac-unfocus ;
 ' drop ' lfr-done-end 0 lfr-admits lf-block-mode constant lf-mode-done
+' drop ' lfr-done-end 0 lfr-admits lfr-whole-logs or lf-block-mode constant lf-mode-brace
 ' drop ' lfr-nested-end 0 lfr-admits lfr-fresh-recover or lf-block-mode
   constant lf-mode-nested
 ' drop ' lfr-focus-end 0 0 lf-block-mode constant lf-mode-focus
@@ -577,10 +580,13 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 : lfr-sorry@ ( -- flag ) lfr-depth if lfr-top tfr-sorry @ else true then ;
 : lfr-sorry-in ( mode -- flag )
   lfr-sorry@ swap lfr-fresh-recover lfr-mode-flag? if lfr-inherited and then ;
-\ Recover inside a fresh Tactic.run is its errToSorry, not plain true:
-\ pinned Lean throws, not logs, a brace's or all_goals' error in a
-\ have-by under try (the have is taken back: review tb2-blocks3 finding
-\ 1, blocks-3's x3-x5, and a dbg_trace after the brace never runs).
+\ Recover inside a fresh Tactic.run is its errToSorry, not plain true,
+\ but for a brace that is its whole body (lfr-whole?): a split observed
+\ on pinned Lean, not found in its source. Under try, Lean logs the error
+\ of `by { exact h }` and `by { { exact h } }` and throws (the have taken
+\ back) that of `by · exact h`, `by (· exact h)`, `by ({ exact h })`,
+\ `by skip; { exact h }` and `by all_goals exact h` (blocks-3-wrong.lean's
+\ u_try_have_brace, review tb2-blocks3 finding 1 and its re-check).
 : lfr-recover-in ( mode -- flag )
   dup lfr-fresh-recover lfr-mode-flag? if lfr-sorry-in else lfr-kept-in then ;
 : lfr-flagged ( recover sorry addr -- addr ) tuck tfr-sorry ! tuck tfr-recover ! ;
@@ -667,8 +673,7 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 \ recover true implies errToSorry true in every frame, and a term error
 \ in a have-by inside a block that does not recover is thrown, as Lean's
 \ (TB2 blocks slice 3; review tb2-blocks3 finding 1).
-: lfr-logs? ( -- flag ) lf-tac-recover? ;
-: lf-tac-logged ( i*x xt -- j*x ) catch lfr-logs? lfr-mark throw ;
+: lf-tac-logged ( i*x xt -- j*x ) catch lf-tac-recover? lfr-mark throw ;
 : lf-tac-log-fail ( code -- ) ['] lf-tac-stop lf-tac-logged ;
 : lfr-inside? ( b j -- flag )
   dup lf-tactic-count < if lfr-parent swap < 0= else 2drop false then ;
@@ -730,7 +735,8 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 \ A block's end: its mode's, the frame on top, then popped, unless the
 \ mode started its steps again (lf-tac-again: a per-goal block's pass).
 : lfr-pop ( -- ) trun-frames slab-drop ;
-: lfr-more? ( -- flag ) lfr-top lfr-next dup if nip then ;
+: lfr-more-in? ( frame -- flag ) lfr-next dup if nip then ;
+: lfr-more? ( -- flag ) lfr-top lfr-more-in? ;
 
 \ ---- The record checked before anything runs: step 0 the proof (kind
 \ by, no parent), every other step of a known kind but by, its parent
@@ -983,8 +989,18 @@ lfr-states# 2* 0 xt-table: lfr-states
 \ errors (mode-fail) has the state put back to its save, the error
 \ forgotten, and its mode-fail run, and the loop goes on; none above
 \ base, or any other code, is thrown on.
-: lfr-below-recover ( k -- flag ) 1- lfr-recover-at ;
 : lfr-frame-flag? ( k bit -- flag ) swap lfr-mode-at swap lfr-mode-flag? ;
+\ Frame k (k > 0) the only step of the frame below: its first, and none
+\ after it (the frame below's tfr-next is past it).
+: lfr-first-in? ( k -- flag ) dup lfr-frame tfr-step @ swap 1- lfr-frame tfr-step @ 1+ = ;
+: lfr-only-in? ( k -- flag ) dup lfr-first-in? swap 1- lfr-frame lfr-more-in? 0= and ;
+: lfr-in-run? ( k -- flag ) 1- lfr-fresh-recover lfr-frame-flag? ;
+: lfr-body-of-run? ( k -- flag ) dup lfr-in-run? if lfr-only-in? else drop false then ;
+\ A brace that is a fresh Tactic.run's whole body (lfr-recover-in): the
+\ recover below it Tactic.run's, true, as pinned Lean logs its error.
+: lfr-whole? ( k -- flag )
+  dup lfr-whole-logs lfr-frame-flag? if lfr-body-of-run? else drop false then ;
+: lfr-below-recover ( k -- flag ) dup lfr-whole? swap 1- lfr-recover-at or ;
 : lfr-final-at? ( k -- flag )
   dup lfr-admits lfr-frame-flag? if lfr-below-recover else drop false then ;
 : lfr-handler? ( k -- flag )

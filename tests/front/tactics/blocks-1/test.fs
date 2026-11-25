@@ -122,10 +122,11 @@ T{ tac-k-brace lf-tactic-shape@ lft-self-closing? tac-k-focus lf-tactic-shape@ l
    -> true false }T
 : mode@ ( kind -- mode ) lfr-row trow-mode @ ;
 T{ tac-k-brace mode@ tac-k-focus mode@ tac-k-have-by mode@ tac-k-by mode@ tac-k-case mode@
-   -> lf-mode-done lf-mode-focus lf-mode-nested lf-mode-nested 0 }T
+   -> lf-mode-brace lf-mode-focus lf-mode-nested lf-mode-nested 0 }T
 : mode4 ( mode -- open end fail flags )
   dup mode-open @ over mode-end @ rot dup mode-fail @ swap mode-flags @ ;
 T{ lf-mode-done mode4 -> ' drop ' lfr-done-end 0 lfr-admits }T
+T{ lf-mode-brace mode4 -> ' drop ' lfr-done-end 0 lfr-admits lfr-whole-logs or }T
 T{ lf-mode-nested mode4 -> ' drop ' lfr-nested-end 0 lfr-admits lfr-fresh-recover or }T
 T{ lf-mode-focus mode4 t-mode mode4 -> ' drop ' lfr-focus-end 0 0
    ' t-open ' t-end ' t-fail lfr-no-recover }T
@@ -210,7 +211,7 @@ T{ lf-tac-recover? -> false }T
 T{ hh s" by-probe ' h by-exact" tactic-ran seen-recover @ seen-mode @ seen-depth @
    -> 0 true lf-mode-nested 1 }T
 T{ hh s" { by-probe ' h by-exact }" tactic-ran seen-recover @ seen-mode @ seen-depth @
-   -> 0 true lf-mode-done 2 }T
+   -> 0 true lf-mode-brace 2 }T
 T{ hh s" by-focus by-probe by-end ' h by-exact" tactic-ran seen-mode @ -> 0 lf-mode-focus }T
 T{ hh s" a b = by-have-by: j by-probe ' h by-exact by-end ' j by-exact" tactic-ran
    seen-mode @ seen-depth @ -> 0 lf-mode-nested 2 }T
@@ -285,13 +286,18 @@ lf-tac-forget
 T{ hh s" by-probe-try b a = by-have-by: j << ' h >> by-exact by-end by-end ' h by-exact"
    tactic-ran -> 0 }T
 T{ hh s" by-probe-try ' h by-exact by-end" tactic-ran lfr-saves -> 0 0 }T
-\ A brace inside a have-by inside the handler: pinned Lean throws the
-\ brace's error (the have-by's recover is its errToSorry, false: no
-\ closeUsingOrAdmit log) and the handler takes the have back, so j is
-\ unknown after it: Lean's "Unknown identifier `j`", LeanForth's 76
-\ (blocks-3's x4; review tb2-blocks3 finding 1, it was 490 before).
-T{ hs s" by-probe-try b a = by-have-by: j { ' h by-exact } by-end by-end ' j by-exact"
+\ A brace inside a have-by inside the handler, after a step: pinned Lean
+\ throws the brace's error (the have-by's recover is its errToSorry,
+\ false: no closeUsingOrAdmit log) and the handler takes the have back,
+\ so j is unknown after it: Lean's "Unknown identifier `j`", LeanForth's
+\ 76 (blocks-3's w-try-brace.lf; review tb2-blocks3 finding 1). As the
+\ have-by's whole body the brace sees Tactic.run's recover, true, and
+\ logs (lfr-whole?): 490, as a save is open (the review's re-check).
+T{ hs s" by-probe-try b a = by-have-by: j b a = by-show { ' h by-exact } by-end by-end ' j by-exact"
    tactic-ran lf-author-final? -> 76 true }T
+lf-tac-forget
+T{ hs s" by-probe-try b a = by-have-by: j { ' h by-exact } by-end by-end ' j by-exact"
+   tactic-ran lf-author-final? -> 490 true }T
 lf-tac-forget
 \ A block run by a loop of its own from the depth below it: its steps run
 \ inside the step; an error in it goes no lower than its base there, and
