@@ -545,6 +545,18 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 381 | invalid | Tactic `assumption` failed |
 | 382 | invalid | Tactic `constructor` failed: target is not an inductive datatype |
 | 383 | invalid | Tactic `constructor` failed: no applicable constructor found |
+| 472 | invalid | a pattern's bar \| goes between two items |
+| 473 | invalid | this closer does not close the pattern's open bracket |
+| 474 | invalid | by-obtain[, by-rcases[ and by-contra[ take one pattern |
+| 481 | invalid | by-rintro[ takes one pattern or more |
+| 475 | invalid | Tactic `subst` failed: argument must be an equality proof |
+| 476 | invalid | Tactic `subst` failed: |
+| 477 | invalid | Tactic `subst` failed: invalid equality proof, it is not of the form |
+| 478 | invalid | Tactic `subst` failed: invalid equality proof, it is not of the form |
+| 479 | invalid | Tactic `subst` failed: did not find equation for eliminating |
+| 480 | invalid | Tactic `subst` failed: variable |
+| 470 | invalid | Tactic `rcases` failed: |
+| 471 | invalid | Tactic `rcases` failed: |
 | 450 | invalid | The main goal is |
 | 443 | invalid | 'change' tactic failed, pattern |
 | 444 | invalid | 'show' tactic failed, pattern |
@@ -558,18 +570,6 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 448 | invalid | Tactic `delta` failed: did not delta reduce |
 | 385 | invalid | Tactic `left` failed: target is not an inductive datatype |
 | 386 | invalid | Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors |
-| 472 | invalid | a pattern's bar \| goes between two items |
-| 473 | invalid | this closer does not close the pattern's open bracket |
-| 474 | invalid | by-obtain[, by-rcases[ and by-contra[ take one pattern |
-| 481 | invalid | by-rintro[ takes one pattern or more |
-| 475 | invalid | Tactic `subst` failed: argument must be an equality proof |
-| 476 | invalid | Tactic `subst` failed: |
-| 477 | invalid | Tactic `subst` failed: invalid equality proof, it is not of the form |
-| 478 | invalid | Tactic `subst` failed: invalid equality proof, it is not of the form |
-| 479 | invalid | Tactic `subst` failed: did not find equation for eliminating |
-| 480 | invalid | Tactic `subst` failed: variable |
-| 470 | invalid | Tactic `rcases` failed: |
-| 471 | invalid | Tactic `rcases` failed: |
 | 387 | invalid | Tactic `right` failed: target is not an inductive datatype |
 | 388 | invalid | Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors |
 | 456 | invalid | Type mismatch: The rewritten hypothesis |
