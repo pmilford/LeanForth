@@ -1672,6 +1672,12 @@ efficient way and an easier way to fix unit-test coverage, and decided:
   next week. About 43% of the week's tokens remained on the morning of 2026-11-19: one implementing agent at a
   time unless files are fully separate.
 
+- **Reported after, 2026-11-25 (branch `kernel-speed-measure`, Forth review findings 1 and 2):** the kernel's
+  `env-schedule.fs` times a job through `lib/bounds.fs`'s new `timed` (`lf-sch-timing` is `['] lf-sch-now timed`),
+  the same word `check-run.fs` times each declaration's check with; behaviour kept: the start still waits on the
+  return stack, and the stack guard planted at the head of `lf-check-declaration` still stops the run (exit 5, the
+  declaration invalid) at 1, 2 and the default number of jobs; full tier with every pinned-Lean comparison.
+
 ## S2's showcase page moves to plan 8.6.12 (2026-11-19, afternoon)
 
 S2's third done check ([2026-11-19-s2-recheck.md](../development/done-checks/2026-11-19-s2-recheck.md)) found the
