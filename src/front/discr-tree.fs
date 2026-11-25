@@ -361,7 +361,7 @@ create dt-edge-hooks /htab-hooks allot
   dtq lf-dtree-root-key 2dup dt-like?
   if elab-key-arity swap elab-key-arity < else 2drop false then ;
 : dt-prefix-head? ( k -- flag )
-  dup elab-key-tag elab-key-const elab-key-fvar elab-key-proj one-of3? ;
+  elab-key-tag elab-key-const elab-key-fvar elab-key-proj one-of3? ;
 : dt-may-prefix? ( k -- flag )
   dup dt-prefix-head? 0= if drop false exit then
   false dtq lf-dtree-roots# 0 ?do over i dt-same-head? or loop nip ;

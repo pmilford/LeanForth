@@ -1,0 +1,79 @@
+# Planted faults of simp slice SL1a-1 (plan row FE9, docs/design/TACTIC_SIMP.md
+# section 6): the shared Meta words of branch simp-sl1a-1 (meta-config.fs's
+# settings, discr-keys.fs's head-only keys, discr-tree.fs's match queries,
+# congr-thms.fs's kinds); read with faults.toml as one list (scripts/mutants.py).
+# The simp loop's own faults (post-before-pre, cache-ignored, rfl-step-kept,
+# step-check-after-increment, congrfun-for-congrfun', dsimp-guard-off) come
+# with simp/*.fs, which this branch does not yet hold.
+
+[[fault]]
+id = "head-keys-full"
+file = "src/front/discr-keys.fs"
+old = '''  dk dk-head-only @ if drop dk-push-stars exit then'''
+new = '''  dk dk-head-only @ if drop dk-push-all exit then'''
+test = "$GFORTH tests/front/simp-meta.fs"
+reason = "SL1a: a hypothesis's keys index its arguments (noIndexAtArgs ignored), so h : f 6 = 0 no longer matches f (2 * 3)"
+
+[[fault]]
+id = "settings-not-restored"
+file = "src/front/meta-config.fs"
+old = ''': mcfg-with-simp ( i*x xt flags kind -- j*x ) mcfg-simp lf-tr-reducible lf-meta-with ;'''
+new = ''': mcfg-with-simp ( i*x xt flags kind -- j*x ) mcfg-simp lf-tr-reducible lf-meta-config! execute ;'''
+test = "$GFORTH tests/front/simp-meta.fs"
+reason = "SL1a: simp's configuration left in force after its scope (and after a THROW)"
+
+[[fault]]
+id = "settings-proj-mask"
+file = "src/front/meta-config.fs"
+old = '''  3 mcfg-proj-unit * or constant lf-meta-settings'''
+new = '''  mcfg-proj-unit or constant lf-meta-settings'''
+test = "$GFORTH tests/front/simp-meta.fs"
+reason = "SL1a: withImplicitConfig and withInferTypeConfig keep proj := no (one bit of the field cleared)"
+
+[[fault]]
+id = "kinds-all-eq"
+file = "src/front/congr-thms.fs"
+old = '''  dup ck-result-dep? if drop lf-ck-fixed outcome-ok exit then'''
+new = '''  drop lf-ck-eq outcome-ok exit'''
+test = "$GFORTH tests/front/simp-meta.fs"
+reason = "SL1a: every argument eq, so simp would rewrite a type argument the others depend on"
+
+[[fault]]
+id = "kinds-no-fix"
+file = "src/front/congr-thms.fs"
+old = '''  ck-kinds slab-clear dup ['] ck-kind-at ok-each dup ok? if over ck-fix-all then ;'''
+new = '''  ck-kinds slab-clear dup ['] ck-kind-at ok-each ;'''
+test = "$GFORTH tests/front/simp-meta.fs"
+reason = "SL1a: fixKindsForDependencies skipped (Eq's α left eq)"
+
+[[fault]]
+id = "match-mvar-star"
+file = "src/front/discr-keys.fs"
+old = '''  dk dk-match @ if dk-other exit then'''
+new = '''  dk dk-match @ if dk-star exit then'''
+test = "$GFORTH tests/front/simp-meta.fs"
+reason = "SL1a: getMatchKeyArgs makes a metavariable a star, so any lemma matches a goal's metavariable"
+
+[[fault]]
+id = "match-extra-no-prefix"
+file = "src/front/discr-tree.fs"
+old = '''  over lf-term-app? and if dt-prefixes else drop outcome-ok then ;'''
+new = '''  drop drop outcome-ok ;'''
+test = "$GFORTH tests/front/simp-meta.fs"
+reason = "SL1a: getMatchWithExtra never tries a prefix (a lemma about f misses f a)"
+
+[[fault]]
+id = "zeta-delta-ignored"
+file = "src/front/whnf.fs"
+old = '''  dup lf-fvar-let? lf-meta-no-zeta-delta lf-meta-on? and'''
+new = '''  dup lf-fvar-let?'''
+test = "$GFORTH tests/front/simp-meta.fs"
+reason = "SL1a: whnfCore unfolds a let variable under zetaDelta := false (simp's configurations)"
+
+[[fault]]
+id = "new-depth-not-closed"
+file = "src/front/meta-must.fs"
+old = '''  }lf-mctx-depth swap ?dup if nip throw then lf-must ;'''
+new = '''  drop ?dup if throw then ;'''
+test = "$GFORTH tests/front/simp-meta.fs"
+reason = "SL1a: withNewMCtxDepth's depth left open after xt"

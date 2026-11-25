@@ -28,7 +28,7 @@
 \ Outcomes: ok; unsupported as above and where fun-info.fs is; invalid
 \ and full as there. Untrusted: a kind only chooses how simp builds the
 \ proof the kernel checks. State: the context slab ck-kinds and the
-\ record ck (whether f is a constructor), valid until the next call.
+\ record cks (whether f is a constructor), valid until the next call.
 \ Loads in decimal whatever BASE is, then restores it.
 \
 \ Example: @Eq Nat a b's head Eq ( {α} (a b : α) ): fixed eq eq.
@@ -45,10 +45,10 @@ require ./fun-info.fs
 0 constant lf-ck-fixed   1 constant lf-ck-eq   2 constant lf-ck-cast
 3 constant lf-ck-subsingleton
 1 cells context-slab: ck-kinds
-begin-structure /ck
-  field: ck-ctor   \ true: f is a constructor
+begin-structure /cks
+  field: cks-ctor   \ true: f is a constructor
 end-structure
-/ck context-record: ck
+/cks context-record: cks
 : lf-congr-kind ( i -- kind ) ck-kinds slab-at @ ;
 : ck-kind! ( kind i -- ) ck-kinds slab-at ! ;
 : ck-bit? ( mask i -- flag ) 1 swap lshift and 0<> ;
@@ -61,12 +61,12 @@ end-structure
 : ck-ctor! ( f -- )
   dup lf-term-const? if lf-const-name ck-decl-kind lf-kind-constructor =
   else drop false then
-  ck ck-ctor ! ;
+  cks cks-ctor ! ;
 : ck-undecided ( name -- flag outcome )
   ck-defn? if false outcome-unsupported else false outcome-ok then ;
 : ck-named-inst ( name -- flag outcome )
   dup ck-class? 0= if ck-undecided exit then
-  drop ck ck-ctor @ if false outcome-unsupported else true outcome-ok then ;
+  drop cks cks-ctor @ if false outcome-unsupported else true outcome-ok then ;
 \ isInstance: a class past the pis, under a binder that is not explicit.
 : ck-instance? ( i -- flag outcome )
   dup lf-meta-param drop lf-binder-default = if drop false outcome-ok exit then
@@ -74,7 +74,7 @@ end-structure
   ?dup if ck-named-inst else false outcome-ok then ;
 \ isDecInst: Decidable past the pis.
 : ck-dec-inst? ( i -- flag outcome )
-  lf-param-head dup s" Decidable" lfa-intern =
+  lf-param-head dup s" Decidable" lf-name-dotted?
   if drop true outcome-ok else ck-undecided then ;
 
 \ ---- getCongrSimpKinds' loop (CongrTheorems.lean:189-211).

@@ -1203,6 +1203,7 @@ test-front:
 	$(RUN) $(GFORTH) tests/front/reduce-nat.fs
 	$(RUN) $(GFORTH) tests/front/infer.fs
 	$(RUN) $(GFORTH) tests/front/defeq.fs
+	$(RUN) $(GFORTH) tests/front/simp-meta.fs
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_defeq.py --golden
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_unfold.py --golden
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/check_whnf.py --golden

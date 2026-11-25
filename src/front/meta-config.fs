@@ -162,7 +162,7 @@ align here 5 , 4 , 1 , 2 , 0 , 3 , constant mcfg-ranks
 8192 constant mcfg-proj-unit
 : mcfg-proj-bits ( kind -- bits ) lf-proj-delta xor mcfg-proj-unit * ;
 lf-meta-no-iota lf-meta-no-beta or lf-meta-no-zeta or lf-meta-no-zeta-delta or
-  lf-proj-delta-i lf-proj-delta xor mcfg-proj-unit * or constant lf-meta-settings
+  3 mcfg-proj-unit * or constant lf-meta-settings
 : lf-meta-on? ( bit -- flag ) lf-meta-flag? 0= ;
 : lf-meta-proj ( -- kind ) lf-defeq-flags mcfg-proj-unit / 3 and lf-proj-delta xor ;
 : lf-meta-defaults ( flags -- flags' ) lf-meta-settings invert and ;
