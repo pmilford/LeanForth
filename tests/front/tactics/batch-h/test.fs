@@ -223,13 +223,16 @@ lf-tac-forget
   frp-cells sweep-slab-anew mrv-frames sweep-slab-anew msc-frames sweep-slab-anew
   mse-frames sweep-slab-anew abr-frames sweep-slab-anew mat-cells sweep-slab-anew
   mti-frames sweep-slab-anew ;
-' frames-anew sweep-slabs-xt !
+\ The words called directly: each run in the same context (a, b, k, h, q).
+: context-anew ( -- ) frames-anew sweep-view-anew ;
+' context-anew sweep-slabs-xt !
 fresh
 nat s" a" binder constant sa
 nat s" b" binder constant sb
 sb sa lf-mk-eq s" k" binder constant sk
 sa sb lf-mk-eq s" h" binder constant sh0
 sa sb heq-of s" q" binder constant sq
+sweep-keep-view
 : s-ab ( -- goal ) sa sb lf-mk-eq goal ;
 : typed1 ( goal outcome -- t outcome ) dup ok? if >r lf-goal-type r> then ;
 : typed ( fs goal outcome -- t outcome ) >r nip r> typed1 ;
@@ -243,9 +246,8 @@ T{ 0 ' d-core heap-sweep swept? 0 ' d-eq heap-sweep swept? 0 ' d-heq heap-sweep 
    -> true true true }T
 T{ 0 ' d-var heap-sweep swept? 0 ' d-subst heap-sweep swept? 0 ' d-vars heap-sweep swept?
    -> true true true }T
-: full-code? ( code -- flag ) dup if lf-author-outcome outcome-full = then ;
-: text-full ( c-addr u c-addr' u' -- code outcome )
-  tactic-ran dup full-code? if drop -1 outcome-full else outcome-ok then ;
+\ Through text: each declaration empties the stores, so the frames only.
+' frames-anew sweep-slabs-xt !
 : p-rec ( x -- code outcome ) drop
   s" Nat explicit: a Nat explicit: b a ' Nat.succ b $ = explicit: h ' h ' h ="
   s" ' h by-subst by-rfl" text-full ;

@@ -313,9 +313,6 @@ lf-tac-forget
   mgz-frames sweep-slab-anew mtk-frames sweep-slab-anew fsi-frames sweep-slab-anew
   frp-cells sweep-slab-anew mrv-frames sweep-slab-anew ;
 ' frames-anew sweep-slabs-xt !
-: full-code? ( code -- flag ) dup if lf-author-outcome outcome-full = then ;
-: text-full ( c-addr u c-addr' u' -- code outcome )
-  tactic-ran dup full-code? if drop -1 outcome-full else outcome-ok then ;
 : p-obtain ( x -- code outcome ) drop st s" ' h by-obtain[ << x y >> ] ' y by-exact" text-full ;
 : p-rcases ( x -- code outcome )
   drop so s" ' h by-rcases[ x | y ] ' Or.inr ' x $ by-exact ' Or.inl ' y $ by-exact" text-full ;

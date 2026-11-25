@@ -255,10 +255,8 @@ lf-tac-forget
 \ 5. by-have-goal: through the text (its new goals, run-push), every heap
 \ allocation of the run refused in turn: accepted, or full (error 60, 88
 \ or another out of room), never another error.
-: full-code? ( code -- flag ) dup if lf-author-outcome outcome-full = then ;
 : p-have-goal ( type -- code outcome )
-  drop hab s" a b ≤ by-have-goal: k ' h by-exact ' k by-exact" tactic-ran
-  dup full-code? if drop -1 outcome-full else outcome-ok then ;
+  drop hab s" a b ≤ by-have-goal: k ' h by-exact ' k by-exact" text-full ;
 T{ 0 ' p-have-goal heap-sweep swept? -> true }T
 lf-tac-forget
 .( batch-b test.fs: all tests passed) cr

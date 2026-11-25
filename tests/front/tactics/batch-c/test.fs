@@ -371,9 +371,6 @@ lf-tac-forget
 \ accepted, or full (60, 88 or another out of room), never another error
 \ (a refusal inside an alternative of by-contra-core is never the next
 \ alternative, nor one inside f an f that failed).
-: full-code? ( code -- flag ) dup if lf-author-outcome outcome-full = then ;
-: text-full ( c-addr u c-addr' u' -- code outcome )
-  tactic-ran dup full-code? if drop -1 outcome-full else outcome-ok then ;
 : p-cases-text ( x -- code outcome )
   drop hle s" a b ≤ by-cases: h ' h by-exact ' h by-absurd ' h1 by-exact" text-full ;
 : p-contra-text ( x -- code outcome ) drop hle s" by-contra: k ' k by-absurd ' h1 by-exact"

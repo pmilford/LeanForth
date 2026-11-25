@@ -5,8 +5,8 @@
 \ outcome), and each sweep then runs it again and again:
 \ - heap-sweep: with the k-th heap allocation refused (heap-watch.fs's
 \   heap-refusals), every k until a run makes fewer than k, the slabs the
-\   test names (sweep-slabs-xt) given back to the heap before each run,
-\   so that each one's first claim allocates;
+\   test names (sweep-slabs-xt) given back to the heap before each run
+\   (the normal one too), so that each one's first claim allocates;
 \ - room-sweep: with room for j more records in a store (sweep-store-xt:
 \   lf-terms by default, lf-levels), every j from 0 until the run gives
 \   its answer, with sharing off, so that every node the pass makes is
@@ -14,7 +14,7 @@
 \   the scratch rolled back after each run (core/scratch-marks.fs: the
 \   terms, levels, references and the local context's new entries).
 \ - slab-sweep: with room for j units in a slab (sweep-slab-xt), every
-\   j from 1 until the run gives its answer: the slab given back with the
+\   j from 0 until the run gives its answer: the slab given back with the
 \   limit j before each run, so that each claim past j is refused (a
 \   heap sweep refuses only the claims that grow a slab), and its old
 \   limit after the sweep. The run must empty the slab at its start.
@@ -22,7 +22,14 @@
 \ identities (term-eqv.fs's lf-meta-eqv) or the same cell, or end full:
 \ a refusal never becomes another answer. Both give ( fulls bad ), the
 \ runs that ended full and those that gave another answer; swept? holds
-\ for some full and none bad. Used by tests/front/whnf.fs and infer.fs;
+\ for some full and none bad. A run that throws has the heap's refusals
+\ and the slab's limit put back before the throw passes on.
+\ A test whose runs make goals in the current local context keeps that
+\ context's locals with sweep-keep-view and calls sweep-view-anew from
+\ sweep-slabs-xt: the metavariable context is emptied and the locals made
+\ again before each run, so that every run starts from the same context
+\ (each instantiation scans every metavariable, mvars.fs's mv-any-delay:
+\ hundreds of runs in one context made each later run slower). Used by tests/front/whnf.fs and infer.fs;
 \ slab-sweep by tests/front/tactics/blocks-2/test.fs.
 \ Include after heap-watch.fs and before the test loads its input (a
 \ module loaded later grows the checker context, which the input's marks
@@ -30,6 +37,8 @@
 require ../../src/lib/slab.fs
 require ../../src/core/scratch-marks.fs
 require ../../src/front/term-eqv.fs
+require ../../src/front/lctx-views.fs
+require ../../src/front/mvars.fs
 
 \ A slab given back to the heap, empty, its unit and limit kept.
 : sweep-slab-anew ( slab -- )
@@ -41,7 +50,8 @@ variable sweep-e  variable sweep-xt
 variable sweep-x  variable sweep-out  variable sweep-fulls  variable sweep-bad
 : sweep-run ( -- x outcome ) sweep-e @ sweep-xt @ execute ;
 : sweep-normal ( e xt -- )
-  sweep-xt ! sweep-e ! sweep-run sweep-out ! sweep-x ! 0 sweep-fulls ! 0 sweep-bad ! ;
+  sweep-xt ! sweep-e ! sweep-slabs-xt @ execute sweep-run sweep-out ! sweep-x !
+  0 sweep-fulls ! 0 sweep-bad ! ;
 : sweep-bad+ ( -- ) 1 sweep-bad +! ;
 : sweep-same? ( x x' -- flag ) 2dup = if 2drop true exit then lf-meta-eqv drop ;
 : sweep-tally ( x outcome -- )
@@ -51,8 +61,8 @@ variable sweep-x  variable sweep-out  variable sweep-fulls  variable sweep-bad
 
 \ The k-th allocation refused; true when the refusal fired.
 : refused-run ( k -- fired? )
-  sweep-slabs-xt @ execute heap-refusals ! sweep-run heap-refusals @ 0= 0 heap-refusals !
-  >r sweep-tally r> ;
+  sweep-slabs-xt @ execute heap-refusals ! ['] sweep-run catch
+  heap-refusals @ 0= 0 heap-refusals ! swap throw >r sweep-tally r> ;
 : heap-sweep ( e xt -- fulls bad )
   sweep-normal 0 begin 1+ dup refused-run 0= until drop sweep-result ;
 
@@ -82,7 +92,25 @@ variable sweep-slab-xt    \ ( -- slab ) the slab a slab sweep limits
 \ True when the run gave its answer.
 : slab-run ( j -- done? )
   sweep-slab sweep-slab-limit sweep-run dup outcome-full <> >r sweep-tally r> ;
+: slab-runs ( -- ) -1 begin 1+ dup slab-run until drop ;
 : slab-sweep ( e xt -- fulls bad )
-  sweep-slab slab-limit >r sweep-normal 0 begin 1+ dup slab-run until drop
-  r> sweep-slab sweep-slab-limit sweep-result ;
+  sweep-slab slab-limit >r sweep-normal ['] slab-runs catch
+  r> sweep-slab sweep-slab-limit throw sweep-result ;
 : swept? ( fulls bad -- flag ) 0= swap 0> and ;
+
+\ The current view's locals, each kept as its free variable, name and
+\ flags, and made again in an emptied metavariable context.
+16 constant sweep-view-most
+create sweep-view sweep-view-most 3 * cells allot
+variable sweep-view#
+: sweep-view-at ( i -- addr ) 3 * cells sweep-view + ;
+: sweep-kept ( fvar name flags i -- ) sweep-view-at tuck 2 cells + ! 2! ;
+: sweep-keep-local ( view i -- )
+  dup >r lf-view-local dup lf-local-fvar over lf-local-name rot lf-local-flags r> sweep-kept ;
+: sweep-keep-view ( -- )
+  lf-mctx-view dup lf-view-count dup sweep-view-most > abort" sweep-keep-view: too many"
+  dup sweep-view# ! 0 ?do dup i sweep-keep-local loop drop ;
+: sweep-local-again ( i -- )
+  sweep-view-at dup 2 cells + @ swap 2@ rot lf-local-new ok? 0= abort" sweep-view-anew"
+  lf-mctx-view swap lf-view-push ok? 0= abort" sweep-view-anew" lf-mctx-view! ;
+: sweep-view-anew ( -- ) lf-mctx-reset sweep-view# @ 0 ?do i sweep-local-again loop ;

@@ -280,9 +280,6 @@ lf-elab-reset
 \ allocation refused in turn: the answer or full.
 : frames-anew ( -- ) lfa-brackets sweep-slab-anew ;
 ' frames-anew sweep-slabs-xt !
-: full-code? ( code -- flag ) dup if lf-author-outcome outcome-full = then ;
-: text-full ( c-addr u c-addr' u' -- code outcome )
-  tactic-ran dup full-code? if drop -1 outcome-full else outcome-ok then ;
 : p-anon ( x -- code outcome ) drop hk s" << ' h ' k >> by-exact" text-full ;
 : p-exists ( x -- code outcome )
   drop s" a b = explicit: h b a = explicit: k a b = b a = a b = ∧ ∧" st

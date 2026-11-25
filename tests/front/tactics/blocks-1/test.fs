@@ -306,9 +306,6 @@ lf-tac-forget
 \ slabs given back first): the answer or full.
 : blocks-anew ( -- ) trun-frames sweep-slab-anew trun-saves sweep-slab-anew ;
 ' blocks-anew sweep-slabs-xt !
-: full-code? ( code -- flag ) dup if lf-author-outcome outcome-full = then ;
-: text-full ( c-addr u c-addr' u' -- code outcome )
-  tactic-ran dup full-code? if drop -1 outcome-full else outcome-ok then ;
 : p-brace ( x -- code outcome ) drop hk s" by-constructor { ' h by-exact } { ' k by-exact }" text-full ;
 : p-have-by ( x -- code outcome )
   drop hs s" b a = by-have-by: j ' Eq.symm ' h $ by-exact by-end ' j by-exact" text-full ;

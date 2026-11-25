@@ -333,9 +333,6 @@ T{ refuse-first h1 0 lf-elab-hole+ 0 heap-refusals ! holes# -> outcome-full 0 }T
 \ (lf-tag-untagged asks the heap for nothing a sweep could refuse: its
 \ frame's slab and the run of goals have room already.)
 T{ m2 m1 pair ' p-fresh heap-sweep swept? -> true }T
-: full-code? ( code -- flag ) dup if lf-author-outcome outcome-full = then ;
-: text-full ( c-addr u c-addr' u' -- code outcome )
-  tactic-ran dup full-code? if drop -1 outcome-full else outcome-ok then ;
 : p-refine ( x -- code outcome )
   drop and2 s" ' And.intro ?_ $ ?: r $ by-refine ' h1 by-exact ' h2 by-exact" text-full ;
 : p-lists ( x -- code outcome ) drop ab

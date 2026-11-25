@@ -289,9 +289,6 @@ lf-lib-private order+
 ' rn-recs sweep-slab-xt !
 order-
 ' blocks-anew sweep-slabs-xt !
-: full-code? ( code -- flag ) dup if lf-author-outcome outcome-full = then ;
-: text-full ( c-addr u c-addr' u' -- code outcome )
-  tactic-ran dup full-code? if drop -1 outcome-full else outcome-ok then ;
 : p-then ( x -- code outcome ) drop hk s" by-constructor <;> by-assumption" text-full ;
 : p-all ( x -- code outcome )
   drop hk s" by-constructor by-all-goals by-assumption by-end" text-full ;

@@ -290,7 +290,9 @@ lf-tac-forget
 : frames-anew ( -- ) mat-frames sweep-slab-anew mrw-frames sweep-slab-anew
   tl-frames sweep-slab-anew mrv-frames sweep-slab-anew mti-frames sweep-slab-anew
   tlc-frames sweep-slab-anew ;
-' frames-anew sweep-slabs-xt !
+\ The words called directly: each run in the same context (a, b, c, h, h2).
+: context-anew ( -- ) frames-anew sweep-view-anew ;
+sweep-keep-view ' context-anew sweep-slabs-xt !
 : caught ( x xt -- y outcome ) 1 1 lf-meta-catch ;
 : new-goal ( type -- goal ) 0 lf-mctx-view lf-goal-new lf-must ;
 : s-replace ( type -- type' ) new-goal replaced nip lf-fvar-type ;
@@ -305,14 +307,11 @@ T{ bc-le ' p-replace both-swept bc-le ' p-change both-swept -> true true true tr
 T{ bc-le ' p-symm-at both-swept -> true true }T
 \ Through the text: accepted, or full, never another error (a refusal
 \ inside rfl's alternatives is never the next one, nor rwa's assumption).
-: full-code? ( code -- flag ) dup if lf-author-outcome outcome-full = then ;
-: text-full ( c-addr u c-addr' u' -- code outcome )
-  tactic-ran dup full-code? if drop -1 outcome-full else outcome-ok then ;
+\ Each declaration empties the stores, so the frames only. change's
+\ sweep (about 23 s) is in tests/front/tactics/batch-d-sweep/test.fs.
+' frames-anew sweep-slabs-xt !
 : p-rw-text ( x -- code outcome ) drop hac s\" by-rw[ ' h ] at[ h2 ]\n ' h2 by-exact" text-full ;
 : p-rwa-text ( x -- code outcome ) drop hac s\" by-rwa[ ' h ] at[ h2 ]\n" text-full ;
-: p-change-text ( x -- code outcome )
-  drop s" a 0 + b = explicit: h a b =" st s\" a b = by-change at[ h ]\n ' h by-exact" text-full ;
 T{ 0 ' p-rw-text heap-sweep swept? 0 ' p-rwa-text heap-sweep swept? -> true true }T
-T{ 0 ' p-change-text heap-sweep swept? tlc-frames slab-count -> true 0 }T
 lf-tac-forget
 .( batch-d test.fs: all tests passed) cr
