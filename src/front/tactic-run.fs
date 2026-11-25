@@ -496,7 +496,8 @@ defer lf-tac-lean-detail ( term code -- outcome )
 \ and its flags: lfr-admits (Lean's closeUsingOrAdmit and Term.runTactic's
 \ errToSorry: an error leaving it is final when the block below it
 \ recovers), lfr-no-recover (withoutRecover inside it) and
-\ lfr-fresh-recover (a fresh Tactic.run: recover true inside it). Lean's
+\ lfr-fresh-recover (a fresh Tactic.run: recover inside it its errToSorry,
+\ lfr-recover-in). Lean's
 \ recover flag (Elab/Tactic/Basic.lean:42) is each frame's tfr-recover,
 \ the block below's unless a flag sets it, true for the first; frame
 \ fields are outside a save, as Lean's loop variables. A kind's mode is
@@ -568,17 +569,20 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 : lfr-inherited ( -- flag ) lfr-depth 1- lfr-recover-at ;
 : lf-tac-recover? ( -- flag ) lfr-depth 0<> lfr-inherited and ;
 : lfr-kept-in ( mode -- flag ) lfr-no-recover lfr-mode-flag? 0= lfr-inherited and ;
-: lfr-recover-in ( mode -- flag )
-  dup lfr-fresh-recover lfr-mode-flag? swap lfr-kept-in or ;
 : lfr-mode-of ( i -- mode ) lfr-kind lfr-row trow-mode @ ?dup 0= if lf-mode-done then ;
 \ Lean's errToSorry (TB2 blocks slice 3; review tb2-blocks1 finding 1):
 \ the block below's (true for the first), and a fresh Tactic.run's
 \ (have-by's) the block below's and its recover, as runTermElab clears
-\ errToSorry where recover is false (ElabTerm.lean:31-39) and Tactic.run
-\ resets recover alone (SyntheticMVars.lean:474-537).
+\ errToSorry where recover is false (ElabTerm.lean:31-39).
 : lfr-sorry@ ( -- flag ) lfr-depth if lfr-top tfr-sorry @ else true then ;
 : lfr-sorry-in ( mode -- flag )
   lfr-sorry@ swap lfr-fresh-recover lfr-mode-flag? if lfr-inherited and then ;
+\ Recover inside a fresh Tactic.run is its errToSorry, not plain true:
+\ pinned Lean throws, not logs, a brace's or all_goals' error in a
+\ have-by under try (the have is taken back: review tb2-blocks3 finding
+\ 1, blocks-3's x3-x5, and a dbg_trace after the brace never runs).
+: lfr-recover-in ( mode -- flag )
+  dup lfr-fresh-recover lfr-mode-flag? if lfr-sorry-in else lfr-kept-in then ;
 : lfr-flagged ( recover sorry addr -- addr ) tuck tfr-sorry ! tuck tfr-recover ! ;
 : lfr-moded ( mode addr -- addr ) -1 over tfr-save ! -1 over tfr-held ! tuck tfr-mode ! ;
 : lfr-claim ( -- addr ) 1 trun-frames slab-claim lfr-must lfr-frame ;
@@ -659,10 +663,11 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 \ the term elaborator's errToSorry, ElabTerm.lean:31-39): xt's error made
 \ final when the top block recovers and keeps errToSorry (Lean logs it
 \ and goes on; LeanForth stops there: lfr-mark), else thrown as any
-\ other. A fresh Tactic.run (a have-by) resets recover but keeps
-\ errToSorry (tfr-sorry), so a term error in a have-by inside a block
-\ that does not recover is thrown, as Lean's (TB2 blocks slice 3).
-: lfr-logs? ( -- flag ) lf-tac-recover? if lfr-top tfr-sorry @ else false then ;
+\ other. A have-by's recover is its errToSorry (lfr-recover-in), so
+\ recover true implies errToSorry true in every frame, and a term error
+\ in a have-by inside a block that does not recover is thrown, as Lean's
+\ (TB2 blocks slice 3; review tb2-blocks3 finding 1).
+: lfr-logs? ( -- flag ) lf-tac-recover? ;
 : lf-tac-logged ( i*x xt -- j*x ) catch lfr-logs? lfr-mark throw ;
 : lf-tac-log-fail ( code -- ) ['] lf-tac-stop lf-tac-logged ;
 : lfr-inside? ( b j -- flag )

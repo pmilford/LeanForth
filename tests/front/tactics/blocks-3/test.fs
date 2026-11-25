@@ -167,8 +167,9 @@ T{ hh s" by-try by-first | { ' k by-exact } | by-focus ' h by-exact by-end by-en
 
 \ ---- 4. Recover and errToSorry (Lean's withoutRecover; runTermElab,
 \ ElabTerm.lean:31-39): try's and repeat's steps and first's alternatives
-\ but the last without recover; any_goals keeps it; a have-by recovers,
-\ its errToSorry the block's and recover's.
+\ but the last without recover; any_goals keeps it; a have-by's
+\ errToSorry is the block's and recover's, and its recover is its
+\ errToSorry (review tb2-blocks3 finding 1: pinned Lean's x3-x5).
 T{ hh s" by-try by-probe ' h by-exact by-end" tactic-ran seen-recover @ seen-sorry @ -> 0 false true }T
 T{ hh s" by-repeat by-probe ' h by-exact by-end" tactic-ran seen-recover @ -> 0 false }T
 T{ hh s" by-first | by-probe ' h by-exact | ' k by-exact by-end" tactic-ran seen-recover @
@@ -177,9 +178,11 @@ T{ hh s" by-first | ' k by-exact | by-probe ' h by-exact by-end" tactic-ran seen
    -> 0 true }T
 T{ hh s" by-any-goals by-probe ' h by-exact by-end" tactic-ran seen-recover @ -> 0 true }T
 T{ hh s" by-try a b = by-have-by: j by-probe ' h by-exact by-end by-end ' h by-exact"
-   tactic-ran seen-recover @ seen-sorry @ -> 0 true false }T
+   tactic-ran seen-recover @ seen-sorry @ -> 0 false false }T
 T{ hh s" a b = by-have-by: j by-probe ' h by-exact by-end ' h by-exact" tactic-ran
-   seen-sorry @ -> 0 true }T
+   seen-recover @ seen-sorry @ -> 0 true true }T
+T{ hh s" by-any-goals a b = by-have-by: j by-probe ' h by-exact by-end by-end ' h by-exact"
+   tactic-ran seen-recover @ seen-sorry @ -> 0 true true }T
 T{ hh s" by-try a b = by-have-by: j a b = by-have-by: i by-probe ' h by-exact by-end ' i by-exact by-end by-end ' h by-exact"
    tactic-ran seen-sorry @ -> 0 false }T
 \ Q8 and the have-by inside a have-by: the term error is thrown there and
@@ -188,6 +191,28 @@ T{ hh s" by-try b a = by-have-by: j << ' h >> by-exact by-end by-end ' h by-exac
    -> 0 }T
 T{ hh s" by-try b a = by-have-by: j a b = by-have-by: i << ' h >> by-exact by-end ' k by-exact by-end by-end ' h by-exact"
    tactic-ran -> 0 }T
+\ A brace's or all_goals' error in a have-by under a handler: thrown, as
+\ recover there is errToSorry, false, and the handler takes the have back
+\ (pinned Lean's x3, t09, t11, t12, x4, x5 and q2; 490 before the review
+\ tb2-blocks3 finding 1). j is then unknown (76, Lean's Unknown identifier).
+T{ hh s" by-try b a = by-have-by: j { ' h by-exact } by-end by-end ' h by-exact" tactic-ran
+   -> 0 }T
+T{ hh s" by-try b a = by-have-by: j { ' h by-exact } by-end ' k by-exact by-end ' h by-exact"
+   tactic-ran -> 0 }T
+T{ hh s" { by-try b a = by-have-by: j { ' h by-exact } by-end ' k by-exact by-end ' h by-exact }"
+   tactic-ran -> 0 }T
+T{ hk s" by-constructor <;> by-try b a = by-have-by: j { ' h by-exact } by-end ' j by-exact ' h by-exact by-end ' h by-exact ' k by-exact"
+   tactic-ran -> 0 }T
+T{ hh s" by-first | b a = by-have-by: j { ' h by-exact } by-end ' j by-exact | ' h by-exact by-end"
+   tactic-ran -> 0 }T
+T{ hh s" by-try b a = by-have-by: j { { ' h by-exact } } by-end by-end ' h by-exact"
+   tactic-ran -> 0 }T
+T{ hh s" by-try b a = by-have-by: j { ' h by-exact } by-end by-end ' j by-exact" tactic-ran
+   final? -> 76 true }T
+lf-tac-forget
+T{ hh s" by-try b a = by-have-by: j by-all-goals ' h by-exact by-end by-end by-end ' j by-exact"
+   tactic-ran final? -> 76 true }T
+lf-tac-forget
 \ An error Lean logs while a save is open: 490, final (the coordinator's
 \ rule): a term in a pass, a brace in a pass, a have-by's goals in a pass.
 T{ hh s" by-any-goals << ' h >> by-exact by-end" tactic-ran final? -> 490 true }T
@@ -207,6 +232,14 @@ lf-tac-forget
 \ The same outside any save: Lean's rejection, final.
 T{ hh s" << ' h >> by-exact" tactic-ran final? -> 467 true }T
 lf-tac-forget
+\ The save is taken before the step's log entry (lfr-step; review
+\ tb2-blocks3 finding 2): a put-back drops the failed step's entry, so
+\ the log holds the handler's own entry and the steps that ran well only.
+: logged ( c-addr u c-addr' u' -- code n ) tactic-ran trun-log slab-count ;
+T{ true lf-steps-record! hh s" ' h by-exact" logged -> 0 1 }T
+T{ hh s" by-try ' k by-exact by-end ' h by-exact" logged -> 0 2 }T
+T{ hh s" by-first | ' k by-exact | ' h by-exact by-end" logged -> 0 3 }T
+T{ hh s" by-repeat ' k by-exact by-end ' h by-exact" logged false lf-steps-record! -> 0 2 }T
 \ The saves: one before a handler's step, none before first's last
 \ alternative, none left after a block.
 T{ hh s" by-try by-probe ' h by-exact by-end" tactic-ran seen-saves @ lfr-saves -> 0 1 0 }T

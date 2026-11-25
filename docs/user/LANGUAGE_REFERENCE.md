@@ -1908,14 +1908,21 @@ Mathematically: h proves the parts it fits (a = b); k the one left. Lean: `const
 
 Narrower than Lean (each an answer, never a wrong acceptance): where Lean logs an error and
 goes on (a term that does not elaborate, a brace that fails, under error recovery) while a
-block that may still take it back is open (a `by-any-goals` pass, or an alternative or
-`by-try` around a block that recovers again, such as `by-have-by:`), LeanForth cannot tell
+block that may still take it back is open (a `by-any-goals` pass, which keeps error
+recovery for its steps, a `by-first`'s last alternative and a `by-have-by:` in it),
+LeanForth cannot tell
 whether a later failure will take the message back: it answers 490, not supported yet
 (exit 2), "Lean logs this error and goes on; a block around may take it back: not followed
 yet" (`u-any-term.lf`, `u-any-brace.lf`, which Lean rejects; `u-any-gap.lf`, which Lean
 accepts: the known gap, until "log and carry on, as Lean"). The same holds for an error a
 tactic's own alternatives may take back (a macro's rules). Outside such a block the error
-is Lean's rejection, as before.
+is Lean's rejection, as before. A `by-have-by:` inside `by-try`, `by-repeat` or an
+alternative of `by-first` but the last does not recover either, as in pinned Lean: a brace
+that fails in it is thrown, and the block around takes the whole `have` back, so
+`by-try b a = by-have-by: j { ' h by-exact } by-end by-end` then `' h by-exact` is accepted
+and a later `' j by-exact` is refused (error 76; Lean: "Unknown identifier `j`").
+Mathematically: the failed attempt at b = a leaves nothing behind. Lean:
+`try (have j : b = a := by (· exact h))` / `exact h` (`recover.lf`, `w-try-brace.lf`).
 
 A statement's hypothesis is written with a tick when it stands alone,
 `' h by-apply`, because its type is not unfolded to count its arguments

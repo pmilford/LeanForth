@@ -64,12 +64,12 @@ test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
 reason = "TB2 blocks 3: a have-by keeps errToSorry where the block below does not recover (review tb2-blocks1 finding 1): blocks-3 test.fs's Q8 text, by-try b a = by-have-by: j << ' h >> by-exact ..., is 490, not 0"
 
 [[fault]]
-id = "tb2b3-logs-without-sorry"
+id = "tb2b3-have-by-recovers"
 file = "src/front/tactic-run.fs"
-old = ''': lfr-logs? ( -- flag ) lf-tac-recover? if lfr-top tfr-sorry @ else false then ;'''
-new = ''': lfr-logs? ( -- flag ) lf-tac-recover? ;'''
+old = '''  dup lfr-fresh-recover lfr-mode-flag? if lfr-sorry-in else lfr-kept-in then ;'''
+new = '''  dup lfr-fresh-recover lfr-mode-flag? if drop true else lfr-kept-in then ;'''
 test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
-reason = "TB2 blocks 3: a term error is logged where recover is true but errToSorry false: blocks-3 test.fs's Q8 text is 490, not 0"
+reason = "TB2 blocks 3 review finding 1: a have-by recovers under try (Tactic.run's plain true), so a brace's error in it is logged, not thrown: blocks-3 test.fs's by-try b a = by-have-by: j by-probe ... sees recover true, not false, and the brace text (pinned Lean's x3) answers 490, not 0"
 
 # ---- One per risky word
 [[fault]]
@@ -191,3 +191,11 @@ old = '''  tac-block-bare lft-open-has? if lft-bare-alt else tac-k-alt lft-heade
 new = '''  tac-k-alt lft-header ;'''
 test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
 reason = "TB2 blocks 3: by-first's | reads an induction alternative's header TAG NAMES =>: blocks-3 test.fs's by-first | ' h by-exact by-end text is a header error, not 0"
+
+[[fault]]
+id = "tb2b3-save-after-log"
+file = "src/front/tactic-run.fs"
+old = '''  lfr-arm dup lfr-hold dup lfg-open lfr-acted lfg-close ;'''
+new = '''  dup lfr-hold dup lfg-open lfr-arm lfr-acted lfg-close ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3 review finding 2 (F4): a handler's save is taken after the step's log entry, so a put-back keeps the failed step's entry: blocks-3 test.fs's by-try ' k by-exact by-end ' h by-exact logs 3 entries, not 2 (check.py's steps.golden too)"

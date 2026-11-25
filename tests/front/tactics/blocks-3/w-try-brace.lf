@@ -1,0 +1,12 @@
+\ A brace's error in a have-by inside try (review tb2-blocks3 finding 1):
+\ thrown, and try takes the have back, so j is unknown after it: Lean's
+\ "Unknown identifier `j`", LeanForth's own 76 (a name the goal's context
+\ lacks; it was 490 before). Lean twin w_try_brace in blocks-3-wrong.lean.
+theorem w_try_brace
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-try b a = by-have-by: j { ' h by-exact } by-end by-end
+  ' j by-exact
+end w_try_brace

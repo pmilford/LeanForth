@@ -225,11 +225,12 @@ T{ hh s" by-probe-first ' h by-exact" tactic-ran alt1 @ alt2 @ -> 0 false true }
 T{ hh s" by-probe-macro ' h by-exact" tactic-ran alt1 @ alt2 @ -> 0 true true }T
 T{ hh s" by-probe-try-lean ' h by-exact" tactic-ran alt1 @ alt2 @ -> 0 false false }T
 \ A block opened while recover is false takes false; a brace inside it
-\ too; a have-by inside it is a fresh Tactic.run: true.
+\ too; a have-by inside it is a fresh Tactic.run whose recover is its
+\ errToSorry, false here (pinned Lean, review tb2-blocks3 finding 1).
 T{ hh s" by-probe-block by-probe ' h by-exact by-end" tactic-ran seen-recover @ -> 0 false }T
 T{ hh s" by-probe-block { by-probe ' h by-exact } by-end" tactic-ran seen-recover @ -> 0 false }T
 T{ hh s" by-probe-block a b = by-have-by: j by-probe ' h by-exact by-end ' j by-exact by-end"
-   tactic-ran seen-recover @ -> 0 true }T
+   tactic-ran seen-recover @ -> 0 false }T
 \ The logged class (lf-tac-log-fail): final when the block recovers, an
 \ ordinary error when not.
 T{ hh s" by-probe-log" tactic-ran was-final @ -> 96 true }T
@@ -284,11 +285,13 @@ lf-tac-forget
 T{ hh s" by-probe-try b a = by-have-by: j << ' h >> by-exact by-end by-end ' h by-exact"
    tactic-ran -> 0 }T
 T{ hh s" by-probe-try ' h by-exact by-end" tactic-ran lfr-saves -> 0 0 }T
-\ A brace inside a have-by inside the handler: the have-by recovers, so
-\ Lean's closeUsingOrAdmit logs the brace's error there; the handler's
-\ save is open, so it is 490, final, not 96 (TB2 blocks slice 3).
+\ A brace inside a have-by inside the handler: pinned Lean throws the
+\ brace's error (the have-by's recover is its errToSorry, false: no
+\ closeUsingOrAdmit log) and the handler takes the have back, so j is
+\ unknown after it: Lean's "Unknown identifier `j`", LeanForth's 76
+\ (blocks-3's x4; review tb2-blocks3 finding 1, it was 490 before).
 T{ hs s" by-probe-try b a = by-have-by: j { ' h by-exact } by-end by-end ' j by-exact"
-   tactic-ran lf-author-final? -> 490 true }T
+   tactic-ran lf-author-final? -> 76 true }T
 lf-tac-forget
 \ A block run by a loop of its own from the depth below it: its steps run
 \ inside the step; an error in it goes no lower than its base there, and

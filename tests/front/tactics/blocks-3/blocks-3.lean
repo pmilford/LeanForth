@@ -90,6 +90,19 @@ theorem names_mvar (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ a = b := by
 theorem rec_try_have (a b : Nat) (h : a = b) (k : b = a) : a = b := by
   try (have j : b = a := by have x : a = b := h)
   exact h
+theorem rec_try_brace (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+  try (have j : b = a := by (· exact h))
+  exact h
+theorem rec_try_brace_fail (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+  try (have j : b = a := by (· exact h)); exact k
+  exact h
+theorem rec_brace_try (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+  · try ((have j : b = a := by (· exact h)); exact k)
+    exact h
+theorem rec_then_try (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+  constructor <;> try ((have j : b = a := by (· exact h)); exact j; exact h)
+  exact h
+  exact k
 theorem u_any_gap (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
   constructor
   any_goals first | exact h | ((· exact h); exact k)
@@ -122,5 +135,6 @@ def dump (n : Name) : MetaM Unit := do
       ``first_second, ``first_one, ``first_rollback, ``first_then, ``first_chain,
       ``repeat_ctor, ``repeat_none, ``repeat_rollback, ``any_some, ``any_all_goals,
       ``any_chain, ``rec_q8, ``rec_q8_inner, ``rec_try_have, ``names_try, ``names_first,
-      ``names_mvar, ``u_any_gap] do
+      ``names_mvar, ``rec_try_brace, ``rec_try_brace_fail, ``rec_brace_try, ``rec_then_try,
+      ``u_any_gap] do
     dump n
