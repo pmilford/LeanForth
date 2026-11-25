@@ -21,7 +21,7 @@ speed before parallelism adds more.
 
 **What LeanForth is and is not (2026-11-12).** LeanForth today is only the checking half of Lean (the kernel): it re-checks proof terms that Lean produced and exported (NDJSON), including all of Lean's `Init`. It has none of Lean's front end, the larger half: no elaborator (implicit arguments, numerals, unification), no type classes or coercions, no tactics, no pattern matching or recursion compilation, no evaluation. So it cannot yet turn a written theorem into a proof; Lean does all of that before the export. LeanForth text is checked by the kernel since 2026-11-12 (plan 8.2.1a, c, d); there is no program verifier: for the clamp word LeanForth re-checks the proofs Lean wrote (plan 5.5.1, branch `program-551`). The front end is plan phase 8 ([PLAN_DRAFT.md](PLAN_DRAFT.md)), being re-planned from 2026-11-12.
 
-## Now, next, later (updated 2026-11-24)
+## Now, next, later (updated 2026-11-25)
 
 The single list of what is being worked on (owner, 2026-11-12; replaces the near-term queue of
 [DEVELOPMENT_ROADMAP.md](DEVELOPMENT_ROADMAP.md), stale since 2026-11-03). `scripts/push.sh` refuses to push plan
@@ -29,6 +29,14 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
+- 2026-11-25, 00:06: plan row TB2's case patterns, slice E2b, are **tested on branch `tb2-patterns-e2b` and
+  Forth-reviewed** ([review](../development/forth-reviews/2026-11-24-tb2-patterns-e2b.md)), not merged, not done:
+  findings 2-5, 7 and style points S1-S3 fixed on the branch (2: `by-contra: -`, `_` and `rfl` read through the
+  pattern's leaf items, so `by-contra: -` clears as Lean's `by_contra -`, where it answered 84; two new theorems
+  node for node pinned Lean's; S1: meta-must.fs's `lf-unported` at 32 of the 34 sites); finding 1 (rule 6's
+  rollback untested) recorded as unreachable today, with the reason in contradiction.fs's header; finding 6 (the
+  two nearly equal test slices of Init) and the per-call metavariable scan of `lf-instantiate-mvars` planned
+  (rows 9.4.8v, 9.4.8w). Next: the tier, the merge, the done check. Earlier:
 - 2026-11-24, 23:32: the Later list's parallel items 1 and 2 are **done** on main 9a882569 (done check [2026-11-24-jobs-default-done.md](../development/done-checks/2026-11-24-jobs-default-done.md); pushed, origin/main 7e7059d8): `check` of an export uses 4 workers by default (decide-slice 4.13 s -> 1.89 s, Init 1,015 s -> 287 s), and `--resources` shows each worker's busy and waiting time. The design of `simp` ([TACTIC_SIMP.md](../design/TACTIC_SIMP.md)) is reviewed and revised; the owner's approval is open, no code. In work: pattern slice E2b, under Forth review. Earlier:
 - 2026-11-24, 23:02: plan row TB2's case patterns, slice E2b, are **written and tested on branch
   `tb2-patterns-e2b`** (not Forth-reviewed, not merged, not done): `by-contra[ pat ]` (Batteries' by_contra with
