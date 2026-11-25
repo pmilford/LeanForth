@@ -333,4 +333,51 @@ T{ sz s" by-contradiction" tactic-ran -> 99 }T
 : p-ctor ( x -- code outcome ) drop sz s" by-contradiction" text-full ;
 T{ 0 ' p-ctor heap-sweep swept? -> true }T
 lf-tac-forget
+
+\ ---- 8. Resources: each library word called directly (the E1 review's
+\ finding 10) with every heap allocation refused in turn, each run in
+\ the same context (a, b, h : a = b ∧ b = a, k : a = b ∨ b = a; the
+\ metavariable context and runs emptied, meta-sweeps.fs's
+\ sweep-view-anew): the answer or full.
+fresh
+nat s" a" binder constant wa
+nat s" b" binder constant wb
+wa wb lf-mk-eq wb wa lf-mk-eq and-of s" h" binder constant wh
+wa wb lf-mk-eq wb wa lf-mk-eq or-of s" k" binder constant wk
+sweep-keep-view
+: context-anew ( -- ) frames-anew sweep-view-anew ;
+' context-anew sweep-slabs-xt !
+: w-ab ( -- t ) wa wb lf-mk-eq ;
+: w-goal ( -- goal ) wb wa lf-mk-eq goal ;
+: caught1 ( i*x xt in -- x outcome ) 1 lf-meta-catch ;
+: s-insert ( -- e ) 0 wa wb lf-fsubst-insert wa lf-fsubst-get ;
+: s-append ( -- e ) 0 wa wb lf-fsubst-insert 0 wb wa lf-fsubst-insert lf-fsubst-append wa lf-fsubst-get ;
+: s-erase ( -- n ) 0 wa wb lf-fsubst-insert wa lf-fsubst-erase run-count ;
+: s-apply ( -- e ) 0 wa wb lf-fsubst-insert w-ab lf-fsubst-apply ;
+: s-info ( -- n ) s" And.casesOn" decl lf-recursor-info lf-rinfo-minors ;
+: s-induction ( -- n ) w-goal wh s" And.casesOn" decl 0 lf-goal-induction lf-subgoals# ;
+: s-cases ( -- n ) w-goal wk 0 false lf-goal-cases lf-subgoals# ;
+: s-generalize ( -- n ) w-ab goal wa lf-run1 0 lf-run+ lf-goal-generalize drop run-count ;
+: s-revert ( -- goal kept ) w-goal wh lf-run1 lf-goal-revert-kept ;
+: s-revert# ( -- n ) s-revert nip run-count ;
+: s-intro-kept ( -- t ) s-revert 1 lf-goal-intro-kept drop lf-goal-type ;
+: s-intro-names ( -- t ) s-revert drop 0 1 lf-goal-intro-names drop lf-goal-type ;
+: direct ( x xt -- y outcome ) nip 0 caught1 ;
+: d1 ( x -- e outcome ) ['] s-insert direct ;
+: d2 ( x -- e outcome ) ['] s-append direct ;
+: d3 ( x -- n outcome ) ['] s-erase direct ;
+: d4 ( x -- e outcome ) ['] s-apply direct ;
+: d5 ( x -- n outcome ) ['] s-info direct ;
+: d6 ( x -- n outcome ) ['] s-induction direct ;
+: d7 ( x -- n outcome ) ['] s-cases direct ;
+: d8 ( x -- n outcome ) ['] s-generalize direct ;
+: d9 ( x -- n outcome ) ['] s-revert# direct ;
+: d10 ( x -- t outcome ) ['] s-intro-kept direct ;
+: d11 ( x -- t outcome ) ['] s-intro-names direct ;
+T{ 0 ' d1 heap-sweep swept? 0 ' d2 heap-sweep swept? 0 ' d3 heap-sweep swept? -> true true true }T
+T{ 0 ' d4 heap-sweep swept? 0 ' d5 heap-sweep swept? 0 ' d6 heap-sweep swept? -> true true true }T
+T{ 0 ' d7 heap-sweep swept? 0 ' d8 heap-sweep swept? 0 ' d9 heap-sweep swept? -> true true true }T
+T{ 0 ' d10 heap-sweep swept? 0 ' d11 heap-sweep swept? -> true true }T
+' frames-anew sweep-slabs-xt !
+lf-tac-forget
 .( batch-g test.fs: all tests passed) cr
