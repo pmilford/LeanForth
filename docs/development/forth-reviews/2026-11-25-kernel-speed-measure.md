@@ -67,7 +67,7 @@ Probe files are in /tmp/claude-1000/-home-peter-code-LeanForth/69a89404-3a7f-48a
 4. Fixed in `91f50285`: `profile-check.sh` refuses a machine other than x86-64 and a missing gforth-fast with exit 5
    and one line; the `PTRACE_GETREGS` result is checked (exit 5, one line). Tests `Failures.test_no_engine` and
    `Failures.test_command_not_run` in `tests/scripts/test_profile_check.py`.
-5. Fixed in the commit after `d6e2f2e8`, from a second profile of Init (run 2, 2026-11-25 07:59, 57,421
+5. Fixed in `15041e87`, from a second profile of Init (run 2, 2026-11-25 07:59, 57,421
    samples, kept in `.claude/work/init-profile-2026-11-25/` of the main checkout; shares comparable, wall
    time not). "In short" now gives exclusive shares only (reads 40.3%, hashing 16.3%, validity 12.5%), the
    overlap (16.7 points of the reads and 4.1 of the hashing lie under a validity word; 35.9% inclusive) and
