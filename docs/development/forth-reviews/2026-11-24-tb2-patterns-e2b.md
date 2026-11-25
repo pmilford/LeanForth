@@ -102,3 +102,18 @@ On branch `tb2-patterns-e2b` after its rebase on main `98f36c00` (the reviewed c
 - C, `sweep-view-anew`'s assertion that the test's own goal is not left assigned: the goal is made inside each run and assigned when the run succeeds, so the check needs the run's goal and outcome kept for the reset (more than two lines); left in plan row 9.4.8u.
 
 Baselines the branch sets: the style baseline of `tactics/by-contra.fs` globals 3 to 4 (the registry row `tac-k-by-contra-pat`, accepted above); the coverage baseline reasons of cases.fs and meta-induction.fs renumbered to their lines (`1d81aba2`), no count raised.
+
+## Re-check of the fixes (2026-11-25)
+
+The independent re-check of the fix commits (`dfbe00b8..2c49180f`) judged the "equivalent" record of fault
+`rule6-no-commit` and found its reason to hold: exfalso runs outside the try, so the goal is False; without an
+index none of Lean's index errors can arise; every other refusal of Meta cases on such a type is unsupported (99),
+never Lean's kind of error; a let-bound local is refused at revert. It found no input that reaches the false path
+before slice E4. Findings 2 to 7 and S1 to S3 verified (all 32 replacements by `lf-unported` read). One blocking
+item, fixed in `6d32b34d`: Forth's word lists find a word whatever the case of its letters, so `by-contra: Rfl` and
+`by-rintro[ RFL ]` were read as the `rfl` pattern where Lean names a hypothesis (inside brackets since slice E1;
+after `by-contra:` since this round's fix of finding 2); `lfa-exact` (author/runner.fs) now makes a token with an
+upper-case letter find no pattern word, with two tests and fault `pattern-word-any-case`. One note, not applied
+(the sentence was not found as quoted): contradiction.fs's header should say that revert.fs also throws invalid,
+a LeanForth fault, which is thrown on and never returned as false. Verdict: merge once the case fix is in.
+
