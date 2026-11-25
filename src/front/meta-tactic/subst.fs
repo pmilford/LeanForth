@@ -64,7 +64,7 @@
 \ goal after a blank line. 475 and 477 no tactic reaches (substEq and
 \ substVar call substCore only on what they checked).
 \ Lean call list: withContext -> lf-with-goal, lf-goal-within;
-\ matchEq?, matchHEq? -> lf-match-eq?, lf-match-heq?; instantiateMVars ->
+\ matchEq?, matchHEq? -> lf-match-eq?, lf-match-heq-term?; instantiateMVars ->
 \ lf-instantiate!; exprDependsOn -> lf-depends-on?; revert -> lf-goal-revert-kept;
 \ introNP -> lf-goal-intro-kept; clear -> lf-goal-clear!; tryClear ->
 \ lf-goal-try-clear; assert -> lf-goal-assert; intro1P ->
@@ -251,8 +251,8 @@ end-structure
 : mse-to-eq ( a b -- h' goal' )
   lf-mk-eq mse-h@ lf-mk-eq-of-heq mse-assert mse-h@ lf-goal-try-clear mse-intro swap ;
 : mse-heq-run ( -- h' goal' )
-  mse-local! mse-type lf-match-heq? 0= if mse-kept exit then
-  lf-heq-homogeneous? if rot drop mse-to-eq else 2drop drop mse-kept then ;
+  mse-local! mse-type lf-match-heq-term? 0= if mse-kept exit then
+  lf-heq-homogeneous? if lf-heq-sides mse-to-eq else drop mse-kept then ;
 : mse-heq-framed ( goal h -- h' goal' )
   mse mse-goal cell-pair! mse-goal@ ['] mse-heq-run lf-with-goal ;
 : lf-goal-heq-to-eq ( goal h -- h' goal' ) mse-frames ['] mse-heq-framed lf-with-record ;
@@ -315,7 +315,7 @@ end-structure
   over >r lf-goal-heq-to-eq swap over r> = if lf-goal-subst-var else msb-eq then ;
 : msb-run ( goal h -- goal' )
   dup lf-fvar-type dup lf-match-eq? if 2drop 2drop msb-eq exit then
-  lf-match-heq? if 2drop 2drop msb-heq else lf-goal-subst-var then ;
+  lf-match-heq-term? if drop msb-heq else lf-goal-subst-var then ;
 : lf-goal-subst ( goal h -- goal' ) over ['] msb-run lf-with-goal ;
 
 \ ---- substVars: substSomeVar? again until it finds nothing, each local

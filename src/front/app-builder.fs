@@ -19,7 +19,9 @@
 \                                         eq_of_heq.{u} α a b h, h's type
 \                                         through infer HEq α a β b with α
 \                                         and β defeq (else rejected)
-\   lf-heq-homogeneous? ( α a β b -- α a b flag )  its isDefEq α β
+\   lf-heq-homogeneous? ( heq -- heq flag )  its isDefEq α β on the HEq term
+\   lf-heq-sides ( heq -- a b )           the two sides of an HEq term
+\   lf-match-heq-term? ( t -- heq true | false )  matchHEq? leaving the term
 \   lf-mk-eq-ndrec ( motive h1 h2 -- e ), lf-mk-eq-rec ( motive h1 h2 -- e )
 \       mkEqNDRec (413), mkEqRec (428): h1 when h2 is an Eq.refl
 \       application; else c.{u1, u2} α a motive h1 b h2, α a b the
@@ -369,15 +371,23 @@ end-structure
 : abl-heq-app? ( t -- flag ) 4 s" HEq" lf-meta-app-of? ;
 : abl-heq-at ( t -- α a β b true | t false )
   dup abl-heq-app? if abl-args4 true else false then ;
-\ Expr.heq?: the four arguments of t, else no term left.
-: abl-heq-args? ( t -- α a β b true | false ) abl-heq-at dup 0= if nip then ;
 : lf-match-heq? ( t -- α a β b true | false ) ['] abl-heq-at abl-helper ;
+\ The same as one term: t, or t after whnf, an HEq application.
+: abl-heq-term ( t -- t flag ) dup abl-heq-app? ;
+: lf-match-heq-term? ( t -- heq true | false ) ['] abl-heq-term abl-helper ;
+: abl-heq-arg ( heq i -- x ) 4 lf-meta-nth-arg ;
 
 \ ---- mkEqOfHEq (166): eq_of_heq.{u} α a b h when α and β are defeq.
-\ lf-heq-homogeneous? is its isDefEq α β, shared with heqToEq (subst.fs).
-: lf-heq-homogeneous? ( α a β b -- α a b flag ) >r >r over r> lf-defeq! r> swap ;
-: lf-mk-eq-of-heq ( h -- h' ) dup abl-infer-d abl-heq-args? 0= if abl-fail then
-  lf-heq-homogeneous? 0= if abl-fail then s" eq_of_heq" abl-eq-app swap lf-mk-app ;
+\ lf-heq-homogeneous? is its isDefEq α β and lf-heq-sides its a and b, both
+\ shared with heqToEq (subst.fs); they read the HEq term, so nothing is
+\ carried four deep.
+: lf-heq-homogeneous? ( heq -- heq flag ) dup 0 abl-heq-arg over 2 abl-heq-arg lf-defeq! ;
+: lf-heq-sides ( heq -- a b ) dup 1 abl-heq-arg swap 3 abl-heq-arg ;
+: abl-heq-parts ( heq -- α a b ) dup 0 abl-heq-arg swap lf-heq-sides ;
+: abl-homogeneous ( t -- heq )
+  abl-heq-term 0= if abl-fail then lf-heq-homogeneous? 0= if abl-fail then ;
+: lf-mk-eq-of-heq ( h -- h' )
+  dup abl-infer-d abl-homogeneous abl-heq-parts s" eq_of_heq" abl-eq-app swap lf-mk-app ;
 
 \ ---- mkEqNDRec (413), mkEqRec (428): a frame per call open.
 begin-structure /abr   \ the first six fields in mkAppN's order (abr-apps)
