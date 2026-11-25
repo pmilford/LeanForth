@@ -175,6 +175,10 @@ T{ let-n n0 lf-mk-app lf-meta-no-zeta with-bits nip -> outcome-unsupported }T
 \ head): no prefix tried; getMatch's throwing face.
 T{ outs slab-clear m0 n0 lf-mk-app tree outs lf-dtree-match-extra outs slab-count -> outcome-ok 0 }T
 T{ succ n0 lf-mk-app tree outs ' lf-dt-get-match code1 -> 0 }T
+\ @id Nat n: a constant head no root has (Eq's and Nat.succ's differ in
+\ their declaration): no prefix may match, none.
+: id-n ( -- e ) s" id" 0 lf-mk-const1 nat lf-mk-app n0 lf-mk-app ;
+T{ outs slab-clear id-n tree outs lf-dtree-match-extra outs slab-count -> outcome-ok 0 }T
 \ Every heap allocation of a match-extra query and of the kinds refused
 \ in turn, the slabs they claim given back first: full or the answer.
 : simp-slabs-anew ( -- )
