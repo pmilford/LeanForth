@@ -37,7 +37,7 @@ T{ ck-stage stage-free -> }T
 : simp ( -- c-addr u ) s" tests/front/simp-slice.ndjson" ;
 T{ simp lfc-env! s" tests/front/simp-slice.elab.ndjson" lfc-elab-file! -> }T
 T{ 12 ck-stage stage-init simp ck-stage stage-read-unchecked -> outcome-ok outcome-ok }T
-T{ lfc-elab-read ' cli-elab-format4 said s" , 2 congruence lemmas, 1 defeq tags" compare
+T{ lfc-elab-read ' cli-elab-format4 said s" , 7 congruence lemmas, 33 defeq tags" compare
    -> outcome-ok 0 }T
 T{ ck-stage stage-free -> }T
 bye

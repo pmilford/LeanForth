@@ -828,7 +828,7 @@ the lemma, leaves it out when the export lacks the function, and refuses (exit s
 the function but not the lemma: simp would otherwise take another route than Lean's (TACTIC_SIMP.md section 4;
 add the lemma to the slice's roots). `Init` holds 59 `congr` records and 1,691 `defeq` tags (SIMP_DATA.md's
 counts, measured again on 2026-11-24); the test export `tests/front/simp-slice.ndjson` (roots
-`tests/front/simp-slice.roots`) 2 and 1. `decide-slice` and `s2-slice` have functions without their lemmas
+`tests/front/simp-slice.roots`) 7 and 33 (since simp slice SL1a-1 added the roots its tests need). `decide-slice` and `s2-slice` have functions without their lemmas
 (`Array.foldlM`, `Exists`, `ite`, `dite`), so they stay at format 3.
 
 **Read** by `src/front/elab-data.fs` (the version, the header, the defeq tag: a theorem, error 14; malformed
