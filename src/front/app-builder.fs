@@ -70,6 +70,8 @@
 \       | false ), lf-match-heq? ( t -- α a β b true | false )  matchNot?,
 \       matchNe?, matchHEq? (MatchUtil.lean:62, 71, 31): t, else t after
 \       whnf, is Not p or p -> False; Ne α a b or a negated equation; HEq
+\   lf-arrow? ( t -- flag )               Expr.isArrow: a pi whose body has
+\                                         no loose bound variable (simp/main.fs)
 \   lf-meta-has-mvar? ( e -- flag outcome ) Expr.hasMVar: a term or level
 \                                         metavariable reached (core/reach.fs)
 \ Levels pass on the stack (never through a global); at most abl-most
@@ -377,6 +379,7 @@ end-structure
 : abl-arrow? ( t -- dom body true | false )   \ Expr.arrow?
   dup lf-term-pi? if dup abl-closed-body? else false then
   if dup lf-term-first@ swap lf-term-second@ true else drop false then ;
+: lf-arrow? ( t -- flag ) dup lf-term-pi? if abl-closed-body? else drop false then ;
 : abl-arrow-false? ( t -- p true | false )
   abl-arrow? 0= if false exit then abl-false? if true else drop false then ;
 \ matchHelper?: xt ( t -- i*x true | t false ) on t, then on t after whnf.

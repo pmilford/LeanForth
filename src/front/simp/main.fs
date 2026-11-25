@@ -1,0 +1,259 @@
+\ Simp's main loop on a term and on a goal's target (plan row FE9, simp
+\ slice SL1a-1 of docs/design/TACTIC_SIMP.md): Lean 4.35.0's simpImpl,
+\ simpLoop, simpStep, congr, congrDefault and simpAppUsingCongr
+\ (src/lean/Lean/Meta/Tactic/Simp/Main.lean:531-720, Types.lean:732-765)
+\ with simp only's methods (Rewrite.lean:536-547: rewritePre, then the
+\ simpMatch refusals; rewritePost; no simproc, no decide, no ground), and
+\ simpTargetCore (Main.lean:781, Types.lean:1008).
+\ - lf-simp ( e max -- e' h ): Simp.main of e with simp/theorems.fs's set
+\   and maxSteps max (lf-simp-max-steps, Lean's default 100000), at
+\   reducible transparency with the elaborator's flags (withSimpContext,
+\   Types.lean:963). The result as simp/types.fs's.
+\ - lf-simp-steps ( -- n ): the steps the last lf-simp took (numSteps).
+\ - lf-goal-simp-target ( goal max -- goal' | 0 ): simpTargetCore in the
+\   goal's context: a result True closes the goal with of_eq_true h
+\   (mkOfEqTrue's shortcuts) or True.intro (0); a proof h replaces the
+\   target (replaceTargetEq); a different term with none, replaceTargetDefEq;
+\   else goal itself (the caller's "no progress").
+\ The loop (simpLoop): the cache first, then the step check, numSteps >
+\ maxSteps before the increment; pre (rewritePre); reduceStep; simpStep;
+\ post (rewritePost); a changed result simplified again; each result
+\ cached. The cache (lib/memo.fs) is keyed by the term's node, Lean's
+\ ExprMap by structure: a hit here is one in Lean too, never the other
+\ way (nodes are shared only with hash-consing on, which the authoring
+\ words turn off, and keep binder names apart), so the results are
+\ Lean's but LeanForth may take more steps: beyond maxSteps the answer is
+\ unsupported, never Lean's error "`simp` failed: maximum number of steps
+\ exceeded" (Main.lean:684), which it cannot tell apart.
+\ reduceStep (Main.lean:213) instantiates a metavariable head and
+\ beta-reduces a lambda head; what else it does is unsupported here, never
+\ skipped: a projection or let node, a raw natural literal, a head that a
+\ structure's projection function, a recursor, a quotient's, a matcher
+\ or an auxiliary definition is (iota and unfold?, which simpMatch shares).
+\ simpStep: an application by congr; a constant by reduce; a sort or
+\ literal as it is; a metavariable instantiated; a free variable as it is
+\ (a let one unsupported: reduceFVar's implementation-detail rule); a
+\ lambda, pi, let, projection or annotation unsupported (slice SL1b).
+\ congr: a head with @[congr] lemmas (simp-data.fs's simp-congr-lemmas)
+\ or with a congruence kind other than fixed and eq (congr-thms.fs) is
+\ unsupported (SL2); else simpAppUsingCongr: the head, then each argument
+\ (getFunInfoNArgs): an instance one kept (mkCongrFun'), one with no
+\ forward dependency simplified (mkCongr'), a dependent one simplified
+\ when whnfD of its function's type is an arrow, else dsimp'd and kept.
+\ The dsimp guard: dsimp (SL1b) is not ported, so an argument it would
+\ visit is kept only when dsimp would give it back: a sort, a constant
+\ that is no structure projection function, or a free variable that is
+\ no let, at which no rfl theorem of the set is a candidate; anything
+\ else unsupported. isProof terms are not visited (simpImpl). Depth:
+\ Lean's maxRecDepth counts from where the tactic runs, which LeanForth
+\ does not know, so more than sm-depth-max visits in progress is
+\ unsupported (never Lean's error).
+\ Machine: visits on lib/frame.fs's frames (no host recursion), each
+\ visit's results ( e h ) below them; a visit's own values in an
+\ activation record of the slab sm-acts, the newest the visit running.
+\ Throws as meta-must.fs's words do; a THROW resets the frames and the
+\ activations. Untrusted: the kernel checks every proof at end NAME.
+\ State: the frames sm-frames, the records sm (steps, maximum) and
+\ sm-cache, the slab sm-acts; one simp at a time (a busy record refuses
+\ a nested call, unsupported).
+\ Loads in decimal whatever BASE is, then restores it.
+
+base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
+require ../../lib/lib.fs
+require ../../lib/slab.fs
+require ../../lib/memo.fs
+require ../../lib/frame.fs
+require ../../lib/context.fs
+require ../meta-tactic/goal.fs
+require ../congr-thms.fs
+require ./types.fs
+require ./theorems.fs
+require ./rewrite.fs
+
+100000 constant lf-simp-max-steps
+384 constant sm-depth-max
+
+begin-structure /sm  field: sm-steps  field: sm-max  end-structure
+/sm context-record: sm
+/memo context-record: sm-cache
+:noname ( -- ) sm-cache memo-free ; context-teardown
+: sm-visit-none ( x frames -- x frames 0 ) 0 ;
+' sm-visit-none context-frames: sm-frames
+begin-structure /sa
+  field: sa-e   \ the visit's term: simpLoop's e, or the application
+  field: sa-h   \ a proof kept across a child's visit
+  field: sa-n   \ the application's arguments
+  field: sa-i   \ its next argument
+  field: sa-x   \ the result so far: its term
+  field: sa-y   \ and its proof
+end-structure
+/sa context-slab: sm-acts
+: sa ( -- addr ) sm-acts slab-last ;
+: sm-push ( e -- ) 1 sm-acts slab-claim lf-must drop sa dup /sa erase sa-e ! ;
+: sm-pop ( -- ) sm-acts slab-drop ;
+: lf-simp-steps ( -- n ) sm sm-steps @ ;
+
+\ ---- Visits: opened with their continuation (frame-open), refused as
+\ the frames refuse (fuel, room) or beyond sm-depth-max.
+: sm-open ( x frames cont xt -- x frames xt )
+  >r over frame-admit lf-must over frame-depth @ sm-depth-max > if lf-unported then
+  r> frame-open ;
+: sm-call ( x cont xt -- x frames xt ) >r >r sm-frames r> r> sm-open ;
+: sm-done ( e h -- e h frames 0 ) sm-frames 0 ;
+: sm-same? ( a b -- flag ) lf-meta-eqv lf-must ;
+
+\ ---- The cache and the steps (Main.lean:672-686).
+: sm-cached ( e -- e' h true | e false )
+  dup 0 sm-cache memo-at ?dup if nip 2@ true else false then ;
+: sm-remember ( e' h e -- e' h ) >r 2dup r> 0 sm-cache memo-claim lf-must 2! ;
+: sm-count ( -- ) sm sm-steps @ sm sm-max @ > if lf-unported then 1 sm sm-steps +! ;
+: sm-finish ( e' h -- e' h frames 0 ) sa sa-e @ sm-remember sm-pop sm-done ;
+
+\ ---- reduceStep (Main.lean:213): the steps not ported refused.
+: sm-head-decl ( e -- d true | false )
+  lf-meta-head dup lf-term-const? if lf-const-name lf-menv-find? else drop false then ;
+: sm-kind-iota? ( d -- flag )
+  lf-menv-kind dup lf-kind-recursor = swap lf-kind-quotient = or ;
+: sm-decl-iota? ( d -- flag )   \ reduceRecMatcher? may fire
+  dup sm-kind-iota? if drop true exit then
+  dup lf-menv-matcher? lf-must if drop true exit then lf-menv-aux-recursor? lf-must ;
+: sm-struct-proj? ( d -- flag )   \ reduceProjFn? unfolds a structure's
+  dup lf-menv-proj-fn? lf-must if lf-menv-proj-class? lf-must 0= else drop false then ;
+: sm-head-check ( e -- )
+  dup lf-term-app? swap sm-head-decl 0= if drop exit then
+  dup sm-struct-proj? if lf-unported then swap if sm-decl-iota? if lf-unported then else drop then ;
+: sm-let-tag? ( tag -- flag ) dup lf-tag-let = swap lf-tag-let-nondep = or ;
+: sm-odd-tag? ( tag -- flag )   \ proj, zeta, foldRawNatLit, mdata
+  dup sm-let-tag? over lf-tag-projection = or over lf-tag-annotation = or swap lf-tag-lit = or ;
+: sm-reduce-step ( e -- e' )
+  dup lf-meta-head dup lf-mvar? if drop lf-instantiate! exit then
+  lf-term-lam? if lf-meta-head-beta lf-must exit then
+  dup lf-term-tag@ sm-odd-tag? if lf-unported then dup sm-head-check ;
+
+\ ---- isOfNatNatLit, isOfScientificLit, isCharLit (Main.lean:39-64).
+: sm-raw? ( e -- flag ) lf-tag-lit lf-term-tag? ;
+: sm-arg-at ( e n k -- a ) - 1- 0 ?do lf-term-first@ loop lf-term-second@ ;
+: sm-named? ( e c-addr u -- flag )
+  rot dup lf-term-const? if lf-const-name -rot lf-name-dotted? else drop 2drop false then ;
+: sm-of-nat? ( e -- flag )
+  dup lf-meta-head-args >r s" OfNat.ofNat" sm-named? r@ 3 < 0= and
+  if r> 1 sm-arg-at sm-raw? else r> 2drop false then ;
+: sm-char? ( e -- flag )
+  dup 1 s" Char.ofNat" lf-meta-app-of? if lf-term-second@ sm-raw? else drop false then ;
+: sm-scientific? ( e -- flag )
+  dup 5 s" OfScientific.ofScientific" lf-meta-app-of? 0= if drop false exit then
+  dup lf-term-second@ sm-raw? swap 5 2 sm-arg-at sm-raw? and ;
+: sm-literal? ( e -- flag ) dup sm-of-nat? over sm-char? or swap sm-scientific? or ;
+
+\ ---- congr (Main.lean:637) and congrDefault's mkCongrSimp? (Types.lean:773).
+: sm-congr-lemmas? ( f -- flag )
+  dup lf-term-const? 0= if drop false exit then
+  lf-const-name lf-menv-data-decl 0= if false exit then simp-congr-lemmas lf-must nip 0<> ;
+: sm-congr-check ( e -- )
+  lf-meta-head dup sm-congr-lemmas? if lf-unported then
+  lf-congr-simp-kinds lf-must lf-congr-plain? 0= if lf-unported then ;
+
+\ ---- The dsimp guard.
+: sm-plain-const? ( c -- flag ) sm-head-decl if sm-struct-proj? 0= else true then ;
+: sm-stable-node? ( a -- flag )
+  dup lf-term-tag@ case lf-tag-sort of drop true endof
+    lf-tag-constant of sm-plain-const? endof
+    lf-tag-fvar of lf-fvar-let? 0= endof nip false swap endcase ;
+: sm-rfl-free? ( a -- flag )
+  dup lf-simp-pre lf-simp-rfl-match? swap lf-simp-post lf-simp-rfl-match? or 0= ;
+: sm-dsimp ( a -- a ) dup sm-stable-node? if dup sm-rfl-free? if exit then then lf-unported ;
+
+\ ---- simpAppUsingCongr (Types.lean:732): the head, then each argument.
+0 constant sm-way-simp   1 constant sm-way-inst   2 constant sm-way-dsimp
+: sm-prefix ( -- p ) sa sa-e @ sa sa-n @ sa sa-i @ - 1- 0 ?do lf-term-first@ loop ;
+: sm-arg ( -- a ) sm-prefix lf-term-second@ ;
+: sm-fr! ( e h -- ) sa sa-y ! sa sa-x ! ;
+: sm-fr@ ( -- e h ) sa sa-x @ sa sa-y @ ;
+: sm-next ( e h -- ) sm-fr! 1 sa sa-i +! ;
+: sm-arrow? ( -- flag ) sm-prefix lf-term-first@ lf-infer! lf-whnf-d! lf-arrow? ;
+: sm-dep-way ( -- way ) sm-arrow? if sm-way-simp else sm-way-dsimp then ;
+: sm-info ( -- m ) sa sa-e @ lf-meta-head sa sa-n @ lf-meta-fun-deps lf-must ;
+: sm-way ( -- way )
+  sm-info sa sa-i @ > 0= if sm-dep-way exit then
+  sa sa-i @ lf-param-instance? lf-must if sm-way-inst exit then
+  sa sa-i @ lf-param-fwd-deps? if sm-dep-way else sm-way-simp then ;
+: sm-fun-only ( a -- ) >r sm-prefix sm-fr@ r> lf-simp-congr-fun sm-next ;
+: sm-more? ( -- flag ) sa sa-i @ sa sa-n @ < ;
+defer sm-simp-arg ( a -- a frames xt )
+: sm-app-args ( -- ... frames next )
+  begin sm-more? while sm-way case
+      sm-way-simp of sm-arg sm-simp-arg exit endof
+      sm-way-inst of sm-arg sm-fun-only endof
+      sm-arg sm-dsimp sm-fun-only endcase repeat
+  sm-fr@ sm-pop sm-done ;
+: sm-app-simped ( ae ah frames -- ... )
+  drop 2>r sm-prefix sm-fr@ 2r> lf-simp-congr sm-next sm-app-args ;
+: sm-app-head ( fe fh frames -- ... ) drop sm-fr! sm-app-args ;
+
+\ ---- The visits: simpImpl, simpLoop, simpStep.
+defer sm-simp-call ( e cont -- e frames xt )
+: sm-app-open ( e -- ... )
+  dup sm-push dup lf-meta-args# sa sa-n ! lf-meta-head ['] sm-app-head sm-simp-call ;
+: sm-app ( e -- ... )
+  dup sm-literal? if lf-simp-none sm-done exit then dup sm-congr-check sm-app-open ;
+: sm-leaf ( e -- e h )
+  dup lf-term-tag@ case lf-tag-constant of sm-reduce-step endof
+    lf-tag-sort of endof   lf-tag-lit of endof   lf-tag-str of endof
+    lf-tag-mvar of lf-instantiate! endof
+    lf-tag-fvar of dup lf-fvar-let? if lf-unported then endof
+    lf-unported endcase lf-simp-none ;
+: sm-step ( e frames -- ... ) drop dup lf-term-app? if sm-app else sm-leaf sm-done then ;
+defer sm-loop-call ( e cont -- e frames xt )
+: sm-trans-cache ( e2 h2 frames -- ... ) drop sa sa-h @ -rot lf-simp-trans sm-finish ;
+: sm-again ( e h -- ... ) sa sa-h ! ['] sm-trans-cache sm-loop-call ;
+: sm-post-continue ( e3 h3 -- ... )
+  over sa sa-e @ sm-same? if sm-finish else sm-again then ;
+: sm-joined ( e2 h2 e3 h3 -- e3 h ) 2>r nip 2r> lf-simp-trans ;
+: sm-post ( e2 h2 -- ... )
+  over lf-simp-post false lf-simp-rewrite? if sm-joined then sm-post-continue ;
+: sm-stepped ( e2 h2 frames -- ... ) drop sa sa-h @ -rot lf-simp-trans sm-post ;
+: sm-pre-continue ( e1 h1 -- ... )
+  sa sa-h ! dup sm-reduce-step 2dup sm-same?
+  if drop ['] sm-stepped ['] sm-step sm-call else nip ['] sm-trans-cache sm-loop-call then ;
+: sm-pre ( e -- e1 h1 true | e false )
+  dup lf-simp-pre false lf-simp-rewrite? if rot drop true else false then ;
+: sm-loop ( e frames -- ... )
+  drop sm-cached if sm-done exit then
+  sm-count dup sm-push sm-pre if sm-again else lf-simp-none sm-pre-continue then ;
+:noname ( e cont -- e frames xt ) ['] sm-loop sm-call ; is sm-loop-call
+: sm-proof? ( e -- flag )
+  dup lf-meta-proof-quick lf-must dup lf-lb-undef =
+  if drop lf-infer! lf-meta-is-prop lf-must else nip lf-lb-true = then ;
+: sm-simp ( e frames -- ... )
+  drop dup sm-proof? if lf-simp-none sm-done exit then ['] frame-return sm-loop-call ;
+:noname ( e cont -- e frames xt ) ['] sm-simp sm-call ; is sm-simp-call
+:noname ( a -- a frames xt ) ['] sm-app-simped sm-simp-call ; is sm-simp-arg
+
+\ ---- Simp.main: the run.
+: sm-cache-ready ( -- )
+  sm-cache memo-live? if sm-cache memo-clear else 1 2 sm-cache memo-init lf-must then ;
+: sm-ready ( max -- )
+  sm-frames frame-busy? if lf-unported then
+  sm sm-max ! 0 sm sm-steps ! sm-acts slab-clear sm-cache-ready
+  sm-frames frame-reset max-n sm-frames frame-budget drop ;
+: sm-root ( e frames cont -- e frames xt ) nip sm-simp-call ;
+: sm-walk ( e -- e' h ) sm-frames ['] sm-root frame-through drop ;
+: sm-guarded ( e -- e' h )
+  ['] sm-walk catch ?dup if sm-frames frame-reset sm-acts slab-clear throw then ;
+: lf-simp ( e max -- e' h )
+  sm-ready ['] sm-guarded lf-defeq-flags lf-defeq-elab or lf-tr-reducible lf-meta-with ;
+
+\ ---- simpTargetCore (Main.lean:781) and applySimpResultToTarget.
+: sm-true? ( e -- flag ) s" True" sm-named? ;
+: sm-close ( goal h -- 0 )
+  dup lf-simp-none? if drop s" True.intro" lf-mk-const0 else lf-mk-of-eq-true then
+  lf-mvar-assign lf-must 0 ;
+: sm-target-done ( goal target e' h -- goal' | 0 )
+  over sm-true? if nip nip sm-close exit then
+  dup lf-simp-none? 0= if rot drop lf-goal-replace-target-eq exit then
+  drop tuck sm-same? if drop else lf-goal-replace-target-defeq then ;
+: sm-target ( goal max -- goal' | 0 )
+  >r dup lf-goal-type lf-instantiate! dup r> lf-simp sm-target-done ;
+: lf-goal-simp-target ( goal max -- goal' | 0 ) over ['] sm-target lf-with-goal ;
+
+base !   \ the BASE this file was loaded with

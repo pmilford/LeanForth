@@ -1,0 +1,57 @@
+-- Pinned Lean twins of tests/front/tactics/simp-1/*.lf (plan row FE9, simp slice SL1a-1:
+-- simp only on the target): tactic_check.py --lean writes simp-1.golden from this file's
+-- terms, which LeanForth's must equal node for node. u_def, u_at, u_symm, u_hyp_prop and
+-- u_literal are the texts LeanForth answers 99 (not supported yet) for; Lean accepts them.
+import Lean
+open Lean Meta Elab Tactic
+set_option linter.unusedVariables false
+set_option linter.unusedSimpArgs false
+
+theorem simp_add_zero (n : Nat) : n + 0 + 0 = n := by
+  simp only [Nat.add_zero]
+theorem simp_hyp (a b : Nat) (h : a = b) : a * 2 = b * 2 := by
+  simp only [h]
+theorem simp_hyp_whole (a c : Nat) (h : a * 6 = c) : a * 6 = c := by
+  simp only [h]
+theorem simp_true : True := by
+  simp only []
+theorem simp_self (n : Nat) : n = n := by
+  simp only []
+theorem u_at (a b : Nat) (h : a + 0 = b) : a = b := by
+  simp only [Nat.add_zero] at h
+  exact h
+theorem u_symm (a b : Nat) (h : b = a) : a = b := by
+  simp only [← h]
+theorem u_hyp_prop (h : True) : True := by
+  simp only [h]
+theorem u_def (a : Nat) : Nat.add a 0 = a := by
+  simp only [Nat.add]
+theorem u_literal (a c : Nat) (h : a * 6 = c) : a * (2 * 3) = c := by
+  simp only [h]
+
+def pl (l : Level) : String := match l.toNat with
+  | some n => toString n
+  | none => "?l"
+
+partial def sx : Expr → MetaM String
+  | .bvar i => return s!"#{i}"
+  | .const n us => return n.toString ++ ".{" ++ String.intercalate "," (us.map pl) ++ "}"
+  | .app f a => return s!"(app {← sx f} {← sx a})"
+  | .lam _ t b _ => return s!"(lam {← sx t} {← sx b})"
+  | .forallE _ t b _ => return s!"(pi {← sx t} {← sx b})"
+  | .letE _ t v b nd => return s!"({if nd then "let-nd" else "let"} {← sx t} {← sx v} {← sx b})"
+  | .sort l => return "Sort " ++ pl l
+  | .lit (.natVal n) => return toString n
+  | .mdata _ e => sx e
+  | e => return s!"?? {e}"
+
+def dump (n : Name) : MetaM Unit := do
+  let some (.thmInfo i) := (← getEnv).find? n | IO.println s!"{n} ??"
+  IO.println s!"{n} type {← sx i.type}"
+  IO.println s!"{n} value {← sx i.value}"
+
+
+#eval do
+  for n in [``simp_add_zero, ``simp_hyp, ``simp_hyp_whole, ``simp_true, ``simp_self,
+      ``u_at, ``u_symm, ``u_hyp_prop, ``u_def, ``u_literal] do
+    dump n

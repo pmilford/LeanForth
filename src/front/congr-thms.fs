@@ -16,6 +16,8 @@
 \   whose earlier parameters is eq (shouldUseSubsingletonInst), else
 \   fixed; any other eq; then every parameter a later eq or fixed one
 \   depends on is fixed.
+\ - lf-param-instance? ( i -- flag outcome ): FunInfo's isInstance of
+\   parameter i of the last lf-meta-fun-deps, as the kinds read it.
 \ - lf-congr-plain? ( n -- flag ): every kind fixed or eq (mkCongrSimp?'s
 \   test: simp builds its proof with congrArg, congrFun' and congr).
 \ isInstance (FunInfo.lean:111: a class type under a binder that is not
@@ -112,5 +114,8 @@ end-structure
   ok-then? if ck-kinds-run else no-result then ;
 : lf-congr-plain? ( n -- flag )
   true swap 0 ?do i lf-congr-kind lf-ck-eq lf-ck-fixed one-of2? and loop ;
+\ FunInfo's isInstance of parameter i of the last lf-meta-fun-deps (no
+\ constructor's subobject question: simpAppUsingCongr's, simp/main.fs).
+: lf-param-instance? ( i -- flag outcome ) false cks cks-ctor ! ck-instance? ;
 
 base !   \ the BASE this file was loaded with

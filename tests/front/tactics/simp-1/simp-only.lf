@@ -1,0 +1,48 @@
+\ by-simp-only[ ] on the target (plan row FE9, simp slice SL1a-1 of
+\ docs/design/TACTIC_SIMP.md): Lean's simp only. Lean twins in simp-1.lean.
+\ Lean: theorem simp_add_zero (n : Nat) : n + 0 + 0 = n := by
+\         simp only [Nat.add_zero]
+\ Nat.add_zero is an rfl theorem: no step, then eq_self closes n = n.
+theorem simp_add_zero
+  Nat explicit: n
+  n 0 + 0 + n =
+:= by
+  by-simp-only[ ' Nat.add_zero ]
+end simp_add_zero
+
+\ Lean: theorem simp_hyp (a b : Nat) (h : a = b) : a * 2 = b * 2 := by
+\         simp only [h]
+\ A hypothesis rule (origin .stx, head-only keys) under two congruences.
+theorem simp_hyp
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a 2 * b 2 * =
+:= by
+  by-simp-only[ ' h ]
+end simp_hyp
+
+\ Lean: theorem simp_hyp_whole (a c : Nat) (h : a * 6 = c) : a * 6 = c := by
+\         simp only [h]
+theorem simp_hyp_whole
+  Nat explicit: a  Nat explicit: c
+  a 6 * c = explicit: h
+  a 6 * c =
+:= by
+  by-simp-only[ ' h ]
+end simp_hyp_whole
+
+\ Lean: theorem simp_true : True := by simp only []
+\ True is closed by True.intro, with no "no progress".
+theorem simp_true
+  True
+:= by
+  by-simp-only[ ]
+end simp_true
+
+\ Lean: theorem simp_self (n : Nat) : n = n := by simp only []
+theorem simp_self
+  Nat explicit: n
+  n n =
+:= by
+  by-simp-only[ ]
+end simp_self

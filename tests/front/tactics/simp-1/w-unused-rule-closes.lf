@@ -1,0 +1,12 @@
+\ Lean: theorem w_unused_rule_closes (a b : Nat) (h : a = 0) : b = b := by
+\         simp only [h]
+\         exact h
+\ eq_self closes b = b without h: no goal is left for exact.
+theorem w_unused_rule_closes
+  Nat explicit: a  Nat explicit: b
+  a 0 = explicit: h
+  b b =
+:= by
+  by-simp-only[ ' h ]
+  ' h by-exact
+end w_unused_rule_closes

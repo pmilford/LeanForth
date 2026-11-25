@@ -1,0 +1,9 @@
+\ Lean: theorem u_hyp_prop (h : True) : True := by simp only [h]
+\ A hypothesis that is no equation (Lean rewrites with h = True, by
+\ eq_true h) is not supported yet (slice SL1a-2).
+theorem u_hyp_prop
+  True explicit: h
+  True
+:= by
+  by-simp-only[ ' h ]
+end u_hyp_prop

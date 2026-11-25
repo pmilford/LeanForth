@@ -1,0 +1,10 @@
+\ Lean: theorem w_head_only (a c : Nat) (h : a * 7 = c) : a * 6 = c := by
+\         simp only [h]
+\ h's head-only keys propose it at a * 6, unification refuses it: no progress.
+theorem w_head_only
+  Nat explicit: a  Nat explicit: c
+  a 7 * c = explicit: h
+  a 6 * c =
+:= by
+  by-simp-only[ ' h ]
+end w_head_only

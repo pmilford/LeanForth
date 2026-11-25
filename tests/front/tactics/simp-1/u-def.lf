@@ -1,0 +1,8 @@
+\ Lean: theorem u_def (a : Nat) : Nat.add a 0 = a := by simp only [Nat.add]
+\ A definition to unfold is not supported yet (slice SL3a).
+theorem u_def
+  Nat explicit: a
+  a 0 Nat.add a =
+:= by
+  by-simp-only[ ' Nat.add ]
+end u_def

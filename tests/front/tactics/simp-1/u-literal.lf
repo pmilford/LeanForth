@@ -1,0 +1,11 @@
+\ Lean: theorem u_literal (a c : Nat) (h : a * 6 = c) : a * (2 * 3) = c := by
+\         simp only [h]
+\ Lean unifies 6 with 2 * 3 at reducible transparency; LeanForth's
+\ unifier answers unsupported for that literal arithmetic.
+theorem u_literal
+  Nat explicit: a  Nat explicit: c
+  a 6 * c = explicit: h
+  a 2 3 * * c =
+:= by
+  by-simp-only[ ' h ]
+end u_literal

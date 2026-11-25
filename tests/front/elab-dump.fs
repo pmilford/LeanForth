@@ -56,6 +56,10 @@ defer .t
 : decide-dump ( c-addr u -- )
   [: s" tests/front/decide-slice.ndjson" ;] is dump-lib
   [: s" tests/front/decide-slice.elab.ndjson" ;] is dump-data elab-dump ;
+\ Simp's slice (tests/front/tactics/simp-1/check.py; plan row FE9).
+: simp-dump ( c-addr u -- )
+  [: s" tests/front/simp-slice.ndjson" ;] is dump-lib
+  [: s" tests/front/simp-slice.elab.ndjson" ;] is dump-data elab-dump ;
 \ The case patterns' slice (tests/front/tactics/batch-h2/check.py; plan
 \ row TB2, piece E).
 : patterns-dump ( c-addr u -- )

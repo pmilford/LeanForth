@@ -1,0 +1,10 @@
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_add_zero","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"n : Nat\n⊢ n + 0 + 0 = n","goals_after":[],"parent":0,"source":"10:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_hyp","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh : a = b\n⊢ a * 2 = b * 2","goals_after":[],"parent":0,"source":"21:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_hyp_whole","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a c : Nat\nh : a * 6 = c\n⊢ a * 6 = c","goals_after":[],"parent":0,"source":"31:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"simp_true","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ True","goals_after":[],"parent":0,"source":"39:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_self","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"n : Nat\n⊢ n = n","goals_after":[],"parent":0,"source":"47:3","step":1,"tactic":"simp","word":"by-simp-only["}

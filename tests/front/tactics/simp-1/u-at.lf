@@ -1,0 +1,12 @@
+\ Lean: theorem u_at (a b : Nat) (h : a + 0 = b) : a = b := by
+\         simp only [Nat.add_zero] at h
+\         exact h
+\ at[ ] is not supported yet (slice SL1a-2).
+theorem u_at
+  Nat explicit: a  Nat explicit: b
+  a 0 + b = explicit: h
+  a b =
+:= by
+  by-simp-only[ ' Nat.add_zero ] at[ h ]
+  ' h by-exact
+end u_at

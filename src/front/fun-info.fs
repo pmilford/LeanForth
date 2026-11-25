@@ -235,8 +235,11 @@ lf-tag-sort lf-tag-symbolic-sort lf-tag-fvar lf-tag-lit lf-tag-bvar 5 lf-tags
 : fi-mask ( term n -- mask outcome )
   0 swap 0 ?do over i fi-bit ok-then? 0= if nip no-result unloop exit then loop
   nip outcome-ok ;
+\ (isClass? unfolds outParam and semiOutParam, as fi-unwrap does: their
+\ type's head is T's.)
 : fi-head-name ( type -- name )
-  lf-meta-forall-body lf-meta-head dup lf-term-const? if lf-const-name exit then
+  fi-unwrap lf-meta-forall-body fi-unwrap lf-meta-head
+  dup lf-term-const? if lf-const-name exit then
   fi-not-class? if 0 else -1 then ;
 : fi-dep-push ( mask name -- outcome )
   1 fi-deps slab-claim ok-then? 0= if nip nip exit then

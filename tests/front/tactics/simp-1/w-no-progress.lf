@@ -1,0 +1,8 @@
+\ Lean: theorem w_no_progress (n : Nat) : n = n + 1 := by simp only []
+\ Nothing rewrites: Lean's error "`simp` made no progress".
+theorem w_no_progress
+  Nat explicit: n
+  n n 1 + =
+:= by
+  by-simp-only[ ]
+end w_no_progress

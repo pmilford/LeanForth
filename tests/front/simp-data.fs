@@ -49,11 +49,12 @@ T{ s" add_zero" nat simp-defeq? s" ite_congr" top simp-defeq? s" ite" top simp-d
 : prio ( c p -- flag ) over sdc sdc-priority ! sd-falls? ;
 T{ 1 2 sdc sdc-rank ! 2 1000 prio 2 1001 prio 2 999 prio 2 0 prio -> true false true true }T
 
-\ The slice's own data from the writer: dite_congr and ite_congr, one
-\ defeq tag (Nat.add_zero; Nat.zero_add is proved by induction).
+\ The slice's own data from the writer: dite_congr, ite_congr and the
+\ five lemmas of the functions simp slice SL1a-1's roots brought in, 33
+\ defeq tags (Nat.add_zero's; Nat.zero_add is proved by induction).
 T{ s" tests/front/simp-slice.elab.ndjson" fx simp-congr-count simp-defeq-count
-   -> outcome-ok 2 1 }T
-T{ s" ite" top simp-congr-lemmas swap simp-congr@ drop s" zero_add" nat simp-defeq?
+   -> outcome-ok 7 33 }T
+T{ s" ite" top simp-congr-lemmas rot simp-congr@ drop s" zero_add" nat simp-defeq?
    -> 1 outcome-ok s" ite_congr" top false outcome-ok }T
 
 \ The relation a conclusion of n arguments may be: Eq, Iff, else none (-2).

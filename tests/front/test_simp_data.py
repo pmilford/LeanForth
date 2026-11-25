@@ -17,7 +17,8 @@ the writer's congr records and defeq tags, and the check reading them.
    lemma, a RAW and a --format that disagree, a rank gap, hypotheses not increasing, a
    defeq tag of a definition.
 3. bin/leanforth check on the simp slice with its real format-4 data (written by
-   ELAB_FORMAT=4 scripts/export-elab.sh, 2 congr records, 1 defeq tag) accepts
+   ELAB_FORMAT=4 scripts/export-elab.sh, 7 congr records, 33 defeq tags since simp slice
+   SL1a-1 grew the slice) accepts
    tests/front/simp-data/sd-id.lf; with the good fixture too (the export's manifest copied
    without its binding); damaged fixtures refused with their codes and lines.
 """
@@ -175,14 +176,14 @@ def finish(work, lines, form=4, head=RAW_HEAD):
 
 
 def writer_cases(work):
-    exists = congr(["Exists"], ["exists_prop_congr"], [4], 0)
-    status, said, out = finish(work, [X_ITE1, exists, C_ITE, C_DITE, T_ADD])
+    absent = congr(["List", "filterMap"], ["List", "filterMap_congr"], [4], 0)
+    status, said, out = finish(work, [X_ITE1, absent, C_ITE, C_DITE, T_ADD])
     lines = out.read_text().split("\n") if status == 0 else []
     if status or json.loads(lines[0])["elab_data"]["format_version"] != 4 \
             or lines[-5:-1] != [T_ADD, C_DITE, C_ITE, X_ITE1] or "3 congr;" not in said \
             or "; 1 defeq tags" not in said:
         fail(f"the finisher's format 4: {status} {said} {lines[-4:]}")
-    bad = {"a function without its lemma": ([congr(["ite"], ["Nat", "add_comm"], [0], 0)],
+    bad = {"a function without its lemma": ([congr(["ite"], ["List", "filterMap_congr"], [0], 0)],
                                             4, RAW_HEAD, "but not its congruence lemma"),
            "simp RAW, format 3": ([C_ITE], 3, RAW_HEAD, "written with export_elab.lean --simp"),
            "plain RAW, format 4": ([C_ITE], 4, RAW_HEAD.replace(',"simp":true', ""),
@@ -215,7 +216,7 @@ def check_cases(work):
     status, said = check(SLICE, DATA)
     if status or "sd_id: accepted" not in said:
         fail(f"the simp slice's own format-4 data: {status} {said[-300:]}")
-    if not count_line(said).endswith(", 2 congruence lemmas, 1 defeq tags"):
+    if not count_line(said).endswith(", 7 congruence lemmas, 33 defeq tags"):
         fail(f"the count line of format-4 data: {count_line(said)!r}")
     status, said = check(work / "slice.ndjson", FIXTURES / "plain32.elab.ndjson")
     if status or not count_line(said).endswith(" smart-unfolding bodies"):
