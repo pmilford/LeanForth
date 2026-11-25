@@ -832,7 +832,8 @@ end-structure
 : ed-pis+ ( n e -- n' e' ) tuck ed-lead + swap ed-tier expr-pi-end ;
 : ed-pis ( e -- n )
   0 swap begin ed-pis+ dup ed-let? while ed-tier expr-body@ repeat drop ;
-: ed-type-pis ( d -- n ) ed-stage staged-type@ ed-pis ;
+: ed-type@ ( d -- e ) ed-stage staged-type@ ;   \ the declaration's type
+: ed-type-pis ( d -- n ) ed-type@ ed-pis ;
 : ed-levels ( d -- n ) ed-stage staged-params@ ed-stage stage-tuples tuple-length ;
 
 \ ---- Keys (front/elab-keys.fs): "star", "other", "arrow", or an object
@@ -1532,7 +1533,7 @@ create ed-sun-steps
     2dup ed-dom-fit? 0= if 2drop false exit then ed-pi-next repeat 2drop true ;
 : ed-lead-fits? ( b e -- flag ) ed-lead swap elab-binder-kinds nip tuck = swap 0<> and ;
 : ed-bk-fit ( value b -- outcome )
-  nip dup elab-binder-decl ed-stage staged-type@
+  nip dup elab-binder-decl ed-type@
   2dup ed-lead-fits? if ed-doms-fit? else 2drop false then ed-e-unfit ed-or-bad ;
 create ed-bk-members  s" kinds" counted, s" name" counted, 0 0 counted,
 create ed-bk-steps  ' ed-own-decl! , ' ed-bk-kinds! , ' ed-bk-doms! , ' ed-bk-fit , 0 ,
@@ -1762,7 +1763,7 @@ synonym elab-type-pis ed-type-pis        ( d -- n )
 synonym elab-numbers ed-numbers          ( span index -- outcome ) \ u32s into elab-orders
 synonym elab-span@ ed-span@              ( span -- addr n )
 synonym elab-tier ed-tier                ( -- tier ) \ the stage's names and terms
-: elab-type@ ( d -- e ) ed-stage staged-type@ ;
+synonym elab-type@ ed-type@              ( d -- e )
 : elab-format4? ( -- flag ) elab-loaded? ed-v4? and ;
 : ed-tagged-at? ( tag d -- tag flag ) over elab-tagged? ;
 : elab-tag-count ( tag -- n ) elab-facts slab-count ['] ed-tagged-at? count-index ;
