@@ -1,0 +1,12 @@
+\ Not supported yet (99): subst of a have (a let whose value is hidden,
+\ which Lean's isLet is not: Meta.subst, whose revert would take the have
+\ along; revert.fs refuses it). Lean accepts (batch-h-wrong.lean's x_have).
+theorem x_have
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a =
+:= by
+  a b = ' h by-have: k
+  ' k by-subst
+  by-rfl
+end x_have

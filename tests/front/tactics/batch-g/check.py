@@ -37,9 +37,9 @@ UNNAMED = "malformed elaboration: a term that is no node, or a value unfit for t
 OWN = [(D + "w-order.lf", 76, UNNAMED, ""),
        (D + "w-clear-used.lf", 76, UNNAMED, ""),
        (D + "w-stale-target.lf", 76, UNNAMED, ""),
-       (D + "w-stale-blank.lf", 76, UNNAMED, "")]
-UNSUPPORTED = [(D + "x-rfl.lf", 99, "not supported yet"),
-               (D + "x-indexed.lf", 99, "not supported yet"),
+       (D + "w-stale-blank.lf", 76, UNNAMED, ""),
+       (D + "x-rfl.lf", 76, UNNAMED, "")]   # 99 until slice E2a's rfl
+UNSUPPORTED = [(D + "x-indexed.lf", 99, "not supported yet"),
                (D + "x-not-inductive.lf", 136, "not supported yet")]
 
 if __name__ == "__main__":

@@ -1,0 +1,70 @@
+\ rfl in a pattern (plan row TB2, piece E, slice E2a; Lean's rcases rfl,
+\ Elab/Tactic/RCases.lean's rcasesCore over Meta/Tactic/Subst.lean's
+\ substEq; batch-h.lean).
+
+\ The witness eliminated: a = x has x on the right.
+\ Lean: theorem rf_exists (a : Nat) (h : Exists (Eq a)) (k : a = a) : a = a := by
+\         obtain ⟨x, rfl⟩ := h
+\         exact k
+theorem rf_exists
+  Nat explicit: a
+  ' Eq a $ Exists explicit: h  a a = explicit: k
+  a a =
+:= by
+  ' h by-obtain[ << x rfl >> ]
+  ' k by-exact
+end rf_exists
+
+\ b eliminated, the other field cleared.
+\ Lean: theorem rf_right (a b : Nat) (h : a = b ∧ True) : b = a := by
+\         obtain ⟨rfl, -⟩ := h
+\         rfl
+theorem rf_right
+  Nat explicit: a  Nat explicit: b
+  a b = True ∧ explicit: h
+  b a =
+:= by
+  ' h by-obtain[ << rfl - >> ]
+  by-rfl
+end rf_right
+
+\ The right side no variable: a eliminated.
+\ Lean: theorem rf_left (a b : Nat) (h : a = Nat.succ b ∧ True) : a = Nat.succ b := by
+\         obtain ⟨rfl, -⟩ := h
+\         rfl
+theorem rf_left
+  Nat explicit: a  Nat explicit: b
+  a ' Nat.succ b $ = True ∧ explicit: h
+  a ' Nat.succ b $ =
+:= by
+  ' h by-obtain[ << rfl - >> ]
+  by-rfl
+end rf_left
+
+\ rfl in each alternative: b, then a eliminated.
+\ Lean: theorem rf_alts (a b : Nat) (h : a = b ∨ b = a) : b = a := by
+\         rcases h with rfl | rfl
+\         rfl
+\         rfl
+theorem rf_alts
+  Nat explicit: a  Nat explicit: b
+  a b = b a = ∨ explicit: h
+  b a =
+:= by
+  ' h by-rcases[ rfl | rfl ]
+  by-rfl
+  by-rfl
+end rf_alts
+
+\ A cleared field the substitution makes a term (x to Nat.zero): no
+\ longer a free variable, so finish passes it over.
+\ Lean: theorem rf_cleared (h : Exists (Eq Nat.zero)) : True := by
+\         obtain ⟨-, rfl⟩ := h
+\         trivial
+theorem rf_cleared
+  ' Eq Nat.zero $ Exists explicit: h
+  True
+:= by
+  ' h by-obtain[ << - rfl >> ]
+  by-trivial
+end rf_cleared

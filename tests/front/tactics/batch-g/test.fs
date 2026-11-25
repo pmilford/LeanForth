@@ -290,7 +290,8 @@ T{ sl s" ' h by-obtain[ << _ hba >> ] by-assumption" tactic-ran -> 0 }T
 : s3 ( -- c-addr u )
   s" Nat explicit: a Nat explicit: b a b = b a = a a = ∨ ∨ explicit: h a a =" ;
 T{ s3 s" ' h by-rcases[ x | y | z ] by-rfl by-rfl by-rfl" tactic-ran -> 0 }T
-T{ st s" ' h by-obtain[ << rfl y >> ]" tactic-ran -> 99 }T
+\ rfl (slice E2a): b eliminated, y : a = a closes the goal a = a.
+T{ st s" ' h by-obtain[ << rfl y >> ] ' y by-exact" tactic-ran -> 0 }T
 \ An empty tuple: the cursor passes the end, and every field takes _ (p11).
 T{ st s" ' h by-obtain[ << >> ] by-assumption" tactic-ran -> 0 }T
 \ A statement variable the split cleared names nothing (Lean's Unknown

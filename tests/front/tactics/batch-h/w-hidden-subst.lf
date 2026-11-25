@@ -1,0 +1,13 @@
+\ Wrong twin (batch-h-wrong.lean's w_hidden_subst): right✝, hidden by the
+\ obtain, depends on b, so subst of hab : a = b reverts it and
+\ introduces it again, still hidden (substCore's introNP); right names
+\ the binder right : c = c, which is not the goal a = a (Type mismatch).
+theorem w_hidden_subst
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  c c = explicit: right  a b = b a = ∧ explicit: h
+  b a =
+:= by
+  ' h by-obtain[ << hab _ >> ]
+  ' hab by-subst
+  ' right by-exact
+end w_hidden_subst

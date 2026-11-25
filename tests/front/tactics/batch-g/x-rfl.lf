@@ -1,5 +1,7 @@
-\ Not supported yet (99): rfl in a pattern (substEq, plan row TB2 slice
-\ E2). Lean: obtain ⟨w, rfl⟩ := h.
+\ rfl in a pattern (substEq, slice E2a since 2026-11-24; slice E1
+\ answered 99 here): obtain ⟨w, rfl⟩ := h splits h, which is then gone,
+\ so exact h names nothing (Lean's Unknown identifier `h`; LeanForth's
+\ 76, a statement variable the goal no longer holds).
 theorem x_rfl
   Nat explicit: a
   ' Eq a $ Exists explicit: h

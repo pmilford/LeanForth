@@ -1,0 +1,10 @@
+\ Wrong twin (batch-h-wrong.lean's w_rfl_not_eq): rfl in a pattern on a
+\ field that is no equation (substEq's "not of the form (x = t) or
+\ (t = x)").
+theorem w_rfl_not_eq
+  Nat explicit: a  Nat explicit: b
+  a b = True ∧ explicit: h
+  b a =
+:= by
+  ' h by-obtain[ << - rfl >> ]
+end w_rfl_not_eq

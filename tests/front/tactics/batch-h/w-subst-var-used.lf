@@ -1,0 +1,11 @@
+\ Wrong twin (batch-h-wrong.lean's w_subst_var_used): subst h eliminates
+\ b, so b names nothing afterwards (Lean's Unknown identifier `b`;
+\ LeanForth's 76, a statement variable the goal no longer holds).
+theorem w_subst_var_used
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a =
+:= by
+  ' h by-subst
+  ' Eq.refl b $ by-exact
+end w_subst_var_used

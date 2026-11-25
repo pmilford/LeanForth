@@ -1,0 +1,12 @@
+\ Wrong twin (batch-h-wrong.lean's w_hidden_heq): as w-hidden-subst.lf
+\ through heqToEq (hab : HEq a b asserted again as a = b, then
+\ substituted): right✝ stays hidden, right names right : c = c.
+theorem w_hidden_heq
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  c c = explicit: right  ' HEq a $ b $ b a = ∧ explicit: h
+  b a =
+:= by
+  ' h by-obtain[ << hab _ >> ]
+  ' hab by-subst
+  ' right by-exact
+end w_hidden_heq

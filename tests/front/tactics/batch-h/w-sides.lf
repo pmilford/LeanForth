@@ -1,0 +1,8 @@
+\ Wrong twin (batch-h-wrong.lean's w_sides): neither side a variable after
+\ whnf (substEq's "not of the form (x = t) or (t = x)").
+theorem w_sides
+  Nat.zero Nat.zero = explicit: h
+  False
+:= by
+  ' h by-subst
+end w_sides

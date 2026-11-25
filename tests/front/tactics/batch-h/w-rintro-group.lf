@@ -1,0 +1,17 @@
+\ Wrong twin (batch-h-wrong.lean's w_rintro_group): by-rintro[ x | y z ]
+\ is Lean's rintro (x | y) z, two items, so each goal has z : b = a and
+\ the goal b = a, with no binder left for by-intro: (Lean's introN
+\ error). Read as one item, Lean's rintro (x | y z), the goals would keep
+\ b = a -> b = a and the proof would go through.
+theorem w_rintro_group
+  Nat explicit: a  Nat explicit: b
+  a b = b a = a a = ∧ ∨ explicit: h  b a = explicit: k
+  b a =
+:= by
+  by-revert[ h k ]
+  by-rintro[ x | y z ]
+  by-intro: d
+  ' d by-exact
+  by-intro: d
+  ' d by-exact
+end w_rintro_group

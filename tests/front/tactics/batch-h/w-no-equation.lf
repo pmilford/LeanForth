@@ -1,0 +1,8 @@
+\ Wrong twin (batch-h-wrong.lean's w_no_equation): subst of a variable no
+\ equation has alone on a side (substVar's "did not find equation").
+theorem w_no_equation
+  Nat explicit: a
+  a a =
+:= by
+  ' a by-subst
+end w_no_equation

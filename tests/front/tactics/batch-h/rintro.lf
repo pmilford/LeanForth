@@ -1,0 +1,82 @@
+\ by-rintro[ ] (plan row TB2, piece E, slice E2a; Lean's rintro,
+\ Elab/Tactic/RCases.lean's evalRIntro; batch-h.lean). A statement holds
+\ no arrow yet, so each goal's binders come from by-revert[ ].
+
+\ A name: intro of it.
+\ Lean: theorem ri_name (a b : Nat) (h : a = b) : a = b := by
+\         revert h
+\         rintro k
+\         exact k
+theorem ri_name
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  by-revert[ h ]
+  by-rintro[ k ]
+  ' k by-exact
+end ri_name
+
+\ An element of two alternatives, then a name: Lean's (h1 | h2) k.
+\ Lean: theorem ri_alts (a b : Nat) (h : a = b ∨ b = a) (k : a = a) : b = a ∨ a = b := by
+\         revert h k
+\         rintro (h1 | h2) k
+\         exact Or.inr h1
+\         exact Or.inl h2
+theorem ri_alts
+  Nat explicit: a  Nat explicit: b
+  a b = b a = ∨ explicit: h  a a = explicit: k
+  b a = a b = ∨
+:= by
+  by-revert[ h k ]
+  by-rintro[ h1 | h2 k ]
+  ' Or.inr ' h1 $ by-exact
+  ' Or.inl ' h2 $ by-exact
+end ri_alts
+
+\ A tuple.
+\ Lean: theorem ri_tuple (a b : Nat) (h : a = b ∧ b = a) : b = a := by
+\         revert h
+\         rintro ⟨hab, hba⟩
+\         exact hba
+theorem ri_tuple
+  Nat explicit: a  Nat explicit: b
+  a b = b a = ∧ explicit: h
+  b a =
+:= by
+  by-revert[ h ]
+  by-rintro[ << hab hba >> ]
+  ' hba by-exact
+end ri_tuple
+
+\ rfl: intro (hidden), then substEq.
+\ Lean: theorem ri_rfl (a b : Nat) (h : a = b) : b = a := by
+\         revert h
+\         rintro rfl
+\         rfl
+theorem ri_rfl
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a =
+:= by
+  by-revert[ h ]
+  by-rintro[ rfl ]
+  by-rfl
+end ri_rfl
+
+\ A Nat split (Nat.casesAuxOn), then the next item on each goal.
+\ Lean: theorem ri_nat (n : Nat) (h : n = n) : n = n := by
+\         revert n
+\         rintro (_ | m) h
+\         rfl
+\         rfl
+theorem ri_nat
+  Nat explicit: n
+  n n = explicit: h
+  n n =
+:= by
+  ' n by-revert
+  by-rintro[ _ | m h ]
+  by-rfl
+  by-rfl
+end ri_nat

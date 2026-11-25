@@ -10,6 +10,9 @@
 \     element  := item { | item }   (Lean's alternatives: a bar binds
 \                                    tighter than a space)
 \     by-obtain[ and by-rcases[ take exactly one element, then ].
+\     by-rintro[ (slice E2a, tac-shape-rintro: no value) takes one
+\     element or more, each one rintro pattern (Lean's rintroPat: a | b
+\     c is Lean's rintro (a | b) c), then ]; none is 481.
 \ A plain loop with no lookahead: an item ends the open element unless a
 \ bar since the last item set the join flag (then it joins the element
 \ and clears the flag); a bar with no element open or the flag set is 472
@@ -19,8 +22,8 @@
 \ a parse error). Inside the bracket a bar is the pattern's, also at a
 \ line's start: the reader takes its tokens itself, so no bar reaches
 \ the runner's alternatives (TACTIC_BLOCKS.md's rule). A name is a
-\ hypothesis until the block ends, as by-intro:'s; rfl is read and
-\ answered unsupported when it runs (slice E2); a token beginning @ is
+\ hypothesis until the block ends, as by-intro:'s; rfl is read as an
+\ item (its substitution is rcases.fs's, slice E2a); a token beginning @ is
 \ 72 (Lean's @pat, slice E5); a LeanForth word that is no item, end NAME
 \ or the text's end leaves the list unclosed: 458 at its word, as every
 \ list (author/scopes.fs).
@@ -29,8 +32,10 @@
 \ (tactic-syntax.fs's targ-span: the arguments its node covers, itself
 \ included): a name's ID, 0 for _, pat-clear for -, pat-rfl, and the
 \ nodes pat-tuple (a bracket) and pat-alts (an element of two items or
-\ more); a walker steps back over its children's spans (rcases.fs).
-\ Words: tac-shape-pattern, pat-clear pat-rfl pat-tuple pat-alts ( -- x ).
+\ more), and by-rintro['s pat-seq over its elements, last; a walker
+\ steps back over its children's spans (rcases.fs).
+\ Words: tac-shape-pattern, tac-shape-rintro, pat-clear pat-rfl pat-tuple
+\ pat-alts pat-seq ( -- x ).
 \ It uses tactic-syntax.fs's reader words (lft-values, lft-list-open,
 \ lft-given, lft-arg+, lft-done, targ#, lft-at-sign?).
 \ Untrusted: a pattern says what was written; only the kernel's check of
@@ -48,15 +53,17 @@ require ../author/scopes.fs
 require ./tactic-syntax.fs
 
 -1 constant pat-clear   -2 constant pat-rfl   -3 constant pat-tuple   -4 constant pat-alts
+-5 constant pat-seq
 472 outcome-invalid s" a pattern's bar | goes between two items" lfa-code: lfa-e-pat-bar
 473 outcome-invalid s" this closer does not close the pattern's open bracket"
   lfa-code: lfa-e-pat-closer
 474 outcome-invalid s" by-obtain[ and by-rcases[ take one pattern" lfa-code: lfa-e-pat-one
+481 outcome-invalid s" by-rintro[ takes one pattern or more" lfa-code: lfa-e-pat-none
 
-\ ---- The open brackets: the top level's (closer 3, ]) and each tuple's
-\ (1 for <<, 2 for ⟨).
+\ ---- The open brackets: the top level's (closer 3, ] of one element;
+\ 4, ] of by-rintro['s sequence) and each tuple's (1 for <<, 2 for ⟨).
 begin-structure /pfr
-  field: pfr-closer      \ the closer it waits for: 1 >>, 2 ⟩, 3 ]
+  field: pfr-closer      \ the closer it waits for: 1 >>, 2 ⟩, 3 or 4 ]
   field: pfr-from        \ the argument its contents begin at
   field: pfr-elem        \ the open element's first argument, else -1
   field: pfr-items       \ the open element's items
@@ -90,11 +97,16 @@ end-structure
 : pfr-close ( i closer -- i )
   pfr pfr-closer @ <> if lfa-e-pat-closer lfa-fail then
   pfr pfr-join @ if lfa-e-pat-bar lfa-fail then pfr-end ;
-: pfr-tuple ( i closer -- i ) pfr-close pat-tuple pfr pfr-from @ pat-node
-  pat-frames slab-drop ;
+: pfr-node ( i kind -- i ) pfr pfr-from @ pat-node pat-frames slab-drop ;
+: pfr-tuple ( i closer -- i ) pfr-close pat-tuple pfr-node ;
 : pfr-top ( i -- i )
   3 pfr-close pfr pfr-elems @ 1 <> if lfa-e-pat-one lfa-fail then
   pat-frames slab-drop lfa-bracket-drop ;
+\ rintro's top level: one element or more (481), a seq node over them.
+: pfr-seq ( i -- i )
+  4 pfr-close pfr pfr-elems @ 0= if lfa-e-pat-none lfa-fail then
+  pat-seq pfr-node lfa-bracket-drop ;
+: pfr-end-list ( i -- i ) pfr pfr-closer @ 4 = if pfr-seq else pfr-top then ;
 
 \ ---- The items and closers: a word list searched by spelling (each
 \ word ( i -- i more? )); any other token is a name.
@@ -106,7 +118,7 @@ get-current pat-words set-current
 : ⟨ ( i -- i more? ) pfr-item 2 pfr-open true ;
 : >> ( i -- i more? ) 1 pfr-tuple true ;
 : ⟩ ( i -- i more? ) 2 pfr-tuple true ;
-: ] ( i -- i more? ) pfr-top false ;
+: ] ( i -- i more? ) pfr-end-list false ;
 : _ ( i -- i more? ) 0 pat-item true ;
 : - ( i -- i more? ) pat-clear pat-item true ;
 : rfl ( i -- i more? ) pat-rfl pat-item true ;
@@ -120,7 +132,9 @@ set-current
   true ;
 : pat-step ( i c-addr u -- i more? )
   2dup pat-words lfa-word-of if nip nip execute else pat-name then ;
-: lft-build-pattern ( v i shape -- )
-  lft-values drop lft-list-open pat-frames slab-clear 3 pfr-open
-  begin lfa-token-on pat-step 0= until lft-done ;
+: pat-read ( i closer -- )
+  lft-list-open pat-frames slab-clear pfr-open begin lfa-token-on pat-step 0= until lft-done ;
+: lft-build-pattern ( v i shape -- ) lft-values drop 3 pat-read ;
 1 0 ' lft-build-pattern tac-shape-new constant tac-shape-pattern
+: lft-build-rintro ( i shape -- ) lft-values drop 4 pat-read ;
+0 0 ' lft-build-rintro tac-shape-new constant tac-shape-rintro

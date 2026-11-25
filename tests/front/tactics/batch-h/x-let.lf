@@ -1,0 +1,17 @@
+\ Not supported yet (99): subst of a let variable, which Lean unfolds
+\ (evalSubst's zeta-delta branch, BuiltinTactic.lean:503-513).
+\ Lean: theorem x_let (a b : Nat) (h : a = b) : b = a := by
+\         let k : a = b := h
+\         subst k
+\         subst h
+\         rfl
+theorem x_let
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a =
+:= by
+  a b = ' h by-let: k
+  ' k by-subst
+  ' h by-subst
+  by-rfl
+end x_let

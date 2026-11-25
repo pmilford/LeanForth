@@ -1,0 +1,30 @@
+\ by-subst-vars (plan row TB2, piece E, slice E2a; Lean's subst_vars,
+\ Meta/Tactic/Subst.lean's substVars; batch-h.lean).
+
+\ Two equations: each local in context order, a first (its equation
+\ h1 found, b on the right), then c (h2, b now a).
+\ Lean: theorem sv_two (a b c : Nat) (h1 : a = b) (h2 : c = b) : c = a := by
+\         subst_vars
+\         rfl
+theorem sv_two
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h1  c b = explicit: h2
+  c a =
+:= by
+  by-subst-vars
+  by-rfl
+end sv_two
+
+\ The order pinned: a comes before its equation h, so subst a (substVar:
+\ h's left side, h.symm) runs before subst h would (which eliminates b).
+\ Lean: theorem sv_var_first (a b : Nat) (k : b = b) (h : a = b) : a = b := by
+\         subst_vars
+\         rfl
+theorem sv_var_first
+  Nat explicit: a  Nat explicit: b
+  b b = explicit: k  a b = explicit: h
+  a b =
+:= by
+  by-subst-vars
+  by-rfl
+end sv_var_first

@@ -28,7 +28,22 @@
 \       passed over); a task with nothing left finished: its clears put
 \       through its substitution, those still free variables and every
 \       local depending on one tried for clearing, last first
-\       (tryClearMany'). goals: the goals finished, a run, in order
+\       (tryClearMany'); rfl substEq of the target with the task's
+\       substitution (meta-tactic/subst.fs: the side whnf makes a free
+\       variable eliminated, the right one first; the target a free
+\       variable, else 470), the task going on with its goal and the
+\       substitution substEq gives (slice E2a). goals: the goals
+\       finished, a run, in order
+\   lf-rintro ( i goal -- goals )  RCases.rintro (:483-516) of step i, read
+\       by pattern-syntax.fs's tac-shape-rintro (its items in postfix
+\       order, a pat-seq node over them last), on the main goal goal, in
+\       its context, under Term.withSynthesize: one task whose pairs are
+\       the items, each with no target yet; a pair with none introduces
+\       the goal's next binder first (g.intro, the pattern's name when it
+\       is a name, else _: a hidden one), its new variable the target, and
+\       is then walked as rcases walks (rintroCore); an item's split
+\       continues with the items after it on each new goal
+\       (rintroContinue). goals: as lf-rcases'
 \ Pattern references: two cells, an argument k (-1: Lean's default _)
 \ and -1 for the item itself, or s >= 0 for the children of tuple or
 \ alternatives k from child s on (Lean's patterns built by
@@ -36,9 +51,12 @@
 \ the last field's remaining patterns). A list (asAlts, asTuple) is a run:
 \ its container and first child (-1 0 for a list of one pattern), then a
 \ reference per element.
-\ Not supported yet: rfl (substEq, slice E2) and a quotient (Quot.ind,
-\ slice E5), thrown unsupported (99); typed pieces, @ and several
-\ targets have no form. Errors (Lean's, catchable by try): 470 "Tactic
+\ Not supported yet: a quotient (Quot.ind, slice E5), thrown unsupported
+\ (99); typed pieces, @, several targets and rintro's typed group have
+\ no form. Lean synthesizes pending problems before an rfl
+\ (synthesizeSyntheticMVarsNoPostponing, :283); here they are
+\ synthesized at the walk's end, as for every other pattern (a target
+\ left with a pending instance problem: none in the tests). Errors (Lean's, catchable by try): 470 "Tactic
 \ `rcases` failed: `e` is not a free variable", 471 "Tactic `rcases`
 \ failed: `e : T` is not an inductive datatype".
 \ Lean call list: Term.withSynthesize -> lf-tac-with-synth; elabTerm ->
@@ -76,6 +94,7 @@ require ./pattern-syntax.fs
 require ./meta-tactic/assert.fs
 require ./meta-tactic/generalize.fs
 require ./meta-tactic/cases.fs
+require ./meta-tactic/subst.fs
 
 470 lfa-lean s" Tactic `rcases` failed:" lfa-code: lfa-e-rcases-fvar
 471 lfa-lean s" Tactic `rcases` failed:" lfa-code: lfa-e-rcases-inductive
@@ -223,9 +242,8 @@ end-structure
 : rcs-inductive ( e t -- )
   dup lf-meta-head lf-match-const-induct if rcs rcs-ind ! 2drop exit then
   dup rcs-quot? if lf-tac-unported then rcs-not-inductive ;
-: rcs-check ( -- )
-  rcs rcs-e @ dup lf-meta-fvar? 0= if rcs-not-fvar then dup lf-infer!
-  lf-whnf-d! rcs-inductive ;
+: rcs-fvar ( e -- e ) dup lf-meta-fvar? 0= if rcs-not-fvar then ;   \ asFVar
+: rcs-check ( -- ) rcs rcs-e @ rcs-fvar dup lf-infer! lf-whnf-d! rcs-inductive ;
 : rcs-cases ( -- ) rcs rcs-goal @ rcs rcs-e @ rcs rcs-names @ true lf-goal-cases rcs
   rcs-subs ! ;
 
@@ -268,12 +286,29 @@ end-structure
   rcs rcs-e ! dup 0 run@ swap 1 run@ ;
 : rcs-clears+ ( fvar -- ) rcs rcs-clears lf-run+! ;
 : rcs-clear ( -- ) rcs rcs-e @ dup lf-meta-fvar? if rcs-clears+ else drop then rcs-again ;
+\ rfl: substEq of the target, a free variable (470), with the task's
+\ substitution, in the task's goal's context (meta-tactic/subst.fs).
+: rcs-subst-in ( -- )
+  rcs rcs-goal @ rcs rcs-e @ rcs-fvar rcs rcs-fs @ lf-goal-subst-eq
+  rcs rcs-goal ! rcs rcs-fs ! ;
+: rcs-rfl ( -- ) rcs rcs-goal @ ['] rcs-subst-in lf-with-goal rcs-again ;
 : rcs-match ( node s -- )
   over rcs-kind dup 0< 0= if drop 2drop rcs-again exit then
   dup pat-clear = if drop 2drop rcs-clear exit then
-  pat-rfl = if lf-tac-unported then rcs-split ;
+  pat-rfl = if 2drop rcs-rfl exit then rcs-split ;
+\ rintroCore: a pattern still to introduce (its target rcs-intro) takes
+\ the goal's next binder, named as the pattern when it is a name, else _
+\ (g.intro (pat.name?.getD `_)); its triple then names the new variable.
+-1 constant rcs-intro
+: rcs-intro1 ( node s -- v )
+  rcs-name run-one lf-must rcs rcs-goal @ swap 1 lf-goal-intro-names 0 run@
+  swap rcs rcs-goal ! ;
+: rcs-introduced ( pending -- pending' )
+  dup 2 run@ rcs-intro <> if exit then dup 3 run-after lf-must swap 0 run-pair@
+  2dup rcs-intro1 >r 0 -rot r> rcs-triple+ swap run-cat lf-must ;
 : rcs-task-step ( goal fs clears pending -- )
-  >r rcs-task! r> dup run-count if rcs-first rcs-match else drop rcs-finish then ;
+  >r rcs-task! r> dup run-count if rcs-introduced rcs-first rcs-match else drop rcs-finish
+  then ;
 : rcs-next-task ( -- ) rcs-pop rcs-task-step ;
 : rcs-loop ( -- ) begin rcs rcs-tasks @ run-count while rcs-next-task repeat ;
 
@@ -284,9 +319,16 @@ end-structure
   dup lf-meta-fvar? if exit then
   0 swap lf-run+ rcs-root rcs-name lf-run+ lf-goal-generalize swap 0 run@ ;
 : rcs-start ( goal e -- ) rcs-target >r 0 rcs-root r> rcs-triple+ >r 0 0 r> rcs-task+ ;
-: rcs-run ( goal -- goals ) rcs rcs-step @ 0 lf-tac-elab-arg rcs-start rcs-loop rcs
-  rcs-goals @ ;
-: rcs-framed ( i goal -- goals ) swap rcs rcs-step ! dup ['] rcs-run lf-with-goal ;
-: rcs-synth ( i goal -- goals ) rcs-frames ['] rcs-framed lf-with-record ;
-: lf-rcases ( i goal -- goals ) ['] rcs-synth lf-tac-with-synth ;
+: rcs-walk ( -- goals ) rcs-loop rcs rcs-goals @ ;
+: rcs-run ( goal -- goals ) rcs rcs-step @ 0 lf-tac-elab-arg rcs-start rcs-walk ;
+: rcs-framed ( i goal xt -- goals ) >r swap rcs rcs-step ! dup r> lf-with-goal ;
+: rcs-synth ( i goal xt -- goals ) rcs-frames ['] rcs-framed lf-with-record ;
+: lf-rcases ( i goal -- goals ) ['] rcs-run ['] rcs-synth lf-tac-with-synth ;
+
+\ ---- rintro (:483-516): each item of the pattern's sequence still to
+\ introduce, in order, as one task's pairs (rintroContinue's loop).
+: rcs-item+ ( list run j -- list run' ) >r over r> rcs-elem rcs-intro rcs-triple+ ;
+: rcs-items ( -- pending ) rcs-root pat-seq rcs-list 0 over rcs-len 0 ?do i rcs-item+ loop nip ;
+: rcs-intro-run ( goal -- goals ) 0 0 rcs-items rcs-task+ rcs-walk ;
+: lf-rintro ( i goal -- goals ) ['] rcs-intro-run ['] rcs-synth lf-tac-with-synth ;
 base !   \ the BASE this file was loaded with

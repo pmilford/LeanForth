@@ -1,0 +1,11 @@
+\ subst's errors (batch-h-wrong.lean's w_occurs; the run stops at the
+\ first error, so each other error has a file of its own: w-no-equation,
+\ w-rfl-not-eq, w-sides, w-subst-var-used). h : a = a: a on the right,
+\ but the left side is a too (Lean's "'a' occurs at").
+theorem w_occurs
+  Nat explicit: a
+  a a = explicit: h
+  True
+:= by
+  ' h by-subst
+end w_occurs
