@@ -167,7 +167,8 @@ each elaborated declaration, published in source order by the single publisher, 
    - Measure: this report's table, rerun.
 2. **Make the kernel faster on one thread, starting with perf scan K1.**
    - K1: `lf-env-current` re-validates at every gate (`kernel/environment.fs:463`; 58.8 M calls on 9,202
-     declarations; PERF1 put it at about 15% of checking CPU). It is still there.
+     declarations; PERF1 put it at about 15% of checking CPU). Slice 1 (the environment stamp) is measured
+     in [KERNEL_SPEED.md](KERNEL_SPEED.md), "Measured after slice 1".
    - The kernel check is 93% of Mathlib, and every 10% off it is about 680 s at 8 workers. That is more than a
      perfectly parallel stage and feed could save together (at most about 390 s).
    - Size: 50-150 lines in `kernel/environment.fs` and its callers (estimate).
