@@ -279,3 +279,36 @@ into the caller by an immediate `postpone` word. Loops of 1 M x 99 reads; the vi
 of one node (four tags, three first, three second) or decode three fields once into a record and fetch
 ten times. `gforth-fast` 1.0.0, three runs, milliseconds: empty 37-39; today 951-975; folded 602-617;
 fused 252-259; macro 221-231; visit today 967-974, fused 362-364, decoded 54-55.
+
+## Changes after the design review (2026-11-25 14:50, binding; they replace the text above where they differ)
+
+From the independent review, [2026-11-25-kernel-term-reads.md](../development/design-reviews/2026-11-25-kernel-term-reads.md)
+(verdict: approve with changes). The group shrinks to ONE slice.
+
+1. **No store-origin cell; `src/lib/store.fs` is not changed.** An inline store is a context member and moves
+   when the main context grows, so an absolute origin would go stale and the seal would not notice (review
+   finding 1). The term store is always a heap store (`lf-terms-make`), so the fused slot in
+   `src/core/terms.fs` reads `store-block` and `store-capacity` from the `lf-terms` header, without a branch;
+   the review measured it at the same speed as the origin cell.
+2. **Slice 2 is dropped**: some input leaf records have no leaf entry on purpose (projections and lets the
+   importer copied), and the per-read lookup is the check that refuses them. It stays.
+3. **Slice 3 moves to the replace-memo candidate's branch** (candidate 7), which edits the same pass.
+4. **`hash-fmix` is fused** (`src/lib/hash32.fs`, three lines, the same arithmetic, compared with the old word
+   on a million inputs in its test): about 2 points (estimate).
+5. The summary's "same loads" reads "fewer loads, same checks"; a load-time check that `/lf-term` is 16 guards
+   the shift.
+6. **Planted faults**: the fused `lf-term-valid?` without `store-at?`, and without the input test; the slot
+   from a stale base; a wrong `lf-tin-at` offset; a wrong shift in the fused `hash-fmix`.
+7. **The slice**: `terms.fs` (`lf-term-base` and `lf-tin-at` one word each; `lf-term-slot` and
+   `lf-term-identity` from `store-block` and `store-capacity`; the six entry words fetch the base once;
+   `lf-tin-code` reads its record once), one public offset word in `src/lib/context.fs` with its test, the
+   fused `hash-fmix`: 30-50 Forth lines, 60-100 test lines, 5-6 faults. The snapshot code and the kernel pass
+   files are untouched.
+8. **Gain, recomputed**: 7-10 points for the reads plus about 2 for `hash-fmix`: 9-12 points, about 70-94 s;
+   Init about 685-710 s at one worker (estimate).
+9. **Evidence and cost**: one before/after pair of Init at `--jobs 1` on gforth-fast the same day with the
+   reports identical outside `measured`, `settings` and `run`; one `make profile-check` after; the branch
+   coverage check, the new faults, the full tier once. About 0.65-0.8 M tokens (estimate).
+10. **Class of work**: ordinary behaviour-preserving refactoring of core code (owner, 2026-11-19): no check
+    moves, no verdict, diagnostic, fuel or format changes.
+
