@@ -1,0 +1,54 @@
+\ by-any-goals ... by-end, Lean's any_goals (BuiltinTactic.lean:256-270;
+\ plan row TB2, blocks slice 3): the block on each goal alone; where it
+\ fails the goal is kept as it was; it fails only when it fails on all
+\ (w-any-all.lf, w-any-none.lf). Lean twins in blocks-3.lean.
+\ Lean: theorem any_some (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor
+\         any_goals exact h
+\         exact k
+theorem any_some
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor
+  by-any-goals ' h by-exact by-end
+  ' k by-exact
+end any_some
+
+\ A failing by-all-goals inside it (Lean's all_goals logs and aborts;
+\ any_goals takes the pass back, its message too): the goal kept.
+\ Lean: theorem any_all_goals (a b : Nat) (h : a = b) (k : b = a) :
+\           a = b ∧ b = a ∧ a = b := by
+\         and_intros
+\         any_goals all_goals exact h
+\         exact k
+theorem any_all_goals
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = a b = ∧ ∧
+:= by
+  by-and-intros
+  by-any-goals by-all-goals ' h by-exact by-end by-end
+  ' k by-exact
+end any_all_goals
+
+\ A <;> chain inside a pass that fails on one goal.
+\ Lean: theorem any_chain (a b : Nat) (h : a = b) (k : b = a) :
+\           (a = b ∧ a = b) ∧ (a = b ∧ b = a) := by
+\         constructor
+\         any_goals (constructor <;> exact h)
+\         constructor
+\         exact h
+\         exact k
+theorem any_chain
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = a b = ∧ a b = b a = ∧ ∧
+:= by
+  by-constructor
+  by-any-goals by-constructor <;> ' h by-exact by-end
+  by-constructor
+  ' h by-exact
+  ' k by-exact
+end any_chain

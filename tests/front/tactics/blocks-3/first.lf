@@ -1,0 +1,75 @@
+\ by-first | ... | ... by-end, Lean's first (BuiltinTactic.lean:631-641;
+\ plan row TB2, blocks slice 3): each alternative but the last from the
+\ state at by-first, without recover; the first that ends is kept; the
+\ last runs bare. Lean twins in blocks-3.lean.
+\ Lean: theorem first_second (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         first
+\         | exact k
+\         | exact h
+theorem first_second
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-first
+  | ' k by-exact
+  | ' h by-exact
+  by-end
+end first_second
+
+\ One alternative alone.
+\ Lean: theorem first_one (a b : Nat) (h : a = b) : a = b := by
+\         first | exact h
+theorem first_one
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  by-first | ' h by-exact by-end
+end first_one
+
+\ An alternative that closes a goal and then fails is rolled back whole.
+\ Lean: theorem first_rollback (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor
+\         first
+\         | (exact h; exact h)
+\         | (exact h; exact k)
+theorem first_rollback
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor
+  by-first
+  | ' h by-exact ' h by-exact
+  | ' h by-exact ' k by-exact
+  by-end
+end first_rollback
+
+\ t <;> by-first.
+\ Lean: theorem first_then (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor <;> first | exact k | exact h
+theorem first_then
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor <;> by-first | ' k by-exact | ' h by-exact by-end
+end first_then
+
+\ An alternative holding a <;> chain that fails: rolled back, the next
+\ runs on the goals as they were.
+\ Lean: theorem first_chain (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         first
+\         | (constructor <;> exact h)
+\         | (constructor; exact h; exact k)
+theorem first_chain
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-first
+  | by-constructor <;> ' h by-exact
+  | by-constructor ' h by-exact ' k by-exact
+  by-end
+end first_chain

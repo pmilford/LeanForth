@@ -1,0 +1,11 @@
+\ A wrong twin: by-try over a wrong by-exact as the whole proof leaves the
+\ goal open: 89 at end (plan row TB2, blocks slice 3; blocks-3-wrong.lean).
+\ Lean: theorem w_try_open (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         try exact k
+theorem w_try_open
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-try ' k by-exact by-end
+end w_try_open

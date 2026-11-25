@@ -1,0 +1,50 @@
+\ The error classes inside handlers (plan row TB2, blocks slice 3; design
+\ docs/design/TACTIC_BLOCKS.md 1 and 4): Lean's errToSorry (the frame
+\ field tfr-sorry, review tb2-blocks1 finding 1). A term error in a
+\ have-by inside try is thrown, not logged, and try takes it (the
+\ review's Q8). The logged cases inside an open handler are the u-*.lf
+\ files (490, unsupported). Lean twins in blocks-3.lean.
+\ Lean: theorem rec_q8 (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         try (have j : b = a := by exact ⟨h⟩)
+\         exact h
+theorem rec_q8
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-try b a = by-have-by: j << ' h >> by-exact by-end by-end
+  ' h by-exact
+end rec_q8
+
+\ A have-by inside a have-by inside try: the inner error is thrown too.
+\ Lean: theorem rec_q8_inner (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         try (have j : b = a := by (have i : a = b := by exact ⟨h⟩); exact k)
+\         exact h
+theorem rec_q8_inner
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-try
+    b a = by-have-by: j
+      a b = by-have-by: i << ' h >> by-exact by-end
+      ' k by-exact
+    by-end
+  by-end
+  ' h by-exact
+end rec_q8_inner
+
+\ A have-by leaving a goal inside try: with errToSorry false its unsolved
+\ goals are thrown, not logged (pinned Lean: the have is taken back, j is
+\ unknown after it), and try takes them back.
+\ Lean: theorem rec_try_have (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         try (have j : b = a := by have x : a = b := h)
+\         exact h
+theorem rec_try_have
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-try b a = by-have-by: j a b = ' h by-have: x by-end by-end
+  ' h by-exact
+end rec_try_have

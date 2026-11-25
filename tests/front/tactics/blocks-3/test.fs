@@ -189,13 +189,20 @@ T{ hh s" by-try b a = by-have-by: j << ' h >> by-exact by-end by-end ' h by-exac
 T{ hh s" by-try b a = by-have-by: j a b = by-have-by: i << ' h >> by-exact by-end ' k by-exact by-end by-end ' h by-exact"
    tactic-ran -> 0 }T
 \ An error Lean logs while a save is open: 490, final (the coordinator's
-\ rule): a term in a pass, a brace in a pass, a have-by's goals in try.
+\ rule): a term in a pass, a brace in a pass, a have-by's goals in a pass.
 T{ hh s" by-any-goals << ' h >> by-exact by-end" tactic-ran final? -> 490 true }T
 lf-tac-forget
 T{ hh s" by-any-goals { ' k by-exact } by-end ' h by-exact" tactic-ran final? -> 490 true }T
 lf-tac-forget
+T{ hh s" by-any-goals b a = by-have-by: j a b = ' h by-have: x by-end by-end" tactic-ran
+   final? -> 490 true }T
+lf-tac-forget
+\ A have-by's unsolved goals inside try (errToSorry false): thrown, the
+\ have taken back (pinned Lean's rec_try_have; h then meets b = a: 96).
+T{ hh s" by-try b a = by-have-by: j a b = ' h by-have: x by-end by-end ' h by-exact"
+   tactic-ran -> 0 }T
 T{ hs s" by-try b a = by-have-by: j a b = ' h by-have: x by-end by-end ' h by-exact"
-   tactic-ran final? -> 490 true }T
+   tactic-ran -> 96 }T
 lf-tac-forget
 \ The same outside any save: Lean's rejection, final.
 T{ hh s" << ' h >> by-exact" tactic-ran final? -> 467 true }T

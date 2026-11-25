@@ -1,0 +1,14 @@
+\ A wrong twin: by-any-goals fails on every goal: Lean's "Tactic failed
+\ on all goals" (469; Lean prints the block's text after it, LeanForth
+\ does not; plan row TB2, blocks slice 3; blocks-3-wrong.lean).
+\ Lean: theorem w_any_all (a b : Nat) (h : a = b) : b = a ∧ b = a := by
+\         constructor
+\         any_goals exact h
+theorem w_any_all
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a = b a = ∧
+:= by
+  by-constructor
+  by-any-goals ' h by-exact by-end
+end w_any_all

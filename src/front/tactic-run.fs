@@ -547,7 +547,11 @@ end-structure
 : lfr-logged ( -- ) lfr-undecided lfa-final ;
 : lfr-mark ( code flag -- code ) over lf-author-throw = and if lfr-logged then ;
 : lfr-finally ( i*x xt -- j*x ) catch true lfr-mark throw ;
-: lfr-nested-end ( frame -- ) ['] lfr-done-end lfr-finally ;
+\ A nested block's unsolved goals: logged, final, when its errToSorry is
+\ true; else thrown, as pinned Lean does inside try (the have is taken
+\ back with them: blocks-3's rec_try_have; TB2 blocks slice 3).
+: lfr-nested-end ( frame -- )
+  dup tfr-sorry @ if ['] lfr-done-end lfr-finally else lfr-done-end then ;
 : lfr-focus-end ( frame -- ) tfr-rest @ lf-tac-unfocus ;
 ' drop ' lfr-done-end 0 lfr-admits lf-block-mode constant lf-mode-done
 ' drop ' lfr-nested-end 0 lfr-admits lfr-fresh-recover or lf-block-mode

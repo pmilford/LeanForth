@@ -256,11 +256,12 @@ T{ hh s" by-probe-try ' k by-exact by-end ' h by-exact" tactic-ran -> 0 }T
 T{ hh2 s" by-constructor by-probe-try ' h by-exact ' k by-exact by-end ' h by-exact ' h by-exact"
    tactic-ran -> 0 }T
 T{ hh s" by-probe-try by-probe-gap by-end ' h by-exact" tactic-ran -> 93 }T
-\ (The have-by's unsolved goals, which Lean logs, inside a handler that
-\ may still take them back: 490, unsupported, since TB2 blocks slice 3,
-\ never taken back; the same text outside it is 89, final.)
+\ (The have-by's unsolved goals inside a handler that does not recover:
+\ thrown, as pinned Lean throws them inside try, and taken back with the
+\ have, so h meets b = a: 96, TB2 blocks slice 3's tfr-sorry; it was 89
+\ final before. The same text outside the handler is 89, final.)
 T{ hs s" by-probe-try b a = by-have-by: j a b = ' h by-have: x by-end by-end ' h by-exact"
-   tactic-ran lf-author-final? -> 490 true }T
+   tactic-ran -> 96 }T
 lf-tac-forget
 T{ hs s" b a = by-have-by: j a b = ' h by-have: x by-end ' h by-exact" tactic-ran -> 89 }T
 T{ hh s" by-probe-try { ' k by-exact } by-end ' h by-exact" tactic-ran -> 0 }T

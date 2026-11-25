@@ -1,0 +1,50 @@
+\ by-repeat ... by-end, Lean's repeat (Elab/Tactic/Repeat.lean:17-26; plan
+\ row TB2, blocks slice 3): the block again and again without recover
+\ until it fails, that pass put back. A block that never fails is stopped
+\ by step fuel (91; blocks-3 test.fs). Lean twins in blocks-3.lean.
+\ Lean: theorem repeat_ctor (a b : Nat) (h : a = b) (k : b = a) :
+\           (a = b ∧ a = b) ∧ b = a := by
+\         repeat constructor
+\         exact h
+\         exact h
+\         exact k
+theorem repeat_ctor
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = a b = ∧ b a = ∧
+:= by
+  by-repeat by-constructor by-end
+  ' h by-exact
+  ' h by-exact
+  ' k by-exact
+end repeat_ctor
+
+\ Fails at once: no change.
+\ Lean: theorem repeat_none (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         repeat exact k
+\         exact h
+theorem repeat_none
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-repeat ' k by-exact by-end
+  ' h by-exact
+end repeat_none
+
+\ A pass that closes a goal and then fails is put back.
+\ Lean: theorem repeat_rollback (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         repeat (constructor; exact h; exact h)
+\         constructor
+\         exact h
+\         exact k
+theorem repeat_rollback
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-repeat by-constructor ' h by-exact ' h by-exact by-end
+  by-constructor
+  ' h by-exact
+  ' k by-exact
+end repeat_rollback

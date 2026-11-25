@@ -1,0 +1,16 @@
+\ A wrong twin: every alternative of by-first fails: the last one's error
+\ (plan row TB2, blocks slice 3; blocks-3-wrong.lean).
+\ Lean: theorem w_first_all (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         first
+\         | rfl
+\         | exact k
+theorem w_first_all
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-first
+  | by-rfl
+  | ' k by-exact
+  by-end
+end w_first_all

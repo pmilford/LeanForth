@@ -1,0 +1,14 @@
+\ A wrong twin: by-any-goals with no goal at all: Lean's "Tactic failed
+\ on all goals" too (469; evalAnyGoals has no pass, BuiltinTactic.lean:
+\ 256-270; plan row TB2, blocks slice 3; blocks-3-wrong.lean).
+\ Lean: theorem w_any_none (a b : Nat) (h : a = b) : a = b := by
+\         exact h
+\         any_goals exact h
+theorem w_any_none
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  ' h by-exact
+  by-any-goals ' h by-exact by-end
+end w_any_none

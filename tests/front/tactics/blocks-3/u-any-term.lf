@@ -1,0 +1,14 @@
+\ Not supported yet (490; the coordinator's rule, plan row TB2, blocks
+\ slice 3): a term that does not elaborate inside a by-any-goals pass.
+\ Lean's errToSorry logs it and goes on (recover is true in any_goals);
+\ a later failure in the pass would take it back, here none does and
+\ Lean rejects (blocks-3-wrong.lean). LeanForth: 490, never accepted.
+\ Lean: theorem u_any_term (a b : Nat) (h : a = b) : a = b := by
+\         any_goals exact ⟨h⟩
+theorem u_any_term
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  by-any-goals << ' h >> by-exact by-end
+end u_any_term

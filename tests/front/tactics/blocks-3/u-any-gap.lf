@@ -1,0 +1,25 @@
+\ The known gap, pinned (plan row TB2, blocks slice 3; "log and carry on,
+\ as Lean" is a later plan row): on b = a, first's last alternative runs
+\ with recover true, so its brace's error is logged and the goal
+\ admitted; then by-exact k finds no goal and fails, and any_goals takes
+\ the pass back with the message (CoreM.lean:420-424), b = a kept. Lean
+\ accepts (blocks-3.lean). LeanForth stops at the logged error while the
+\ pass's save is open: 490, unsupported, never rejected.
+\ Lean: theorem u_any_gap (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor
+\         any_goals first | exact h | ((· exact h); exact k)
+\         exact k
+theorem u_any_gap
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor
+  by-any-goals
+    by-first
+    | ' h by-exact
+    | { ' h by-exact } ' k by-exact
+    by-end
+  by-end
+  ' k by-exact
+end u_any_gap

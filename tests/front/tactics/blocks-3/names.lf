@@ -1,0 +1,50 @@
+\ Names out of by-try and by-first (plan row TB2, blocks slice 3; design
+\ docs/design/TACTIC_BLOCKS.md 2: the goals they leave keep the names
+\ given inside), and a named hole made in an alternative that was rolled
+\ back, which the next alternative's hole of the same name must not see
+\ (mvars.fs's lf-mvar-named, review tb2-batch3b finding 11: the tag is
+\ set through the trail, so the restore takes it back). Lean twins in
+\ blocks-3.lean.
+\ Lean: theorem names_try (a b : Nat) (h : a = b) : a = b := by
+\         try have x : a = b := h
+\         exact x
+theorem names_try
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  by-try a b = ' h by-have: x by-end
+  ' x by-exact
+end names_try
+
+\ Lean: theorem names_first (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         first
+\         | (have y : b = a := k; exact k)
+\         | (have z : a = b := h)
+\         exact z
+theorem names_first
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-first
+  | b a = ' k by-have: y ' k by-exact
+  | a b = ' h by-have: z
+  by-end
+  ' z by-exact
+end names_first
+
+\ Lean: theorem names_mvar (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ a = b := by
+\         first
+\         | (refine And.intro ?x ?y; exact k)
+\         | (refine And.intro ?x ?y; exact h; exact h)
+theorem names_mvar
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = a b = ∧
+:= by
+  by-first
+  | ' And.intro ?: x $ ?: y $ by-refine ' k by-exact
+  | ' And.intro ?: x $ ?: y $ by-refine ' h by-exact ' h by-exact
+  by-end
+end names_mvar

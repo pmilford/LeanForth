@@ -1,0 +1,84 @@
+\ by-try ... by-end, Lean's try (Init/Tactics.lean:445: first | tacs |
+\ skip; plan row TB2, blocks slice 3): a Lean error inside it puts the
+\ state back as it was at by-try and the proof goes on. Lean twins in
+\ blocks-3.lean.
+\ Lean: theorem try_skip (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         try exact k
+\         exact h
+theorem try_skip
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-try ' k by-exact by-end
+  ' h by-exact
+end try_skip
+
+\ Lean: theorem try_runs (a b : Nat) (h : a = b) : a = b := by
+\         try exact h
+theorem try_runs
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  by-try ' h by-exact by-end
+end try_runs
+
+\ A block that closes a goal and then fails is rolled back whole.
+\ Lean: theorem try_partial (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor
+\         try (exact h; exact h)
+\         exact h
+\         exact k
+theorem try_partial
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor
+  by-try ' h by-exact ' h by-exact by-end
+  ' h by-exact
+  ' k by-exact
+end try_partial
+
+\ <;> by-try, Mathlib's most used form.
+\ Lean: theorem try_then (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor <;> try exact h
+\         exact k
+theorem try_then
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor <;> by-try ' h by-exact by-end
+  ' k by-exact
+end try_then
+
+\ A brace failing inside by-try (recover is false there): taken back.
+\ Lean: theorem try_brace (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         try (· exact k)
+\         exact h
+theorem try_brace
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-try { ' k by-exact } by-end
+  ' h by-exact
+end try_brace
+
+\ Three deep.
+\ Lean: theorem try_deep (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         try first | (· exact k) | (focus exact h)
+theorem try_deep
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-try
+    by-first
+    | { ' k by-exact }
+    | by-focus ' h by-exact by-end
+    by-end
+  by-end
+end try_deep

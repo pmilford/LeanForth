@@ -1,0 +1,14 @@
+\ Not supported yet (490; the coordinator's rule, plan row TB2, blocks
+\ slice 3): a brace failing inside a by-any-goals pass. Lean's
+\ closeUsingOrAdmit logs it and admits the goal (recover is true); here
+\ nothing later takes it back and Lean rejects (blocks-3-wrong.lean).
+\ LeanForth: 490, never accepted.
+\ Lean: theorem u_any_brace (a b : Nat) (h : a = b) (k : b = a) : a = b := by
+\         any_goals (· exact k)
+theorem u_any_brace
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b =
+:= by
+  by-any-goals { ' k by-exact } by-end
+end u_any_brace
