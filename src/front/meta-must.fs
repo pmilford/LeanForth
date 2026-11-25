@@ -28,6 +28,7 @@
 \   lf-infer! ( e -- type )           inferType
 \   lf-level! ( type -- level )       getLevel
 \   lf-defeq! ( t s -- flag )         isDefEq (the configuration in force)
+\   lf-eqv! ( a b -- flag )           Lean's == (term-eqv.fs's lf-meta-eqv)
 \   lf-defeq-approx! ( t s -- flag )  approxDefEq <| isDefEqGuarded
 \                                     (Basic.lean:2125): foApprox, ctxApprox
 \                                     and quasiPatternApprox added to the
@@ -198,6 +199,7 @@ end-structure
 : lf-infer! ( e -- type ) lf-infer lf-must ;
 : lf-level! ( type -- level ) lf-get-level lf-must ;
 : lf-defeq! ( t s -- flag ) lf-meta-defeq outcome-sane lf-must ;
+: lf-eqv! ( a b -- flag ) lf-meta-eqv lf-must ;
 : lf-defeq-approx! ( t s -- flag )
   ['] lf-meta-defeq-guarded lf-with-approx outcome-sane lf-must ;
 : lf-instantiate! ( e -- e' ) lf-instantiate-mvars lf-must ;

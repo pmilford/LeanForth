@@ -489,14 +489,14 @@
    "reason": "new file (plan FE1a-b, branch fe1, 2026-11-12): only heap refusals (store-heap-init, ALLOCATE, RESIZE), load-time aborts, store-new-slot after store-ready succeeded, a child beyond the walk memo and the reader default finder before cli/check-lf.fs sets it are never run; since FE1g-2 (branch fe1g2, 2026-11-13) src/front/tactic-syntax.fs ends := by proofs itself, so lfn-w-end and the by branches of lfn-proof-shape and lfn-last (3 blocks) wait for FE1g-3's runner"
   },
   "src/front/simp/main.fs": {
-   "blocks": 281,
+   "blocks": 280,
    "never_run": 3,
-   "reason": "unreachable: new file (plan FE9, simp slice SL1a-1); main.fs:142, main.fs:143 an OfScientific.ofScientific literal (sm-scientific?, isOfScientificLit): OfScientific is not declared in tests/front/simp-slice, the only export simp runs on; main.fs:179 an argument past the function's parameters (sm-way, congrArgs' else): only a type argument with forward dependencies can make the result a function type, and the dsimp guard keeps such an argument only when it is a sort, a free variable (neither a function type) or a constant, and simp-slice declares no constant that unfolds to a function type"
+   "reason": "unreachable: new file (plan FE9, simp slice SL1a-1); main.fs:141, main.fs:142 an OfScientific.ofScientific literal (sm-scientific?, isOfScientificLit): OfScientific is not declared in tests/front/simp-slice, the only export simp runs on; main.fs:178 an argument past the function's parameters (sm-way, congrArgs' else): only a type argument with forward dependencies can make the result a function type, and the dsimp guard keeps such an argument only when it is a sort, a free variable (neither a function type) or a constant, and simp-slice declares no constant that unfolds to a function type"
   },
   "src/front/simp/rewrite.fs": {
-   "blocks": 92,
+   "blocks": 91,
    "never_run": 3,
-   "reason": "unreachable: new file (plan FE9, simp slice SL1a-1); rewrite.fs:91, rewrite.fs:99 a theorem's proof or result holding an assignable metavariable after synthesizeArgs (hasAssignableMVar): it needs a theorem argument the left side does not fix that is neither a proposition nor an instance, and no theorem of tests/front/simp-slice has one (every such argument there is a proposition or an instance; hypothesis rules have no arguments until SL1b); rewrite.fs:98 a theorem whose type holds binderNameHint: simp-slice does not declare binderNameHint"
+   "reason": "unreachable: new file (plan FE9, simp slice SL1a-1); rewrite.fs:90, rewrite.fs:98 a theorem's proof or result holding an assignable metavariable after synthesizeArgs (hasAssignableMVar): it needs a theorem argument the left side does not fix that is neither a proposition nor an instance, and no theorem of tests/front/simp-slice has one (every such argument there is a proposition or an instance; hypothesis rules have no arguments until SL1b); rewrite.fs:97 a theorem whose type holds binderNameHint: simp-slice does not declare binderNameHint"
   },
   "src/front/step-log.fs": {
    "blocks": 106,

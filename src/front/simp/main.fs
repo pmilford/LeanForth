@@ -98,7 +98,6 @@ end-structure
   r> frame-open ;
 : sm-call ( x cont xt -- x frames xt ) >r >r sm-frames r> r> sm-open ;
 : sm-done ( e h -- e h frames 0 ) sm-frames 0 ;
-: sm-same? ( a b -- flag ) lf-meta-eqv lf-must ;
 
 \ ---- The cache and the steps (Main.lean:672-686).
 : sm-cached ( e -- e' h true | e false )
@@ -135,12 +134,12 @@ lf-tag-let lf-tag-let-nondep lf-tag-projection lf-tag-annotation lf-tag-lit 5 lf
 : sm-raw? ( e -- flag ) lf-tag-lit lf-term-tag? ;
 : sm-of-nat? ( e -- flag )
   dup lf-meta-head-args >r s" OfNat.ofNat" lf-meta-const-named? r@ 3 = and
-  if r> 1 lf-simp-arg sm-raw? else r> 2drop false then ;
+  if 1 r> lf-meta-nth-arg sm-raw? else r> 2drop false then ;
 : sm-char? ( e -- flag )
   dup 1 s" Char.ofNat" lf-meta-app-of? if lf-term-second@ sm-raw? else drop false then ;
 : sm-scientific? ( e -- flag )
   dup 5 s" OfScientific.ofScientific" lf-meta-app-of? 0= if drop false exit then
-  dup lf-term-second@ sm-raw? swap 5 2 lf-simp-arg sm-raw? and ;
+  dup lf-term-second@ sm-raw? swap 2 5 lf-meta-nth-arg sm-raw? and ;
 : sm-literal? ( e -- flag )
   dup sm-of-nat? if drop true exit then
   dup sm-char? if drop true exit then sm-scientific? ;
@@ -167,7 +166,7 @@ lf-tag-let lf-tag-let-nondep lf-tag-projection lf-tag-annotation lf-tag-lit 5 lf
 
 \ ---- simpAppUsingCongr (Types.lean:732): the head, then each argument.
 0 constant sm-way-simp   1 constant sm-way-inst   2 constant sm-way-dsimp
-: sm-prefix ( -- p ) sa sa-e @ sa sa-n @ sa sa-i @ - 1- lf-simp-strip ;
+: sm-prefix ( -- p ) sa sa-e @ sa sa-n @ sa sa-i @ - 1- lf-pp-fns ;
 : sm-arg ( -- a ) sm-prefix lf-term-second@ ;
 : sm-fr! ( e h -- ) sa sa-r 2! ;
 : sm-fr@ ( -- e h ) sa sa-r 2@ ;
@@ -209,14 +208,14 @@ defer sm-loop-call ( e cont -- e frames xt )
 : sm-trans-cache ( e2 h2 frames -- ... ) sm-joined-h sm-finish ;
 : sm-again ( e h -- ... ) sa sa-h ! ['] sm-trans-cache sm-loop-call ;
 : sm-post-continue ( e3 h3 -- ... )
-  over sm-act-e sm-same? if sm-finish else sm-again then ;
+  over sm-act-e lf-eqv! if sm-finish else sm-again then ;
 : sm-joined ( e2 h2 e3 h3 -- e3 h ) 2>r nip 2r> lf-simp-trans ;
 : sm-post ( e2 h2 -- ... )
   over lf-simp-post false lf-simp-rewrite? if sm-joined then sm-post-continue ;
 : sm-stepped ( e2 h2 frames -- ... ) sm-joined-h sm-post ;
 : sm-step-call ( e -- e frames xt ) ['] sm-stepped ['] sm-step sm-call ;
 : sm-pre-continue ( e1 h1 -- ... )
-  sa sa-h ! dup sm-reduce-step 2dup sm-same?
+  sa sa-h ! dup sm-reduce-step 2dup lf-eqv!
   if drop sm-step-call else nip ['] sm-trans-cache sm-loop-call then ;
 : sm-pre ( e -- e1 h1 true | e false )
   dup lf-simp-pre false lf-simp-rewrite? if rot drop true else false then ;
@@ -254,7 +253,7 @@ defer sm-loop-call ( e cont -- e frames xt )
 : sm-target-done ( goal target e' h -- goal' | 0 )
   over sm-true? if nip nip sm-close exit then
   dup lf-simp-none? 0= if rot drop lf-goal-replace-target-eq exit then
-  drop tuck sm-same? if drop else lf-goal-replace-target-defeq then ;
+  drop tuck lf-eqv! if drop else lf-goal-replace-target-defeq then ;
 : sm-target ( goal max -- goal' | 0 )
   >r dup lf-goal-type lf-instantiate! dup r> lf-simp sm-target-done ;
 : lf-goal-simp-target ( goal max -- goal' | 0 ) over ['] sm-target lf-with-goal ;

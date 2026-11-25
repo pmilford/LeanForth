@@ -92,10 +92,11 @@ lf-tag-sort lf-tag-symbolic-sort lf-tag-constant lf-tag-fvar lf-tag-mvar lf-tag-
 : sth-mvars? ( a b -- flag ) lf-mvar? swap lf-mvar? and ;
 : sth-inner? ( a b -- flag )
   2dup sth-mvars? if lf-defeq! exit then
-  2dup lf-meta-eqv lf-must if 2drop true exit then
+  2dup lf-eqv! if 2drop true exit then
   sth-compound? swap sth-compound? and if lf-unported then false ;
 : sth-pair? ( l r n j -- l r n flag )
-  2>r over 2r@ lf-simp-arg over 2r@ lf-simp-arg sth-inner? 2r> drop swap ;
+  2>r over 2r@ swap lf-meta-nth-arg over 2r@ swap lf-meta-nth-arg
+  sth-inner? 2r> drop swap ;
 : sth-args? ( l r n -- flag )
   dup 0 ?do i sth-pair? 0= if drop 2drop false unloop exit then loop drop 2drop true ;
 : sth-heads? ( l r -- flag ) lf-meta-head swap lf-meta-head swap sth-inner? ;

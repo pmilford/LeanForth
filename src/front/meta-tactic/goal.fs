@@ -493,10 +493,9 @@ end-structure
 \ instantiated). LeanForth keeps a goal's type as made, so the type
 \ Lean caches on the second test stays as it was (the same term once
 \ instantiated).
-: mtg-same? ( a b -- flag ) lf-meta-eqv lf-must ;
-: mtg-unchanged? ( goal new -- goal new flag ) over lf-goal-type over mtg-same? ;
+: mtg-unchanged? ( goal new -- goal new flag ) over lf-goal-type over lf-eqv! ;
 : mtg-inst-same? ( goal new -- goal new' flag )
-  lf-instantiate! over lf-goal-type lf-instantiate! over mtg-same? ;
+  lf-instantiate! over lf-goal-type lf-instantiate! over lf-eqv! ;
 : mtg-hinted ( goal new -- goal' )
   over lf-goal-fresh over lf-goal-type lf-instantiate! over swap lf-mk-expected-type-hint
   mtg-assign ;

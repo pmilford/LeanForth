@@ -51,10 +51,9 @@ end-structure
 
 \ ---- The candidates, highest priority first.
 : sr-query ( e tree -- ) sr-cands slab-clear sr-cands lf-dt-get-match-extra ;
-: sr-desc ( p1 p2 -- n ) swap sort-signed ;
-: sr-prio ( a-addr -- p ) @ lf-simp-thm-prio ;
+: sr-prio ( a-addr -- p ) @ lf-simp-thm-prio negate ;   \ ascending: highest first
 : sr-sorted ( -- )
-  2 cells ['] sr-desc sr-sort sorter-init lf-must ['] sr-prio sr-sort sorter-key!
+  2 cells ['] sort-signed sr-sort sorter-init lf-must ['] sr-prio sr-sort sorter-key!
   sr-cands slab-base sr-cands slab-count 2/ sr-sort sort-records lf-must ;
 : sr-cands-of ( e tree -- n )
   ['] sr-query lf-with-simp-index sr-sorted sr-cands slab-count 2/ ;
@@ -72,7 +71,7 @@ end-structure
   sr-xs slab-clear sr-value >r dup lf-infer! r> ['] sr-mvar
   lf-forall-meta-telescope-reducing sr-keep ;
 : sr-sides ( -- lhs rhs ) srt srt-type @ lf-simp-sides ;
-: sr-e0 ( -- e ) srt srt-e 2@ swap lf-simp-strip ;   \ srt-e, srt-n a pair
+: sr-e0 ( -- e ) srt srt-e 2@ swap lf-pp-fns ;   \ srt-e, srt-n a pair
 : sr-unifies? ( -- flag ) sr-sides drop sr-e0 ['] lf-defeq! lf-with-simp-meta ;
 
 \ ---- synthesizeArgs: an unassigned argument of a proposition or of a
@@ -92,7 +91,7 @@ end-structure
 : sr-hint-node? ( node -- flag ) s" binderNameHint" lf-meta-const-named? ;
 : sr-hint? ( type -- flag ) ['] sr-hint-node? lf-term-holds-node? lf-must ;
 : sr-rhs ( -- rhs ) sr-sides nip lf-instantiate! ;
-: sr-same? ( rhs -- flag ) sr-e0 lf-instantiate! lf-meta-eqv lf-must ;
+: sr-same? ( rhs -- flag ) sr-e0 lf-instantiate! lf-eqv! ;
 : sr-result ( h -- e' h true | false )
   sr-rhs dup sr-same? if 2drop false exit then
   srt srt-type @ sr-hint? if lf-unported then

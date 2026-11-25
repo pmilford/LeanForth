@@ -24,10 +24,8 @@
 \ - lf-simp-extra-args ( e n e' h -- e'' h' ): Result.addExtraArgs (617)
 \   of the result ( e' h ) with e's last n arguments: e' applied to them,
 \   its proof none when h is, else h through Meta.mkCongrFun on each
-\   (app-builder.fs's lf-mk-congr-fun).
-\ - lf-simp-strip ( e n -- e' ): e less its last n arguments;
-\   lf-simp-arg ( e n j -- a ): argument j (from 0) of e's last n
-\   (Expr.getArg! of an application to n arguments).
+\   (app-builder.fs's lf-mk-congr-fun); the arguments read with
+\   term-eqv.fs's lf-meta-nth-arg (Expr.getArg!).
 \ - lf-simp-sides ( type -- lhs rhs ): the sides of a theorem's type, an
 \   Eq; any other type unsupported (shouldPreprocess's helper theorems,
 \   slice SL3d).
@@ -43,8 +41,6 @@ require ../app-builder.fs
 
 -1 constant lf-simp-none
 : lf-simp-none? ( h -- flag ) lf-simp-none = ;
-: lf-simp-strip ( e n -- e' ) 0 ?do lf-term-first@ loop ;
-: lf-simp-arg ( e n j -- a ) - 1- lf-simp-strip lf-term-second@ ;
 : lf-simp-sides ( type -- lhs rhs ) lf-eq? 0= if lf-unported then >r nip r> ;
 : lf-simp-proof ( e h -- p ) dup lf-simp-none? if drop lf-mk-eq-refl else nip then ;
 : lf-simp-trans ( h1 e2 h2 -- e2 h )
@@ -87,6 +83,6 @@ end-structure
 : st-congr-fun ( h a -- h' ) over lf-simp-none? if drop else lf-mk-congr-fun then ;
 : st-extra ( e' h a -- e'' h' ) >r swap r@ lf-mk-app swap r> st-congr-fun ;
 : lf-simp-extra-args ( e n e' h -- e'' h' )
-  2over nip 0 ?do 2over i lf-simp-arg st-extra loop 2>r 2drop 2r> ;
+  2over nip 0 ?do 2over i swap lf-meta-nth-arg st-extra loop 2>r 2drop 2r> ;
 
 base !   \ the BASE this file was loaded with
