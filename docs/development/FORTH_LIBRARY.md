@@ -2117,13 +2117,20 @@ tested on its branch, not reviewed) adds Lean's `getMatch` and
 `other`); `mayMatchPrefix` scans the roots (linear in the number of roots,
 cheap for `simp only`'s small trees; Init's default set, SL3a, may want a
 root index by head). `lf-dt-path-head` is `mkPath` with `noIndexAtArgs`
-(a hypothesis's or bracket term's keys). Its callers come with simp's own
-files; today only `tests/front/simp-meta.fs` calls them. The same branch
-adds the shared Meta words those files need: meta-config.fs's whnfCore
-settings and simp's three scopes, `lf-with-new-depth` (meta-must.fs),
-`lf-meta-fun-deps` (fun-info.fs), `lf-congr-simp-kinds` (the new
-`congr-thms.fs`) and app-builder.fs's `mkOfEqTrue`, `mkEqTrue`,
-`mkEqFalse` and the shortcuts of `mkCongrFun` and `mkCongr`.
+(a hypothesis's or bracket term's keys). Its callers are simp's own
+files (`src/front/simp/theorems.fs` inserts, `rewrite.fs` queries with
+`lf-dtree-match-extra`; branch `simp-sl1a-1`) and
+`tests/front/simp-meta.fs`. The same branch adds the shared Meta words
+those files need: meta-config.fs's whnfCore settings and simp's three
+scopes, `lf-with-new-depth` (meta-must.fs), `lf-meta-fun-deps`
+(fun-info.fs), `lf-congr-simp-kinds` and `lf-param-instance? ( i -- flag
+outcome )` (FunInfo's isInstance of parameter i, simp's congruence step;
+both in the new `congr-thms.fs`) and app-builder.fs's `mkOfEqTrue`, `mkEqTrue`,
+`mkEqFalse`, the shortcuts of `mkCongrFun` and `mkCongr`,
+`lf-arrow? ( t -- flag )` (Expr.isArrow: a pi whose body has no loose
+bound variable; simp's dependent arguments) and
+`lf-meta-has-assignable? ( e -- flag )` (hasAssignableMVar's term part,
+shared by mkAppM's closing check and simp's rewrite).
 
 - **Algorithm.** A tree record holds Lean's root map (a `lib/htab.fs`
   table of root numbers, keyed by `elab-key=` and `elab-key-hash`) and the

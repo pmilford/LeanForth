@@ -576,6 +576,7 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 387 | invalid | Tactic `right` failed: target is not an inductive datatype |
 | 388 | invalid | Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors |
 | 456 | invalid | Type mismatch: The rewritten hypothesis |
+| 500 | invalid | `simp` made no progress |
 | 447 | invalid | 'specialize' requires a term of the form `h x_1 .. x_n` where `h` appears in the local context |
 | 446 | invalid | goal index `2` is out of bounds |
 | 451 | invalid | Symmetry lemmas only apply to binary relations, not |
@@ -604,7 +605,9 @@ the hand-over (FE1c, FE1e, FE1f; 74 to 77 used); 80 to 99 tactic proofs
 `by-contra-core`'s guard, `tactics/by-contra.fs`, and 451 `symm`,
 `meta-tactic/symm.fs`, from batch 2b);
 250 to 254 `by-decide` and `by-native-decide`
-(`src/front/tactics/decide.fs`, plan S3a; 255 to 269 kept for S3b); 122
+(`src/front/tactics/decide.fs`, plan S3a; 255 to 269 kept for S3b); 500
+to 539 `simp`'s family (500 "no progress", `src/front/tactics/simp-only.fs`,
+plan FE9 slice SL1a); 122
 Meta's synthInstance found none (the tactic library's "failed to
 synthesize", with the type and Lean's hint: mkAppM's, mkAppOptM's,
 apply's and decide's instances); 110 to 124 instances (S1: 110 and 112 to 116 are

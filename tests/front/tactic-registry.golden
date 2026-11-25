@@ -199,6 +199,7 @@
 387	1	lean	Tactic `right` failed: target is not an inductive datatype
 388	1	lean	Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors
 456	1	lean	Type mismatch: The rewritten hypothesis
+500	1	lean	`simp` made no progress
 447	1	lean	'specialize' requires a term of the form `h x_1 .. x_n` where `h` appears in the local context
 446	1	lean	goal index `2` is out of bounds
 451	1	lean	Symmetry lemmas only apply to binary relations, not
@@ -342,6 +343,7 @@ reserved by-revert word
 reserved by-revert[ word
 reserved by-right word
 reserved by-rwa[ word
+reserved by-simp-only[ word
 reserved by-specialize word
 reserved by-subst word
 reserved by-subst[ word
@@ -408,9 +410,10 @@ kind 57 by-revert 0 revert run
 kind 58 by-revert[ 0 revert run
 kind 59 by-right 0 right run
 kind 60 by-rwa[ 0 rwa run
-kind 61 by-specialize 0 specialize run
-kind 62 by-subst 0 subst run
-kind 63 by-subst[ 0 subst run
-kind 64 by-subst-vars 0 subst_vars run
-kind 65 by-swap 0 swap run
-kind 66 by-symm 0 symm run
+kind 61 by-simp-only[ 0 simp run
+kind 62 by-specialize 0 specialize run
+kind 63 by-subst 0 subst run
+kind 64 by-subst[ 0 subst run
+kind 65 by-subst-vars 0 subst_vars run
+kind 66 by-swap 0 swap run
+kind 67 by-symm 0 symm run

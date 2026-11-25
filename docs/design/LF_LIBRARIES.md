@@ -28,8 +28,12 @@ one saved state across the layers, so a failed attempt is undone everywhere; (d)
 **Library 2, the simp and rewriting library.** Rewriting a goal with equations: the index that finds candidate
 lemmas fast (a "discrimination tree"), the proof records `simp` builds step by step, stepping inside functions and
 binders ("congruence"), and `rw`'s motive. Today its pieces sit inside other files: `rw`'s core inside the `rw`
-tactic, the index inside the instance table. The simp core does not exist. `simp`, `rw`, `norm_num` and `ring_nf` all
-call it; `ring` and `omega` do not need it.
+tactic, the index inside the instance table. The simp core's first files exist on branch `simp-sl1a-1` (2026-11-25,
+not merged): `src/front/simp/types.fs` (Simp.Result's builders: `lf-simp-trans`, `lf-simp-congr`,
+`lf-simp-congr-fun`, `lf-simp-extra-args`, `lf-simp-proof`, `lf-simp-sides`), `theorems.fs` (the set:
+`lf-simp-set-new`, `lf-simp-add-decl`, `lf-simp-add-hyp`), `rewrite.fs` (`lf-simp-rewrite?`, `lf-simp-rfl-match?`)
+and `main.fs` (`lf-simp`, `lf-goal-simp-target`), with their first caller, `by-simp-only[ ]`. `simp`, `rw`,
+`norm_num` and `ring_nf` all call it; `ring` and `omega` do not need it.
 
 **What changes for a user, by slice.** First (package LA): `rw [← h] at h2`, rewriting with an "if and only if"
 lemma, and side goals left by a rule, each node for node Lean's. Then `simp only [...]` (SP1b, in two parts, the
