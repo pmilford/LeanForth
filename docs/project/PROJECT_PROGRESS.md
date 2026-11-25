@@ -30,6 +30,15 @@ status changes when this date is older than them. Stages are those of the
 
 **Now**
 - 2026-11-24, 23:32: the Later list's parallel items 1 and 2 are **done** on main 9a882569 (done check [2026-11-24-jobs-default-done.md](../development/done-checks/2026-11-24-jobs-default-done.md); pushed, origin/main 7e7059d8): `check` of an export uses 4 workers by default (decide-slice 4.13 s -> 1.89 s, Init 1,015 s -> 287 s), and `--resources` shows each worker's busy and waiting time. The design of `simp` ([TACTIC_SIMP.md](../design/TACTIC_SIMP.md)) is reviewed and revised; the owner's approval is open, no code. In work: pattern slice E2b, under Forth review. Earlier:
+- 2026-11-24, 23:02: plan row TB2's case patterns, slice E2b, are **written and tested on branch
+  `tb2-patterns-e2b`** (not Forth-reviewed, not merged, not done): `by-contra[ pat ]` (Batteries' by_contra with
+  a pattern, through rcases.fs's lf-rintro; `by-contra: NAME` and `by-contra` read the same way), contradiction's
+  rule 6 on a type with no constructor and no index (`Empty`), the patterns slice of Init
+  (`tests/front/patterns-slice`, with Dvd), and plan row 9.4.8t's findings 8, 10 and 11; new tests in
+  `tests/front/tactics/batch-h2/` (11 theorems node for node pinned Lean's, 4 wrong twins, 1 not supported);
+  batch-h's test file from 120 s to 15 s (each direct sweep run starts in the same metavariable context), no
+  tactics test file over 30 s (batch-d's change sweep moved to `batch-d-sweep`). Left of 9.4.8t: finding 13d,
+  N1-N4 (76's Lean text among them). Earlier:
 - 2026-11-24, 22:42: the Later list's parallel items 1 and 2 are **tested on branch `jobs-default` and
   Forth-reviewed** ([review](../development/forth-reviews/2026-11-24-jobs-default.md)), not merged, not done:
   findings 1-10, 12 and 13 fixed on the branch (1, a trust finding: with workers the check's start time lay

@@ -1215,12 +1215,22 @@ on decide's slice of Init (`--env tests/front/decide-slice.ndjson
 - `by-contradiction` closes any goal from contradictory hypotheses:
   `h : False` (`cn_false`), `h : ¬ p` beside `h2 : p` (`cn_not`, the
   hypotheses `a b ≤ ¬` and `a b ≤`), `h : a ≠ a` (`cn_ne`), or a closed
-  statement `decide` refutes. Mathematically: from a contradiction anything
-  follows. Lean: `contradiction`. None found: 449. Not supported yet (99,
-  exit 2): a hypothesis that is an indexed family such as `a ≤ b`, met
-  before the contradiction (Lean tries a case split there, which LeanForth
-  does not port: `x-cn-le.lf`), and two different constructors equated
-  (`true = false`: `x-cn-ctor.lf`).
+  statement `decide` refutes, or a hypothesis of a type with no
+  constructor and no index (`Empty`, slice E2b: Lean's elimEmptyInductive,
+  exfalso then a case split with no case). Mathematically: from a
+  contradiction anything follows, and an empty type has no element: from
+  x ∈ ∅, a = a + 1. LeanForth: `Nat explicit: a Empty explicit: x a '
+  Nat.succ a $ =` proved by `by-contradiction` (`em_empty`,
+  tests/front/tactics/batch-h2/empty.lf; `bin/leanforth check --env
+  tests/front/patterns-slice.ndjson --elab-data
+  tests/front/patterns-slice.elab.ndjson empty.lf`). Lean: `theorem
+  em_empty (a : Nat) (x : Empty) : a = Nat.succ a := by contradiction`.
+  None found: 449 (also for a type with one constructor that only looks
+  empty, `False ∧ a = a`, as Lean). Not supported yet (99, exit 2): a
+  hypothesis that is an indexed family such as `a ≤ b`, met before the
+  contradiction (Lean tries a case split there, which LeanForth does not
+  port until slice E4: `x-cn-le.lf`), and two different constructors
+  equated (`true = false`: `x-cn-ctor.lf`).
 - `by-trivial` tries Lean's rules for `trivial` in Lean's order: `apply
   And.intro` with `trivial` on each part, `apply True.intro`, `by-decide`,
   `by-contradiction`, `by-rfl`, `by-assumption`. `True True ∧` (`tr_and`),
@@ -1332,7 +1342,20 @@ value written.
 - `by-contra: NAME` and `by-contra`: proof by contradiction, NAME (or
   `this`) the negation of the goal, the new goal `False`; for a goal ¬q,
   NAME : q. `by-contra: k ' k by-absurd ' h by-exact` (`bk_dec`); Lean
-  (Batteries): `by_contra k`. `by-contra-core` is its first part alone
+  (Batteries): `by_contra k`. NAME may be `_` (hidden) or `rfl` (the
+  equation substituted away, as `by-rintro[ rfl ]`).
+- `by-contra[ PATTERN ]` (slice E2b): the same, the negation taken apart
+  by one case pattern, as `by-rintro[ ]` reads it (`a | b` is Lean's
+  `(a | b)`; two patterns or none: 474). Mathematically: to refute a ∧ b,
+  assume a and b and reach a contradiction. LeanForth: `Nat explicit: a
+  Nat explicit: b b a = ¬ explicit: k a b = b a = ∧ ¬` proved by
+  `by-contra[ << hab hba >> ] by-contradiction` (`bc_tuple`,
+  tests/front/tactics/batch-h2/by-contra.lf; `bin/leanforth check --env
+  tests/front/patterns-slice.ndjson --elab-data
+  tests/front/patterns-slice.elab.ndjson by-contra.lf`). Lean
+  (Batteries): `theorem bc_tuple (a b : Nat) (k : ¬b = a) : ¬(a = b ∧ b
+  = a) := by by_contra ⟨hab, hba⟩; contradiction`. Not supported yet:
+  Lean's `by_contra h : T` (slice E5). `by-contra-core` is its first part alone
   (Lean's `by_contra_core`), the goal p → False, `by-intro:` naming it.
   A classical goal uses `Classical.byContradiction`, with which the
   kernel's report lists `propext`, `Classical.choice` and `Quot.sound`
@@ -1772,7 +1795,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-specialize` | `( t -- )` | ordinary | read: a step holding t. Run: a new hypothesis of t's type, named as t's head hypothesis, which goes when nothing depends on it | Replaces the hypothesis h by t = h applied; t's head no hypothesis: 447; a hole of t left open is a new goal before the new main one (Lean's allowNaturalHoles), which text cannot reach yet: a hypothesis applied to a hole is 136. | `specialize t` |
 | `by-revert` | `( h -- )` | ordinary | read: a step holding h. Run: replaces the main goal by one with h, and the hypotheses that depend on it, as binders | Puts h back into the goal; h no hypothesis: 389; a `let` among them: 93. | `revert h` |
 | `by-delta` | `( f -- )` | ordinary | read: a step holding f. Run: replaces the main goal by one with f unfolded, assigned `id` of it | Unfolds the definition f in the goal; nothing to unfold: 448; f no constant: 99; a theorem: 93. | `delta f` |
-| `by-contradiction` | `( -- )` | ordinary | read: a step. Run: assigns the main goal a proof from contradictory hypotheses, removes it | Closes the goal from `False`, `¬p` and `p`, `a ≠ a`, or a statement `decide` refutes; none: 449; a case split or `noConfusion` it would need: 99 (not supported yet). | `contradiction` |
+| `by-contradiction` | `( -- )` | ordinary | read: a step. Run: assigns the main goal a proof from contradictory hypotheses, removes it | Closes the goal from `False`, `¬p` and `p`, `a ≠ a`, a statement `decide` refutes, or a hypothesis of a type with no constructor and no index (`Empty`: exfalso, then cases); none: 449; an indexed family's case split or `noConfusion` it would need: 99 (not supported yet). | `contradiction` |
 | `by-trivial` | `( -- )` | ordinary | read: a step. Run: the first of Lean's rules for `trivial` that closes the goal | Closes simple goals (`True`, `a = a`, `∧` of such, closed decidable ones, contradictions, a hypothesis); all fail: 381; a rule not supported yet: 99. | `trivial` |
 | `by-absurd` | `( h -- )` | ordinary | read: a step holding h. Run: assigns the main goal `absurd` of h and a new goal, which takes its place | Leaves the goal `p` for `h : ¬p`, else `¬p` for `h : p`. | `absurd h` (Batteries) |
 | `by-have: HYP-NAME` | `( T e -- )` | parsing: one name after it, on its line | read: a step holding T and e; HYP-NAME a hypothesis word. Run: assigns the main goal `have HYP-NAME : T := e; ?g`, the new goal ?g in its place | Adds HYP-NAME : T proved by e; e not of type T: 96; T no type: 130; `_`: 99; a value leaving a metavariable: 93. | `have HYP-NAME : T := e` |
@@ -1814,7 +1837,8 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-subst-vars` | `( -- )` | ordinary | Run: subst of every local in turn until none goes | Every equation with a variable side used. | `subst_vars` |
 | `by-exacts[` | `( -- )` | ordinary; opens a term block that `]` closes (no `<-`) | read: a step whose terms are the values up to `]`. Run: `by-exact` of each, then no goal may be left | Closes the goals one term each; a mismatch: 96; a goal left: 89. | `exacts [` (Batteries) |
 | `by-cases: HYP-NAME` | `( p -- )` (top: p) | parsing: one name after it, on its line | read: a step holding p; HYP-NAME a hypothesis word. Run: assigns the main goal `dite p` of two new goals, `pos` (HYP-NAME : p) and `neg` (HYP-NAME : ¬p), which take its place | Splits on whether p holds; p's `Decidable` instance, else `Classical.propDecidable` (the report's axioms then `propext`, `Classical.choice`, `Quot.sound`, which `--strict-axioms` accepts); p no proposition or `_`: 99. | `by_cases HYP-NAME : p` |
-| `by-contra: HYP-NAME` | `( -- )` | parsing: one name after it, on its line | read: a step; HYP-NAME a hypothesis word. Run: `by-contra-core`, then `by-intro:` of HYP-NAME on the same step | Proves the goal p from HYP-NAME : ¬p and the goal `False` (for p = ¬q, HYP-NAME : q); `rfl`: 99. | `by_contra HYP-NAME` (Batteries) |
+| `by-contra: HYP-NAME` | `( -- )` | parsing: one name after it, on its line | read: a step whose pattern is HYP-NAME; HYP-NAME a hypothesis word (`_` hidden, `rfl` the pattern). Run: `by-contra-core`, then `by-rintro[`'s walk on the same step | Proves the goal p from HYP-NAME : ¬p and the goal `False` (for p = ¬q, HYP-NAME : q); `rfl` substitutes the equation (478 when it is none, Lean's). | `by_contra HYP-NAME` (Batteries) |
+| `by-contra[` | `( -- )` | ordinary; reads one pattern up to `]` itself (472-474, 458, 72) | read: a step whose pattern items follow, postfix, a sequence node last. Run: `by-contra-core`, then `by-rintro[`'s walk on the same step | The same, the negation taken apart by the pattern (tuples, alternatives, `_`, `-`, `rfl`). | `by_contra PATTERN` (Batteries) |
 | `by-contra` | `( -- )` | ordinary; `this` a hypothesis word | read: a step. Run: as `by-contra: this` | The same, the hypothesis named `this`. | `by_contra` (Batteries) |
 | `by-contra-core` | `( -- )` | ordinary | read: a step. Run: the goal ¬q becomes q → False, else p becomes ¬p → False (`Decidable.byContradiction`, else `Classical.byContradiction`) | The first half of `by-contra:`; p no proposition: 99. | `by_contra_core` (Batteries) |
 | `by-symm` | `( -- )` | ordinary | read: a step. Run: assigns the main goal the relation's `@[symm]` lemma applied to a new goal, which takes its place | Turns a = b into b = a (also `↔`, `≠`, `HEq`, `∧`, `∨`); no relation of two arguments: 451; another relation: 99. | `symm` |
@@ -2309,8 +2333,9 @@ Run either with `bin/leanforth check --env tests/front/decide-slice.ndjson
 variable", 471 "Tactic `rcases` failed: `e : T` is not an inductive
 datatype". The reader's: 472 a bar with nothing before it, after
 another bar or before a closer; 473 a closer that is not the open
-bracket's (`>>` for `⟨`, `]` with a tuple open); 474 none or more than
-one pattern at the top (Lean's `rcases h with a b` is a parse error);
+bracket's (`>>` for `⟨`, `]` with a tuple open); 474 "by-obtain[,
+by-rcases[ and by-contra[ take one pattern": none or more than one
+pattern at the top (Lean's `rcases h with a b` is a parse error);
 458 a LeanForth word inside the pattern (its `]` is missing); 72 a token
 beginning with `@`.
 

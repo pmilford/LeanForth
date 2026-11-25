@@ -560,7 +560,7 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 386 | invalid | Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors |
 | 472 | invalid | a pattern's bar \| goes between two items |
 | 473 | invalid | this closer does not close the pattern's open bracket |
-| 474 | invalid | by-obtain[ and by-rcases[ take one pattern |
+| 474 | invalid | by-obtain[, by-rcases[ and by-contra[ take one pattern |
 | 481 | invalid | by-rintro[ takes one pattern or more |
 | 475 | invalid | Tactic `subst` failed: argument must be an equality proof |
 | 476 | invalid | Tactic `subst` failed: |

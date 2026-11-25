@@ -67,7 +67,15 @@ s" assumption" tac-k-assumption lf-tactic-lean!
   E) one value, then a case pattern up to `]`, its items postfix in the
   step's arguments with their spans (`lf-tac-arg-span`), by-obtain['s
   and by-rcases['s; `tac-shape-rintro` (the same file, slice E2a) no
-  value, one pattern or more under a `pat-seq` node, by-rintro['s; a
+  value, one pattern or more under a `pat-seq` node, by-rintro['s;
+  `tac-shape-contra` (slice E2b) the same with exactly one pattern (474),
+  and `tac-shape-contra-name` and `tac-shape-contra-this` one name (or
+  `this`) read as such a pattern, by-contra['s, by-contra:'s and
+  by-contra's, whose second row is by-rintro['s; a Meta word refuses a
+  case it does not port with `outcome-unsupported lf-must`, and a tactic
+  that calls it maps that to 99 with `tactic-run.fs`'s `lf-tac-ported (
+  i*x xt -- j*x )`; Lean's `try ... catch _ =>` is `meta-must.fs`'s
+  `lf-meta-try ( i*x xt in out -- j*x true | false )`; a
   goal operation that substitutes an equation is `meta-tactic/subst.fs`'s
   (`lf-goal-subst`, `lf-goal-subst-eq`, `lf-goal-subst-core`, errors
   475-480); a reader of its own is a shape made with
