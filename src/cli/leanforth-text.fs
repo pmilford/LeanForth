@@ -17,6 +17,7 @@ require ../lib/decimal.fs
 require ../lib/outcome.fs
 require ./tally.fs
 require ./check-run.fs
+require ../front/simp-data.fs
 require ./check-lf.fs
 require ../front/meta-config.fs
 require ../front/elab-decl.fs
@@ -44,9 +45,13 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
   ."  projections" ;
 : cli-elab-format3 ( -- )
   ." , " elab-sunfold cli-elab-count. ."  smart-unfolding bodies" ;
+\ Format 4's simp data (front/simp-data.fs): congruence lemmas, defeq tags.
+: cli-elab-format4 ( -- )
+  simp-data? 0= if exit then ." , " simp-congr-kind cli-elab-count.
+  ."  congruence lemmas, " simp-defeq-count .decimal ."  defeq tags" ;
 : cli-elab-note ( -- )
   cli-elab-file nip 0= if exit then ." elaboration data: " cli-elab-format1
-  cli-elab-format2 cli-elab-format3 cr ;
+  cli-elab-format2 cli-elab-format3 cli-elab-format4 cr ;
 : cli-text-error ( -- )
   ." error: " lf-author-code lf-author-outcome dup cli-author-outcome.
   ." : the LeanForth text was not checked: " lf-author-error. cr outcome>code cli-code! ;

@@ -239,3 +239,12 @@ new = ''': elab-format4? ( -- flag ) ed-v4? ;'''
 test = "$GFORTH tests/front/simp-data.fs"
 reason = "review simp-sd-a 7: format 4 answered without loaded data"
 equivalent = "review simp-sd-a finding 7: the v4 flag is set only while a format-4 header is read and is cleared with elab-loaded? by every reset (ed-head-clear: elab-reset, a refused read, the start of the next read); nothing asks simp-data? during a read, so ed-v4? is true only when the data is loaded"
+
+# --- review simp-sd-a, finding 9: the count line of format-4 data.
+[[fault]]
+id = "cli-elab-format4-silent"
+file = "src/cli/leanforth-text.fs"
+old = '''  cli-elab-format2 cli-elab-format3 cli-elab-format4 cr ;'''
+new = '''  cli-elab-format2 cli-elab-format3 cr ;'''
+test = "python3 tests/front/test_simp_data.py"
+reason = "review simp-sd-a 9: the check's elaboration-data line leaves out the congruence lemmas and defeq tags"

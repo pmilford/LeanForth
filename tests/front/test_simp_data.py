@@ -194,10 +194,19 @@ def check(env, data):
     return done.returncode, done.stdout + done.stderr
 
 
+def count_line(said):
+    return next((line for line in said.splitlines() if line.startswith("elaboration data:")), "")
+
+
 def check_cases(work):
     status, said = check(SLICE, DATA)
     if status or "sd_id: accepted" not in said:
         fail(f"the simp slice's own format-4 data: {status} {said[-300:]}")
+    if not count_line(said).endswith(", 2 congruence lemmas, 1 defeq tags"):
+        fail(f"the count line of format-4 data: {count_line(said)!r}")
+    status, said = check(work / "slice.ndjson", FIXTURES / "plain32.elab.ndjson")
+    if status or not count_line(said).endswith(" smart-unfolding bodies"):
+        fail(f"the count line of format-3.2 data: {status} {count_line(said)!r}")
     for name in ("good", "v3-congr", "twice", "order-swap", "hyps-beyond"):
         _, outcome, line, code = CASES[name]
         status, said = check(work / "slice.ndjson", FIXTURES / f"{name}.elab.ndjson")
