@@ -766,9 +766,10 @@ create cli-fed-ops
 : cli-source. ( -- ) cli-jobs if ." --jobs" else ." the default" then ;
 : cli-jobs-from. ( -- ) ."  (" cli-source. ." )" ;
 : cli-cut? ( -- flag ) cli-workers ck-jobs-most > ck-jobs 0> and ;
-: cli-core-count. ( -- ) task-cores dup .decimal 1 = if ."  core" else ."  cores" then ;
+: cli-cores-said. ( n -- ) dup .decimal 1 = if ."  core" else ."  cores" then ;
 : cli-asked. ( -- )
-  ."  (" cli-source. space cli-workers .decimal ." , " cli-core-count. ." )" cr ;
+  ."  (" cli-source. space cli-workers .decimal ." , " task-cores cli-cores-said.
+  ." )" cr ;
 : cli-workers-from. ( -- ) cli-cut? if cli-asked. else cli-jobs-from. cli-cores. then ;
 : cli-workers-line. ( -- ) ."   workers: " ck-jobs .decimal cli-workers-from. ;
 : cli-cut-only. ( -- ) cli-cut? if cli-workers-line. then ;

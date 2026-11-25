@@ -1085,6 +1085,22 @@ T{ 3 -1 limited-run -> serial-wide 0 true 3 asked 0 }T
 T{ 1 limited-report 2dup workers-line holds? -rot lacked-line holds? -> true true }T
 T{ -1 limited-report 2dup workers-line holds? -rot s" worker tasks" holds? -> true false }T
 T{ -1 0 jobs-report 2dup default-line holds? -rot workers-line holds? -> true false }T
+\ With fewer cores than asked (review finding 12): --jobs 1100 is cut to the
+\ cores, and the line says what was asked; a run cut to one worker (here
+\ ck-jobs! 1 after the run, as on a host of one core) says so too, where
+\ it once printed nothing; a serial run asked for one says nothing; a pool
+\ that cannot start says so; one core and more said in the line's words.
+: cut-report ( after -- c-addr u )
+  fresh >r 1100 cli-jobs! wide 1100 run-with ?dup if ck-jobs! then ['] cli-jobs.
+  >string-execute ck-release r> back ;
+: serial-report ( -- c-addr u )
+  fresh >r 1 cli-jobs! wide 1 run-with ['] cli-jobs. >string-execute ck-release r> back ;
+T{ 0 cut-report s"  (--jobs 1100, " holds? -> true }T
+T{ 1 cut-report s\"   workers: 1 (--jobs 1100, " holds? -> true }T
+T{ serial-report nip -> 0 }T
+T{ 0 2 jobs-report s" workers: not used: the thread pool could not start" holds? -> true }T
+T{ 1 ' cli-cores-said. >string-execute s" 1 core" compare -> 0 }T
+T{ 2 ' cli-cores-said. >string-execute s" 2 cores" compare -> 0 }T
 [then]
 \ A run with workers, timed (--resources; the JSON report's measured
 \ "workers"): each worker's busy and waiting time together are the jobs'
