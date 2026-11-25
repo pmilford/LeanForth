@@ -240,9 +240,18 @@ require ./check-run.fs
 : cj-workers-body ( -- ) cj-run-times cj-driver cj-each cj-all cj-end-object ;
 : cj-workers ( -- )
   ck-spent? if s" workers" cj-key cj-workers-body then ;
+\ The wall microseconds each declaration's own check took, in file order
+\ (ck-us-of: 0 for one not checked in this run), with --resources on a
+\ host with clocks, beside the declarations ("declarationMicroseconds",
+\ an optional member added within versions 0.4 and 0.5 on 2026-11-25, so
+\ a report without --resources is as before).
+: cj-took? ( -- flag ) ck-resources? ck-timed? and ck-verdicts? and ;
+: cj-took-each ( -- ) lf-input-count 0 ?do i ck-us-of cj-ud loop ;
+: cj-took ( -- )
+  cj-took? if s" declarationMicroseconds" cj-key cj-array cj-took-each cj-end-array then ;
 : cj-measured ( -- )
   s" measured" cj-key cj-object cj-times cj-peak cj-stage-bytes cj-engine cj-workers
-  cj-end-object ;
+  cj-took cj-end-object ;
 
 \ ---- The snapshot of a 0.3 report: the file, its identity (its header's
 \ SHA-256), its format and verdict versions, the export it was written

@@ -413,6 +413,11 @@
           "description": "The last part of the file name of the Forth engine bin/leanforth ran (LEANFORTH_ENGINE), as escaped display text: gforth, Gforth's checking engine, by default; gforth-fast with --fast. null when not known (not run by bin/leanforth).",
           "anyOf": [{"type": "null"}, {"type": "string", "minLength": 1}]
         },
+        "declarationMicroseconds": {
+          "description": "Present only with --resources, on a host with clocks, when the declarations are listed: the wall microseconds each declaration's own check took, in file order (entry i is declaration i), timed in the context that ran it, so that the slowest declarations can be listed by time and not only by fuel; 0 for one not checked in this run (a block's member after its first, whose check the first's covers; one taken from a snapshot; one after the run stopped; a check that threw). In a run with workers they add up to a little less than the workers' busy time. An optional member added within versions 0.4 and 0.5, 2026-11-25; a report without --resources is as before.",
+          "type": "array",
+          "items": {"$ref": "#/$defs/count"}
+        },
         "workers": {
           "description": "Present only with --resources, when the check ran with workers (--jobs N above 1, or the default of 4; owner, 2026-11-23) on a host with clocks, in microseconds: the plan's and the jobs' run's wall and CPU time, both within the check phase; in the jobs' run, the driving task's busy time (handing out, publishing, rolling back) and waiting time (for a job to end); each worker's busy time (its checks) and waiting time (the rest of the jobs' run, when it had no job), in the order the workers were made; and all workers' busy and waiting time together. A worker replaced after a THROW counts its replacement's time only. An optional member added within versions 0.4 and 0.5, 2026-11-24; a report without --resources, or of a run without workers, is as before.",
           "type": "object",

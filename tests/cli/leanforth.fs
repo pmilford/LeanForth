@@ -1144,6 +1144,37 @@ create slept-by 8 cells allot  slept-by 8 cells erase
   swap 20000 m* ck-busy-all 2swap d< 0= all-busy-enough? ck-driver-waiting d0= 0=
   ck-release r> back ;
 T{ sleep-facts -> true true true true }T
+\ Each declaration's own time (ck-us-of; the JSON report's measured
+\ declarationMicroseconds): with the sleeping check, as many declarations
+\ took at least 20 ms as checks slept (slot 7: one at a time), and they
+\ add up to no more than the workers' busy time, or one at a time the
+\ check phase's. A block's members after its first have no fuel and no
+\ time of their own (nested: the declarations of no fuel).
+: slow? ( d -- flag ) ck-us-of 20000 0 d< 0= ;
+: slow# ( -- n ) 0 lf-input-count 0 ?do i slow? if 1+ then loop ;
+: took-all ( -- d ) 0 0 lf-input-count 0 ?do i ck-us-of d+ loop ;
+: slept-every ( -- n ) slept-all 7 slept-of + ;
+: took-bound ( -- d ) ck-jobs-run? if ck-busy-all else ck-checking ck-phase-wall then ;
+: took-facts ( jobs -- slow? within? )
+  fresh >r slept-by 8 cells erase fixture rot ['] sleeping-check run-by
+  slow# dup slept-every = swap 0> and took-bound took-all d< 0= ck-release r> back ;
+T{ 2 took-facts -> true true }T
+T{ 1 took-facts -> true true }T
+: fuelless? ( d -- flag ) ck-fuel-of 0= ;
+: later-timed? ( d -- flag ) dup fuelless? if ck-us-of d0= 0= else drop false then ;
+: later# ( -- n ) 0 lf-input-count 0 ?do i fuelless? if 1+ then loop ;
+: later-timed# ( -- n ) 0 lf-input-count 0 ?do i later-timed? if 1+ then loop ;
+: trail-facts ( jobs -- later? untimed? )
+  fresh >r nested rot run-with later# 0> later-timed# 0= ck-release r> back ;
+T{ 1 trail-facts -> true true }T
+T{ 3 trail-facts -> true true }T
+\ A check that throws (at declaration 40) keeps no time, never the time
+\ of the check before it in the same context; with workers its worker is
+\ replaced and nothing is kept for it.
+: thrown-took ( jobs -- zero? )
+  40 throw-at ! fresh >r nested rot run-with 40 ck-us-of d0= ck-release r> back -1 throw-at ! ;
+T{ 1 thrown-took -> true }T
+T{ 3 thrown-took -> true }T
 : serial-untimed ( -- zero? jobs? )
   fresh >r nested 1 run-with ck-run-wall d0= ck-jobs-run? ck-release r> back ;
 T{ serial-untimed -> true false }T
@@ -1187,6 +1218,9 @@ T{ report-texts 2swap s" save" holds? -rot s" save" holds? -> false false }T
   fresh >r nested 3 run-with ['] cli-spent. >string-execute ['] measured-json
   >string-execute ck-release r> back ;
 T{ unasked-texts s" workers" holds? -rot nip -> false 0 }T
+\ Each declaration's time (declarationMicroseconds) only with --resources.
+T{ report-texts 2swap 2drop s\" \"declarationMicroseconds\":[" holds? -> true }T
+T{ unasked-texts 2swap 2drop s" declarationMicroseconds" holds? -> false }T
 [then]
 \ The save is a phase of the report only when a snapshot was to be
 \ written (here none is: the run did not check), in text and JSON, and

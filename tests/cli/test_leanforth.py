@@ -2275,13 +2275,14 @@ NESTED = "tests/cli/nested.ndjson"
 
 def before_members(version):
     """Check report schema `version` as it was before the optional members
-    of 2026-11-24, which a report gives only with --resources: measured's
-    "workers" and its microseconds' "save" (and their $defs/spent) taken
-    out, so that a report with either fails it (additionalProperties
-    false)."""
+    of 2026-11-24 and 2026-11-25, which a report gives only with
+    --resources: measured's "workers", "declarationMicroseconds" and its
+    microseconds' "save" (and their $defs/spent) taken out, so that a
+    report with any of them fails it (additionalProperties false)."""
     schema = json.loads((ROOT / f"schemas/check-report-{version}.schema.json").read_text())
     measured = schema["$defs"]["measured"]["properties"]
     measured.pop("workers")
+    measured.pop("declarationMicroseconds")
     measured["microseconds"]["anyOf"][1]["properties"].pop("save")
     schema["$defs"].pop("spent")
     return Validator(schema)
@@ -2425,6 +2426,41 @@ class Jobs(unittest.TestCase):
                                          "tests/cli/nested.ndjson")[1])
         got.pop("measured"), serial.pop("measured")
         self.assertEqual(got, serial)
+
+    def test_declaration_times(self):
+        """With --resources the JSON report's measured
+        "declarationMicroseconds" gives each declaration's own check time in
+        file order: one entry a declaration, never negative, 0 for a block's
+        members after its first (no fuel of their own), some above 0; with
+        workers they add up to about the workers' busy time (each check is
+        timed inside its job's timing: never more, and at most 25% and 10 ms
+        less, for the jobs' own clock readings), one at a time to no more
+        than the check phase. scripts/slowest-declarations.py lists them.
+        Without --resources there is none (test_default_as_before)."""
+        status, got, _ = report("--resources", "--jobs", "3", NESTED)
+        self.assertEqual((status, JsonReport.schema.errors(got)), (0, []))
+        took = got["measured"]["declarationMicroseconds"]
+        decls = got["declarations"]
+        self.assertEqual(len(took), len(decls))
+        self.assertTrue(all(isinstance(t, int) and t >= 0 for t in took), took)
+        self.assertTrue(all(t == 0 for t, d in zip(took, decls) if d["fuel"] == 0), took)
+        self.assertGreater(sum(1 for t in took if t > 0), 0)
+        busy = got["measured"]["workers"]["busy"]
+        self.assertLessEqual(sum(took), busy)
+        self.assertLessEqual(busy - sum(took), 0.25 * busy + 10000, (busy, sum(took)))
+        status, serial, _ = report("--resources", "--jobs", "1", NESTED)
+        took = serial["measured"]["declarationMicroseconds"]
+        self.assertEqual((status, len(took)), (0, len(decls)))
+        self.assertLessEqual(sum(took), serial["measured"]["microseconds"]["check"]["wall"])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "nested.json"
+            path.write_text(json.dumps(got))
+            listed = subprocess.run([sys.executable, str(ROOT / "scripts/slowest-declarations.py"),
+                                     "-n", "3", str(path)], capture_output=True, text=True)
+        self.assertEqual(listed.returncode, 0, listed.stderr)
+        rows = [line.split("\t") for line in listed.stdout.splitlines()[1:]]
+        want = sorted(range(len(decls)), key=lambda i: (-got["measured"]["declarationMicroseconds"][i], i))[:3]
+        self.assertEqual([int(r[1]) for r in rows], want, listed.stdout)
 
     def test_save_phase(self):
         """The snapshot save is a phase of the report (text and JSON) only

@@ -1,0 +1,79 @@
+# Planted faults of each declaration's own check time (branch kernel-speed-measure,
+# 2026-11-25): ck-timed-check times every check in the context that runs it, ck-keep
+# takes the time once into the declaration's kept step, a block's later members keep
+# none, and the JSON report gives them as measured.declarationMicroseconds only with
+# --resources (src/cli/check-run.fs, src/cli/check-json.fs; docs/user/COMMAND_LINE.md,
+# "JSON output"). Read with tests/mutants/faults.toml as one list.
+
+[[fault]]
+id = "ks-time-unkept"
+file = "src/cli/check-run.fs"
+old = ''': ck-keep ( outcome d -- ) dup ck-same dup ck-keep-time ck-keep-facts ;'''
+new = ''': ck-keep ( outcome d -- ) dup ck-same ck-keep-facts ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "no declaration keeps its check's time: every entry of declarationMicroseconds is 0"
+quick = true
+
+[[fault]]
+id = "ks-time-untimed"
+file = "src/cli/check-run.fs"
+old = ''': ck-timer-stop ( -- ) ck-wall-now ck-timer timer-began 2@ d-floor ck-took 2! ;'''
+new = ''': ck-timer-stop ( -- ) ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a check's end is never timed: every declaration's time is 0"
+
+[[fault]]
+id = "ks-time-stale"
+file = "src/cli/check-run.fs"
+old = ''': ck-keep-time ( d -- ) ck-took swap ck-kept cks-us 2 cells move 0 0 ck-took 2! ;'''
+new = ''': ck-keep-time ( d -- ) ck-took swap ck-kept cks-us 2 cells move ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a check that throws keeps the time of the check before it in the same context"
+
+[[fault]]
+id = "ks-serial-untimed"
+file = "src/cli/check-run.fs"
+old = '''  dup >r ['] ck-timed-check swap lf-env-step swap r> ck-keep lf-env-spent? or ck-stop! ;'''
+new = '''  dup >r ck-check-word swap lf-env-step swap r> ck-keep lf-env-spent? or ck-stop! ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a run one at a time (--jobs 1) times no check: its declarations' times are 0"
+
+[[fault]]
+id = "ks-jobs-untimed"
+file = "src/cli/check-run.fs"
+old = '''  ['] ck-timed-check ['] ck-keep ['] ck-worker-new ['] lf-sched-run context-catch throw ;'''
+new = '''  ck-check-word ['] ck-keep ['] ck-worker-new ['] lf-sched-run context-catch throw ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a run with workers times no check: its declarations' times are 0"
+
+[[fault]]
+id = "ks-trailing-timed"
+file = "src/cli/check-run.fs"
+old = ''': ck-costless ( addr -- ) dup cks-us 2 cells erase 0 swap cks-fuel ! ;'''
+new = ''': ck-costless ( addr -- ) 0 swap cks-fuel ! ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a block's later members repeat their first member's time, so the times add up to more than the checks took"
+
+[[fault]]
+id = "ks-json-unasked"
+file = "src/cli/check-json.fs"
+old = ''': cj-took? ( -- flag ) ck-resources? ck-timed? and ck-verdicts? and ;'''
+new = ''': cj-took? ( -- flag ) ck-timed? ck-verdicts? and ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "every check --json report gains measured.declarationMicroseconds without --resources: a report the schemas as they were refuse"
+
+[[fault]]
+id = "ks-json-missing"
+file = "src/cli/check-json.fs"
+old = '''  cj-took? if s" declarationMicroseconds" cj-key cj-array cj-took-each cj-end-array then ;'''
+new = '''  cj-took? drop ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "check --json --resources gives no declaration times"
+
+[[fault]]
+id = "ks-json-empty"
+file = "src/cli/check-json.fs"
+old = ''': cj-took-each ( -- ) lf-input-count 0 ?do i ck-us-of cj-ud loop ;'''
+new = ''': cj-took-each ( -- ) ;'''
+test = "python3 tests/cli/test_leanforth.py Jobs.test_declaration_times"
+reason = "declarationMicroseconds is an empty list, not one entry a declaration"

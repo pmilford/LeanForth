@@ -68,7 +68,11 @@
 \ - then, before ck-release, the verdicts are read in a snapshot of the
 \   run's own environment (ck-verdicts?, then lf-env-outcome), and the
 \   facts with ck-kept (a run-record.fs /rr-step: outcome, diagnostic,
-\   step; then the fuel), ck-fuel-of, ck-fuel-total, ck-fuel-unknowns,
+\   step; then the fuel and the time), ck-fuel-of, ck-us-of (the wall
+\   microseconds d's own check took, timed in the context that ran it by
+\   ck-timed-check: 0 for a block's member after its first, one taken
+\   from a snapshot, one not checked, or a check that threw; reported
+\   only with ck-resources!), ck-fuel-total, ck-fuel-unknowns,
 \   ck-top@ (ck-tops of them), the times (ck-phase-wall, ck-phase-cpu,
 \   ck-phase-name), ck-peak, ck-engine, ck-staged-bytes and the input's
 \   sizes;
@@ -138,10 +142,12 @@ require ../kernel/env-layers.fs
 \ What a check left, kept after its step: run-record.fs's layout
 \ (kept-outcome, kept-code, kept-first, kept-second, kept-site,
 \ kept-step: check-block's step for a block, else check-declaration's),
-\ then the fuel used. One layout for both runs' diagnostics.
+\ then the fuel used and the wall microseconds the check took (a double).
+\ One layout for both runs' diagnostics.
 begin-structure /ck-step
   /rr-step +field ck-step-kept
   field: cks-fuel
+  2 cells +field cks-us
 end-structure
 
 \ The stores' capacity settings the feed raises: each row its reader
@@ -425,6 +431,7 @@ create ck-line ck-line-room 2 + allot
 \ invalid until its step publishes.
 : ck-kept ( d -- addr ) ck-state ck-steps slab-at ;
 : ck-fuel-of ( d -- n ) ck-kept cks-fuel @ ;
+: ck-us-of ( d -- ud ) ck-kept cks-us 2@ ;
 : ck-unkept ( n -- )
   0 ?do i ck-kept dup /ck-step erase outcome-invalid swap kept-outcome ! loop ;
 : ck-steps-init ( -- outcome ) /ck-step dup slab-limit-max ck-state ck-steps slab-init ;
@@ -660,7 +667,21 @@ create ck-line ck-line-room 2 + allot
 \ M1: a stale slot compared with itself would let its users be carried).
 : ck-rechecking? ( -- flag ) ck-carrying? snap-stale-allowed @ 0= and ;
 : ck-same ( d -- ) ck-rechecking? if ck-import imp-same else drop then ;
-: ck-keep ( outcome d -- ) dup ck-same ck-keep-facts ;
+\ The last check's wall time in this context (each worker's own;
+\ ck-timed-check below): when it began, and the microseconds it took, set
+\ when it ends and taken once into d's kept step (0 again after), so that
+\ a keep with no check before it, or after a check that threw, keeps 0,
+\ never another check's time. Both live in the context, not on a stack,
+\ so the check finds a job's sentinel directly below it (lib/task.fs
+\ job-call). A report only: nothing reads a time back into a check.
+begin-structure /ck-timer
+  2 cells +field timer-began
+  2 cells +field timer-took
+end-structure
+/ck-timer context-record: ck-timer
+: ck-took ( -- addr ) ck-timer timer-took ;
+: ck-keep-time ( d -- ) ck-took swap ck-kept cks-us 2 cells move 0 0 ck-took 2! ;
+: ck-keep ( outcome d -- ) dup ck-same dup ck-keep-time ck-keep-facts ;
 \ Check declaration d: whether the run must stop, after a fault of the
 \ publisher or a THROW in the check (the context is then spent); a stop
 \ is kept (ck-faulted?).
@@ -670,14 +691,20 @@ create ck-line ck-line-room 2 + allot
 \ throws for a chosen declaration.
 : ck-check-word ( -- xt ) ck-state ck-checker @ ;
 : ck-check-word! ( xt -- ) ck-state ck-checker ! ;
+\ The check every run passes (serial and with workers): the check word,
+\ timed in ck-timer.
+: ck-timer-start ( -- ) ck-wall-now ck-timer timer-began 2! ;
+: ck-timer-stop ( -- ) ck-wall-now ck-timer timer-began 2@ d-floor ck-took 2! ;
+: ck-timed-check ( -- ) ck-timer-start ck-check-word execute ck-timer-stop ;
 : ck-step ( d -- stop? )
-  dup >r ck-check-word swap lf-env-step swap r> ck-keep lf-env-spent? or ck-stop! ;
+  dup >r ['] ck-timed-check swap lf-env-step swap r> ck-keep lf-env-spent? or ck-stop! ;
 \ A member after its block's first, published with it: the first's facts,
-\ no fuel of its own.
+\ no fuel and no time of its own.
 : ck-first-member ( d -- first )
   lf-input-decl lf-idecl-header lf-hdr-first lf-more-field ;
+: ck-costless ( addr -- ) dup cks-us 2 cells erase 0 swap cks-fuel ! ;
 : ck-trailing ( d -- )
-  dup ck-first-member ck-kept over ck-kept /ck-step move 0 swap ck-kept cks-fuel ! ;
+  dup ck-first-member ck-kept over ck-kept /ck-step move ck-kept ck-costless ;
 \ A declaration taken from a snapshot before the run (ck-import-pass): its
 \ slot is final, its facts the snapshot's.
 : ck-taken? ( d -- flag )
@@ -931,7 +958,7 @@ name-table: ck-pline-parts
 : ck-planned ( -- outcome ) ['] lf-sched-plan ck-plan-clock ck-timing ;
 : ck-sched-words! ( -- ) ck-tick! ck-pre! ['] ck-wall-now lf-sched-clock! ;
 : ck-sched-run ( -- )
-  ck-check-word ['] ck-keep ['] ck-worker-new ['] lf-sched-run context-catch throw ;
+  ['] ck-timed-check ['] ck-keep ['] ck-worker-new ['] lf-sched-run context-catch throw ;
 : ck-sched-timed ( -- ) ['] ck-sched-run ck-run-clock ck-timing ;
 : ck-jobs-run ( -- ) ck-sched-words! ck-sched-timed ck-jobs-facts ;
 \ The pool is started before the run, so that a refusal (no threads, as
