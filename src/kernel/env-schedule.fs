@@ -92,6 +92,15 @@
 \ - lf-sched-pool-start ( -- ior ): size and start the pool before the run,
 \   so that a refusal (no threads) leaves the run to the serial one;
 \ - lf-sched-workers ( -- n ): the workers added;
+\ - lf-sched-clock! ( xt -- ): after lf-sched-init, xt ( -- d ) the wall
+\   clock in microseconds (cli/check-run.fs's ck-wall-now), read by the
+\   jobs and the driving task (a report that does not change the run); 0,
+\   the default, none, and the times below stay 0. lf-sched-busy ( k -- d ),
+\   after lf-sched-run, the driving context current: the microseconds
+\   worker k's checks ran, summed by its jobs in its context (lf-sch-busy;
+\   a worker replaced after a THROW counts its replacement's only, a lost
+\   one 0); lf-sched-waited ( -- d ): the microseconds the driving task
+\   waited for a job to end (in job-wait-any);
 \ - lf-sched-free ( -- ): the worker contexts and every block freed.
 \ Planted faults, for tests only: a test that defines lf-sched-fault-hooks
 \ before this file loads gets lf-sched-faults, a variable of bits
@@ -108,7 +117,8 @@
 \ first.
 \ State: one shared record, lf-sched, with its slabs, written only by the
 \ driving task outside jobs (the workers' contexts are its members' only
-\ link to the jobs). LeanForth-specific.
+\ link to the jobs), and one context record, lf-sch-busy, each worker's
+\ own, written only by its jobs. LeanForth-specific.
 
 require ../lib/lib.fs
 require ../lib/slab.fs
@@ -157,6 +167,9 @@ begin-structure /lf-sched
   field: lf-sch-handed#     \ checks handed over so far
   field: lf-sch-tick        \ ( -- ) run in the driving task after each settled job, or 0
   field: lf-sch-pre         \ ( d -- n ) asked before d is handed out, or 0
+  field: lf-sch-clock       \ ( -- d ) the wall clock in microseconds, or 0
+  2 cells +field lf-sch-waited  \ microseconds the driving task waited for jobs
+  2 cells +field lf-sch-wait-at \ the clock when it last began to wait
   /slab +field lf-sch-ctxs     \ per worker: its context, 0 once lost
   /slab +field lf-sch-jobs     \ per worker: its job, or 0
   /slab +field lf-sch-ats      \ per worker: the declaration its job checks
@@ -523,6 +536,15 @@ variable lf-sched-faults  0 lf-sched-faults !
   dup lf-sch-front@ > lf-fault-trusting lf-sch-fault? 0= and
   if lf-sch-names-ready? else drop true then ;
 : lf-sch-unready ( d -- ) lf-sched lf-sch-unready# lf-sch-count+ lf-sch-later! ;
+\ The job ( -- ): the check, its wall time added to the worker's own
+\ lf-sch-busy (a double; none when lf-sched-clock! gave no clock). The
+\ check leaves the stack as it found it, so the start time waits under it.
+2 cells context-record: lf-sch-busy
+: lf-sch-now ( -- d ) lf-sched lf-sch-clock @ ?dup if execute else 0 0 then ;
+: lf-sch-lap ( d -- n ) dnegate lf-sch-now d+ 0 0 dmax d>s ;
+: lf-sch-busy+ ( n -- ) s>d lf-sch-busy 2@ d+ lf-sch-busy 2! ;
+: lf-sch-timed-check ( -- )
+  lf-sch-now lf-sched lf-sch-check @ execute lf-sch-lap lf-sch-busy+ ;
 \ Begin d's check in worker k's context and submit it; a refused
 \ beginning is the serial run's stop at d (kept invalid); a refused job
 \ breaks the run.
@@ -536,7 +558,7 @@ variable lf-sched-faults  0 lf-sched-faults !
   tuck lf-sch-at ! lf-sch-job ! lf-sched lf-sch-running# lf-sch-count+
   lf-sched lf-sch-launched# lf-sch-count+ ;
 : lf-sch-submit ( d k -- )
-  dup lf-sch-ctx @ lf-sched lf-sch-check @ job-submit
+  dup lf-sch-ctx @ ['] lf-sch-timed-check job-submit
   ?dup if 2drop 2drop 2 lf-sch-break exit then
   -rot over lf-sch-running swap lf-sch-state! lf-sch-submitted ;
 \ Before d is handed out, lf-sched-pre! 's word (plan step 6.2.5c4): 0,
@@ -588,9 +610,14 @@ variable lf-sched-faults  0 lf-sched-faults !
 : lf-sch-settle ( k -- )
   dup lf-sch-job @ job-wait 0 2 pick lf-sch-job ! -1 lf-sched lf-sch-running# +!
   over lf-sch-in over lf-sch-settled lf-sch-home if lf-sch-renew else drop then ;
+\ The first job to end (its worker), the time waited for it counted.
+: lf-sch-wait-mark ( -- addr ) lf-sched lf-sch-wait-at ;
+: lf-sch-any-end ( -- k ) lf-sched lf-sch-jobs slab-base lf-sch-workers job-wait-any ;
+: lf-sch-ended ( -- k ) lf-sch-now lf-sch-wait-mark 2! lf-sch-any-end ;
+: lf-sch-waited+ ( n -- ) s>d lf-sched lf-sch-waited 2@ d+ lf-sched lf-sch-waited 2! ;
+: lf-sch-timed-wait ( -- k ) lf-sch-ended lf-sch-wait-mark 2@ lf-sch-lap lf-sch-waited+ ;
 : lf-sch-wait-one ( -- )
-  lf-sched lf-sch-jobs slab-base lf-sch-workers job-wait-any
-  dup 0< 0= if lf-sch-settle exit then
+  lf-sch-timed-wait dup 0< 0= if lf-sch-settle exit then
   drop 3 lf-sch-break 0 lf-sched lf-sch-running# ! ;
 
 \ ---- The run. Fill every idle worker from the ready heap (dropping
@@ -611,6 +638,10 @@ variable lf-sched-faults  0 lf-sched-faults !
 : lf-sch-busy? ( -- flag ) lf-sched lf-sch-running# @ 0> ;
 : lf-sched-tick! ( xt -- ) lf-sched lf-sch-tick ! ;
 : lf-sched-pre! ( xt -- ) lf-sched lf-sch-pre ! ;
+: lf-sched-clock! ( xt -- ) lf-sched lf-sch-clock ! ;
+: lf-sched-waited ( -- d ) lf-sched lf-sch-waited 2@ ;
+: lf-sched-busy ( k -- d )
+  dup lf-sch-ctx @ 0= if drop 0 0 exit then lf-sch-in lf-sch-busy 2@ lf-sch-home ;
 : lf-sched-final ( -- n ) lf-sched-reached lf-sched-stop min ;
 : lf-sch-ticked ( -- ) lf-sched lf-sch-tick @ ?execute ;
 : lf-sch-loop ( -- )

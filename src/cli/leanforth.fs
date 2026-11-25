@@ -688,14 +688,17 @@ create cli-fed-ops
 \ Milliseconds as seconds with three decimals; microseconds in a column.
 : do-seconds ( ms -- c-addr u ) 0 <# # # # [char] . hold #s #> ;
 : cli-seconds ( ms -- c-addr u ) ['] do-seconds in-decimal ;
-: cli-second. ( d-us -- ) 1000 um/mod nip cli-seconds 9 type-right ;
+: cli-us>s ( d-us -- c-addr u ) 1000 um/mod nip cli-seconds ;
+: cli-second. ( d-us -- ) cli-us>s 9 type-right ;
 \ Phase k's row: its name, then its wall and CPU times.
 : cli-row ( k -- )
   ."   " dup ck-phase-name 8 type-left
   dup ck-phase-wall cli-second. ck-phase-cpu cli-second. cr ;
+\ The save's row only when a snapshot was to be written (ck-phase-shown?).
+: cli-row? ( k -- ) dup ck-phase-shown? if cli-row else drop then ;
 : cli-times. ( -- )
   ck-timed? 0= if ."   time: not measured on this host" cr exit then
-  ck-finish ."   time (s)     wall      cpu" cr ck-phases 0 do i cli-row loop ;
+  ck-finish ."   time (s)     wall      cpu" cr ck-phases 0 do i cli-row? loop ;
 \ Bytes in kB (10^3 bytes) below a MB, else in MB (10^6) with one decimal.
 : cli-mb. ( bytes -- ) 100000 / 10 /mod .decimal ." ." .decimal ."  MB" ;
 : cli-size. ( bytes -- )
@@ -759,9 +762,28 @@ create cli-fed-ops
   ck-parallel? 0= if exit then ck-jobs-run? 0= if cli-no-workers. exit then
   ."   workers: " ck-jobs .decimal cli-jobs-from. cli-cores.
   cli-lacked. cli-sched. ;
+\ A run with workers, timed (cli/check-run.fs): the plan's and the jobs'
+\ run's wall seconds, then the seconds each task was busy and waiting in
+\ that run: the driving task (busy handing out, publishing, rolling back),
+\ each worker (busy checking) and all workers together.
+: cli-sec. ( d-us -- ) cli-us>s type ."  s" ;
+: cli-plan. ( -- )
+  ."     plan " ck-plan-wall cli-sec. ." , jobs' run " ck-run-wall cli-sec. cr ;
+: cli-task. ( c-addr u -- ) ."     " 9 type-left ;
+: cli-driver. ( -- )
+  s" driving" cli-task. ck-driver-busy cli-second. ck-driver-waiting cli-second. cr ;
+: cli-worker-label ( k -- ) ."     worker" 1+ u>decimal 3 type-right ;
+: cli-worker. ( k -- )
+  dup cli-worker-label dup lf-sched-busy cli-second. ck-waiting cli-second. cr ;
+: cli-all. ( -- )
+  s" total" cli-task. ck-busy-all cli-second. ck-waiting-all cli-second. cr ;
+: cli-workers-spent. ( -- ) lf-sched-workers 0 ?do i cli-worker. loop cli-all. ;
+: cli-tasks-head. ( -- ) ."     time (s)      busy  waiting" cr ;
+: cli-tasks. ( -- ) cli-plan. cli-tasks-head. cli-driver. cli-workers-spent. ;
+: cli-spent. ( -- ) ck-jobs-run? ck-timed? and if cli-tasks. then ;
 : cli-resources. ( -- )
-  ." resources:" cr cli-times. cli-memory. cli-engine. cli-jobs. cli-input. cli-fuel.
-  cli-tops. ;
+  ." resources:" cr cli-times. cli-memory. cli-engine. cli-jobs. cli-spent. cli-input.
+  cli-fuel. cli-tops. ;
 
 \ An export whose metadata names another exporter or Lean version (read
 \ with --any-lean-version): what it names, escaped as names are, so it

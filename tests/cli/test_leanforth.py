@@ -2323,6 +2323,66 @@ class Jobs(unittest.TestCase):
         self.assertEqual(int(found.group(1)), min(4, int(found.group(2))))
         self.assertNotIn("(--jobs)", out)
 
+    def test_spent(self):
+        """A run with workers reports, under --resources and in the JSON
+        report's measured "workers", the plan's and the jobs' run's times and
+        what each task spent busy and waiting in that run: never negative,
+        each worker's busy and waiting time together the run's (to the
+        printed millisecond in the text, exactly in the JSON), the driving
+        task's too, the total the workers' sum, the plan and the run within
+        the check phase. One at a time reports neither; the verdicts and the
+        rest of the report are unchanged."""
+        args = ["--jobs", "3", "tests/cli/nested.ndjson"]
+        status, out, _ = run("check", "--resources", *args)
+        self.assertEqual(status, 0)
+        check = float(re.search(r"\n  check +(\d+\.\d+) ", out).group(1))
+        plan, jobs_run = map(float, re.search(r"\n    plan (\d+\.\d+) s, jobs' run (\d+\.\d+) s\n"
+                                              r"    time \(s\)      busy  waiting\n", out).groups())
+        rows = re.findall(r"\n    (driving|worker +\d+|total) +(\d+\.\d+) +(\d+\.\d+)(?=\n)", out)
+        self.assertEqual([r[0].split()[0] for r in rows], ["driving"] + ["worker"] * 3 + ["total"])
+        self.assertLessEqual(plan + jobs_run, check + 0.002)
+        for _, busy, waiting in rows[:-1]:
+            self.assertAlmostEqual(float(busy) + float(waiting), jobs_run, delta=0.0021, msg=rows)
+        workers = [(float(b), float(w)) for _, b, w in rows[1:-1]]
+        self.assertAlmostEqual(sum(b for b, _ in workers), float(rows[-1][1]), delta=0.004)
+        self.assertGreater(sum(b for b, _ in workers), 0)
+        status, got, _ = report(*args)
+        self.assertEqual((status, JsonReport.schema.errors(got)), (0, []))
+        spent = got["measured"]["workers"]
+        run_wall = spent["run"]["wall"]
+        self.assertEqual(len(spent["each"]), 3)
+        self.assertTrue(spent["plan"]["wall"] > 0 and spent["driver"]["waiting"] > 0, spent)
+        for task in [spent["driver"], *spent["each"]]:
+            self.assertTrue(task["busy"] >= 0 and task["waiting"] >= 0, spent)
+            self.assertEqual(task["busy"] + task["waiting"], run_wall, spent)
+        self.assertEqual(sum(t["busy"] for t in spent["each"]), spent["busy"])
+        self.assertEqual(sum(t["waiting"] for t in spent["each"]), spent["waiting"])
+        self.assertLessEqual(spent["plan"]["wall"] + run_wall,
+                             got["measured"]["microseconds"]["check"]["wall"])
+        serial = report("--jobs", "1", "tests/cli/nested.ndjson")[1]
+        self.assertNotIn("workers", serial["measured"])
+        self.assertNotIn("jobs' run", run("check", "--resources", "--jobs", "1",
+                                         "tests/cli/nested.ndjson")[1])
+        got.pop("measured"), serial.pop("measured")
+        self.assertEqual(got, serial)
+
+    def test_save_phase(self):
+        """The snapshot save is a phase of the report (text and JSON) only
+        with --save-snapshot."""
+        with tempfile.TemporaryDirectory() as tmp:
+            snapshot = str(Path(tmp) / "nested.lfsn")
+            args = ["--save-snapshot", snapshot, "tests/cli/nested.ndjson"]
+            status, out, _ = run("check", "--resources", *args)
+            self.assertEqual(status, 0)
+            self.assertRegex(out, r"\n  check +\d+\.\d+ +\d+\.\d+\n  save +\d+\.\d+ +\d+\.\d+\n"
+                                  r"  total ")
+            status, got, _ = report(*args)
+            self.assertEqual((status, JsonReport.schema.errors(got)), (0, []))
+            self.assertEqual(list(got["measured"]["microseconds"]),
+                             ["stage", "feed", "check", "save", "total"])
+        self.assertNotIn("\n  save ", run("check", "--resources", "tests/cli/nested.ndjson")[1])
+        self.assertNotIn("save", report("tests/cli/nested.ndjson")[1]["measured"]["microseconds"])
+
     def test_default_with_record(self):
         """--record with no --jobs, or --jobs 1, runs one at a time and writes
         its record; --jobs 2 with it is a mistake."""

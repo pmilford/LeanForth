@@ -358,6 +358,23 @@
         "names": {"$ref": "#/$defs/count"}
       }
     },
+    "spent": {
+      "description": "A task's microseconds in a run with workers: busy, and waiting.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "busy",
+        "waiting"
+      ],
+      "properties": {
+        "busy": {
+          "$ref": "#/$defs/count"
+        },
+        "waiting": {
+          "$ref": "#/$defs/count"
+        }
+      }
+    },
     "time": {
       "type": "object",
       "additionalProperties": false,
@@ -384,6 +401,7 @@
                 "stage": {"$ref": "#/$defs/time"},
                 "feed": {"$ref": "#/$defs/time"},
                 "check": {"$ref": "#/$defs/time"},
+                "save": {"description": "Present only when a snapshot was to be written (--save-snapshot): the time the save took (an optional member added within versions 0.4 and 0.5, 2026-11-24; a report of a run without the option is as before).", "$ref": "#/$defs/time"},
                 "total": {"$ref": "#/$defs/time"}
               }
             }
@@ -394,6 +412,43 @@
         "engine": {
           "description": "The last part of the file name of the Forth engine bin/leanforth ran (LEANFORTH_ENGINE), as escaped display text: gforth, Gforth's checking engine, by default; gforth-fast with --fast. null when not known (not run by bin/leanforth).",
           "anyOf": [{"type": "null"}, {"type": "string", "minLength": 1}]
+        },
+        "workers": {
+          "description": "Present only when the check ran with workers (--jobs N above 1, or the default of 4; owner, 2026-11-23) on a host with clocks, in microseconds: the plan's and the jobs' run's wall and CPU time, both within the check phase; in the jobs' run, the driving task's busy time (handing out, publishing, rolling back) and waiting time (for a job to end); each worker's busy time (its checks) and waiting time (the rest of the jobs' run, when it had no job), in the order the workers were made; and all workers' busy and waiting time together. A worker replaced after a THROW counts its replacement's time only. An optional member added within versions 0.4 and 0.5, 2026-11-24; a report of a run without workers is as before.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "plan",
+            "run",
+            "driver",
+            "each",
+            "busy",
+            "waiting"
+          ],
+          "properties": {
+            "plan": {
+              "$ref": "#/$defs/time"
+            },
+            "run": {
+              "$ref": "#/$defs/time"
+            },
+            "driver": {
+              "$ref": "#/$defs/spent"
+            },
+            "each": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "$ref": "#/$defs/spent"
+              }
+            },
+            "busy": {
+              "$ref": "#/$defs/count"
+            },
+            "waiting": {
+              "$ref": "#/$defs/count"
+            }
+          }
         }
       }
     }

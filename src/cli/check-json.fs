@@ -203,12 +203,17 @@ require ./check-run.fs
 \ far the last (null on a host without clocks), the peak resident memory
 \ in bytes (null where the host does not say) and the stage's heap bytes
 \ (null when nothing was staged); then the engine (null when not known).
-: cj-phase ( k -- )
-  dup ck-phase-name cj-key cj-object dup ck-phase-wall s" wall" cj-key cj-ud
-  ck-phase-cpu s" cpu" cj-key cj-ud cj-end-object ;
+: cj-us ( d key-addr key-u -- ) cj-key cj-ud ;
+: cj-wall ( clock -- clock ) dup clock-wall 2@ s" wall" cj-us ;
+: cj-clock ( clock key-addr key-u -- )
+  cj-key cj-object cj-wall clock-cpu 2@ s" cpu" cj-us cj-end-object ;
+: cj-phase ( k -- ) dup ck-time swap ck-phase-name cj-clock ;
+\ The save ("save", an optional member added within versions 0.4 and 0.5
+\ on 2026-11-24) only when a snapshot was to be written.
+: cj-phase? ( k -- ) dup ck-phase-shown? if cj-phase else drop then ;
 : cj-times ( -- )
   s" microseconds" cj-key ck-timed? 0= if cj-null exit then
-  ck-finish cj-object ck-phases 0 do i cj-phase loop cj-end-object ;
+  ck-finish cj-object ck-phases 0 do i cj-phase? loop cj-end-object ;
 : cj-peak ( -- ) s" peakResidentBytes" cj-key ck-peak if cj-n else cj-null then ;
 : cj-stage-bytes ( -- )
   s" stageBytes" cj-key ck-staged? if ck-staged-bytes cj-n else cj-null then ;
@@ -216,8 +221,24 @@ require ./check-run.fs
 \ display text; null when not known.
 : cj-engine ( -- )
   s" engine" cj-key ck-engine dup if nt-text cj-shown cj-string else 2drop cj-null then ;
+\ A run with workers on a host with clocks ("workers", an optional member
+\ added within versions 0.4 and 0.5 on 2026-11-24): the plan's and the
+\ jobs' run's times, then the microseconds the driving task and each
+\ worker were busy and waiting in that run, and all workers' together.
+: cj-busy ( d -- ) cj-object s" busy" cj-us ;
+: cj-waiting ( d -- ) s" waiting" cj-us cj-end-object ;
+: cj-driver ( -- ) s" driver" cj-key ck-driver-busy cj-busy ck-driver-waiting cj-waiting ;
+: cj-worker ( k -- ) dup lf-sched-busy cj-busy ck-waiting cj-waiting ;
+: cj-each ( -- )
+  s" each" cj-key cj-array lf-sched-workers 0 ?do i cj-worker loop cj-end-array ;
+: cj-all ( -- ) ck-busy-all s" busy" cj-us ck-waiting-all s" waiting" cj-us ;
+: cj-run-parts ( -- ) ck-plan-clock s" plan" cj-clock ck-run-clock s" run" cj-clock ;
+: cj-workers-body ( -- ) cj-object cj-run-parts cj-driver cj-each cj-all cj-end-object ;
+: cj-workers ( -- )
+  ck-jobs-run? ck-timed? and if s" workers" cj-key cj-workers-body then ;
 : cj-measured ( -- )
-  s" measured" cj-key cj-object cj-times cj-peak cj-stage-bytes cj-engine cj-end-object ;
+  s" measured" cj-key cj-object cj-times cj-peak cj-stage-bytes cj-engine cj-workers
+  cj-end-object ;
 
 \ ---- The snapshot of a 0.3 report: the file, its identity (its header's
 \ SHA-256), its format and verdict versions, the export it was written

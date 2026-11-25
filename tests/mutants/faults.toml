@@ -9739,8 +9739,8 @@ equivalent = "defence in depth: such a source counts references beyond its input
 [[fault]]
 id = "sh-workers-not-remade"
 file = "src/cli/check-run.fs"
-old = '''  ck-relent ck-jobs-run? if lf-sched-plan ok? if ck-pool-started? if'''
-new = '''  ck-jobs-run? if lf-sched-plan ok? if ck-pool-started? if'''
+old = '''  ck-relent ck-jobs-run? if ck-planned ok? if ck-pool-started? if'''
+new = '''  ck-jobs-run? if ck-planned ok? if ck-pool-started? if'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "SH: workers made before a pass that moved the driving context's reference blocks read the blocks given back"
 

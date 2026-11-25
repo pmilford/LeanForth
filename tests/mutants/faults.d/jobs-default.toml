@@ -52,3 +52,90 @@ old = ''': cli-jobs-from. ( -- ) cli-jobs if ."  (--jobs)" else ."  (the default
 new = ''': cli-jobs-from. ( -- ) ."  (--jobs)" ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "the resource report credits the default's workers to a --jobs option the user never gave"
+
+# Performance monitoring in --resources (owner, 2026-11-23: "the stall time monitor should be
+# there, along with other performance monitoring items"; same branch): the plan's and the jobs'
+# run's times, each worker's and the driving task's busy and waiting time, the save phase
+# (src/kernel/env-schedule.fs lf-sch-timed-check, lf-sch-timed-wait; src/cli/check-run.fs;
+# the text in src/cli/leanforth.fs, the JSON in src/cli/check-json.fs).
+
+[[fault]]
+id = "jd-busy-uncounted"
+file = "src/kernel/env-schedule.fs"
+old = '''  lf-sch-now lf-sched lf-sch-check @ execute lf-sch-lap lf-sch-busy+ ;'''
+new = '''  lf-sch-now lf-sched lf-sch-check @ execute 2drop ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "no worker's checks are timed: every worker is reported idle the whole run"
+quick = true
+
+[[fault]]
+id = "jd-wait-uncounted"
+file = "src/kernel/env-schedule.fs"
+old = ''': lf-sch-timed-wait ( -- k ) lf-sch-ended lf-sch-wait-mark 2@ lf-sch-lap lf-sch-waited+ ;'''
+new = ''': lf-sch-timed-wait ( -- k ) lf-sch-ended ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the driving task's waits are not counted: it is reported busy the whole run, never stalled"
+
+[[fault]]
+id = "jd-clock-unset"
+file = "src/cli/check-run.fs"
+old = ''': ck-sched-words! ( -- ) ck-tick! ck-pre! ['] ck-wall-now lf-sched-clock! ;'''
+new = ''': ck-sched-words! ( -- ) ck-tick! ck-pre! ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the scheduler gets no clock: every busy and waiting time is 0"
+
+[[fault]]
+id = "jd-run-untimed"
+file = "src/cli/check-run.fs"
+old = ''': ck-sched-timed ( -- ) ck-sub-begin ck-sched-run ck-state ck-jobs-time ck-sub-end ;'''
+new = ''': ck-sched-timed ( -- ) ck-sched-run ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the jobs' run is not timed: busy and waiting no longer add up to it"
+
+[[fault]]
+id = "jd-plan-untimed"
+file = "src/cli/check-run.fs"
+old = ''': ck-planned ( -- outcome ) ck-sub-begin lf-sched-plan ck-state ck-plan-time ck-sub-end ;'''
+new = ''': ck-planned ( -- outcome ) lf-sched-plan ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the plan's time is reported as 0"
+
+[[fault]]
+id = "jd-waiting-is-busy"
+file = "src/cli/check-run.fs"
+old = ''': ck-waiting ( k -- d ) lf-sched-busy ck-less ;'''
+new = ''': ck-waiting ( k -- d ) lf-sched-busy ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "a worker's waiting time is its busy time, not the rest of the run"
+
+[[fault]]
+id = "jd-save-always-shown"
+file = "src/cli/check-run.fs"
+old = ''': ck-phase-shown? ( k -- flag ) ck-saving <> ck-save-tried? or ;'''
+new = ''': ck-phase-shown? ( k -- flag ) drop true ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "every report shows a save phase, also when no snapshot was to be written"
+
+[[fault]]
+id = "jd-save-never-shown"
+file = "src/cli/check-run.fs"
+old = '''  true ck-state ck-save-tried ! ck-phase-begin ck-snapshot-saving ck-saving ck-phase-end ;'''
+new = '''  ck-phase-begin ck-snapshot-saving ck-saving ck-phase-end ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the save is timed but never reported"
+
+[[fault]]
+id = "jd-workers-json-missing"
+file = "src/cli/check-json.fs"
+old = '''  ck-jobs-run? ck-timed? and if s" workers" cj-key cj-workers-body then ;'''
+new = '''  ck-jobs-run? ck-timed? and drop ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the JSON report of a run with workers has no measured workers member"
+
+[[fault]]
+id = "jd-spent-unreported"
+file = "src/cli/leanforth.fs"
+old = '''  ." resources:" cr cli-times. cli-memory. cli-engine. cli-jobs. cli-spent. cli-input.'''
+new = '''  ." resources:" cr cli-times. cli-memory. cli-engine. cli-jobs. cli-input.'''
+test = "python3 tests/cli/test_leanforth.py Jobs.test_spent"
+reason = "--resources leaves out the plan, the jobs' run and every task's busy and waiting time"

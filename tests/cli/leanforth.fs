@@ -1069,19 +1069,69 @@ T{ 1 limited-report 2dup workers-line holds? -rot lacked-line holds? -> true tru
 T{ -1 limited-report 2dup workers-line holds? -rot s" worker tasks" holds? -> true false }T
 T{ -1 0 jobs-report 2dup default-line holds? -rot workers-line holds? -> true false }T
 [then]
+\ A run with workers, timed (--resources; the JSON report's measured
+\ "workers"): each worker's busy and waiting time together are the jobs'
+\ run's, and so are the driving task's; the total is the workers' sum; the
+\ checks, the plan and the driving task's waits took some time; the plan
+\ and the run lie within the check phase.
+\ A run one at a time times no jobs' run and reports none.
+: spent-ok? ( k -- flag ) dup ck-waiting rot lf-sched-busy d+ ck-run-wall d= ;
+: all-spent-ok? ( -- flag ) true lf-sched-workers 0 ?do i spent-ok? and loop ;
+: busy-summed? ( -- flag ) 0 0 lf-sched-workers 0 ?do i lf-sched-busy d+ loop ck-busy-all d= ;
+: driver-ok? ( -- flag ) ck-driver-busy ck-driver-waiting d+ ck-run-wall d= ;
+: within-check? ( -- flag )
+  ck-checking ck-phase-wall ck-plan-wall ck-run-wall d+ d< 0= ;
+: waits-sum? ( -- flag )
+  ck-waiting-all ck-busy-all d+ ck-run-wall lf-sched-workers 1 m*/ d= ;
+: some? ( d -- flag ) d0= 0= ;
+: spent-facts ( -- workers busy? each? summed? driver? within? waits? timed? )
+  lf-sched-workers ck-busy-all some? all-spent-ok? busy-summed? driver-ok? within-check?
+  waits-sum? ck-plan-wall some? ck-driver-waiting some? and ;
+: timed-run ( jobs -- workers busy? each? summed? driver? within? waits? timed? )
+  fresh >r nested rot run-with spent-facts ck-release r> back ;
+T{ 3 timed-run -> 3 asked true true true true true true true }T
+T{ 1 timed-run 2drop 2drop 2drop nip -> 0 }T
+: serial-untimed ( -- zero? jobs? )
+  fresh >r nested 1 run-with ck-run-wall d0= ck-jobs-run? ck-release r> back ;
+T{ serial-untimed -> true false }T
+[defined] >string-execute [if]
+: workers-json ( -- )
+  ['] type cj-writer jw-start cj-object cj-workers cj-end-object cj-writer jw-end drop ;
+: plan-json ( -- c-addr u ) s\" {\"workers\":{\"plan\":{\"wall\":" ;
+: spent-text ( jobs -- c-addr u c-addr' u' )
+  fresh >r nested rot run-with ['] cli-spent. >string-execute ['] workers-json
+  >string-execute ck-release r> back ;
+: tasks-line ( -- c-addr u ) s\" \n    time (s)      busy  waiting\n    driving  " ;
+T{ 3 spent-text plan-json holds? -rot 2dup s" jobs' run" holds? -rot tasks-line holds?
+   -> true true true }T
+T{ 3 spent-text 2drop s"     worker  3 " holds? -> true }T
+T{ 1 spent-text nip rot drop -> 0 2 }T
+[then]
+\ The save is a phase of the report only when a snapshot was to be
+\ written (here none is: the run did not check), in text and JSON.
+: save-file ( -- c-addr u ) s" tests/cli/never-saved.lfsn" ;
+: save-shown ( -- before after absent? )
+  fresh >r 20000000 ck-start ck-saving ck-phase-shown? save-file s" {}" ck-snapshot-save drop
+  ck-saving ck-phase-shown? save-file absent? ck-release r> back ;
+T{ save-shown -> false true true }T
+T{ ck-staging ck-phase-shown? ck-total ck-phase-shown? ck-saving ck-phase-name s" save" compare
+   -> true true 0 }T
 \ Every worker lost: each check of the two first declarations throws and
 \ no replacement can be made. The run ends (it spun forever with entries
 \ past the stop left in the ready heap), stopped at the second declaration
 \ as the serial run, with its cause said.
 : two-throwing ( -- ) lf-env-limit 2 < if -77 throw then lf-check-declaration ;
 : no-maker ( -- context ior ) 0 -1 ;
-: lost-run ( maker-xt -- stop broken? cause stepped )
+\ Run without a clock (lf-sched-clock!), the scheduler times nothing: no
+\ wait, no worker busy, and a lost worker (no context) none either.
+: untimed? ( -- flag ) lf-sched-waited d0= 0 lf-sched-busy d0= and 1 lf-sched-busy d0= and ;
+: lost-run ( maker-xt -- stop broken? cause stepped untimed? )
   fresh >r 20000000 ck-start 2 ck-jobs! ['] two-throwing ck-check-word!
   wide false ck-load drop ck-facts drop ck-env drop lf-sched-plan drop
   ck-check-word ['] ck-keep rot ['] lf-sched-run context-catch throw ck-jobs-facts
-  lf-sched-stop lf-sched-broken? lf-sched-cause ck-steps-begun ck-release r> back ;
-T{ ' no-maker lost-run -> 0 false 0 1 }T
-T{ ' ck-worker-new lost-run -> 0 false 0 1 }T
+  lf-sched-stop lf-sched-broken? lf-sched-cause ck-steps-begun untimed? ck-release r> back ;
+T{ ' no-maker lost-run -> 0 false 0 1 true }T
+T{ ' ck-worker-new lost-run -> 0 false 0 1 true }T
 T{ depth lf-context @ context-main = -> 0 true }T
 
 \ A worker is added whole or not at all (review FRK F1): with the jobs

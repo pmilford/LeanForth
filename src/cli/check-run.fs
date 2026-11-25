@@ -53,6 +53,13 @@
 \   that a stopped run keeps the lines so far (see "Progress lines" below);
 \   ck-done tells how many were given out;
 \ - ck-finish ( -- ) takes the run's total time so far (phase ck-total);
+\   a run with workers also times its plan and its jobs (ck-plan-clock,
+\   ck-run-clock, ck-plan-wall, ck-run-wall) and, through the scheduler's clock
+\   (lf-sched-clock!), what each worker and the driving task spent busy
+\   and waiting in the jobs' run (lf-sched-busy, ck-waiting, ck-busy-all,
+\   ck-waiting-all, ck-driver-busy, ck-driver-waiting: read before
+\   ck-release, the workers still there); ck-snapshot-save is timed as the
+\   phase ck-saving, shown only when a save was asked (ck-phase-shown?);
 \ - then, before ck-release, the verdicts are read in a snapshot of the
 \   run's own environment (ck-verdicts?, then lf-env-outcome), and the
 \   facts with ck-kept (a run-record.fs /rr-step: outcome, diagnostic,
@@ -162,9 +169,10 @@ begin-structure /ck-clock
   2 cells +field clock-wall
   2 cells +field clock-cpu
 end-structure
-\ The phases timed: staging, feeding, checking, and the run's total.
-0 constant ck-staging  1 constant ck-feeding  2 constant ck-checking  3 constant ck-total
-4 constant ck-phases
+\ The phases timed: staging, feeding, checking, saving the snapshot, and
+\ the run's total.
+0 constant ck-staging  1 constant ck-feeding  2 constant ck-checking  3 constant ck-saving
+4 constant ck-total  5 constant ck-phases
 \ Not a timed phase: the export did not open (ck-unopened).
 ck-phases constant ck-opening
 10 constant ck-top-room   \ declarations in the list of the most fuel used
@@ -235,6 +243,10 @@ begin-structure /ck
   field: ck-top-count            \ entries in ck-top
   ck-top-room cells +field ck-top          \ declarations by fuel used, most first
   /ck-clock +field ck-phase-mark           \ the clock when the phase began
+  /ck-clock +field ck-sub-mark             \ and when a part of the check phase began
+  /ck-clock +field ck-plan-time            \ the scheduler's plan (lf-sched-plan)
+  /ck-clock +field ck-jobs-time            \ the jobs' run (lf-sched-run)
+  field: ck-save-tried                     \ true once ck-snapshot-save ran
   /ck-clock +field ck-run-mark             \ and when the run began
   ck-phases /ck-clock * +field ck-times    \ each phase's time
   /slab +field ck-steps          \ the kept steps, /ck-step each
@@ -341,9 +353,20 @@ false constant ck-timed?
 : ck-finish ( -- ) ck-state ck-run-mark ck-total ck-time ck-lap ;
 : ck-phase-wall ( k -- d ) ck-time clock-wall 2@ ;
 : ck-phase-cpu ( k -- d ) ck-time clock-cpu 2@ ;
+\ Phase k is in the report: every one but the save, which only when asked.
+: ck-save-tried? ( -- flag ) ck-state ck-save-tried @ ;
+: ck-phase-shown? ( k -- flag ) ck-saving <> ck-save-tried? or ;
+\ Parts of the check phase of a run with workers (see the header): the
+\ clock gets the time since ck-sub-begin.
+: ck-sub-begin ( -- ) ck-state ck-sub-mark ck-clock! ;
+: ck-sub-end ( clock -- ) ck-state ck-sub-mark swap ck-lap ;
+: ck-plan-clock ( -- clock ) ck-state ck-plan-time ;
+: ck-run-clock ( -- clock ) ck-state ck-jobs-time ;
+: ck-plan-wall ( -- d ) ck-plan-clock clock-wall 2@ ;
+: ck-run-wall ( -- d ) ck-run-clock clock-wall 2@ ;
 : ck-phase-name ( k -- c-addr u )
   case ck-staging of s" stage" endof ck-feeding of s" feed" endof
-    ck-checking of s" check" endof s" total" rot endcase ;
+    ck-checking of s" check" endof ck-saving of s" save" endof s" total" rot endcase ;
 
 \ ---- Peak resident memory: the VmHWM line of /proc/self/status, a
 \ number of kB, in bytes; false where the host has no such file or line.
@@ -875,9 +898,24 @@ name-table: ck-pline-parts
 : ck-pre-guarded ( d -- n ) ck-shift? if drop 3 else ck-pre-word execute ck-guarded then ;
 : ck-tick! ( -- ) ['] ck-tick lf-sched-tick! ;
 : ck-pre! ( -- ) ['] ck-pre-guarded lf-sched-pre! ;
-: ck-jobs-run ( -- )
-  ck-tick! ck-pre! ck-check-word ['] ck-keep ['] ck-worker-new ['] lf-sched-run
-  context-catch throw ck-jobs-facts ;
+\ What each worker and the driving task spent in the jobs' run, in
+\ microseconds: worker k's checks (lf-sched-busy) and the rest of the run
+\ (waiting: no job to run); the driving task's wait for a job to end and
+\ the rest (busy: handing out, publishing, rolling back, the ticks).
+\ Never negative.
+: ck-less ( d -- d' ) dnegate ck-run-wall d+ 0 0 dmax ;
+: ck-waiting ( k -- d ) lf-sched-busy ck-less ;
+: ck-busy-all ( -- d ) 0 0 lf-sched-workers 0 ?do i lf-sched-busy d+ loop ;
+: ck-waiting-all ( -- d ) 0 0 lf-sched-workers 0 ?do i ck-waiting d+ loop ;
+: ck-driver-waiting ( -- d ) lf-sched-waited ;
+: ck-driver-busy ( -- d ) ck-driver-waiting ck-less ;
+\ The plan and the jobs' run timed; the scheduler given the clock.
+: ck-planned ( -- outcome ) ck-sub-begin lf-sched-plan ck-state ck-plan-time ck-sub-end ;
+: ck-sched-words! ( -- ) ck-tick! ck-pre! ['] ck-wall-now lf-sched-clock! ;
+: ck-sched-run ( -- )
+  ck-check-word ['] ck-keep ['] ck-worker-new ['] lf-sched-run context-catch throw ;
+: ck-sched-timed ( -- ) ck-sub-begin ck-sched-run ck-state ck-jobs-time ck-sub-end ;
+: ck-jobs-run ( -- ) ck-sched-words! ck-sched-timed ck-jobs-facts ;
 \ The pool is started before the run, so that a refusal (no threads, as
 \ near the process limit) leaves the whole run to the serial one, with the
 \ workers freed and the cause kept for the report. A pool the host made
@@ -888,7 +926,7 @@ name-table: ck-pline-parts
   lf-sched-pool-start ?dup if ck-state ck-serial-why ! lf-sched-free false exit then
   ck-lacked! true ;
 : ck-steps-any ( n -- )
-  ck-relent ck-jobs-run? if lf-sched-plan ok? if ck-pool-started? if
+  ck-relent ck-jobs-run? if ck-planned ok? if ck-pool-started? if
     drop ck-jobs-run ck-finished exit then then then
   ck-steps-run ck-finished ;
 
@@ -1069,9 +1107,11 @@ create ck-manifest-path manifest-name-room 16 + allot
 : ck-snap-written ( file-addr file-u info-addr info-u -- outcome )
   ck-snap-prepared ok-then2? 0= if exit then
   ck-fuel-budget ck-stage ck-out snap-save ;
-: ck-snapshot-save ( file-addr file-u info-addr info-u -- outcome )
+: ck-snapshot-saving ( file-addr file-u info-addr info-u -- outcome )
   ck-saveable? 0= if 2drop 2drop outcome-invalid else ck-snap-written then
   ck-out snap-free ck-manifest-free dup ck-state ck-snap-saved ! ;
+: ck-snapshot-save ( file-addr file-u info-addr info-u -- outcome )
+  true ck-state ck-save-tried ! ck-phase-begin ck-snapshot-saving ck-saving ck-phase-end ;
 : ck-snap-saved@ ( -- outcome ) ck-state ck-snap-saved @ ;
 \ Loading: the snapshot's header, its tier into the stage, its
 \ environment's sections read (one slot per declaration but a block
