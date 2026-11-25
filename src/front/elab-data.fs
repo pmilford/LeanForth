@@ -135,9 +135,10 @@
 \ be proved by rfl; its declaration must be a theorem, error 14; in an
 \ older format it is malformed) and the kinds other files add, every kind
 \ counted in the header. A file adds a kind while the modules load:
-\ elab-add-kind ( form -- kind ), form an /elab-kind record of the kind's
-\ name (a counted string, the record's key), its reader ( value --
-\ outcome ) and its clear ( -- ), which every reset runs; the kinds number
+\ elab-add-kind ( form clear c-addr u -- kind ), the kind's key c-addr u
+\ (the record's), its records read by elab-on-form with form, its clear
+\ ( -- ) run by every reset; it aborts after context-new, on a key another
+\ kind has, and with no room. The kinds number
 \ from elab-kinds on, at most elab-kinds-most in all, and are read in
 \ format 4 alone (else error 11). A reader reads its record's members with
 \ the words elab-member .. elab-type-pis below, the elab- faces of this
@@ -175,6 +176,7 @@ require ../lib/sha256.fs
 require ../lib/hash32.fs
 require ../lib/htab.fs
 require ../lib/find.fs
+require ../lib/name-table.fs
 require ../lib/text-run.fs
 require ../lib/decimal.fs
 require ../import/stage.fs
@@ -350,23 +352,34 @@ end-structure
 /ed-bk context-slab: elab-bks
 2 cells context-slab: elab-bk-doms
 
-\ Kinds other files add (format 4): their forms in the order they were
-\ added, set while the modules load and read-only afterwards.
-begin-structure /elab-kind
-  field: elab-kind-name     \ a counted string: the record's key
-  field: elab-kind-reader   \ ( value -- outcome )
-  field: elab-kind-clear    \ ( -- ), run by every reset
+\ Kinds other files add (format 4), written only while the modules load
+\ (ed-added-open; elab-add-kind below) and read in place afterwards, as
+\ runs and workers do: a table of their names (lib/name-table.fs), each
+\ entry's data an /ed-kind, then how many there are and their entries in
+\ the order added; kind elab-kinds + i is entry i.
+begin-structure /ed-kind
+  field: ed-kind-number  \ elab-kinds + its place
+  field: ed-kind-form    \ the record's form, read by ed-on-form
+  field: ed-kind-clear   \ ( -- ), run by every reset
 end-structure
 elab-kinds-most elab-kinds - constant ed-added-most
-create ed-added  0 ,  ed-added-most cells allot   \ how many, then the forms
-: ed-added# ( -- n ) ed-added @ ;
-: ed-added-form ( i -- form ) 1+ cells ed-added + @ ;
-: ed-kind-form ( kind -- form ) elab-kinds - ed-added-form ;
-: elab-add-kind ( form -- kind )
-  ed-added# ed-added-most < 0= abort" elab-add-kind: no room for another kind"
-  ed-added dup @ 1+ 2dup swap ! cells + !  ed-added# 1- elab-kinds + ;
-: ed-added-clears ( -- )
-  ed-added# 0 ?do i ed-added-form elab-kind-clear @ execute loop ;
+begin-structure /ed-added
+  2 cells +field ed-added-names   \ the table of names
+  field: ed-added-n
+  ed-added-most cells +field ed-added-entries
+end-structure
+create ed-added  /ed-added allot  ed-added /ed-added erase
+: ed-added-open ( -- ) context-sealed? abort" elab-data: a kind added after context-new" ;
+: ed-added# ( -- n ) ed-added ed-added-n @ ;
+: ed-added-room ( -- )
+  ed-added# ed-added-most < 0= abort" elab-add-kind: no room for another kind" ;
+: ed-names ( -- table ) ed-added ed-added-names ;
+: ed-added-slot ( i -- a-addr ) cell ed-added ed-added-entries record-at ;
+: ed-added-push ( entry -- kind )
+  ed-added# ed-added-slot !  1 ed-added ed-added-n +!  ed-added# 1- elab-kinds + ;
+: ed-kind-data ( kind -- a-addr ) elab-kinds - ed-added-slot @ name-entry-data ;
+: ed-clear-entry ( entry -- ) name-entry-data ed-kind-clear @ execute ;
+: ed-added-clears ( -- ) ed-names ['] ed-clear-entry name-table-each ;
 : ed-v4? ( -- flag ) elab elab-v4 @ ;
 
 : ed-view ( -- view ) elab elab-json ;
@@ -649,16 +662,27 @@ create ed-tag-names
   s" rec_on" counted, s" brec_on" counted, s" match_pattern" counted, s" defeq" counted,
   0 0 counted,
 create ed-reason-names  s" erased" counted, s" not_exported" counted, 0 0 counted,
-: ed-added-name ( kind -- c-addr ) ed-kind-form elab-kind-name @ ;
+\ An added kind's key, the counted name of its entry (name-entry-name
+\ is that name's COUNT).
+: ed-added-key ( i -- c-addr ) ed-added-slot @ name-entry-name drop 1- ;
+: ed-added-name ( kind -- c-addr ) elab-kinds - ed-added-key ;
 : ed-kind-name ( kind -- c-addr )
   dup elab-kinds u< if ed-kind-names swap counted-nth else ed-added-name then ;
 \ An added kind by its key.
-: ed-added-named? ( c-addr u i -- flag ) ed-added-form elab-kind-name @ count compare 0= ;
 : ed-added-index ( c-addr u -- kind true | false )
-  ed-added# 0 ?do 2dup i ed-added-named? if 2drop i elab-kinds + true unloop exit then
-  loop 2drop false ;
+  ed-names name-table-find dup if name-entry-data ed-kind-number @ true then ;
 : ed-kind-index ( c-addr u -- kind true | false )
   2dup ed-kind-names ed-key-index if nip nip true else ed-added-index then ;
+\ A load-time word: a kind whose key ( c-addr u ) no other kind has, read
+\ by form, cleared by clear; aborts after context-new or with no room.
+: ed-kind-new ( c-addr u -- c-addr u )
+  2dup ed-kind-index dup if nip then abort" elab-add-kind: a kind spelt twice" ;
+: ed-entry, ( form clear c-addr u -- c-addr u )
+  2dup ed-names name-entry  ed-added# elab-kinds + ,  2swap swap , , ;
+\ The entry just laid down, found by its key, takes the next place.
+: ed-added-file ( c-addr u -- kind ) ed-names name-table-find ed-added-push ;
+: elab-add-kind ( form clear c-addr u -- kind )
+  ed-added-open ed-added-room ed-kind-new ed-entry, ed-added-file ;
 \ The kinds of formats 3 and 3.1, which have no binder_kinds: the table's
 \ entries before it, copied when loaded.
 : ed-table-copy, ( addr u -- ) here swap dup allot move ;
@@ -1530,7 +1554,7 @@ create ed-kind-handlers
 \ A record of an added kind, read by its form's reader in format 4 alone.
 : ed-on-added ( value -- outcome )
   ed-v4? 0= if drop ed-e-kind ed-bad exit then
-  elab elab-kind @ ed-kind-form elab-kind-reader @ execute ;
+  elab elab-kind @ ed-kind-data ed-kind-form @ ed-on-form ;
 : ed-handler ( kind -- xt )
   dup elab-kinds u< if cells ed-kind-handlers + @ else drop ['] ed-on-added then ;
 : ed-dispatch ( value kind -- outcome )
@@ -1585,10 +1609,9 @@ create ed-head-keys
   ed-v32? if ed-kind-names elab-kinds else ed-v3-kinds elab-binders then ;
 : ed-kinds# ( -- n ) ed-v4? if elab-kinds ed-added# + else ed-kinds-named nip then ;
 \ Format 4 counts the kinds of 3.2 and every added one.
-: ed-added-counted? ( object i -- object flag )
-  ed-added-form elab-kind-name @ over swap ed-member 0< 0= ;
+: ed-added-counted? ( object i -- object flag ) ed-added-key over swap ed-member 0< 0= ;
 : ed-all-added? ( object -- flag )
-  true ed-added# 0 ?do swap i ed-added-counted? rot and loop nip ;
+  ed-added# ['] ed-added-counted? count-index ed-added# = ;
 : ed-v4-shaped? ( object -- flag )
   ed-kinds# over ed-view members? 0= if drop false exit then
   dup ed-kind-names swap ed-view all-keys? swap ed-all-added? and ;

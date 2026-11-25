@@ -179,3 +179,28 @@ old = '''                                and all(a < b for a, b in zip(body["hyp
 new = '''                                and True):'''
 test = "python3 tests/front/test_simp_data.py"
 reason = "SD-a: hypothesis places that do not increase are written"
+
+# --- review simp-sd-a, finding 1: the registry of added kinds is load-time only.
+[[fault]]
+id = "ed-added-unsealed"
+file = "src/front/elab-data.fs"
+old = ''': ed-added-open ( -- ) context-sealed? abort" elab-data: a kind added after context-new" ;'''
+new = ''': ed-added-open ( -- ) ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "review simp-sd-a 1: a kind added after context-new writes the table runs and workers read in place"
+
+[[fault]]
+id = "ed-added-key-twice"
+file = "src/front/elab-data.fs"
+old = '''  2dup ed-kind-index dup if nip then abort" elab-add-kind: a kind spelt twice" ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/elab-kinds.fs"
+reason = "review simp-sd-a 1: a second congr, or a kind keyed tag, is added and shadowed: every format-4 file refused"
+
+[[fault]]
+id = "ed-added-no-room"
+file = "src/front/elab-data.fs"
+old = '''  ed-added# ed-added-most < 0= abort" elab-add-kind: no room for another kind" ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/elab-kinds.fs"
+reason = "review simp-sd-a 1: a kind past elab-kinds-most is written beyond the registry and the counts"

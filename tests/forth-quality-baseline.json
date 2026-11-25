@@ -512,7 +512,7 @@
   "words": 112
  },
  "src/front/elab-data.fs": {
-  "globals": 69,
+  "globals": 70,
   "long lines": 0,
   "long words": 0,
   "rstack": 24,
@@ -782,6 +782,14 @@
   "rstack": 18,
   "shuffles": 6,
   "words": 64
+ },
+ "src/front/simp-data.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 6,
+  "shuffles": 2,
+  "words": 34
  },
  "src/front/syntax.fs": {
   "globals": 0,

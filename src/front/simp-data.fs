@@ -117,10 +117,7 @@ create sdc-members
 create sdc-form  sdc-members , ' simp-congrs ,
   ' sdc-ready , ' sdc-name! , ' sdc-fun! , ' sdc-priority! , ' sdc-hyps! , ' sdc-fit ,
   ' sdc-rank! , ' sdc-order , ' sdc-index , 0 ,
-: sd-on-congr ( value -- outcome ) sdc-form elab-on-form ;
-create sd-congr-key  s" congr" counted,
-create sd-congr-form  sd-congr-key , ' sd-on-congr , ' sd-clear ,
-sd-congr-form elab-add-kind constant simp-congr-kind
+sdc-form ' sd-clear s" congr" elab-add-kind constant simp-congr-kind
 
 \ ---- The questions.
 : simp-data? ( -- flag ) elab-format4? ;

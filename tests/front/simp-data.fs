@@ -101,9 +101,9 @@ T{ 0 ' read-good heap-sweep swap 0> -> 0 true }T
 T{ live-blocks @ in-fresh live-blocks @ = -> true }T
 T{ elab-reset simp-congr-count simp-data? -> 0 false }T
 T{ lib stage-free -> }T
-\ Last, as it fills the registry: elab-add-kind takes kinds until
-\ elab-kinds-most and then aborts (a load that adds one too many).
-create spare-kind  sd-congr-key , ' drop , ' noop ,
-: fill-kinds ( -- ior )
-  begin spare-kind ['] elab-add-kind catch ?dup 0= while drop repeat nip ;
-T{ fill-kinds -> -2 }T
+\ After context-new the registry of kinds is sealed: a kind added now
+\ aborts, the registry unchanged (tests/front/elab-kinds.fs, which never
+\ makes a context, tests the others).
+: add-kind ( c-addr u -- ior )
+  0 ['] noop 2swap ['] elab-add-kind catch dup if nip nip nip nip else nip then ;
+T{ context-sealed? s" late" add-kind s" late" ed-kind-index -> true -2 false }T

@@ -1071,6 +1071,7 @@ test-differential: reference-manifest
 test-elab-data:
 	$(RUN) $(GFORTH) tests/front/elab-data.fs
 	$(RUN) $(GFORTH) tests/front/simp-data.fs
+	$(RUN) $(GFORTH) tests/front/elab-kinds.fs
 	$(RUN) $(GFORTH) tests/front/elab-check-lf.fs
 	$(RUN) python3 tests/scripts/test_mathlib_slice.py
 test-elab-data-e2e:

@@ -1987,3 +1987,17 @@ The owner, 2026-11-24, on the one page of [TACTIC_SIMP.md](../design/TACTIC_SIMP
 4. A quiet window for slice SL1a, which adds Lean's reduction settings to `meta-config.fs`, `whnf.fs`,
    `defeq.fs` and `discr-keys.fs`.
 5. The depth limit counted as Lean counts it and refused past 512.
+
+### Two style-baseline entries of slice SD-a (2026-11-25)
+
+The owner, 2026-11-25, on the review of branch `simp-sd-a`
+([review](../development/forth-reviews/2026-11-25-simp-sd-a.md), its GLOBALS paragraph): "Agree with the 3
+recommendations on simp and speed". The first of them raises the style baseline
+(`tests/forth-quality-baseline.json`) by exactly two entries, set by hand in the reviewed commit:
+
+- `src/front/elab-data.fs`, globals 69 -> **70**: the one load-time registry of the record kinds other files add
+  (`ed-added`), built on `lib/name-table.fs` and sealed at `context-new` (`ed-added-open`), like the other load-time
+  registries.
+- `src/front/simp-data.fs`, a new entry with globals **2**: the members-and-form pair `sdc-members`, `sdc-form`,
+  as every record kind of `elab-data.fs` has. The kind's key and form, two more tables before the review, are
+  now an entry of that registry.
