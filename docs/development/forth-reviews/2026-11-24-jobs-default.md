@@ -173,3 +173,18 @@ The branch was rebased on main `3c622ac1` before the fixes; the reviewed commits
     affinity or a container's quota.
 13. Fixed in `bf079f00`: COMMAND_LINE.md quotes the plan's row 7.3.1 for the scheduler's review status ("review
     rvS7 not blocking, owner-approved 2026-11-12") and names the owner's decision of 2026-11-23 for the default.
+
+## Re-check of the fixes (2026-11-24)
+
+The independent re-check of the fix commits (`23edbba0..a62128a5`) verified finding 1 as fixed: the job's sentinel
+is directly below the check on every path, a THROW included; three planted faulty checks (the review's `1+`, an
+extra cell, a dropped cell) give invalid, stopped and exit 5 at `--jobs 1`, the default, `--jobs 2` and `--jobs 4`
+alike; with correct checks nothing the kernel accepts, rejects, reads or writes changes relative to main, and the
+one kernel edit outside the review's list (`lf-sch-visit`'s default branch) has the same stack effect. Finding 2:
+without `--resources` the report's members are those of main and validate against main's schema; the new members
+follow the pattern of `anyLeanVersion` and `memoryPerCheck`, and the schema files state no rule that calls for a
+version bump. Findings 3 to 12 verified. One blocking item, fixed in `d2bdd882`: `cli-workers` re-implemented
+`first-nonzero` (lib/bounds.fs). One style note not applied: joining `cj-run-times`'s open with
+`cj-workers-body`'s close puts the body into a shape group of the duplicate check, so the two words stay as they
+are. Verdict: merge after that one-line fix.
+
