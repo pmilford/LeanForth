@@ -1,6 +1,6 @@
 \ Lean: theorem u_hyp_prop (h : True) : True := by simp only [h]
-\ A hypothesis that is no equation (Lean rewrites with h = True, by
-\ eq_true h) is not supported yet (slice SL1a-2).
+\ h : True is used as eq_true h : True = True, whose two sides are equal:
+\ Lean's isPerm holds, and perm theorems are not supported yet (SL3d).
 theorem u_hyp_prop
   True explicit: h
   True

@@ -46,3 +46,36 @@ theorem simp_self
 := by
   by-simp-only[ ]
 end simp_self
+
+\ Lean: theorem simp_symm (a b : Nat) (h : b = a) : a = b := by
+\         simp only [← h]
+\ h right to left: the rule is Eq.symm h, a = b, at a.
+theorem simp_symm
+  Nat explicit: a  Nat explicit: b
+  b a = explicit: h
+  a b =
+:= by
+  by-simp-only[ ' h <- ]
+end simp_symm
+
+\ Lean: theorem simp_prop (a b : Nat) (h : a ≤ b) : a ≤ b ∧ a ≤ b := by
+\         simp only [h, and_self]
+\ h, no equation, is the rule eq_true h : (a ≤ b) = True; then and_self.
+theorem simp_prop
+  Nat explicit: a  Nat explicit: b
+  a b ≤ explicit: h
+  a b ≤ a b ≤ ∧
+:= by
+  by-simp-only[ ' h ' and_self ]
+end simp_prop
+
+\ Lean: theorem simp_same_head (a b : Nat) (h : a + 1 = b + 1) :
+\           a + 1 + 1 = b + 1 + 1 := by simp only [h]
+\ h's sides share their head, but a and b differ: no perm theorem.
+theorem simp_same_head
+  Nat explicit: a  Nat explicit: b
+  a 1 + b 1 + = explicit: h
+  a 1 + 1 + b 1 + 1 + =
+:= by
+  by-simp-only[ ' h ]
+end simp_same_head

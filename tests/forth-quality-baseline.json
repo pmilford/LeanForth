@@ -1092,8 +1092,8 @@
   "long lines": 0,
   "long words": 0,
   "rstack": 0,
-  "shuffles": 0,
-  "words": 12
+  "shuffles": 1,
+  "words": 16
  },
  "src/front/tactics/specialize.fs": {
   "globals": 1,

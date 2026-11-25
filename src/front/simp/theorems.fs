@@ -18,12 +18,12 @@
 \   (mkPath, noIndexAtArgs false, 470); its rfl flag Lean's defeq tag
 \   (isRflProof of a constant: simp-data.fs's simp-defeq?); a perm theorem
 \   (isPerm, 291, below) unsupported until SL3d (acLt).
-\ - lf-simp-add-hyp ( h post -- ): mkSimpTheoremFromExpr (502) of the
-\   hypothesis h (a free variable), origin .stx (Elab/Tactic/Simp.lean:
-\   363): its type, whnf'd under mkIndexConfig (lf-with-simp-index), must
-\   be an Eq (a proposition p, an Iff or a forall is preprocessed by Lean:
-\   SL1a-2, SL1b, unsupported here); head-only keys (lf-dt-path-head,
-\   noIndexAtArgs true, 509); rfl false (isRflProof of a free variable).
+\ - lf-simp-add-hyp ( h post -- ): mkSimpTheoremCore (502) of the proof
+\   h, a hypothesis or the term preprocess made of one (the caller's:
+\   tactics/simp-only.fs), origin .stx (Elab/Tactic/Simp.lean:363): its
+\   type, whnf'd under mkIndexConfig (lf-with-simp-index), must be an Eq;
+\   head-only keys (lf-dt-path-head, noIndexAtArgs true, 509); rfl false
+\   (isRflProof of a term that is no constant).
 \ A theorem whose proof is in the set already takes its record again
 \   (insertVal's BEq SimpTheorem compares proofs, Basic.lean:139).
 \ - lf-simp-pre lf-simp-post ( -- tree ); lf-simp-thms# ( -- n );

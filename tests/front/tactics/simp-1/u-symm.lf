@@ -1,9 +1,0 @@
-\ Lean: theorem u_symm (a b : Nat) (h : b = a) : a = b := by simp only [← h]
-\ A rule written with <- is not supported yet (slice SL3d).
-theorem u_symm
-  Nat explicit: a  Nat explicit: b
-  b a = explicit: h
-  a b =
-:= by
-  by-simp-only[ ' h <- ]
-end u_symm

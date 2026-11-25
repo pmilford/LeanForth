@@ -70,6 +70,8 @@
 \       | false ), lf-match-heq? ( t -- α a β b true | false )  matchNot?,
 \       matchNe?, matchHEq? (MatchUtil.lean:62, 71, 31): t, else t after
 \       whnf, is Not p or p -> False; Ne α a b or a negated equation; HEq
+\   lf-eq-app? ( t -- flag )              Expr.isAppOfArity Eq 3: an equation
+\                                         as it stands (lf-eq?'s test; simp-only.fs)
 \   lf-arrow? ( t -- flag )               Expr.isArrow: a pi whose body has
 \                                         no loose bound variable (simp/main.fs)
 \   lf-meta-has-mvar? ( e -- flag outcome ) Expr.hasMVar: a term or level
@@ -154,9 +156,9 @@ abl-most cells context-record: abl-cells
 : abl-decl ( c-addr u -- d ) lfa-intern lf-menv-find lf-must ;   \ getConstVal's
 : abl-infer-d ( e -- type ) lf-infer! lf-whnf-d! ;
 \ Expr.eq?: Eq α a b's three arguments.
-: abl-eq-app? ( t -- flag ) 3 s" Eq" lf-meta-app-of? ;
+: lf-eq-app? ( t -- flag ) 3 s" Eq" lf-meta-app-of? ;
 : lf-eq? ( t -- α a b true | false )
-  dup abl-eq-app? 0= if drop false exit then
+  dup lf-eq-app? 0= if drop false exit then
   dup lf-term-second@ >r lf-term-first@ lf-meta-args2 r> true ;
 : abl-eq ( t -- α a b ) lf-eq? 0= if abl-fail then ;
 : abl-refl? ( h -- flag ) lf-meta-head s" Eq.refl" lf-meta-const-named? ;   \ isAppOf
@@ -368,7 +370,7 @@ end-structure
 \ ---- matchEq? (Meta/MatchUtil.lean:28, matchHelper?): Expr.eq? of t,
 \ else of t put through whnf (the transparency in force; its failure
 \ thrown). Rewriting's equation; omega and simp later (plan 9.4.8l-I).
-: lf-match-eq? ( t -- α a b true | false ) dup abl-eq-app? 0= if lf-whnf! then lf-eq? ;
+: lf-match-eq? ( t -- α a b true | false ) dup lf-eq-app? 0= if lf-whnf! then lf-eq? ;
 
 \ ---- matchNot? (62), matchNe? (71) and matchHEq? (31), each tried on t,
 \ then on t put through whnf (matchHelper?, 22): Not p, or an arrow

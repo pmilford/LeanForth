@@ -8,3 +8,9 @@
 {"goal_before":"⊢ True","goals_after":[],"parent":0,"source":"39:3","step":1,"tactic":"simp","word":"by-simp-only["}
 {"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_self","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
 {"goal_before":"n : Nat\n⊢ n = n","goals_after":[],"parent":0,"source":"47:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_symm","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh : b = a\n⊢ a = b","goals_after":[],"parent":0,"source":"58:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_prop","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh : a ≤ b\n⊢ a ≤ b ∧ a ≤ b","goals_after":[],"parent":0,"source":"69:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_same_head","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh : a + 1 = b + 1\n⊢ a + 1 + 1 = b + 1 + 1","goals_after":[],"parent":0,"source":"80:3","step":1,"tactic":"simp","word":"by-simp-only["}

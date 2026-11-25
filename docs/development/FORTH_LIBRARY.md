@@ -2130,7 +2130,10 @@ both in the new `congr-thms.fs`) and app-builder.fs's `mkOfEqTrue`, `mkEqTrue`,
 `lf-arrow? ( t -- flag )` (Expr.isArrow: a pi whose body has no loose
 bound variable; simp's dependent arguments) and
 `lf-meta-has-assignable? ( e -- flag )` (hasAssignableMVar's term part,
-shared by mkAppM's closing check and simp's rewrite).
+shared by mkAppM's closing check and simp's rewrite) and
+`lf-eq-app? ( t -- flag )` (an `Eq` applied to three arguments as it
+stands: `lf-eq?`'s test and simp's preprocess); meta-must.fs's
+`lf-eqv! ( a b -- flag )` is Lean's `==` thrown on failure.
 
 - **Algorithm.** A tree record holds Lean's root map (a `lib/htab.fs`
   table of root numbers, keyed by `elab-key=` and `elab-key-hash`) and the

@@ -242,6 +242,8 @@ s" Std.le_refl._simp_1" set-of
 : n<=n ( -- e ) s" LE.le" zero-level lf-mk-const1 nat lf-mk-app s" instLENat" lf-mk-const0
   lf-mk-app n0 lf-mk-app n0 lf-mk-app ;
 T{ n<=n unsupported? -> true }T
+\ preprocess's shapes left to SL1b: a pi; p is none.
+T{ nat>nat tso-shaped? p0 tso-shaped? -> true false }T
 \ isClass?: Nat is no class, Decidable p is one (synth-class-quick).
 T{ nat sr-class? s" Decidable" lf-mk-const0 p0 lf-mk-app sr-class? -> false true }T
 \ The dsimp guard's question: an rfl theorem among the candidates.
@@ -278,13 +280,30 @@ T{ s" Nat explicit: n Nat explicit: m n m = explicit: k n 0 + m ="
 T{ s" Nat explicit: n n n 1 + =" s" by-simp-only[ ]" tactic-ran -> 500 }T
 lf-tac-forget
 \ Not supported yet (99): a definition to unfold, a variable that is no
-\ proposition, a term, a rule right to left, at[ ].
+\ proposition, a term, at[ ].
 : ran99 ( c-addr u c-addr' u' -- flag ) tactic-ran 99 = lf-tac-forget ;
+: ran-unsupported ( c-addr u c-addr' u' -- flag )
+  tactic-ran lf-author-outcome outcome-unsupported = lf-tac-forget ;
 T{ s" Nat explicit: a a 0 Nat.add a =" s" by-simp-only[ ' Nat.add ]" ran99 -> true }T
 T{ s" Nat explicit: a a a =" s" by-simp-only[ ' a ]" ran99 -> true }T
 T{ abc s" by-simp-only[ << ' h >> ] ' k by-exact" ran99 -> true }T
-T{ abc s" by-simp-only[ ' h <- ] ' k by-exact" ran99 -> true }T
 T{ abc s" by-simp-only[ ' h ] at[ h ] ' k by-exact" ran99 -> true }T
+\ preprocess: h : b = a with <- is Eq.symm h (a = c becomes b = c, which
+\ k closes); h : a <= b is eq_true h
+\ (with and_self: closed); h : True (True = True, a perm theorem), a
+\ constant with <-, a proposition with <-, a Not, And or Iff hypothesis
+\ answer 99.
+T{ s" Nat explicit: a Nat explicit: b Nat explicit: c b a = explicit: h b c = explicit: k a c ="
+   s" by-simp-only[ ' h <- ] ' k by-exact" tactic-ran -> 0 }T
+T{ s" Nat explicit: a Nat explicit: b a b ≤ explicit: h a b ≤ a b ≤ ∧"
+   s" by-simp-only[ ' h ' and_self ]" tactic-ran -> 0 }T
+T{ s" True explicit: h True" s" by-simp-only[ ' h ]" ran99 -> true }T   \ True = True: a perm theorem
+T{ s" Nat explicit: n n 0 + n =" s" by-simp-only[ ' Nat.add_zero <- ]" ran99 -> true }T
+T{ s" True explicit: h True" s" by-simp-only[ ' h <- ]" ran99 -> true }T
+T{ s" Nat explicit: a a 0 = Not explicit: h True" s" by-simp-only[ ' h ]" ran-unsupported
+   -> true }T
+T{ s" True True ∧ explicit: h True" s" by-simp-only[ ' h ]" ran99 -> true }T
+T{ s" True True ↔ explicit: h True" s" by-simp-only[ ' h ]" ran99 -> true }T
 \ A theorem LeanForth's text declared has no defeq tag recorded (99).
 : text-ran ( c-addr u -- code ) lf-author-begin lf-author-text drop lf-author-code ;
 T{ s" theorem z0 Nat explicit: n n 0 + n = := by by-simp-only[ ' Nat.add_zero ] end z0 theorem t Nat explicit: m m 0 + m = := by by-simp-only[ ' z0 ] end t"

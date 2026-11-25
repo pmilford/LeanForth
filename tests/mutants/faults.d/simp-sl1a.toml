@@ -4,8 +4,8 @@
 # congr-thms.fs's kinds); read with faults.toml as one list (scripts/mutants.py).
 # The simp loop's own faults (post-before-pre, cache-ignored, rfl-step-kept,
 # step-check-after-increment, congrfun-for-congrfun-prime, dsimp-guard-off,
-# perm-heads-only, synth-class-quick, sort-symbolic-refused) are at the end, each
-# caught by tests/front/tactics/simp-1/test.fs.
+# perm-heads-only, synth-class-quick, sort-symbolic-refused, symm-ignored,
+# prop-shapes-taken) are at the end, each caught by tests/front/tactics/simp-1/test.fs.
 
 [[fault]]
 id = "head-keys-full"
@@ -150,3 +150,19 @@ old = '''lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-str 4 lf-tags consta
 new = '''lf-tag-sort lf-tag-lit lf-tag-str 3 lf-tags constant sm-plain-tags'''
 test = "$GFORTH tests/front/tactics/simp-1/test.fs"
 reason = "SL1a: a Sort in its symbolic form (the elaborator's) is no plain leaf of simpStep (Main.lean), so simp refuses it"
+
+[[fault]]
+id = "symm-ignored"
+file = "src/front/tactics/simp-only.fs"
+old = '''  over tso-type lf-eq-app? if if lf-mk-eq-symm then else tso-prop then ;'''
+new = '''  over tso-type lf-eq-app? if drop else tso-prop then ;'''
+test = "$GFORTH tests/front/tactics/simp-1/test.fs"
+reason = "SL1a-2: preprocess (SimpTheorems.lean:338) with inv makes Eq.symm h; ignored, ' h <- rewrites left to right"
+
+[[fault]]
+id = "prop-shapes-taken"
+file = "src/front/tactics/simp-only.fs"
+old = '''  if lf-tac-unported then dup tso-type tso-shaped? if lf-tac-unported then lf-mk-eq-true ;'''
+new = '''  if lf-tac-unported then lf-mk-eq-true ;'''
+test = "$GFORTH tests/front/tactics/simp-1/test.fs"
+reason = "SL1a-2: preprocess (SimpTheorems.lean:344-380) turns an Iff, Ne, Not, And or pi hypothesis into other theorems; taken as p = True, h : True ∧ True is a rule no Lean run has"

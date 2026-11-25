@@ -1,7 +1,7 @@
 -- Pinned Lean twins of tests/front/tactics/simp-1/*.lf (plan row FE9, simp slice SL1a-1:
 -- simp only on the target): tactic_check.py --lean writes simp-1.golden from this file's
--- terms, which LeanForth's must equal node for node. u_def, u_at, u_symm, u_hyp_prop and
--- u_literal are the texts LeanForth answers 99 (not supported yet) for; Lean accepts them.
+-- terms, which LeanForth's must equal node for node. u_def, u_at, u_hyp_prop and u_literal
+-- are the texts LeanForth answers 99 (not supported yet) for; Lean accepts them.
 import Lean
 open Lean Meta Elab Tactic
 set_option linter.unusedVariables false
@@ -20,8 +20,12 @@ theorem simp_self (n : Nat) : n = n := by
 theorem u_at (a b : Nat) (h : a + 0 = b) : a = b := by
   simp only [Nat.add_zero] at h
   exact h
-theorem u_symm (a b : Nat) (h : b = a) : a = b := by
+theorem simp_symm (a b : Nat) (h : b = a) : a = b := by
   simp only [← h]
+theorem simp_prop (a b : Nat) (h : a ≤ b) : a ≤ b ∧ a ≤ b := by
+  simp only [h, and_self]
+theorem simp_same_head (a b : Nat) (h : a + 1 = b + 1) : a + 1 + 1 = b + 1 + 1 := by
+  simp only [h]
 theorem u_hyp_prop (h : True) : True := by
   simp only [h]
 theorem u_def (a : Nat) : Nat.add a 0 = a := by
@@ -53,5 +57,5 @@ def dump (n : Name) : MetaM Unit := do
 
 #eval do
   for n in [``simp_add_zero, ``simp_hyp, ``simp_hyp_whole, ``simp_true, ``simp_self,
-      ``u_at, ``u_symm, ``u_hyp_prop, ``u_def, ``u_literal] do
+      ``simp_symm, ``simp_prop, ``simp_same_head, ``u_at, ``u_hyp_prop, ``u_def, ``u_literal] do
     dump n

@@ -386,7 +386,7 @@ reason = "9.4.8l-I plan L5: lf-term-holds-with?'s test gets no context, so apply
 [[fault]]
 id = "lib-match-eq-no-whnf"
 file = "src/front/app-builder.fs"
-old = ''': lf-match-eq? ( t -- α a b true | false ) dup abl-eq-app? 0= if lf-whnf! then lf-eq? ;'''
+old = ''': lf-match-eq? ( t -- α a b true | false ) dup lf-eq-app? 0= if lf-whnf! then lf-eq? ;'''
 new = ''': lf-match-eq? ( t -- α a b true | false ) lf-eq? ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l-I matchEq? (MatchUtil.lean:28) without matchHelper?'s whnf: an equation behind a definition or a beta-redex refused"
