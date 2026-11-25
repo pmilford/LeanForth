@@ -167,7 +167,7 @@ The branch was rebased on main `3c622ac1` before the fixes; the reviewed commits
 10. Fixed in `e6ff4276`: `cli-workers` returns `cli-jobs` or, when none was given, the default, without flag
     arithmetic (written as an early exit: the `?dup 0= if` form joins a shape group of `check-duplicates.py`).
 11. No change, as the review says.
-12. Fixed in `bf079f00` and `445c41e4`: with fewer cores than asked the workers line says so ("workers: 1 (--jobs 4,
+12. Fixed in `bf079f00`, `445c41e4` and `6aacd0c3` (unit tests of the line, for `make cover-changed`): with fewer cores than asked the workers line says so ("workers: 1 (--jobs 4,
     1 core)", "workers: 2 (the default 4, 2 cores)"); `Jobs.test_fewer_cores` with the test-only
     `task-cores-test`; fault `jd-cut-silent`. COMMAND_LINE.md says "cores" are the CPUs Linux has online, not
     affinity or a container's quota.
