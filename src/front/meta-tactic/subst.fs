@@ -239,12 +239,11 @@ end-structure
 : mse-kept ( -- h goal ) mse-h@ mse-goal@ ;
 
 \ heqToEq: HEq α a β b with α, β defeq made a = b, h tried for clearing.
-: mse-homogeneous? ( α a β b -- a b flag ) >r rot swap lf-defeq! r> swap ;
 : mse-to-eq ( a b -- h' goal' )
   lf-mk-eq mse-h@ lf-mk-eq-of-heq mse-assert mse-h@ lf-goal-try-clear mse-intro swap ;
 : mse-heq-run ( -- h' goal' )
   mse-local! mse-type lf-match-heq? 0= if mse-kept exit then
-  mse-homogeneous? if mse-to-eq else 2drop mse-kept then ;
+  lf-heq-homogeneous? if rot drop mse-to-eq else 2drop drop mse-kept then ;
 : mse-heq-framed ( goal h -- h' goal' )
   mse mse-goal cell-pair! mse-goal@ ['] mse-heq-run lf-with-goal ;
 : lf-goal-heq-to-eq ( goal h -- h' goal' ) mse-frames ['] mse-heq-framed lf-with-record ;

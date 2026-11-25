@@ -62,9 +62,9 @@ reason = "TB2 E2a: revert-kept reverts in the context's order, not the order ask
 
 [[fault]]
 id = "heq-not-converted"
-file = "src/front/meta-tactic/subst.fs"
-old = ''': mse-homogeneous? ( α a β b -- a b flag ) >r rot swap lf-defeq! r> swap ;'''
-new = ''': mse-homogeneous? ( α a β b -- a b flag ) >r rot swap 2drop false r> swap ;'''
+file = "src/front/app-builder.fs"
+old = ''': lf-heq-homogeneous? ( α a β b -- α a b flag ) >r >r over r> lf-defeq! r> swap ;'''
+new = ''': lf-heq-homogeneous? ( α a β b -- α a b flag ) >r >r over r> 2drop false r> swap ;'''
 test = "$GFORTH tests/front/tactics/batch-h/test.fs"
 reason = "TB2 E2a: an HEq of one type is never made an equation, so subst of it finds no equation (test.fs's g-ab fq heqToEq: q : a = b; the HEq text expects 0)"
 
