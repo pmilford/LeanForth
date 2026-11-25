@@ -82,6 +82,31 @@ theorem bc_clear
   ' h by-exact
 end bc_clear
 
+\ The same through by-contra: - (Lean's by_contra - too).
+\ Lean: theorem bc_clear_word (h : False) : ¬True := by
+\         by_contra -
+\         exact h
+theorem bc_clear_word
+  False explicit: h
+  True ¬
+:= by
+  by-contra: -
+  ' h by-exact
+end bc_clear_word
+
+\ by-contra: _ (Lean's by_contra _): the hypothesis unnamed, still found.
+\ Lean: theorem bc_anon_word (a b : Nat) (h : a = b) : a = b := by
+\         by_contra _
+\         contradiction
+theorem bc_anon_word
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  by-contra: _
+  by-contradiction
+end bc_anon_word
+
 \ A tuple inside an alternative.
 \ Lean: theorem bc_nest (a b : Nat) (h : ¬a = b) : ¬((a = b ∧ b = a) ∨ a = b) := by
 \         by_contra ⟨h1, _⟩ | h2

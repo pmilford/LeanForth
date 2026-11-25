@@ -1342,8 +1342,9 @@ value written.
 - `by-contra: NAME` and `by-contra`: proof by contradiction, NAME (or
   `this`) the negation of the goal, the new goal `False`; for a goal ¬q,
   NAME : q. `by-contra: k ' k by-absurd ' h by-exact` (`bk_dec`); Lean
-  (Batteries): `by_contra k`. NAME may be `_` (hidden) or `rfl` (the
-  equation substituted away, as `by-rintro[ rfl ]`).
+  (Batteries): `by_contra k`. NAME may be `_` (hidden), `-` (introduced
+  and cleared, Lean's `by_contra -`) or `rfl` (the equation substituted
+  away, as `by-rintro[ rfl ]`): each means what it means in `by-contra[ ]`.
 - `by-contra[ PATTERN ]` (slice E2b): the same, the negation taken apart
   by one case pattern, as `by-rintro[ ]` reads it (`a | b` is Lean's
   `(a | b)`; two patterns or none: 474). Mathematically: to refute a ∧ b,
@@ -1837,7 +1838,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-subst-vars` | `( -- )` | ordinary | Run: subst of every local in turn until none goes | Every equation with a variable side used. | `subst_vars` |
 | `by-exacts[` | `( -- )` | ordinary; opens a term block that `]` closes (no `<-`) | read: a step whose terms are the values up to `]`. Run: `by-exact` of each, then no goal may be left | Closes the goals one term each; a mismatch: 96; a goal left: 89. | `exacts [` (Batteries) |
 | `by-cases: HYP-NAME` | `( p -- )` (top: p) | parsing: one name after it, on its line | read: a step holding p; HYP-NAME a hypothesis word. Run: assigns the main goal `dite p` of two new goals, `pos` (HYP-NAME : p) and `neg` (HYP-NAME : ¬p), which take its place | Splits on whether p holds; p's `Decidable` instance, else `Classical.propDecidable` (the report's axioms then `propext`, `Classical.choice`, `Quot.sound`, which `--strict-axioms` accepts); p no proposition or `_`: 99. | `by_cases HYP-NAME : p` |
-| `by-contra: HYP-NAME` | `( -- )` | parsing: one name after it, on its line | read: a step whose pattern is HYP-NAME; HYP-NAME a hypothesis word (`_` hidden, `rfl` the pattern). Run: `by-contra-core`, then `by-rintro[`'s walk on the same step | Proves the goal p from HYP-NAME : ¬p and the goal `False` (for p = ¬q, HYP-NAME : q); `rfl` substitutes the equation (478 when it is none, Lean's). | `by_contra HYP-NAME` (Batteries) |
+| `by-contra: HYP-NAME` | `( -- )` | parsing: one name after it, on its line | read: a step whose pattern is HYP-NAME; HYP-NAME a hypothesis word or one of the leaf patterns (`_` hidden, `-` cleared, `rfl` substituted). Run: `by-contra-core`, then `by-rintro[`'s walk on the same step | Proves the goal p from HYP-NAME : ¬p and the goal `False` (for p = ¬q, HYP-NAME : q); `rfl` substitutes the equation (478 when it is none, Lean's). | `by_contra HYP-NAME` (Batteries) |
 | `by-contra[` | `( -- )` | ordinary; reads one pattern up to `]` itself (472-474, 458, 72) | read: a step whose pattern items follow, postfix, a sequence node last. Run: `by-contra-core`, then `by-rintro[`'s walk on the same step | The same, the negation taken apart by the pattern (tuples, alternatives, `_`, `-`, `rfl`). | `by_contra PATTERN` (Batteries) |
 | `by-contra` | `( -- )` | ordinary; `this` a hypothesis word | read: a step. Run: as `by-contra: this` | The same, the hypothesis named `this`. | `by_contra` (Batteries) |
 | `by-contra-core` | `( -- )` | ordinary | read: a step. Run: the goal ¬q becomes q → False, else p becomes ¬p → False (`Decidable.byContradiction`, else `Classical.byContradiction`) | The first half of `by-contra:`; p no proposition: 99. | `by_contra_core` (Batteries) |

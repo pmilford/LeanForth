@@ -7,10 +7,10 @@
 [[fault]]
 id = "contra-rfl-as-name"
 file = "src/front/pattern-syntax.fs"
-old = '''  2dup s" rfl" lfa-token= if 2drop pat-rfl pat-leaf exit then lft-given 1 pat-span! ;'''
+old = '''  pat-leaf? if pat-leaf exit then lft-given 1 pat-span! ;'''
 new = '''  lft-given 1 pat-span! ;'''
 test = "$GFORTH tests/front/tactics/batch-h2/test.fs"
-reason = "TB2 E2b: by-contra: rfl introduces a hypothesis named rfl where Lean's by_contra rfl substitutes (test.fs's by-contra: rfl, argument 0 pat-rfl)"
+reason = "TB2 E2b (review finding 2): by-contra: rfl, - and _ read as hypothesis names, where Lean's by_contra rfl substitutes and by_contra - clears (test.fs's by-contra: rfl, argument 0 pat-rfl, and by-contra: -, 449 and pat-clear)"
 
 [[fault]]
 id = "contra-many-patterns"

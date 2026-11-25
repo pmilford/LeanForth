@@ -23,7 +23,7 @@ D = "tests/front/tactics/batch-h2/"
 ENV = tactic_check.Env("tests/front/patterns-slice.ndjson",
                        "tests/front/patterns-slice.elab.ndjson", "patterns-dump")
 FILES = [(D + "by-contra.lf", ["bc_tuple", "bc_alts", "bc_rfl", "bc_rfl_word", "bc_name",
-                               "bc_clear", "bc_nest"]),
+                               "bc_clear", "bc_clear_word", "bc_anon_word", "bc_nest"]),
          (D + "empty.lf", ["em_empty", "em_later", "em_dep"]),
          (D + "dvd.lf", ["dv_obtain"])]
 

@@ -61,6 +61,13 @@ T{ sn s" by-contra by-contradiction" tactic-ran 0 parg swap s" this" name? 1 par
 T{ sn s" by-contra: _ by-contradiction" tactic-ran 0 parg -> 0 0 1 }T
 T{ s" Nat explicit: a Nat explicit: b a a = ¬ explicit: h a b = ¬" s" by-contra: rfl by-contradiction"
    tactic-ran 0 parg -> 0 pat-rfl 1 }T
+\ by-contra: - clears what it introduces, as by_contra - and by-contra[ - ]
+\ do: h : ¬a = b alone contradicts nothing (Lean: contradiction failed),
+\ where by-contra: k keeps k : a = b.
+: sd ( -- c-addr u ) s" Nat explicit: a Nat explicit: b a b = ¬ explicit: h a b = ¬" ;
+T{ sd s" by-contra: - by-contradiction" tactic-ran sd s" by-contra: k by-contradiction" tactic-ran
+   -> 449 0 }T
+T{ s" False explicit: h True ¬" s" by-contra: - ' h by-exact" tactic-ran 0 parg -> 0 pat-clear 1 }T
 \ Refusals: one pattern (474: two, none), a bar first or last (472), a
 \ closer of another bracket or none (473), a word (458), @ (72).
 T{ sn s" by-contra[ k j ]" tactic-ran sn s" by-contra[ ]" tactic-ran -> 474 474 }T

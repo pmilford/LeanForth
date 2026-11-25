@@ -39,6 +39,12 @@ theorem bc_name (a b : Nat) (h : a = b) : a = b := by
 theorem bc_clear (h : False) : ¬True := by
   by_contra -
   exact h
+theorem bc_clear_word (h : False) : ¬True := by
+  by_contra -
+  exact h
+theorem bc_anon_word (a b : Nat) (h : a = b) : a = b := by
+  by_contra _
+  contradiction
 theorem bc_nest (a b : Nat) (h : ¬a = b) : ¬((a = b ∧ b = a) ∨ a = b) := by
   by_contra ⟨h1, _⟩ | h2
   contradiction
@@ -80,6 +86,6 @@ def dump (n : Name) : MetaM Unit := do
   IO.println s!"{n} value {← sx i.value}"
 
 #eval do
-  for n in [``bc_tuple, ``bc_alts, ``bc_rfl, ``bc_rfl_word, ``bc_name, ``bc_clear, ``bc_nest,
-      ``em_empty, ``em_later, ``em_dep, ``dv_obtain] do
+  for n in [``bc_tuple, ``bc_alts, ``bc_rfl, ``bc_rfl_word, ``bc_name, ``bc_clear, ``bc_clear_word,
+            ``bc_anon_word, ``bc_nest, ``em_empty, ``em_later, ``em_dep, ``dv_obtain] do
     dump n

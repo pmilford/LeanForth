@@ -17,7 +17,8 @@
 \     one element (474), read as by-rintro['s sequence of one (Batteries'
 \     by_contra pat: rintro (pat)); by-contra: NAME (tac-shape-contra-
 \     name) and by-contra (tac-shape-contra-this: the name this) are read
-\     the same way, NAME a hypothesis's name, _ or rfl.
+\     the same way, NAME a hypothesis's name or one of the leaf items _,
+\     - and rfl, each meaning what it means inside by-contra[ ].
 \ A plain loop with no lookahead: an item ends the open element unless a
 \ bar since the last item set the join flag (then it joins the element
 \ and clears the flag); a bar with no element open or the flag set is 472
@@ -118,9 +119,11 @@ end-structure
 : pfr-end-list ( i -- i )
   pfr pfr-closer @ dup 3 = if drop pfr-top exit then 4 = if pfr-seq else pfr-contra then ;
 
-\ ---- The items and closers: a word list searched by spelling (each
-\ word ( i -- i more? )); any other token is a name.
+\ ---- The items and closers: two word lists searched by spelling, the
+\ brackets' (each word ( i -- i more? )) and the leaf items' (each
+\ ( -- x ), also by-contra: NAME's); any other token is a name.
 wordlist constant pat-words
+wordlist constant pat-leaves
 [defined] warnings [if] warnings @ warnings off [then]   \ _ and - spelt as words
 get-current pat-words set-current
 : | ( i -- i more? ) pfr-bar true ;
@@ -129,11 +132,14 @@ get-current pat-words set-current
 : >> ( i -- i more? ) 1 pfr-tuple true ;
 : ⟩ ( i -- i more? ) 2 pfr-tuple true ;
 : ] ( i -- i more? ) pfr-end-list false ;
-: _ ( i -- i more? ) 0 pat-item true ;
-: - ( i -- i more? ) pat-clear pat-item true ;
-: rfl ( i -- i more? ) pat-rfl pat-item true ;
+pat-leaves set-current
+: _ ( -- x ) 0 ;
+: - ( -- x ) pat-clear ;
+: rfl ( -- x ) pat-rfl ;
 set-current
 [defined] warnings [if] warnings ! [then]
+: pat-leaf? ( c-addr u -- x true | c-addr u false )
+  2dup pat-leaves lfa-word-of if nip nip execute true else false then ;
 \ A name: no LeanForth word (else the list is unclosed, 458), no @ (72).
 : pat-word ( c-addr u -- c-addr u )
   dup 0= if lfa-list-unclosed then 2dup lft-at-sign? if lfa-e-tactic lfa-fail then
@@ -141,7 +147,8 @@ set-current
 : pat-name ( i c-addr u -- i true ) pat-word rot pfr-item -rot lft-given 1 pat-span!
   true ;
 : pat-step ( i c-addr u -- i more? )
-  2dup pat-words lfa-word-of if nip nip execute else pat-name then ;
+  2dup pat-words lfa-word-of if nip nip execute exit then
+  pat-leaf? if pat-item true else pat-name then ;
 : pat-read ( i closer -- )
   lft-list-open pat-frames slab-clear pfr-open
   begin lfa-token-on pat-step 0= until lft-done ;
@@ -152,10 +159,11 @@ set-current
 : lft-build-contra ( i shape -- ) lft-values drop 5 pat-read ;
 0 0 ' lft-build-contra tac-shape-new constant tac-shape-contra
 \ by-contra: NAME and by-contra: the name, or this, as a sequence of one
-\ rintro pattern (Batteries' by_contra h, rintro h); rfl is the item.
+\ rintro pattern (Batteries' by_contra h, rintro h); _, - and rfl are
+\ the leaf items they are inside by-contra[ ].
 : lft-contra-seq ( i -- ) pat-seq 0 pat-node lft-done ;
 : lft-contra-item ( i c-addr u -- i )
-  2dup s" rfl" lfa-token= if 2drop pat-rfl pat-leaf exit then lft-given 1 pat-span! ;
+  pat-leaf? if pat-leaf exit then lft-given 1 pat-span! ;
 : lft-build-contra-name ( i shape -- )
   drop lfa-name-token lft-contra-item lft-contra-seq ;
 : lft-build-contra-this ( i shape -- )
