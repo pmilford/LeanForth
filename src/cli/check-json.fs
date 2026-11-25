@@ -210,10 +210,9 @@ require ./check-run.fs
 : cj-phase ( k -- ) dup ck-time swap ck-phase-name cj-clock ;
 \ The save ("save", an optional member added within versions 0.4 and 0.5
 \ on 2026-11-24) only when a snapshot was to be written.
-: cj-phase? ( k -- ) dup ck-phase-shown? if cj-phase else drop then ;
 : cj-times ( -- )
   s" microseconds" cj-key ck-timed? 0= if cj-null exit then
-  ck-finish cj-object ck-phases 0 do i cj-phase? loop cj-end-object ;
+  ck-finish cj-object ['] cj-phase ck-shown-phases cj-end-object ;
 : cj-peak ( -- ) s" peakResidentBytes" cj-key ck-peak if cj-n else cj-null then ;
 : cj-stage-bytes ( -- )
   s" stageBytes" cj-key ck-staged? if ck-staged-bytes cj-n else cj-null then ;
@@ -232,8 +231,9 @@ require ./check-run.fs
 : cj-each ( -- )
   s" each" cj-key cj-array lf-sched-workers 0 ?do i cj-worker loop cj-end-array ;
 : cj-all ( -- ) ck-busy-all s" busy" cj-us ck-waiting-all s" waiting" cj-us ;
-: cj-run-parts ( -- ) ck-plan-clock s" plan" cj-clock ck-run-clock s" run" cj-clock ;
-: cj-workers-body ( -- ) cj-object cj-run-parts cj-driver cj-each cj-all cj-end-object ;
+: cj-run-times ( -- )
+  cj-object ck-plan-clock s" plan" cj-clock ck-run-clock s" run" cj-clock ;
+: cj-workers-body ( -- ) cj-run-times cj-driver cj-each cj-all cj-end-object ;
 : cj-workers ( -- )
   ck-jobs-run? ck-timed? and if s" workers" cj-key cj-workers-body then ;
 : cj-measured ( -- )

@@ -54,7 +54,7 @@
 \   ck-done tells how many were given out;
 \ - ck-finish ( -- ) takes the run's total time so far (phase ck-total);
 \   a run with workers also times its plan and its jobs (ck-plan-clock,
-\   ck-run-clock, ck-plan-wall, ck-run-wall) and, through the scheduler's clock
+\   ck-run-clock, ck-run-wall) and, through the scheduler's clock
 \   (lf-sched-clock!), what each worker and the driving task spent busy
 \   and waiting in the jobs' run (lf-sched-busy, ck-waiting, ck-busy-all,
 \   ck-waiting-all, ck-driver-busy, ck-driver-waiting: read before
@@ -353,16 +353,18 @@ false constant ck-timed?
 : ck-finish ( -- ) ck-state ck-run-mark ck-total ck-time ck-lap ;
 : ck-phase-wall ( k -- d ) ck-time clock-wall 2@ ;
 : ck-phase-cpu ( k -- d ) ck-time clock-cpu 2@ ;
-\ Phase k is in the report: every one but the save, which only when asked.
+\ Phase k is in the report: every one but the save, which only when asked;
+\ xt ( k -- ) run on each such phase in order.
 : ck-save-tried? ( -- flag ) ck-state ck-save-tried @ ;
 : ck-phase-shown? ( k -- flag ) ck-saving <> ck-save-tried? or ;
+: ck-shown-phases ( xt -- )
+  ck-phases 0 do i ck-phase-shown? if i over execute then loop drop ;
 \ Parts of the check phase of a run with workers (see the header): the
 \ clock gets the time since ck-sub-begin.
 : ck-sub-begin ( -- ) ck-state ck-sub-mark ck-clock! ;
 : ck-sub-end ( clock -- ) ck-state ck-sub-mark swap ck-lap ;
 : ck-plan-clock ( -- clock ) ck-state ck-plan-time ;
 : ck-run-clock ( -- clock ) ck-state ck-jobs-time ;
-: ck-plan-wall ( -- d ) ck-plan-clock clock-wall 2@ ;
 : ck-run-wall ( -- d ) ck-run-clock clock-wall 2@ ;
 : ck-phase-name ( k -- c-addr u )
   case ck-staging of s" stage" endof ck-feeding of s" feed" endof

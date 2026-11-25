@@ -280,7 +280,8 @@ manifest: cli-manifest
 : cli-takes-jobs? ( -- flag ) cli-state arg-set @ takes-jobs and 0<> ;
 : cli-jobs-unset ( -- n )
   cli-takes-jobs? cli-text-file? 0= and if cli-jobs-default else 1 then ;
-: cli-workers ( -- n ) cli-jobs ?dup 0= if cli-jobs-unset then ;
+\ cli-jobs is 0 exactly when --jobs was not given: the default fills it.
+: cli-workers ( -- n ) cli-jobs dup 0= cli-jobs-unset and or ;
 \ check: the megabytes (of 2^20 bytes) each declaration's check may hold
 \ in scratch (--memory-per-check; core/scratch-meter.fs); 0, the
 \ default, sets no limit but the heap's. A check past it is full.
@@ -694,11 +695,10 @@ create cli-fed-ops
 : cli-row ( k -- )
   ."   " dup ck-phase-name 8 type-left
   dup ck-phase-wall cli-second. ck-phase-cpu cli-second. cr ;
-\ The save's row only when a snapshot was to be written (ck-phase-shown?).
-: cli-row? ( k -- ) dup ck-phase-shown? if cli-row else drop then ;
+\ The save's row only when a snapshot was to be written (ck-shown-phases).
 : cli-times. ( -- )
   ck-timed? 0= if ."   time: not measured on this host" cr exit then
-  ck-finish ."   time (s)     wall      cpu" cr ck-phases 0 do i cli-row? loop ;
+  ck-finish ."   time (s)     wall      cpu" cr ['] cli-row ck-shown-phases ;
 \ Bytes in kB (10^3 bytes) below a MB, else in MB (10^6) with one decimal.
 : cli-mb. ( bytes -- ) 100000 / 10 /mod .decimal ." ." .decimal ."  MB" ;
 : cli-size. ( bytes -- )
@@ -768,7 +768,8 @@ create cli-fed-ops
 \ each worker (busy checking) and all workers together.
 : cli-sec. ( d-us -- ) cli-us>s type ."  s" ;
 : cli-plan. ( -- )
-  ."     plan " ck-plan-wall cli-sec. ." , jobs' run " ck-run-wall cli-sec. cr ;
+  ."     plan " ck-plan-clock clock-wall 2@ cli-sec.
+  ." , jobs' run " ck-run-wall cli-sec. cr ;
 : cli-task. ( c-addr u -- ) ."     " 9 type-left ;
 : cli-driver. ( -- )
   s" driving" cli-task. ck-driver-busy cli-second. ck-driver-waiting cli-second. cr ;

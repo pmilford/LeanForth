@@ -1080,13 +1080,13 @@ T{ -1 0 jobs-report 2dup default-line holds? -rot workers-line holds? -> true fa
 : busy-summed? ( -- flag ) 0 0 lf-sched-workers 0 ?do i lf-sched-busy d+ loop ck-busy-all d= ;
 : driver-ok? ( -- flag ) ck-driver-busy ck-driver-waiting d+ ck-run-wall d= ;
 : within-check? ( -- flag )
-  ck-checking ck-phase-wall ck-plan-wall ck-run-wall d+ d< 0= ;
+  ck-checking ck-phase-wall ck-plan-clock clock-wall 2@ ck-run-wall d+ d< 0= ;
 : waits-sum? ( -- flag )
   ck-waiting-all ck-busy-all d+ ck-run-wall lf-sched-workers 1 m*/ d= ;
 : some? ( d -- flag ) d0= 0= ;
 : spent-facts ( -- workers busy? each? summed? driver? within? waits? timed? )
   lf-sched-workers ck-busy-all some? all-spent-ok? busy-summed? driver-ok? within-check?
-  waits-sum? ck-plan-wall some? ck-driver-waiting some? and ;
+  waits-sum? ck-plan-clock clock-wall 2@ some? ck-driver-waiting some? and ;
 : timed-run ( jobs -- workers busy? each? summed? driver? within? waits? timed? )
   fresh >r nested rot run-with spent-facts ck-release r> back ;
 T{ 3 timed-run -> 3 asked true true true true true true true }T
