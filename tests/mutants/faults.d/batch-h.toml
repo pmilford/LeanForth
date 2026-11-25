@@ -32,8 +32,8 @@ reason = "TB2 E2a: h : n = id m goes to substCore as it is, whose right side is 
 [[fault]]
 id = "dependent-not-reintroduced"
 file = "src/front/meta-tactic/subst.fs"
-old = '''  msc msc-kept @ 2 run-after lf-must dup run-count lf-goal-intro-kept ;'''
-new = '''  msc msc-kept @ 2 run-after lf-must 0 lf-goal-intro-kept ;'''
+old = '''  msc msc-kept @ msc-ah# run-after lf-must dup run-count lf-goal-intro-kept ;'''
+new = '''  msc msc-kept @ msc-ah# run-after lf-must 0 lf-goal-intro-kept ;'''
 test = "$GFORTH tests/front/tactics/batch-h/test.fs"
 reason = "TB2 E2a: the hypotheses reverted with the equation stay binders of the goal, so k names nothing (test.fs's b a = explicit: k text expects 0)"
 
@@ -80,8 +80,8 @@ reason = "TB2 E2a: rintro introduces every item hidden, so a name pattern names 
 [[fault]]
 id = "subst-major-not-symm"
 file = "src/front/meta-tactic/subst.fs"
-old = ''': msc-major ( -- h ) msc msc-hx @ msc-symm? 0= if lf-mk-eq-symm then ;'''
-new = ''': msc-major ( -- h ) msc msc-hx @ ;'''
+old = ''': msc-major ( -- h ) msc-hx@ msc-symm? 0= if lf-mk-eq-symm then ;'''
+new = ''': msc-major ( -- h ) msc-hx@ ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-h/check.py"
 reason = "TB2 E2a: with the left side eliminated the major is h, not h.symm, so the eliminator's term is ill-typed and the kernel rejects sb_left (check.py; test.fs's tactic-ran runs the front end only, not the kernel)"
 
@@ -96,7 +96,7 @@ reason = "TB2 E2a: h : a = a is substituted though its other side holds a, where
 [[fault]]
 id = "try-skip-ignored"
 file = "src/front/meta-tactic/subst.fs"
-old = '''  dup if drop msc msc-x @ msc-dep? msc msc-hx @ msc-dep? or 0= then ;'''
+old = '''  dup if drop msc-x@ msc-dep? msc-hx@ msc-dep? or 0= then ;'''
 new = '''  drop false ;'''
 test = "$GFORTH tests/front/tactics/batch-h/test.fs"
 reason = "TB2 E2a: tryToSkip never skips, so a goal free of b and h still gets Eq.ndrec and fs entries (test.fs's g-true kh skip: fs 0)"
@@ -144,7 +144,7 @@ reason = "TB2 E2a review (finding 5): intro1 as a hidden local gives its binder 
 [[fault]]
 id = "revert-kept-order-unchecked"
 file = "src/front/meta-tactic/revert.fs"
-old = ''': mrv-seed ( -- xt ) mrv-in# 0 ?do i mrv-ordered i mrv-in@ mrv-push loop ['] mrv-local-kept ;'''
-new = ''': mrv-seed ( -- xt ) mrv-in# 0 ?do i mrv-in@ mrv-push loop ['] mrv-local-kept ;'''
+old = '''  mrv-in# 0 ?do i mrv-in@ mrv-ordered mrv-push loop ['] mrv-local-kept ;'''
+new = '''  mrv-in# 0 ?do i mrv-in@ mrv-push loop ['] mrv-local-kept ;'''
 test = "$GFORTH tests/front/tactics/batch-g/test.fs"
 reason = "TB2 E2a review (finding 6): revert-kept of h before b, h's type mentioning b, builds a goal whose first binder's type refers to a later binder, where Lean throws revertFailure (batch-g test.fs's rh rb lf-run2 expects invalid)"

@@ -123,7 +123,10 @@ require ./assert.fs
 : msb-sides? ( t -- lhs rhs true | false )
   lf-instantiate! lf-match-eq? dup if >r rot drop r> then ;
 
-\ ---- substCore: a frame per call open (lf-with-record).
+\ ---- substCore: a frame per call open (lf-with-record). Pairs of fields
+\ stay next to each other, for cell-pair! and the binders' lambda:
+\ goal and h, fs and flags (msc-framed), a and b (msc-var), x and y
+\ (msc-lam).
 begin-structure /msc
   field: msc-goal        \ the goal; once a and h are introduced again, that goal
   field: msc-h           \ the equation asked (hFVarIdOriginal)
@@ -139,7 +142,12 @@ begin-structure /msc
 end-structure
 /msc context-slab: msc-frames
 : msc ( -- frame ) msc-frames slab-last ;
-: msc-symm? ( -- flag ) msc msc-flags @ lf-subst-symm and 0<> ;
+: msc-hx@ ( -- h ) msc msc-hx @ ;
+: msc-x@ ( -- x ) msc msc-x @ ;
+: msc-b@ ( -- b ) msc msc-b @ ;
+: msc-flag? ( mask -- flag ) msc msc-flags @ and 0<> ;
+: msc-symm? ( -- flag ) lf-subst-symm msc-flag? ;
+2 constant msc-ah#   \ a and h, the first two reverted and introduced again
 : msc-goal@ ( -- goal ) msc msc-goal @ ;
 : msc-type ( -- t ) msc msc-h @ lf-fvar-type ;
 
@@ -164,52 +172,52 @@ end-structure
 
 \ ---- revert #[a, h] true, then introNP 2: a and h again, names kept.
 : msc-again ( goal1 kept -- )
-  dup msc msc-kept ! 2 lf-goal-intro-kept 0 run-pair@ dup msc msc-hx ! msc msc-y !
+  dup msc msc-kept ! msc-ah# lf-goal-intro-kept 0 run-pair@ dup msc msc-hx ! msc msc-y !
   msc msc-x ! msc msc-goal ! ;
 : msc-reverted ( -- )
   msc-goal@ msc msc-a @ msc msc-h @ lf-run2 lf-goal-revert-kept msc-again ;
 : msc-dep? ( fvar -- flag ) msc-goal@ lf-goal-type swap lf-depends-on? lf-must ;
 \ skip: asked, nothing else reverted, the goal depending on neither.
 : msc-skip? ( -- flag )
-  msc msc-flags @ lf-subst-skip and 0<> msc msc-kept @ run-count 2 = and
-  dup if drop msc msc-x @ msc-dep? msc msc-hx @ msc-dep? or 0= then ;
-: msc-cleared ( goal -- goal' ) msc msc-hx @ lf-goal-clear! msc msc-x @ lf-goal-clear! ;
+  lf-subst-skip msc-flag? msc msc-kept @ run-count msc-ah# = and
+  dup if drop msc-x@ msc-dep? msc-hx@ msc-dep? or 0= then ;
+: msc-cleared ( goal -- goal' ) msc-hx@ lf-goal-clear! msc-x@ lf-goal-clear! ;
 : msc-skipped ( -- fs goal ) msc msc-fs @ msc-goal@ msc-cleared ;
 
 \ ---- The motive, the minor premise's type and the major premise.
 : msc-lam ( t n -- motive ) msc msc-x swap lf-mk-lambda-fvars ;
 : msc-aux ( t hAux -- motive )
-  dup msc msc-y ! lf-mk-eq-symm msc msc-hx @ swap lf-replace-fvar 2 msc-lam ;
-: msc-aux-type ( -- t ) msc msc-b @ msc msc-x @ lf-mk-eq ;
+  dup msc msc-y ! lf-mk-eq-symm msc-hx@ swap lf-replace-fvar 2 msc-lam ;
+: msc-aux-type ( -- t ) msc-b@ msc-x@ lf-mk-eq ;
 : msc-aux-motive ( t -- motive )
   msc-aux-type s" _h" lfa-intern lf-binder-default ['] msc-aux lf-with-local-decl ;
 : msc-motive ( t -- motive )
   msc msc-dep @ 0= if 1 msc-lam exit then
   msc-symm? if 2 msc-lam else msc-aux-motive then ;
-: msc-refl ( t -- t' ) msc msc-hx @ msc msc-b @ lf-mk-eq-refl lf-replace-fvar ;
+: msc-refl ( t -- t' ) msc-hx@ msc-b@ lf-mk-eq-refl lf-replace-fvar ;
 : msc-minor-type ( t -- t' )
-  msc msc-x @ msc msc-b @ lf-replace-fvar msc msc-dep @ if msc-refl then ;
-: msc-major ( -- h ) msc msc-hx @ msc-symm? 0= if lf-mk-eq-symm then ;
+  msc-x@ msc-b@ lf-replace-fvar msc msc-dep @ if msc-refl then ;
+: msc-major ( -- h ) msc-hx@ msc-symm? 0= if lf-mk-eq-symm then ;
 : msc-elim ( motive minor major -- e )
   msc msc-dep @ if lf-mk-eq-rec else lf-mk-eq-ndrec then ;
 
 \ ---- The rest introduced again; fs' (each reverted local to its new
 \ free variable, a to b, h to h again).
 : msc-fs+ ( fvar e -- ) msc msc-fs @ -rot lf-fsubst-insert msc msc-fs ! ;
-: msc-old ( i -- fvar ) 2 + msc msc-kept @ swap run@ lf-local-fvar ;
+: msc-old ( i -- fvar ) msc-ah# + msc msc-kept @ swap run@ lf-local-fvar ;
 : msc-var+ ( xs i -- xs ) 2dup run@ swap msc-old swap msc-fs+ ;
 : msc-subst ( xs -- fs' )
   dup run-count 0 ?do i msc-var+ loop drop msc msc-a cell-pair@ msc-fs+
-  msc msc-h @ msc msc-hx @ msc-fs+ msc msc-fs @ ;
+  msc msc-h @ msc-hx@ msc-fs+ msc msc-fs @ ;
 : msc-rest ( goal -- goal' xs )
-  msc msc-kept @ 2 run-after lf-must dup run-count lf-goal-intro-kept ;
+  msc msc-kept @ msc-ah# run-after lf-must dup run-count lf-goal-intro-kept ;
 \ cont: goal assigned the eliminator, the minor premise cleared of h and a.
 : msc-assigned ( minor -- )
   >r msc-goal@ lf-goal-type msc-motive r> msc-major msc-elim
   msc-goal@ swap lf-mvar-assign lf-must ;
 : msc-minor ( -- minor ) msc-goal@ lf-goal-type msc-minor-type msc-goal@ lf-goal-fresh ;
 : msc-cont ( -- fs' goal' )
-  msc msc-hx @ msc-dep? msc msc-dep ! msc-minor dup msc-assigned msc-cleared
+  msc-hx@ msc-dep? msc msc-dep ! msc-minor dup msc-assigned msc-cleared
   msc-rest msc-subst swap ;
 : msc-run ( goal -- fs' goal' )
   drop msc-ab msc-var msc-reverted msc-skip? if msc-skipped exit then
@@ -219,7 +227,8 @@ end-structure
 : lf-goal-subst-core ( goal h fs flags -- fs' goal' )
   msc-frames ['] msc-framed lf-with-record ;
 
-\ ---- heqToEq and substEq: a frame per call open.
+\ ---- heqToEq and substEq: a frame per call open; goal and h next to each
+\ other (mse-heq-framed's cell-pair!).
 begin-structure /mse
   field: mse-goal        \ the goal
   field: mse-h           \ the hypothesis

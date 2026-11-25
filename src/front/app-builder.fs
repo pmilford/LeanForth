@@ -369,7 +369,8 @@ end-structure
 : abl-heq-app? ( t -- flag ) 4 s" HEq" lf-meta-app-of? ;
 : abl-heq-at ( t -- α a β b true | t false )
   dup abl-heq-app? if abl-args4 true else false then ;
-: abl-heq-args? ( t -- α a β b true | false ) abl-heq-at dup 0= if nip then ;   \ Expr.heq?
+\ Expr.heq?: the four arguments of t, else no term left.
+: abl-heq-args? ( t -- α a β b true | false ) abl-heq-at dup 0= if nip then ;
 : lf-match-heq? ( t -- α a β b true | false ) ['] abl-heq-at abl-helper ;
 
 \ ---- mkEqOfHEq (166): eq_of_heq.{u} α a b h when α and β are defeq.

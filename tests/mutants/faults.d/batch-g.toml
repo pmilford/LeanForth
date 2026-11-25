@@ -65,8 +65,8 @@ reason = "TB2 E1: - clears at once, where w cannot go while hw depends on it, no
 [[fault]]
 id = "fsubst-not-applied"
 file = "src/front/rcases.fs"
-old = '''  dup 3 run-after lf-must rcs rcs-rest ! dup 2 run@ rcs rcs-fs @ swap lf-fsubst-apply'''
-new = '''  dup 3 run-after lf-must rcs rcs-rest ! dup 2 run@'''
+old = '''  dup rcs-after1 rcs rcs-rest ! dup rcs-target@ rcs rcs-fs @ swap lf-fsubst-apply'''
+new = '''  dup rcs-after1 rcs rcs-rest ! dup rcs-target@'''
 test = "$GFORTH tests/front/tactics/batch-g/test.fs"
 reason = "TB2 E1: a target is matched as it was before an earlier split reverted it"
 equivalent = "the only targets a later split reverts are an existential's fields, whose patterns in slice E1 are names (nothing done), - (finish maps the clears through the substitution itself) or splits of an Eq (99 before any use); E2's rfl reaches it"

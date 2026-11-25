@@ -279,11 +279,15 @@ end-structure
   rcs rcs-subs @ lf-subgoals# 0 ?do i rcs-align loop rcs-pushed ;
 : rcs-split ( node s -- ) rcs rcs-goal @ ['] rcs-split-in lf-with-goal ;
 
-\ ---- A task: its first pair matched (rcasesCore), the rest after it.
+\ ---- A task: its first pair matched (rcasesCore), the rest after it. A
+\ pending run's first triple: its node and s, then its target.
+: rcs-node@ ( pending -- node s ) 0 run-pair@ ;
+: rcs-target@ ( pending -- e ) 2 run@ ;
+: rcs-after1 ( pending -- rest ) 3 run-after lf-must ;
 : rcs-task! ( goal fs clears -- ) rcs rcs-goal cell-triple! ;
 : rcs-first ( pending -- node s )
-  dup 3 run-after lf-must rcs rcs-rest ! dup 2 run@ rcs rcs-fs @ swap lf-fsubst-apply
-  rcs rcs-e ! dup 0 run@ swap 1 run@ ;
+  dup rcs-after1 rcs rcs-rest ! dup rcs-target@ rcs rcs-fs @ swap lf-fsubst-apply
+  rcs rcs-e ! rcs-node@ ;
 : rcs-clears+ ( fvar -- ) rcs rcs-clears lf-run+! ;
 : rcs-clear ( -- ) rcs rcs-e @ dup lf-meta-fvar? if rcs-clears+ else drop then rcs-again ;
 \ rfl: substEq of the target, a free variable (470), with the task's
@@ -304,7 +308,7 @@ end-structure
   rcs-name lf-run1 rcs rcs-goal @ swap 1 lf-goal-intro-names 0 run@
   swap rcs rcs-goal ! ;
 : rcs-introduced ( pending -- pending' )
-  dup 2 run@ rcs-intro <> if exit then dup 3 run-after lf-must swap 0 run-pair@
+  dup rcs-target@ rcs-intro <> if exit then dup rcs-after1 swap rcs-node@
   2dup rcs-intro1 >r 0 -rot r> rcs-triple+ swap run-cat lf-must ;
 : rcs-task-step ( goal fs clears pending -- )
   >r rcs-task! r> dup run-count if rcs-introduced rcs-first rcs-match else drop rcs-finish
@@ -315,8 +319,9 @@ end-structure
 \ ---- rcases: the target, generalized unless a free variable
 \ (generalizeExceptFVar), matched with the pattern's root.
 : rcs-root ( -- node s ) rcs rcs-step @ lf-tac-args# 1- -1 ;
-: rcs-target ( goal e -- goal' v )
-  dup lf-meta-fvar? if exit then rcs-root rcs-name lf-run2 lf-goal-generalize swap 0 run@ ;
+: rcs-generalized ( goal e -- goal' v )
+  rcs-root rcs-name lf-run2 lf-goal-generalize swap 0 run@ ;
+: rcs-target ( goal e -- goal' v ) dup lf-meta-fvar? 0= if rcs-generalized then ;
 : rcs-start ( goal e -- ) rcs-target >r 0 rcs-root r> rcs-triple+ >r 0 0 r> rcs-task+ ;
 : rcs-walk ( -- goals ) rcs-loop rcs rcs-goals @ ;
 : rcs-run ( goal -- goals ) rcs rcs-step @ 0 lf-tac-elab-arg rcs-start rcs-walk ;

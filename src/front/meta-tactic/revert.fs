@@ -86,8 +86,7 @@ end-structure
 : mrv-found ( k true | false -- flag ) dup if nip then ;
 : mrv-is? ( fvar k -- fvar flag ) mrv-in@ over = ;
 : mrv-asked? ( fvar -- flag ) mrv-in# ['] mrv-is? find-index mrv-found ;
-: mrv-dep-on? ( lfvar fvar -- lfvar flag ) over swap lf-local-depends-on? lf-must ;
-: mrv-dep? ( lfvar k -- lfvar flag ) mrv-out@ mrv-dep-on? ;
+: mrv-dep? ( lfvar k -- lfvar flag ) mrv-out@ over swap lf-local-depends-on? lf-must ;
 : mrv-depends? ( fvar -- flag ) mrv-out# ['] mrv-dep? find-index mrv-found ;
 : mrv-reverted? ( fvar -- flag ) dup mrv-asked? if drop true else mrv-depends? then ;
 : mrv-plain ( k -- k ) dup lf-local-detail-at? if outcome-unsupported lf-must then ;
@@ -100,13 +99,14 @@ end-structure
   dup lf-mctx-fvar dup mrv-asked? if drop mrv-plain drop exit then mrv-depends? mrv-take ;
 : mrv-in-view ( i -- )
   mrv-in@ lf-mctx-view swap lf-view-has? 0= if outcome-invalid lf-must then ;
-\ A local asked must not depend on one asked after it (collectForwardDeps'
-\ revertFailure check), thrown invalid: no tactic asks so (Lean's own
-\ error text: plan slice E4, docs/design/TACTIC_PATTERNS.md).
-: mrv-dep-in? ( lfvar k -- lfvar flag ) mrv-in@ mrv-dep-on? ;
-: mrv-ordered ( j -- ) dup mrv-in@ swap 1+ mrv-in# ['] mrv-dep-in? any-in? nip
-  if outcome-invalid lf-must then ;
-: mrv-seed ( -- xt ) mrv-in# 0 ?do i mrv-ordered i mrv-in@ mrv-push loop ['] mrv-local-kept ;
+\ A local asked must not be one that a local asked before it depends on
+\ (collectForwardDeps' revertFailure check), thrown invalid: no tactic
+\ asks so (Lean's own error text: slice E4, docs/design/TACTIC_PATTERNS.md).
+: mrv-needed? ( fvar k -- fvar flag ) mrv-out@ over lf-local-depends-on? lf-must ;
+: mrv-ordered ( fvar -- fvar )
+  mrv-out# ['] mrv-needed? any? if outcome-invalid lf-must then ;
+: mrv-seed ( -- xt )
+  mrv-in# 0 ?do i mrv-in@ mrv-ordered mrv-push loop ['] mrv-local-kept ;
 : mrv-each ( -- xt ) mrv mrv-keep @ if mrv-seed else ['] mrv-local then ;
 : mrv-collect ( -- )
   mrv-in# 0 ?do i mrv-in-view loop mrv-each
