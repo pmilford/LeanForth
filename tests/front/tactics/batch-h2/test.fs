@@ -96,6 +96,11 @@ T{ ' unsup ported ' rejd ported ' unported ported -> 99 thrown-rejected 99 }T
 : invd ( -- ) outcome-invalid lf-must ;
 T{ ' fulld ported ' invd ported -> thrown-full thrown-invalid }T
 T{ 5 ' 1+ lf-tac-ported -> 6 }T
+\ meta-must.fs's lf-unported at a site: mkAppM's result holding a
+\ metavariable of an outer depth (app-builder.fs's abl-closed).
+nat mv-natural lf-mvar-new made constant m-outer
+: refl-of ( m -- e ) s" Eq.refl" rot 1 lf-mk-app-m ;
+T{ m-outer ' refl-of catch nip -> thrown-unsupported }T
 T{ 7 ' abort ' lf-tac-ported catch nip nip -> -1 }T
 lf-tac-forget
 

@@ -426,7 +426,7 @@ end-structure
 : mrf ( -- frame ) mrf-frames slab-last ;
 \ getType' (Util.lean:80): whnf at the transparency in force, instantiated.
 : mtg-eq-of ( goal -- t ) lf-goal-type lf-whnf! lf-instantiate! ;
-: mtg-is-eq ( t -- t ) dup lf-eq? if 2drop drop exit then lf-unported ;
+: mtg-is-eq ( t -- t ) dup lf-eq? if 2drop drop exit then outcome-unsupported lf-must ;
 : mtg-inst2 ( a b -- a' b' ) lf-instantiate! swap lf-instantiate! swap ;   \ b first
 : mrf-eq! ( t -- ) dup mrf mrf-eq ! lf-eq? drop mtg-inst2 mrf mrf-sides 2! drop ;
 \ eq_refl's isDefEq: at the transparency the step runs at (default;
