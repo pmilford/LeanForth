@@ -249,9 +249,10 @@ abl-most cells context-record: abl-cells
 \ congruence proofs use simp/types.fs's primed builders).
 : lf-mk-congr-fun ( h a -- h' )
   swap abl-refl-arg? if swap lf-mk-app lf-mk-eq-refl else lf-unported then ;
+\ (mkCongr's second shortcut, mkCongrFun h1 a with h1 no Eq.refl, is
+\ mkCongrFun's general build: unsupported as it is.)
 : lf-mk-congr ( h1 h2 -- h )
-  over abl-refl? if swap lf-term-second@ swap lf-mk-congr-arg exit then
-  dup abl-refl? if lf-term-second@ lf-mk-congr-fun else lf-unported then ;
+  over abl-refl? 0= if lf-unported then swap lf-term-second@ swap lf-mk-congr-arg ;
 
 \ ---- The shortcuts of AppBuilder.lean:630-660: mkOfEqTrue (of_eq_true h,
 \ or h' when h is eq_true _ h'), mkEqTrue (eq_true p h, or h' of

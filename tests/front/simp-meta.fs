@@ -151,3 +151,58 @@ T{ h0 ' lf-mk-of-eq-true code1 h0 ' lf-mk-eq-false code1 -> -4204 -4204 }T
 T{ refl-f n0 lf-mk-congr-fun lf-term-second@ succ n0 lf-mk-app lf-meta-eqv -> true outcome-ok }T
 T{ h0 n0 ' lf-mk-congr-fun catch nip nip 0<> -> true }T
 T{ refl-f n0 lf-mk-eq-refl lf-mk-congr 2 s" Eq.refl" lf-meta-app-of? -> true }T
+
+\ ---- 8. Each remaining branch (make cover-changed, 2026-11-25).
+\ mkCongr: h2 refl gives mkCongrFun of h1 (refused unless refl); neither
+\ refl unsupported; the shortcuts of mkEqTrue and mkEqFalse.
+: refl-n ( -- h ) n0 lf-mk-eq-refl ;
+T{ refl-f refl-n lf-mk-congr 2 s" Eq.refl" lf-meta-app-of? -> true }T
+T{ hq0 refl-n ' lf-mk-congr catch nip nip hq0 hq0 ' lf-mk-congr catch nip nip -> -4205 -4205 }T
+T{ hq0 lf-mk-of-eq-true lf-mk-eq-true -> hq0 }T
+: not-p-false ( -- h ) s" of_eq_false" lf-mk-const0 p0 lf-mk-app h0 lf-mk-app ;
+T{ not-p-false lf-mk-eq-false -> h0 }T
+\ A proof parameter is cast: of_eq_true {p} (h : p = True) : p.
+: oet ( -- f ) s" of_eq_true" lf-mk-const0 ;
+T{ oet lf-congr-simp-kinds 2 kinds 2 lf-congr-plain? -> 2 outcome-ok lf-ck-fixed lf-ck-cast false }T
+\ More than 62 parameters: unsupported, never kinds.
+: big-pi ( -- t ) nat 63 0 do nat swap lf-term-pi lf-made! loop ;
+big-pi s" big" binder constant big0
+T{ big0 lf-congr-simp-kinds nip -> outcome-unsupported }T
+\ A let at an application's head under zeta off: unsupported.
+T{ let-n n0 lf-mk-app lf-meta-no-zeta with-bits nip -> outcome-unsupported }T
+\ match-extra on an application whose root key is other (a metavariable
+\ head): no prefix tried; getMatch's throwing face.
+T{ outs slab-clear m0 n0 lf-mk-app tree outs lf-dtree-match-extra outs slab-count -> outcome-ok 0 }T
+T{ succ n0 lf-mk-app tree outs ' lf-dt-get-match code1 -> 0 }T
+\ Every heap allocation of a match-extra query and of the kinds refused
+\ in turn, the slabs they claim given back first: full or the answer.
+: simp-slabs-anew ( -- )
+  dk-cells sweep-slab-anew dk-args sweep-slab-anew dk-kinds sweep-slab-anew
+  fi-params sweep-slab-anew fi-deps sweep-slab-anew ck-kinds sweep-slab-anew
+  dts sweep-slab-anew outs slab-clear ;
+' simp-slabs-anew sweep-slabs-xt !
+: mx ( e -- n outcome ) outs slab-clear tree outs lf-dtree-match-extra outs slab-count swap ;
+T{ succ n0 lf-mk-app ' mx heap-sweep nip -> 0 }T
+T{ eq-c ' kinds-pass heap-sweep nip -> 0 }T
+\ A projection n.0 under proj := no stays at once; under yes its
+\ structure goes through whnfCore (n, no constructor: it stays).
+n0 s" Nat" lfa-intern 0 lf-proj-of made constant pj0
+T{ pj0 lf-proj-no mcfg-proj-bits with-bits pj0 lf-proj-yes mcfg-proj-bits with-bits
+   -> pj0 outcome-ok pj0 outcome-ok }T
+\ A type whose head past the pis is a lambda: undecided, -1.
+T{ lam-n n0 lf-mk-app fi-head-name -> -1 }T
+\ The head-name facts of congr-thms.fs one by one: Nat no class, so no
+\ instance; id a definition Lean would unfold, undecided; a class under a
+\ constructor (getClassSubobjectMask?, SL2) unsupported; a name no
+\ declaration has no kind.
+: nm ( c-addr u -- name ) lfa-intern ;
+T{ s" Nat" nm ck-named-inst s" id" nm ck-named-inst -> false outcome-ok false outcome-unsupported }T
+T{ true cks cks-ctor ! s" Decidable" nm ck-named-inst false cks cks-ctor ! -> false outcome-unsupported }T
+T{ s" No.such.name" nm dup ck-decl-kind swap ck-class? -> -1 false }T
+\ On ite's facts with its instance's head changed: undecided (-1) and a
+\ definition head refused; Decidable with no eq parameter before it fixed.
+T{ ite-c lf-congr-simp-kinds -> 5 outcome-ok }T
+: param-head! ( name i -- ) fi-deps slab-at cell+ ! ;
+T{ -1 2 param-head! 2 ck-instance? s" id" nm 2 param-head! 2 ck-plain-kind 2 ck-inst-kind
+   -> false outcome-unsupported -1 outcome-unsupported -1 outcome-unsupported }T
+T{ s" Decidable" nm 2 param-head! lf-ck-fixed 1 ck-kind! 2 ck-inst-kind -> lf-ck-fixed outcome-ok }T
