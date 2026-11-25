@@ -382,7 +382,10 @@ status changes when this date is older than them. Stages are those of the
      same Init check timed on each Gforth engine (**written on branch `kernel-speed-measure`, 2026-11-25**:
      `make profile-check`, `declarationMicroseconds`, [KERNEL_SPEED.md](../development/KERNEL_SPEED.md); not
      reviewed, not merged); (b) the algorithm changes with identical verdicts: the validity
-     re-checks removed, the cache with a 3.7% hit rate compared with Lean's, and instantiation and universe
+     re-checks removed (2026-11-25: slice 1 of [KERNEL_VALIDITY_CHECKS.md](../design/KERNEL_VALIDITY_CHECKS.md),
+     the checked-environment stamp, plan 9.4.8z1, **written and tested on branch `kernel-validity-1`, not
+     reviewed, not merged, not done**; the owner's approval as behaviour-preserving kernel refactoring is in
+     OWNER_DECISIONS.md's last section), the cache with a 3.7% hit rate compared with Lean's, and instantiation and universe
      substitution skipped wherever Lean skips them (no loose variables, no universe parameters); (c) lowest: native
      primitives, for now measured only (which two or three would pay, and how much), not built.
   5. Later: a cheaper or parallel feed of the workers; the export parsed on several threads; a text's declarations

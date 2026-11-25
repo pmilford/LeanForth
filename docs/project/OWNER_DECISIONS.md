@@ -2026,3 +2026,6 @@ The owner, 2026-11-25, on the coordinator's three items ("Approve items 1, 2 3. 
    under a running check). It replaces two copies of the timing (the command line's and the kernel
    scheduler's, whose file drops from 18 to 16), so the repository grows by 2.
 
+Item 1 is carried out under items 1 and 2, with no new decision, on branch `kernel-validity-1` (plan
+9.4.8z1, 2026-11-25: written and tested, not reviewed, not merged).
+
