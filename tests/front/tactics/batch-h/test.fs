@@ -98,6 +98,18 @@ T{ fq' lf-fvar-type ab eqv? gq dup view# 1- s" q" named? gq open? -> true true t
 T{ g-ab fq lf-goal-subst open? g-ab fb lf-goal-subst open? -> true true }T
 \ substEq takes the right side first: h : a = b maps b to a.
 T{ g-ab fh 0 lf-goal-subst-eq drop fb lf-fsubst-get fa = -> true }T
+\ assert.fs's intro1 as a local (heqToEq's intro1P of the asserted
+\ equation): a hidden local's binder comes back hidden, a named one's
+\ under its name.
+fresh
+nat s" a" binder constant ia
+ia ia lf-mk-eq s" x" lf-local-inaccessible local+ constant ix
+ia ia lf-mk-eq s" y" binder constant iy
+: asserted ( -- goal ) ia ia lf-mk-eq dup goal s" t" nm rot ia lf-mk-eq-refl lf-goal-assert ;
+: intro-as ( fvar -- goal' )
+  asserted tuck lf-goal-view swap lf-view-local-of lf-goal-intro1-as drop ;
+T{ ix intro-as dup view# 1- hidden? -> true }T
+T{ iy intro-as dup view# 1- 2dup hidden? -rot s" y" named? -> false true }T
 \ Skip: nothing else reverted, True free of b and h: fs as given, no term.
 fresh
 nat s" a" binder constant ka

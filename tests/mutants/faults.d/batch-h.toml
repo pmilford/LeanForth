@@ -132,3 +132,11 @@ old = ''': msv-free? ( x e -- x flag ) over lf-depends-on? lf-must 0= ;'''
 new = ''': msv-free? ( x e -- x flag ) drop true ;'''
 test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-h/check.py"
 reason = "TB2 E2a review (finding 4): substVar takes the first equation with x alone on a side without checking its other side is free of x, so h1 : x = x is chosen and subst x fails with 'x' occurs at (check.py's sb_var_free)"
+
+[[fault]]
+id = "intro-as-hidden-named"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  swap mat-own over ! dup >r 0 1 r@ cell+ lf-goal-intro-n r> cell+ @ ;'''
+new = '''  swap lf-local-name over ! dup >r 0 1 r@ cell+ lf-goal-intro-n r> cell+ @ ;'''
+test = "$GFORTH tests/front/tactics/batch-h/test.fs"
+reason = "TB2 E2a review (finding 5): intro1 as a hidden local gives its binder the local's name, so heqToEq's equation of a hidden HEq can be named (test.fs's ix intro-as expects a hidden local)"
