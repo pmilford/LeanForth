@@ -214,6 +214,11 @@ T{ hh s" by-first | by-probe ' h by-exact | ' k by-exact by-end" tactic-ran seen
    -> 0 1 }T
 T{ hh s" by-first | ' k by-exact | by-probe ' h by-exact by-end" tactic-ran seen-saves @
    lfr-saves -> 0 0 0 }T
+T{ hh s" by-first | ' h by-exact | ' k by-exact by-end" tactic-ran lfr-saves -> 0 0 }T
+\ ---- 6. Names given inside by-try and by-first stay after them.
+T{ hh s" by-try a b = ' h by-have: x by-end ' x by-exact" tactic-ran -> 0 }T
+T{ hh s" by-first | b a = ' k by-have: y ' k by-exact | a b = ' h by-have: z by-end ' z by-exact"
+   tactic-ran -> 0 }T
 T{ hh s" by-repeat by-probe ' k by-exact by-end ' h by-exact" tactic-ran seen-saves @ lfr-saves
    -> 0 1 0 }T
 \ A handler clears the goals a chain of its held aside (lfr-fail-mode).

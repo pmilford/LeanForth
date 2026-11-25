@@ -1,0 +1,193 @@
+# Planted faults of tactic blocks, slice 3 (plan row TB2, piece F; design
+# docs/design/TACTIC_BLOCKS.md 4): by-try, by-first, by-repeat and by-any-goals, the runner's
+# handlers and tfr-sorry (tactic-run.fs) and the reader's bare alternatives
+# (tactic-syntax.fs), read with faults.toml as one list (scripts/mutants.py). Each is caught
+# by the test it names. The design's recover faults not new here are blocks-1's:
+# tb2b1-recover-not-inherited, tb2b1-have-by-not-fresh, tb2b1-log-fail-thrown,
+# tb2b1-lean-bit-every-invalid.
+
+# ---- The design's (TACTIC_BLOCKS.md 4, slice 3)
+[[fault]]
+id = "tb2b3-restore-skipped"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-put-back ( frame -- ) lfr-unsave lf-tac-restore lfr-sure ;'''
+new = ''': lfr-put-back ( frame -- ) lfr-unsave drop ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: a handler takes an error back without putting the state back: blocks-3 test.fs's by-try ' h by-exact ' h by-exact by-end text keeps a = b closed, so the later ' h by-exact meets b = a (not 0)"
+
+[[fault]]
+id = "tb2b3-restore-wrong-save"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-handle ( k -- ) dup lfr-frame lfr-put-back lf-tac-forget lfr-frame lfr-fail-mode ;'''
+new = ''': lfr-handle ( k -- ) lfr-depth 1- lfr-frame lfr-put-back lf-tac-forget lfr-frame lfr-fail-mode ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: the save put back is the top frame's, not the handler's: blocks-3 test.fs's by-try ' k by-exact by-end ' h by-exact text puts back by-exact's frame (none: a choice point lost), not 0"
+
+[[fault]]
+id = "tb2b3-last-saved"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-bare? ( -- flag ) lfr-last-bare lfr-top-flag? lfr-more? 0= and ;'''
+new = ''': lfr-bare? ( -- flag ) false ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: first's last alternative runs with a save, so its error is taken back: blocks-3 test.fs's by-first | ' k by-exact | by-probe ... sees 1 save, not 0"
+
+[[fault]]
+id = "tb2b3-tried-recovers"
+file = "src/front/tactic-run.fs"
+old = '''' drop ' lfr-alt-won 0 lfr-no-recover lf-block-mode constant lf-mode-tried'''
+new = '''' drop ' lfr-alt-won 0 0 lf-block-mode constant lf-mode-tried'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: first's alternatives but the last keep recover (Lean's orElse clears it): blocks-3 test.fs's by-first | by-probe ... sees recover true, not false"
+
+[[fault]]
+id = "tb2b3-try-recovers"
+file = "src/front/tactic-run.fs"
+old = '''' drop ' lfr-keep ' lfr-skip lfr-no-recover lfr-saving or lf-block-mode'''
+new = '''' drop ' lfr-keep ' lfr-skip lfr-saving lf-block-mode'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: by-try keeps recover (Lean's try is first | tacs | skip, withoutRecover): blocks-3 test.fs's by-try by-probe sees recover true, not false"
+
+[[fault]]
+id = "tb2b3-repeat-recovers"
+file = "src/front/tactic-run.fs"
+old = '''' drop ' lfr-repeat-end ' lfr-skip lfr-no-recover lfr-saving or lf-block-mode'''
+new = '''' drop ' lfr-repeat-end ' lfr-skip lfr-saving lf-block-mode'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: by-repeat keeps recover (Lean's evalRepeat runs withoutRecover): blocks-3 test.fs's by-repeat by-probe sees recover true, not false"
+
+[[fault]]
+id = "tb2b3-sorry-ignores-recover"
+file = "src/front/tactic-run.fs"
+old = '''  lfr-sorry@ swap lfr-fresh-recover lfr-mode-flag? if lfr-inherited and then ;'''
+new = '''  lfr-sorry@ swap drop ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: a have-by keeps errToSorry where the block below does not recover (review tb2-blocks1 finding 1): blocks-3 test.fs's Q8 text, by-try b a = by-have-by: j << ' h >> by-exact ..., is 490, not 0"
+
+[[fault]]
+id = "tb2b3-logs-without-sorry"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-logs? ( -- flag ) lf-tac-recover? if lfr-top tfr-sorry @ else false then ;'''
+new = ''': lfr-logs? ( -- flag ) lf-tac-recover? ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: a term error is logged where recover is true but errToSorry false: blocks-3 test.fs's Q8 text is 490, not 0"
+
+# ---- One per risky word
+[[fault]]
+id = "tb2b3-undecided-any-code"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-undecided? ( -- flag ) lfr-saves 0<> lf-author-code lf-author-lean? and ;'''
+new = ''': lfr-undecided? ( -- flag ) lfr-saves 0<> ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: a refusal of LeanForth's (no room) inside a handler is made 490, unsupported: blocks-3 test.fs's heap sweep of p-any finds runs answering 490, not full"
+
+[[fault]]
+id = "tb2b3-undecided-never"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-undecided? ( -- flag ) lfr-saves 0<> lf-author-code lf-author-lean? and ;'''
+new = ''': lfr-undecided? ( -- flag ) false ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: an error Lean logs inside an open handler is rejected (final), where Lean may still take it back: blocks-3 test.fs's by-any-goals << ' h >> by-exact by-end text is 467, not 490"
+
+[[fault]]
+id = "tb2b3-nested-always-final"
+file = "src/front/tactic-run.fs"
+old = '''  dup tfr-sorry @ if ['] lfr-done-end lfr-finally else lfr-done-end then ;'''
+new = '''  drop ['] lfr-done-end lfr-finally ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: a have-by's unsolved goals are final inside try, where pinned Lean throws them: blocks-3 test.fs's by-try b a = by-have-by: j a b = ' h by-have: x by-end by-end ' h by-exact text is 490, not 0"
+
+[[fault]]
+id = "tb2b3-held-kept"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-fail-mode ( frame -- ) dup lfr-unheld dup tfr-mode @ mode-fail @ execute ;'''
+new = ''': lfr-fail-mode ( frame -- ) dup tfr-mode @ mode-fail @ execute ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: a handler keeps the goals a <;> chain of its set aside after the restore: blocks-3 test.fs's fake frame keeps tfr-held 7, not -1"
+
+[[fault]]
+id = "tb2b3-handler-without-save"
+file = "src/front/tactic-run.fs"
+old = '''  lfr-frame dup lfr-saved? swap tfr-mode @ mode-fail @ 0<> and ;'''
+new = '''  lfr-frame nip tfr-mode @ mode-fail @ 0<> ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: a frame holding no save takes an error (first's last alternative): blocks-3 test.fs's by-first | ' k by-exact | ' k by-exact by-end text ends in a lost choice point, not 96"
+
+[[fault]]
+id = "tb2b3-won-not-closed"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-alt-won ( frame -- ) drop lfr-under lfr-keep lfr-under lfr-skip ;'''
+new = ''': lfr-alt-won ( frame -- ) drop lfr-under lfr-keep ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: an alternative that ends does not close by-first, so the next one runs too: blocks-3 test.fs's by-first | ' h by-exact | by-probe-gap by-end text is 93, not 0"
+
+[[fault]]
+id = "tb2b3-won-not-kept"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-alt-won ( frame -- ) drop lfr-under lfr-keep lfr-under lfr-skip ;'''
+new = ''': lfr-alt-won ( frame -- ) drop lfr-under lfr-skip ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: by-first's save is left open when an alternative wins: blocks-3 test.fs's by-first | ' h by-exact | ' k by-exact by-end text leaves 1 save, not 0"
+
+[[fault]]
+id = "tb2b3-any-goal-dropped"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-any-fail ( frame -- ) dup lfr-acc+ lfr-pass-or-skip ;'''
+new = ''': lfr-any-fail ( frame -- ) lfr-pass-or-skip ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: by-any-goals drops a goal where its block failed (Lean keeps it): blocks-3 test.fs's by-constructor by-any-goals ' h by-exact by-end ' k by-exact text is 90, not 0"
+
+[[fault]]
+id = "tb2b3-any-never-won"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-any-pass ( frame -- ) dup lfr-keep true over tfr-won ! lfr-pass-end drop ;'''
+new = ''': lfr-any-pass ( frame -- ) dup lfr-keep lfr-pass-end drop ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: a pass that ends is not counted, so by-any-goals fails on all goals: blocks-3 test.fs's by-constructor by-any-goals ' h by-exact by-end ' k by-exact text is 469, not 0"
+
+[[fault]]
+id = "tb2b3-any-none-ok"
+file = "src/front/tactic-run.fs"
+old = '''  dup tfr-won @ if drop else tfr-step @ lfa-e-tac-all-failed lfr-block-fail then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: by-any-goals that failed on every goal (or had none) succeeds: blocks-3 test.fs's ' h by-exact by-any-goals ' h by-exact by-end text is 0, not 469"
+
+[[fault]]
+id = "tb2b3-repeat-not-kept"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-repeat-end ( frame -- ) dup lfr-saved? if dup lfr-keep lf-tac-again else drop then ;'''
+new = ''': lfr-repeat-end ( frame -- ) dup lfr-saved? if lf-tac-again else drop then ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: a pass of by-repeat that ends keeps its save, so a later failure goes back to the first pass's start: blocks-3 test.fs's hr by-repeat by-constructor by-end text undoes every split, not 0"
+
+[[fault]]
+id = "tb2b3-arm-never"
+file = "src/front/tactic-run.fs"
+old = '''  lfr-wants? lfr-bare? 0= and if lf-tac-save lfr-must lfr-top tfr-save ! then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: a handler takes no save, so it takes no error: blocks-3 test.fs's by-try ' k by-exact by-end ' h by-exact text is 96, not 0"
+
+[[fault]]
+id = "tb2b3-bare-names-cut"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-alt-cut ( -- ) lft-read-from tac-block-cuts lft-open-has? lft-block-close ;'''
+new = ''': lft-alt-cut ( -- ) lft-read-from true lft-block-close ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: the names given in a by-first alternative go at its end (Lean's first keeps them): blocks-3 test.fs's by-first ... a b = ' h by-have: z by-end ' z by-exact text is not 0"
+
+[[fault]]
+id = "tb2b3-first-empty-read"
+file = "src/front/tactic-syntax.fs"
+old = ''': lft-with? ( -- flag ) lft-bars? tac-block-bare lft-open-has? 0= and ;'''
+new = ''': lft-with? ( -- flag ) lft-bars? ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: an empty by-first is read (Lean's parser wants an alternative): blocks-3 test.fs's by-first by-end text is not 85"
+
+[[fault]]
+id = "tb2b3-bare-headed"
+file = "src/front/tactic-syntax.fs"
+old = '''  tac-block-bare lft-open-has? if lft-bare-alt else tac-k-alt lft-header then ;'''
+new = '''  tac-k-alt lft-header ;'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: by-first's | reads an induction alternative's header TAG NAMES =>: blocks-3 test.fs's by-first | ' h by-exact by-end text is a header error, not 0"
