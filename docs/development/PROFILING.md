@@ -28,7 +28,9 @@ reads its Forth return stack; `profile-symbols.fs`, loaded after
 it; `profile-summary.py` makes the tables (`--under WORD` keeps one part of
 the run, such as `lf-check-declaration`); `profile-check.sh` ties them
 together. The raw files (`check.prof`, `check.syms`, `check.json`) stay in
-`PROFILE_OUT` (default `build/profile`). `make test-profile-check` tests the
+`PROFILE_OUT` (default `build/profile`). The line `profile-sample: exit 100`
+is a good end: Gforth's own exit adds 100 to the check's status 0, which
+`profile-check.sh` subtracts. `make test-profile-check` tests the
 tools: the tables exactly on a profile made by hand, and a whole run on the
 579-declaration S2 slice.
 
