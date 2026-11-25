@@ -234,7 +234,11 @@ create tries 20 cells allot
 8 fresh-env
 0 0 submit 1 await-all 1 publish-all
 1 0 begin-in
+\ The stamp is the lane context's own (a context record): held there, none
+\ in the main context; the job's check ends with its finish, which drops it.
+T{ 0 in-lane held@ lf-env = home held@ -> true 0 }T
 T{ 0 lane-contexts lane @ ' job-tries job-submit throw job-wait -> 0 }T
+T{ 0 in-lane held@ home -> 0 }T
 T{ 0 try@ 1 try@ 2 try@ 3 try@ -> outcome-invalid true 0 outcome-invalid }T
 T{ 4 try@ 5 try@ 1 slot@ lf-slot-final? -> outcome-invalid outcome-invalid false }T
 T{ 6 try@ lf-env-refused = 7 try@ lf-env-refused = 8 try@ -> true true false }T

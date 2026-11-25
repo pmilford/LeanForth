@@ -551,9 +551,10 @@ lf-recheck-skipped 1+ constant lf-recheck-early
 \ slot is final; (invalid true), with nothing written, inside a job or a
 \ check (G-P1), or when the candidate has no slot to publish (no check's
 \ snapshot of the valid current environment, or its slot already final),
-\ and as lf-env-guarded says.
+\ and as lf-env-guarded says. It drops the stamp first (environment.fs,
+\ lf-env-held?), so every publication runs the full lf-env-current.
 : lf-env-hand-over ( -- outcome fault? )
-  context-in-job? if outcome-invalid true exit then
+  lf-env-unhold context-in-job? if outcome-invalid true exit then
   lf-env-target if lf-env-seal lf-env-guarded else outcome-invalid true then ;
 
 \ A check in this context threw ior (G-P6): the declaration is invalid,
@@ -564,12 +565,13 @@ lf-recheck-skipped 1+ constant lf-recheck-early
   outcome-invalid lf-env-finish lf-env-spend ;
 \ Whether this context's snapshot is still a check of declaration i; a
 \ check that began another one is a fault, and nothing is published.
+\ lf-env-hand-over-at drops the stamp first: the full check runs here too.
 : lf-env-still? ( i -- flag ) lf-env-checking if nip = else drop false then ;
 : lf-env-moved ( i -- outcome true )
   lf-recheck-moved c" env-publish lf-env-step" lf-diag-recheck lf-diag-note
   outcome-invalid true ;
 : lf-env-hand-over-at ( i -- outcome fault? )
-  dup lf-env-still? if drop lf-env-hand-over else lf-env-moved then ;
+  lf-env-unhold dup lf-env-still? if drop lf-env-hand-over else lf-env-moved then ;
 \ The parallel scheduler's entry, after the job that checked declaration
 \ i in this context ended with ior: a THROW is recorded (G-P6), then the
 \ candidate handed over while the snapshot is still of declaration i. The

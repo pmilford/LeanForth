@@ -216,6 +216,8 @@ begin-structure /lf-cand
   field: lf-cand-sealed     \ true once handed over or a view: nothing more recorded
   field: lf-cand-lost       \ true when a lookup found no room: published full
   field: lf-cand-saved      \ true: the snapshot's loader fills it (lf-env-saved!)
+  field: lf-cand-held       \ the stamp: the environment the check began on, its
+                            \ full check passed (lf-env-held?); 0 for none. Last.
 end-structure
 /lf-cand context-record: lf-env-cand
 \ The dependencies' slots, ascending: a growable array, as long as the
@@ -590,7 +592,22 @@ end-structure
   lf-env-cand lf-cand-identity @ lf-env-id c" environment lf-env-snapshot"
   lf-diag-no-snapshot lf-diag-note false ;
 : lf-env-keep ( env i flag -- env i true | false ) ?keep ?keep ;
+\ The stamp (docs/design/KERNEL_VALIDITY_CHECKS.md, slice 1). lf-env-start
+\ holds the environment once the full lf-env-current has passed, and
+\ lf-env-finish, lf-env-clear (so every lf-env-begin and view) and the
+\ hand-over drop it. While it is held, lf-env-held? stands in for the full
+\ check with three compares: the current environment is the one held, its
+\ identity the snapshot's (not a new one made where it was freed), and the
+\ input's fingerprint the one it was made over (not a new or reset input).
+\ Inside a check nothing else the full check reads changes (the design's
+\ section 1); a mismatch runs the full check, as every publication does.
+: lf-env-hold ( env -- ) lf-env-cand lf-cand-held ! ;
+: lf-env-unhold ( -- ) 0 lf-env-hold ;
+: lf-env-held? ( env -- flag )
+  dup 0= over lf-env-cand lf-cand-held @ <> or if drop false exit then
+  dup lf-env-mine? swap lf-envh-input @ lf-input-fingerprint = and ;
 : lf-env-ours ( -- env true | false )
+  lf-env dup lf-env-held? if true exit then drop
   lf-env-current 0= if false exit then dup lf-env-mine? ?keep ;
 : lf-env-snapshot ( -- env i true | false )
   lf-env-ours 0= if lf-env-unseen exit then
@@ -612,9 +629,11 @@ end-structure
 : lf-env-spend ( -- ) true lf-env-worker lf-worker-spent ! ;
 : lf-env-spent ( i -- outcome )
   0 c" environment lf-env-begin" lf-diag-publisher-fault lf-diag-note outcome-invalid ;
+\ Snap the check of i and hold env, whose full check has passed.
+: lf-env-stamp ( i env -- ) dup lf-env-hold lf-env-snap! ;
 : lf-env-start ( i -- outcome )
   lf-env-current 0= if lf-env-unseen 2drop outcome-invalid exit then
-  2dup lf-env-open? if lf-env-snap! outcome-ok else drop lf-env-bad-start then ;
+  2dup lf-env-open? if lf-env-stamp outcome-ok else drop lf-env-bad-start then ;
 \ Start the check of declaration i in this context: ok, recording its
 \ snapshot; invalid, with no snapshot, in a spent context, without a
 \ valid current environment or when slot i is out of range or already
@@ -629,8 +648,8 @@ end-structure
   lf-env-clear true lf-env-cand lf-cand-sealed ! lf-env-current 0= if outcome-invalid exit
   then
   dup lf-env-length swap lf-env-snap! outcome-ok ;
-\ End the check with its outcome.
-: lf-env-finish ( outcome -- ) outcome-sane lf-env-cand lf-cand-outcome ! ;
+\ End the check with its outcome; the stamp is dropped.
+: lf-env-finish ( outcome -- ) outcome-sane lf-env-cand lf-cand-outcome ! lf-env-unhold ;
 
 \ Reading slots in the snapshot. lf-env-readable gives slot d when the
 \ snapshot may read it (d below its declaration, slot d final);

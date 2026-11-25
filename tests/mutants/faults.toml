@@ -499,17 +499,18 @@ reason = "G-P6: a context in which a check threw is not spent"
 [[fault]]
 id = "pub-moved-snapshot"
 file = "src/kernel/env-publish.fs"
-old = '''  dup lf-env-still? if drop lf-env-hand-over else lf-env-moved then ;'''
-new = '''  drop lf-env-hand-over ;'''
+old = '''  lf-env-unhold dup lf-env-still? if drop lf-env-hand-over else lf-env-moved then ;'''
+new = '''  lf-env-unhold drop lf-env-hand-over ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "a check that began another declaration has its candidate published"
 
 [[fault]]
 id = "pub-hand-over-in-job"
 file = "src/kernel/env-publish.fs"
-old = '''  context-in-job? if outcome-invalid true exit then
+old = '''  lf-env-unhold context-in-job? if outcome-invalid true exit then
   lf-env-target if lf-env-seal lf-env-guarded else outcome-invalid true then ;'''
-new = '''  lf-env-target if lf-env-seal lf-env-guarded else outcome-invalid true then ;'''
+new = '''  lf-env-unhold
+  lf-env-target if lf-env-seal lf-env-guarded else outcome-invalid true then ;'''
 test = "$GFORTH tests/core/environment.fs"
 reason = "G-P1: a hand-over inside a check throws instead of being refused"
 
@@ -8791,9 +8792,8 @@ id = "fx9-env-still-always"
 file = "src/kernel/env-publish.fs"
 old = ''': lf-env-still? ( i -- flag ) lf-env-checking if nip = else drop false then ;'''
 new = ''': lf-env-still? ( i -- flag ) drop true ;'''
-test = "$GFORTH tests/core/check-declaration.fs"
-reason = "rvS12 L3: lf-env-still? always true"
-equivalent = "defence in depth: the seal rows break no snapshot (only a check of another declaration moves it), and a broken seal is refused by the passes and the pool writes before the hand-over"
+test = "$GFORTH tests/core/environment.fs"
+reason = "rvS12 L3: lf-env-still? always true: a check of 3 that began 4 publishes 4 (environment.fs, the stamp's moved-snapshot row)"
 
 [[fault]]
 id = "fx9-mls-prepare-nip-nip"

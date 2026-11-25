@@ -343,6 +343,71 @@ T{ ' syn-check 8 checked-step main-count verdicts-match? -> outcome-ok true }T
 env-free
 
 \ ---------------------------------------------------------------------------
+\ The stamp (docs/design/KERNEL_VALIDITY_CHECKS.md, slice 1): lf-env-begin's
+\ full check holds the environment in the candidate (held@), and inside the
+\ check lf-env-ours answers from it while the environment's address and
+\ identity and the input's fingerprint match; any mismatch runs the full
+\ check. The finish, a clear (every begin and view) and the hand-over drop
+\ it, so every publication runs the full check.
+require ../support/store-faults.fs
+: ours? ( -- flag ) lf-env-ours dup if nip then ;
+8 fresh-env
+lf-env constant env-s
+env-s lf-envh-identity @ constant id-s
+' syn-check 3 checked-run
+T{ held@ 3 lf-env-begin held@ env-s = -> 0 outcome-ok true }T
+T{ outcome-ok lf-env-finish held@ -> 0 }T
+T{ 3 lf-env-begin lf-env-clear held@ -> outcome-ok 0 }T
+T{ 3 lf-env-begin lf-env-view held@ -> outcome-ok outcome-ok 0 }T
+T{ 3 lf-env-begin 0 lf-env-begin held@ -> outcome-ok outcome-invalid 0 }T
+T{ 3 lf-env-begin 4 lf-env-hand-over-at held@ -> outcome-ok outcome-invalid true 0 }T
+\ Inside the check the stamp answers. Each fact below, broken after the
+\ begin, is one only the full check reads (the input's term seal, the
+\ identity serial, the pool's seal), so lf-env-ours still gives the
+\ environment; the hand-over runs the full check, even with no finish
+\ before it (the design review's finding 1): invalid, nothing written,
+\ the diagnostic of today. Each xt ( -- ) breaks its fact, and mends it.
+: serial-flip ( -- ) lf-env-serial flip ;
+: pool-flip ( -- ) env-s lf-env-pool seal-flip ;
+: broken-exit ( xt -- inside? outcome fault? final? code )
+  3 lf-env-begin drop dup execute ours? lf-env-hand-over 2>r swap execute 2r>
+  3 slot@ lf-slot-final? lf-diag-code@ ;
+T{ ' term-seal-flip broken-exit -> true outcome-invalid true false lf-diag-no-snapshot }T
+T{ ' serial-flip broken-exit -> true outcome-invalid true false lf-diag-no-snapshot }T
+T{ ' pool-flip broken-exit -> true outcome-invalid true false lf-diag-no-snapshot }T
+\ After the finish the full check runs again, and so it does at the step's
+\ and the scheduler's exit.
+: finished-exit ( -- inside? outcome fault? final? )
+  3 lf-env-begin drop term-seal-flip outcome-ok lf-env-finish ours?
+  3 lf-env-hand-over-at term-seal-flip 3 slot@ lf-slot-final? ;
+T{ finished-exit -> false outcome-invalid true false }T
+\ A check of 3 that begins 4 instead: its exit finds the snapshot moved,
+\ and nothing is published (fx9-env-still-always).
+: begins-4 ( -- ) 4 lf-env-begin drop outcome-ok lf-env-finish ;
+T{ ' begins-4 3 lf-env-step 3 slot@ lf-slot-final? 4 slot@ lf-slot-final? -> outcome-invalid true false false }T
+T{ lf-diag@ nip -> 3 lf-recheck-moved lf-diag-recheck }T
+\ A mismatch runs the full check and gives today's answer: another
+\ environment current, the held one's identity changed, the input reset or
+\ replaced (as a test may, outside a job, in the middle of a check). A
+\ stamp left set, as a THROW out of a check caught by a plain CATCH leaves
+\ it (env-import.fs's replayed?), is harmless for the same reason, and the
+\ next begin drops it first.
+8 lf-env-new drop constant env-t
+T{ 3 lf-env-begin env-t lf-env-use ours? -> outcome-ok outcome-ok false }T
+T{ env-s lf-env-use ours? -> outcome-ok true }T
+T{ 0 env-s lf-envh-identity ! ours? id-s env-s lf-envh-identity ! ours? -> false true }T
+: stamp-and-throw ( -- ) 3 lf-env-begin drop -79 throw ;
+T{ ' stamp-and-throw catch held@ env-s = ours? -> -79 true true }T
+T{ lf-input-reset held@ env-s = ours? -> true false }T
+main-input
+T{ held@ env-s = ours? -> true false }T
+env-t lf-env-free drop env-free
+\ A new environment, perhaps made where env-s was: not the one held.
+8 fresh-env
+T{ held@ env-s = ours? 3 lf-env-begin held@ lf-env = -> true false outcome-ok true }T
+lf-env-clear env-free
+
+\ ---------------------------------------------------------------------------
 \ Row 6: atomicity. Fuel: declaration 23 needs 5 units (audit, own name,
 \ three uses); with less it is exhausted at every step and publishes
 \ nothing, with 5 it is accepted.

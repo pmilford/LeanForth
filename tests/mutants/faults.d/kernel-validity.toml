@@ -1,0 +1,136 @@
+# Planted faults of the checked-environment stamp (docs/design/KERNEL_VALIDITY_CHECKS.md,
+# slice 1; branch kernel-validity-1, 2026-11-25): lf-env-start holds the environment once
+# the full lf-env-current has passed; lf-env-finish, lf-env-clear and both hand-overs drop
+# it; lf-env-ours answers from it while three compares match (address, identity, the
+# input's fingerprint). The rows are in tests/core/environment.fs, "The stamp". The last
+# five force a part of the full check true: after slice 1 it runs at a check's begin and
+# exit only, so the rows that break its facts in the middle of a check must still see it.
+# Read with tests/mutants/faults.toml as one list.
+
+[[fault]]
+id = "kv1-begin-holds-unchecked"
+file = "src/kernel/environment.fs"
+old = '''  lf-diag-clear lf-env-clear lf-env-spent? if lf-env-spent else lf-env-start then ;'''
+new = '''  lf-diag-clear lf-env-clear lf-env lf-env-hold lf-env-spent? if lf-env-spent else lf-env-start then ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "the stamp is set before the full check, so a refused begin leaves one"
+quick = true
+
+[[fault]]
+id = "kv1-view-holds"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-env-length swap lf-env-snap! outcome-ok ;'''
+new = '''  dup lf-env-length swap lf-env-stamp outcome-ok ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "a view holds a stamp, so its lookups skip the full check"
+
+[[fault]]
+id = "kv1-finish-keeps"
+file = "src/kernel/environment.fs"
+old = ''': lf-env-finish ( outcome -- ) outcome-sane lf-env-cand lf-cand-outcome ! lf-env-unhold ;'''
+new = ''': lf-env-finish ( outcome -- ) outcome-sane lf-env-cand lf-cand-outcome ! ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "the finish keeps the stamp, so the reads after it skip the full check"
+quick = true
+
+[[fault]]
+id = "kv1-clear-keeps"
+file = "src/kernel/environment.fs"
+old = '''  lf-env-cand /lf-cand erase outcome-invalid lf-env-cand lf-cand-outcome ! ;'''
+new = '''  lf-env-cand /lf-cand 1 cells - erase outcome-invalid lf-env-cand lf-cand-outcome ! ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "lf-env-clear keeps the stamp (the record's last cell): a clear, a view and a refused begin leave it"
+
+[[fault]]
+id = "kv1-hand-over-keeps"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-env-unhold context-in-job? if outcome-invalid true exit then'''
+new = '''  context-in-job? if outcome-invalid true exit then'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "design review finding 1: a hand-over with no finish before it publishes on the stamp, without the full check"
+quick = true
+
+[[fault]]
+id = "kv1-hand-over-at-keeps"
+file = "src/kernel/env-publish.fs"
+old = '''  lf-env-unhold dup lf-env-still? if drop lf-env-hand-over else lf-env-moved then ;'''
+new = '''  dup lf-env-still? if drop lf-env-hand-over else lf-env-moved then ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "the step's and the scheduler's exit keep the stamp: lf-env-still? skips the full check, and a moved check leaves it"
+
+[[fault]]
+id = "kv1-held-no-address"
+file = "src/kernel/environment.fs"
+old = '''  dup 0= over lf-env-cand lf-cand-held @ <> or if drop false exit then'''
+new = '''  dup 0= if drop false exit then'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "the tripwire ignores whether a stamp is held: after the finish the identity still matches and the full check is skipped"
+
+[[fault]]
+id = "kv1-held-no-identity"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-env-mine? swap lf-envh-input @ lf-input-fingerprint = and ;'''
+new = '''  lf-envh-input @ lf-input-fingerprint = ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "the tripwire ignores the environment's identity: a cleared or new identity at the held address passes"
+
+[[fault]]
+id = "kv1-held-no-input"
+file = "src/kernel/environment.fs"
+old = '''  dup lf-env-mine? swap lf-envh-input @ lf-input-fingerprint = and ;'''
+new = '''  lf-env-mine? ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "the tripwire ignores the input's fingerprint: a stamp left set passes after the input is reset or replaced"
+
+[[fault]]
+id = "kv1-never-held"
+file = "src/kernel/environment.fs"
+old = '''  lf-env dup lf-env-held? if true exit then drop'''
+new = '''  lf-env drop'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "the stamp is never used: every call runs the full check (slow, and the rows that show the fast path inside a check see it)"
+
+[[fault]]
+id = "kv1-sane-always"
+file = "src/kernel/environment.fs"
+old = ''': lf-env-sane? ( env -- flag )
+  dup lf-envh-identity @ 1 lf-env-serial @ between?
+  swap lf-env-length lf-input-capacity upto? and ;'''
+new = ''': lf-env-sane? ( env -- flag ) drop true ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "an identity the serial never issued passes the full check: the exit publishes a check whose serial broke in its middle"
+
+[[fault]]
+id = "kv1-pooled-always"
+file = "src/kernel/environment.fs"
+old = ''': lf-env-pooled? ( env -- flag )
+  dup lf-envh-pool @ lf-pool-sound? swap lf-envh-looks @ lf-pool-sound? and ;'''
+new = ''': lf-env-pooled? ( env -- flag ) drop true ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "a broken pool passes the full check: the exit's target accepts it and only the pool mark refuses, with another diagnostic"
+
+[[fault]]
+id = "kv1-input-always"
+file = "src/kernel/environment.fs"
+old = ''': lf-env-input? ( env -- flag )
+  lf-envh-input @ lf-input-fingerprint = lf-input-intact? and ;'''
+new = ''': lf-env-input? ( env -- flag ) drop true ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "an input that is not intact passes the full check: the exit publishes a check whose term seal broke in its middle"
+quick = true
+
+[[fault]]
+id = "kv1-valid-always"
+file = "src/kernel/environment.fs"
+old = ''': lf-env-valid? ( env -- flag ) dup lf-env-live? if lf-env-input? else drop false then ;'''
+new = ''': lf-env-valid? ( env -- flag ) 0<> ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "the full check passes every environment there is: the exit publishes a check whose state broke in its middle"
+
+[[fault]]
+id = "kv1-live-always"
+file = "src/kernel/environment.fs"
+old = ''': lf-env-valid? ( env -- flag ) dup lf-env-live? if lf-env-input? else drop false then ;'''
+new = ''': lf-env-valid? ( env -- flag ) dup if lf-env-input? else drop false then ;'''
+test = "$GFORTH tests/core/environment.fs"
+reason = "lf-env-live? true in the full check for every environment there is: a broken serial or pool passes the exit's full check"

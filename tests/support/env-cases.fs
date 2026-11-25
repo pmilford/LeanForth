@@ -201,6 +201,8 @@ defer syn-pause
   slot@ dup lf-slot-final? if 0 swap /lf-slot 1 cells / digest-cells else drop 0 then ;
 : pool ( -- store ) lf-env lf-env-pool ;
 : pool-count ( -- n ) pool store-count @ ;
+\ The environment this context's check holds (the stamp); 0 for none.
+: held@ ( -- env ) lf-env-cand lf-cand-held @ ;
 : pool-digest ( -- h ) 0 pool-count pool store-digest pool-count digest-mix ;
 \ The environment byte for byte: the pool, and every final slot.
 : env-digest ( -- h )
