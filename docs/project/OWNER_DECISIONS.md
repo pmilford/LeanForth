@@ -1954,7 +1954,8 @@ low-level induction step, removing code.
 
 Owner, 2026-11-23, on the parallel review ([PARALLEL_REVIEW.md](../development/PARALLEL_REVIEW.md)): "make the
 jobs default 4, so the rest of the computer is still ok to run", and "the stall time monitor should be there, along
-with other performance monitoring items". Done on branch `jobs-default` (2026-11-24):
+with other performance monitoring items". Written on branch `jobs-default` (2026-11-24; tested and
+Forth-reviewed, not merged):
 1. `check` of an export or a snapshot without `--jobs` runs 4 workers, or the machine's hardware threads when fewer;
    `--jobs N` is unchanged, `--jobs 1` one at a time. A LeanForth text, `check --record`, `print` and `replay` stay
    one at a time without the option; the text's note and the refusal of `--jobs` with `--record` still need an
@@ -1964,3 +1965,11 @@ with other performance monitoring items". Done on branch `jobs-default` (2026-11
    busy and waiting seconds: the driving task, every worker, and all workers together; the snapshot save is a
    timed phase. The JSON members are optional ones added within report versions 0.4 and 0.5, as `anyLeanVersion`
    (2026-11-10) and `memoryPerCheck` (2026-11-11) were; no version number changed.
+
+Owner, 2026-11-24, on adding these members to the report as an additive change: "Approved". The Forth review of
+the branch ([2026-11-24-jobs-default.md](../development/forth-reviews/2026-11-24-jobs-default.md), finding 2) found
+`measured.workers` in every default `check --json` report, which the schemas as they were refuse; under that
+approval the coordinator decided that the members appear only with `--resources`, as `anyLeanVersion` and
+`memoryPerCheck` appear only with their options, so a report without `--resources` is as before. A
+`--resources --json` report with the members is still refused by the schemas as they were before 2026-11-24
+(`measured` allows no other members); whether that calls for a new report version is open, for the owner.

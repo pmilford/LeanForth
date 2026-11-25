@@ -29,6 +29,15 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
+- 2026-11-24, 22:42: the Later list's parallel items 1 and 2 are **tested on branch `jobs-default` and
+  Forth-reviewed** ([review](../development/forth-reviews/2026-11-24-jobs-default.md)), not merged, not done:
+  findings 1-10, 12 and 13 fixed on the branch (1, a trust finding: with workers the check's start time lay
+  between the job's sentinel and the check, so a check that replaced the cell below it was published accepted
+  where the serial run finds it invalid and stops, fixed and tested at 3 workers; 2: the workers' times and the
+  save phase are in the JSON report only with `--resources`, so a default report is as before; 3: `lib/bounds.fs`'s
+  `d+!` and `d-floor` in place of eight copies; 12: with fewer cores than asked the workers line says so). Open for
+  the owner: a `--resources --json` report with the new members fails the report schemas as they were before
+  2026-11-24 (no version changed). Next: the tier, the merge, the done check. Earlier:
 - 2026-11-24, 22:06: plan row TB2's case patterns, slice E2a, are **done** on main da2dd131 (done check [2026-11-24-tb2-patterns-e2a-done.md](../development/done-checks/2026-11-24-tb2-patterns-e2a-done.md): the checker's own 9 theorems accepted, 5 wrong variants refused, after a first NOT DONE for a gap in the reference; pushed, origin/main 27ab87d4). In work on their branches: pattern slice E2b (`tb2-patterns-e2b`), the `--jobs` default of 4 with the workers' busy and waiting time in `--resources` (`jobs-default`, under Forth review); the design of `simp` is written and under its design review. Earlier:
 - 2026-11-24, 20:50: the Later list's parallel items 1 and 2 are **tested on branch `jobs-default`**, not
   Forth-reviewed, not merged, not done. (1) `check` without `--jobs` runs 4 workers, or the hardware threads when
