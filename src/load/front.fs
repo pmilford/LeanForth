@@ -26,6 +26,8 @@ require ../front/level-params.fs
 require ../front/level-normalize.fs
 require ../front/lib-decode.fs
 require ../front/meta-env.fs
+\ Simp's elaboration data (format 4's congr kind; plan FE9 slice SD-a).
+require ../front/simp-data.fs
 require ../front/term-find.fs
 require ../front/unfold.fs
 require ../front/whnf.fs

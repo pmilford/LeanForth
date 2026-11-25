@@ -1,0 +1,181 @@
+# Planted faults of slice SD-a (plan FE9, docs/design/TACTIC_SIMP.md): format 4 of the
+# elaboration data, its writer's congr records and defeq tags (scripts/export_elab.py)
+# and their reader (src/front/simp-data.fs, the format-4 parts of src/front/elab-data.fs).
+
+[[fault]]
+id = "sd-congr-twice-read"
+file = "src/front/simp-data.fs"
+old = '''  if elab-e-congr-twice elab-refuse else outcome-ok then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-a: a congruence lemma named by two records is read (error 47 never given)"
+
+[[fault]]
+id = "sd-lemma-any-kind"
+file = "src/front/simp-data.fs"
+old = '''  elab-decl dup ok? if drop kind-thm elab-of-kind then dup ok? if drop sd-new-lemma then ;'''
+new = '''  elab-decl dup ok? if drop sd-new-lemma then ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-a: a definition is read as a congruence lemma (error 14 never given)"
+
+[[fault]]
+id = "sd-hyps-unchecked"
+file = "src/front/simp-data.fs"
+old = '''  if outcome-ok else elab-e-unfit elab-refuse then ;'''
+new = '''  drop outcome-ok ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-a: hypothesis places beyond the lemma's binders or out of order are read (error 37 never given)"
+
+[[fault]]
+id = "sd-hyps-unordered"
+file = "src/front/simp-data.fs"
+old = ''': sd-hyp-next ( limit prev h -- limit h flag ) tuck < >r 2dup > r> and ;'''
+new = ''': sd-hyp-next ( limit prev h -- limit h flag ) nip 2dup > ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-a: hypothesis places that do not increase are read"
+
+[[fault]]
+id = "sd-hyps-byte-steps"
+file = "src/front/simp-data.fs"
+old = '''  1 cells +loop 2drop true ;'''
+new = '''  loop 2drop true ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-a: the places are read a byte apart, not a cell (the slice's own data refused)"
+
+[[fault]]
+id = "sd-second-run-read"
+file = "src/front/simp-data.fs"
+old = '''  dup sd-run if 2drop sd-order-bad exit then'''
+new = ''''''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-a: a function's lemmas in a second run of lines, or a second rank 0, are read over its first"
+
+[[fault]]
+id = "sd-rank-unchecked"
+file = "src/front/simp-data.fs"
+old = '''  dup >r sd-continues? r> swap if cell+ 1 swap +! outcome-ok else drop sd-order-bad then ;'''
+new = '''  nip nip cell+ 1 swap +! outcome-ok ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-a: a rank that skips one, or a run split by another function's, is read (Lean's order lost)"
+
+[[fault]]
+id = "sd-run-any-rank"
+file = "src/front/simp-data.fs"
+old = '''  over if sd-run ?dup if sd-extend else 2drop sd-order-bad then else nip sd-open then ;'''
+new = '''  nip sd-open ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-a: a function's run may begin at a rank other than 0"
+
+[[fault]]
+id = "sd-no-data-as-none"
+file = "src/front/simp-data.fs"
+old = '''  simp-data? 0= if drop 0 0 outcome-unsupported exit then'''
+new = '''  simp-data? 0= if drop 0 0 outcome-ok exit then'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-a: data without congr records (format 3) answers 'no congruence lemma', so simp would take another route than Lean's"
+
+[[fault]]
+id = "sd-no-data-as-not-defeq"
+file = "src/front/simp-data.fs"
+old = '''  simp-data? 0= if drop false outcome-unsupported exit then'''
+new = '''  simp-data? 0= if drop false outcome-ok exit then'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-a: data without defeq tags (format 3) answers 'not defeq'"
+
+[[fault]]
+id = "sd-clear-keeps-records"
+file = "src/front/simp-data.fs"
+old = ''': sd-clear ( -- ) simp-congrs slab-clear simp-hyps slab-clear sd-index memo-clear ;'''
+new = ''': sd-clear ( -- ) simp-hyps slab-clear sd-index memo-clear ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-a: a refused or later read keeps the congr records of the one before"
+
+[[fault]]
+id = "ed-defeq-any-format"
+file = "src/front/elab-data.fs"
+old = '''  ed-v4? 0= if ed-malformed exit then over kind-thm ed-of-kind nip ;'''
+new = '''  over kind-thm ed-of-kind nip ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-a: a defeq tag is read in a format-3.2 file, which has none"
+
+[[fault]]
+id = "ed-defeq-any-kind"
+file = "src/front/elab-data.fs"
+old = '''  ed-v4? 0= if ed-malformed exit then over kind-thm ed-of-kind nip ;'''
+new = '''  ed-v4? 0= if ed-malformed exit then outcome-ok ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-a: a defeq tag of a definition is read (Lean's defeq attribute marks theorems)"
+
+[[fault]]
+id = "ed-added-any-format"
+file = "src/front/elab-data.fs"
+old = '''  ed-v4? 0= if drop ed-e-kind ed-bad exit then'''
+new = ''''''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-a: a congr record is read in a format-3 file"
+
+[[fault]]
+id = "ed-added-counts-unchecked"
+file = "src/front/elab-data.fs"
+old = '''  ed-counts-same? ed-added-same? and 0= if ed-e-count ed-bad exit then'''
+new = '''  ed-counts-same? 0= if ed-e-count ed-bad exit then'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-a: congr records differing in number from the header are read"
+
+[[fault]]
+id = "ed-v4-any-number"
+file = "src/front/elab-data.fs"
+old = ''': ed-head-v4 ( index -- flag ) s" 4" ed-natural= dup ed-v4! ;'''
+new = ''': ed-head-v4 ( index -- flag ) drop true dup ed-v4! ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-a: a file of format 5 or 4.1 is read as format 4"
+
+[[fault]]
+id = "ed-added-kinds-unknown"
+file = "src/front/elab-data.fs"
+old = '''  2dup ed-kind-names ed-key-index if nip nip true else ed-added-index then ;'''
+new = '''  ed-kind-names ed-key-index ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-a: the kinds other files add are never found: every format-4 file refused"
+
+[[fault]]
+id = "fin-congr-lemma-missing-dropped"
+file = "scripts/export_elab.py"
+old = '''    if name_of(body["name"]) not in decls:
+        raise ElabError(f"the export has {text(body['fun'])} but not its congruence lemma "'''
+new = '''    if False:
+        raise ElabError(f"the export has {text(body['fun'])} but not its congruence lemma "'''
+test = "python3 tests/front/test_simp_data.py"
+reason = "SD-a: an export with a function but not its congruence lemma is finished, the lemma silently dropped"
+
+[[fault]]
+id = "fin-congr-text-order"
+file = "scripts/export_elab.py"
+old = '''    return (text(body["fun"]), body["rank"]) if kind == "congr" else ("", 0)'''
+new = '''    return ("", 0)'''
+test = "python3 tests/front/test_simp_data.py"
+reason = "SD-a: a function's congr records are written in text order, not rank order (the reader refuses them)"
+
+[[fault]]
+id = "fin-simp-flag-unchecked"
+file = "scripts/export_elab.py"
+old = '''    if head.get("simp", False) is not simp:'''
+new = '''    if False:'''
+test = "python3 tests/front/test_simp_data.py"
+reason = "SD-a: RAW written without --simp is finished as format 4 (no congr records: 'none')"
+
+[[fault]]
+id = "fin-defeq-any-kind"
+file = "scripts/export_elab.py"
+old = '''        pairs = [(name_of(body["name"]), "thm")]'''
+new = '''        pass'''
+test = "python3 tests/front/test_simp_data.py"
+reason = "SD-a: a defeq tag of a definition is written"
+
+[[fault]]
+id = "fin-hyps-unordered"
+file = "scripts/export_elab.py"
+old = '''                                and all(a < b for a, b in zip(body["hyps"], body["hyps"][1:]))):'''
+new = '''                                and True):'''
+test = "python3 tests/front/test_simp_data.py"
+reason = "SD-a: hypothesis places that do not increase are written"

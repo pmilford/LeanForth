@@ -310,8 +310,9 @@ T{ s" tests/front/cut-off.elab.ndjson" lib digest elab-read empty? elab-error-li
 T{ 0 ed-message s" none" compare 1 ed-message s" file missing or unreadable" compare
    38 ed-message s" a record kind this reader does not read yet" compare
    45 ed-message s" an annotation this reader does not know" compare
-   46 ed-message s" binder kinds named twice" compare 47 ed-message nip
-   -> 0 0 0 0 0 0 }T
+   46 ed-message s" binder kinds named twice" compare
+   48 ed-message s" congruence lemmas out of their function's order" compare 49 ed-message nip
+   -> 0 0 0 0 0 0 0 }T
 T{ 16 ed-message s" a default instance of two classes" compare -> 0 }T
 \ elab-unhashed: error 26 at line 0, the outcome kept, nothing loaded.
 T{ good lib digest elab-read outcome-full elab-unhashed elab-error-code elab-error-line

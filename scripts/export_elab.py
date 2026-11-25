@@ -547,23 +547,23 @@ def tree_record(body, decls):
     return "instance", plain
 
 
+def gapless(records, kind, group, what):
+    """Fail unless the ranks of the records of kind in each group (its text
+    of the record) are 0, 1, 2, ... (each once)."""
+    groups = {}
+    for k, body in records:
+        if k == kind:
+            groups.setdefault(group(body), []).append(body["rank"])
+    for name, ranks in groups.items():
+        if sorted(ranks) != list(range(len(ranks))):
+            raise ElabError(f"{what} {name} are not ranked 0, 1, 2, ...")
+
+
 def check_ranks(records):
-    """Fail unless the ranks of the tree's values under each root key are
-    0, 1, 2, ... (each once)."""
-    roots = {}
-    for kind, body in records:
-        if kind == "instance":
-            roots.setdefault(text(body["keys"][0]), []).append(body["rank"])
-    for root, ranks in roots.items():
-        if sorted(ranks) != list(range(len(ranks))):
-            raise ElabError(f"the ranks under root {root} are not 0, 1, 2, ...")
-    funs = {}
-    for kind, body in records:
-        if kind == "congr":
-            funs.setdefault(text(body["fun"]), []).append(body["rank"])
-    for fun, ranks in funs.items():
-        if sorted(ranks) != list(range(len(ranks))):
-            raise ElabError(f"the congruence lemmas of {fun} are not ranked 0, 1, 2, ...")
+    """Fail unless the ranks of the tree's values under each root key, and
+    of each function's congruence lemmas, are 0, 1, 2, ... (each once)."""
+    gapless(records, "instance", lambda b: text(b["keys"][0]), "the values under root")
+    gapless(records, "congr", lambda b: text(b["fun"]), "the congruence lemmas of")
 
 
 def congr_kept(body, decls):

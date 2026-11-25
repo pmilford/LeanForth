@@ -129,6 +129,22 @@
 \ alternatives). The elab-* words are the interface; helpers, fields and
 \ tables are named ed-*.
 \
+\ Format 4 (the number 4; plan FE9, slice SD-a of docs/design/TACTIC_SIMP.md
+\ and SIMP_DATA.md section 3): format 3.2's kinds (inert nodes and binder
+\ kinds allowed), the tag defeq (elab-tag-defeq: a theorem Lean holds to
+\ be proved by rfl; its declaration must be a theorem, error 14; in an
+\ older format it is malformed) and the kinds other files add, every kind
+\ counted in the header. A file adds a kind while the modules load:
+\ elab-add-kind ( form -- kind ), form an /elab-kind record of the kind's
+\ name (a counted string, the record's key), its reader ( value --
+\ outcome ) and its clear ( -- ), which every reset runs; the kinds number
+\ from elab-kinds on, at most elab-kinds-most in all, and are read in
+\ format 4 alone (else error 11). A reader reads its record's members with
+\ the words elab-member .. elab-type-pis below, the elab- faces of this
+\ file's own (front/simp-data.fs reads the congr kind with them: errors 47
+\ and 48 are its). elab-format4? ( -- flag ): the data read is of format
+\ 4; elab-tag-count ( tag -- n ): its declarations with that tag.
+\
 \ Example (the export read but not sealed, its manifest checked):
 \   create lib /stage allot   12 lib stage-init drop
 \   s" tests/author/init-slice.ndjson" lib stage-read drop
@@ -158,6 +174,7 @@ require ../lib/json.fs
 require ../lib/sha256.fs
 require ../lib/hash32.fs
 require ../lib/htab.fs
+require ../lib/find.fs
 require ../lib/text-run.fs
 require ../lib/decimal.fs
 require ../import/stage.fs
@@ -181,6 +198,8 @@ require ./elab-keys.fs
 2 constant elab-tag-aux-recursor   3 constant elab-tag-no-confusion
 4 constant elab-tag-cases-on   5 constant elab-tag-rec-on   6 constant elab-tag-brec-on
 7 constant elab-tag-match-pattern   \ Lean's @[match_pattern] (hasMatchPatternAttribute)
+8 constant elab-tag-defeq           \ Lean's @[defeq] (defeqAttr; format 4)
+16 constant elab-kinds-most         \ kinds with those other files add
 \ Why a value of the instance tree is no instance record.
 0 constant elab-erased   1 constant elab-not-exported
 \ A smart-unfolding body's nodes (Lean's Expr; fields a, b, c, d) and levels.
@@ -263,7 +282,7 @@ begin-structure /ed-node
 end-structure
 \ What the data says of one declaration of the stage.
 begin-structure /ed-fact
-  field: ed-fact-bits      \ bits 0-2 its status, 4-11 its tags
+  field: ed-fact-bits      \ bits 0-2 its status, 4-12 its tags
   field: ed-fact-inst      \ its instance's number + 1, or 0
   field: ed-fact-class     \ its class's number + 1, or 0
   field: ed-fact-matcher   \ its matcher's number + 1, or 0
@@ -300,8 +319,8 @@ begin-structure /elab
   field: elab-code                   \ why it failed: an error code, or 0
   field: elab-gen                    \ resets so far (each read starts with one)
   field: elab-at                     \ the line it failed at
-  elab-kinds cells +field elab-counts     \ records read of each kind
-  elab-kinds cells +field elab-expected   \ the header's numbers
+  elab-kinds-most cells +field elab-counts     \ records read of each kind
+  elab-kinds-most cells +field elab-expected   \ the header's numbers
   sha-digest-bytes chars +field elab-digest
   sha-digest-bytes 2* chars +field elab-hex       \ a SHA-256 as text
   sha-digest-bytes 2* chars +field elab-records   \ the header's records_sha256
@@ -310,7 +329,8 @@ begin-structure /elab
   field: elab-modules#               \ the header's modules: how many
   field: elab-inits#                 \ and how many are Init
   field: elab-v31                    \ true: the header says format 3.1 or 3.2
-  field: elab-v32                    \ true: it says 3.2 (binder kinds)
+  field: elab-v32                    \ true: it says 3.2 (binder kinds) or 4
+  field: elab-v4                     \ true: it says 4 (the kinds other files add)
 end-structure
 /elab context-record: elab
 /ed-fact context-slab: elab-facts
@@ -329,6 +349,25 @@ end-structure
 /ed-node context-slab: elab-levels
 /ed-bk context-slab: elab-bks
 2 cells context-slab: elab-bk-doms
+
+\ Kinds other files add (format 4): their forms in the order they were
+\ added, set while the modules load and read-only afterwards.
+begin-structure /elab-kind
+  field: elab-kind-name     \ a counted string: the record's key
+  field: elab-kind-reader   \ ( value -- outcome )
+  field: elab-kind-clear    \ ( -- ), run by every reset
+end-structure
+elab-kinds-most elab-kinds - constant ed-added-most
+create ed-added  0 ,  ed-added-most cells allot   \ how many, then the forms
+: ed-added# ( -- n ) ed-added @ ;
+: ed-added-form ( i -- form ) 1+ cells ed-added + @ ;
+: ed-kind-form ( kind -- form ) elab-kinds - ed-added-form ;
+: elab-add-kind ( form -- kind )
+  ed-added# ed-added-most < 0= abort" elab-add-kind: no room for another kind"
+  ed-added dup @ 1+ 2dup swap ! cells + !  ed-added# 1- elab-kinds + ;
+: ed-added-clears ( -- )
+  ed-added# 0 ?do i ed-added-form elab-kind-clear @ execute loop ;
+: ed-v4? ( -- flag ) elab elab-v4 @ ;
 
 : ed-view ( -- view ) elab elab-json ;
 : ed-stage ( -- stage ) elab elab-stage @ ;
@@ -359,6 +398,7 @@ end-structure
 39 constant ed-e-bound   40 constant ed-e-dflt-most   41 constant ed-e-sunfold
 42 constant ed-e-order   43 constant ed-e-loose   44 constant ed-e-params
 45 constant ed-e-annotation   46 constant ed-e-binders
+47 constant elab-e-congr-twice   48 constant elab-e-congr-order   \ front/simp-data.fs's
 create ed-messages
   s" none" counted,
   s" file missing or unreadable" counted,
@@ -407,6 +447,8 @@ create ed-messages
   s" universe parameters other than the definition's" counted,
   s" an annotation this reader does not know" counted,
   s" binder kinds named twice" counted,
+  s" a congruence lemma named twice" counted,
+  s" congruence lemmas out of their function's order" counted,
   0 0 counted,
 : ed-message ( code -- c-addr u ) ed-messages swap counted-nth count ;
 : ed-line ( -- n ) elab elab-reader reader-line# ;
@@ -573,9 +615,10 @@ create ed-rank-hooks /htab-hooks allot
   ed-table? if ed-table htab-clear then
   ed-ranks dup htab-live? if htab-clear else drop then ;
 : ed-head-clear ( -- )
-  elab elab-counts elab-kinds cells erase elab elab-expected elab-kinds cells erase
+  elab elab-counts elab-kinds-most cells erase
+  elab elab-expected elab-kinds-most cells erase
   0 elab elab-modules# ! 0 elab elab-inits# !
-  false elab elab-v31 ! false elab elab-v32 ! ;
+  false elab elab-v31 ! false elab elab-v32 ! false elab elab-v4 ! ed-added-clears ;
 : elab-reset ( -- )
   ed-slabs-clear elab-keys-clear ed-tables-clear false elab elab-loaded !
   ed-head-clear 1 elab elab-gen +! ;
@@ -603,9 +646,19 @@ create ed-elim-names  s" induction" counted, s" cases" counted, 0 0 counted,
 create ed-tag-names
   s" elab_as_elim" counted, s" elab_without_expected_type" counted,
   s" aux_recursor" counted, s" no_confusion" counted, s" cases_on" counted,
-  s" rec_on" counted, s" brec_on" counted, s" match_pattern" counted, 0 0 counted,
+  s" rec_on" counted, s" brec_on" counted, s" match_pattern" counted, s" defeq" counted,
+  0 0 counted,
 create ed-reason-names  s" erased" counted, s" not_exported" counted, 0 0 counted,
-: ed-kind-name ( kind -- c-addr ) ed-kind-names swap counted-nth ;
+: ed-added-name ( kind -- c-addr ) ed-kind-form elab-kind-name @ ;
+: ed-kind-name ( kind -- c-addr )
+  dup elab-kinds u< if ed-kind-names swap counted-nth else ed-added-name then ;
+\ An added kind by its key.
+: ed-added-named? ( c-addr u i -- flag ) ed-added-form elab-kind-name @ count compare 0= ;
+: ed-added-index ( c-addr u -- kind true | false )
+  ed-added# 0 ?do 2dup i ed-added-named? if 2drop i elab-kinds + true unloop exit then
+  loop 2drop false ;
+: ed-kind-index ( c-addr u -- kind true | false )
+  2dup ed-kind-names ed-key-index if nip nip true else ed-added-index then ;
 \ The kinds of formats 3 and 3.1, which have no binder_kinds: the table's
 \ entries before it, copied when loaded.
 : ed-table-copy, ( addr u -- ) here swap dup allot move ;
@@ -1051,10 +1104,15 @@ create ed-tag-members  s" name" counted, s" tag" counted, 0 0 counted,
 : ed-tag-fact ( d tag -- outcome )
   2dup elab-tagged? if 2drop ed-e-tag ed-bad exit then
   ed-tag-bit swap ed-fact ed-fact-bits +! outcome-ok ;
+\ The defeq tag: format 4 alone (before, an unknown tag), of a theorem.
+: ed-defeq-fits ( d tag -- d tag outcome )
+  dup elab-tag-defeq <> if outcome-ok exit then
+  ed-v4? 0= if ed-malformed exit then over kind-thm ed-of-kind nip ;
+: ed-tag-read ( d tag -- outcome ) ed-defeq-fits ok-then? if ed-tag-fact else nip then ;
 : ed-on-tag ( value -- outcome )
   dup ed-tag-members ed-shape? 0= if drop ed-malformed exit then
   dup c" name" ed-member ed-no-type ok-then? 0= if nip exit then
-  swap c" tag" ed-member ed-tag-names ed-choice ok-then? if ed-tag-fact else nip then ;
+  swap c" tag" ed-member ed-tag-names ed-choice ok-then? if ed-tag-read else nip then ;
 
 \ ---- Matchers: name (a definition, once), parameters, discriminants,
 \ elimination universe, alternatives, the discriminants' names (read for
@@ -1468,11 +1526,17 @@ create ed-kind-handlers
 : ed-object-value? ( -- flag ) 2 ed-view json-object json-kind-at? ;
 : ed-wrapped? ( -- flag ) ed-one-member? if ed-object-value? else false then ;
 : ed-tally ( kind -- ) elab elab-counts cell-tally ;
+\ A record of an added kind, read by its form's reader in format 4 alone.
+: ed-on-added ( value -- outcome )
+  ed-v4? 0= if drop ed-e-kind ed-bad exit then
+  elab elab-kind @ ed-kind-form elab-kind-reader @ execute ;
+: ed-handler ( kind -- xt )
+  dup elab-kinds u< if cells ed-kind-handlers + @ else drop ['] ed-on-added then ;
 : ed-dispatch ( value kind -- outcome )
-  dup elab elab-kind ! dup ed-tally cells ed-kind-handlers + @ execute ;
+  dup elab elab-kind ! dup ed-tally ed-handler execute ;
 : ed-on-record ( -- outcome )
   ed-wrapped? 0= if ed-malformed exit then
-  1 ed-view json-text@ ed-kind-names ed-key-index
+  1 ed-view json-text@ ed-kind-index
   0= if ed-e-kind ed-bad exit then
   2 swap ed-dispatch ;
 
@@ -1490,9 +1554,15 @@ create ed-head-keys
 : ed-head-v32 ( index -- flag ) s" 3.2" ed-text= dup elab elab-v32 ! ;
 : ed-head-v31 ( index -- flag )
   dup ed-head-v32 swap s" 3.1" ed-text= or dup elab elab-v31 ! ;
-: ed-head-v3? ( index -- flag ) ed-view natural-at if s" 3" compare 0= else false then ;
+: ed-natural= ( index c-addr u -- flag )
+  rot ed-view natural-at if compare 0= else 2drop false then ;
+: ed-head-v3? ( index -- flag ) s" 3" ed-natural= ;
+\ Format 4 (the number): 3.2's kinds and inert nodes, the added kinds.
+: ed-v4! ( flag -- ) dup elab elab-v4 ! dup elab elab-v31 ! elab elab-v32 ! ;
+: ed-head-v4 ( index -- flag ) s" 4" ed-natural= dup ed-v4! ;
+: ed-head-v4-or-3 ( index -- flag ) dup ed-head-v4 if drop true else ed-head-v3? then ;
 : ed-head-version ( value i -- outcome )
-  drop c" format_version" ed-member dup ed-head-v31 if drop true else ed-head-v3? then
+  drop c" format_version" ed-member dup ed-head-v31 if drop true else ed-head-v4-or-3 then
   ed-e-version ed-or-other ;
 : ed-head-shape ( value i -- outcome )
   drop ed-head-keys ed-shape? ed-e-malformed ed-or-bad ;
@@ -1512,11 +1582,21 @@ create ed-head-keys
 \ Format 3.2 counts every kind; 3 and 3.1 all but binder_kinds (none).
 : ed-kinds-named ( -- table n )
   ed-v32? if ed-kind-names elab-kinds else ed-v3-kinds elab-binders then ;
-: ed-records-shaped? ( object -- flag ) ed-kinds-named drop ed-shape? ;
+: ed-kinds# ( -- n ) ed-v4? if elab-kinds ed-added# + else ed-kinds-named nip then ;
+\ Format 4 counts the kinds of 3.2 and every added one.
+: ed-added-counted? ( object i -- object flag )
+  ed-added-form elab-kind-name @ over swap ed-member 0< 0= ;
+: ed-all-added? ( object -- flag )
+  true ed-added# 0 ?do swap i ed-added-counted? rot and loop nip ;
+: ed-v4-shaped? ( object -- flag )
+  ed-kinds# over ed-view members? 0= if drop false exit then
+  dup ed-kind-names swap ed-view all-keys? swap ed-all-added? and ;
+: ed-records-shaped? ( object -- flag )
+  ed-v4? if ed-v4-shaped? exit then ed-kinds-named drop ed-shape? ;
 : ed-expect-k ( object k -- object outcome ) over swap ed-expect ;
 : ed-head-records ( value i -- outcome )
   drop c" records" ed-member dup ed-records-shaped? 0= if drop ed-malformed exit then
-  ed-kinds-named nip ['] ed-expect-k ok-each nip ;
+  ed-kinds# ['] ed-expect-k ok-each nip ;
 \ M6 (S1 note): the records SHA-256 the export's manifest names, if any,
 \ must be the header's (the records are then checked against it).
 : ed-bound ( -- c-addr u ) elab elab-bound elab elab-bound-length @ ;
@@ -1590,8 +1670,11 @@ create ed-head-steps
 : ed-ranks-whole ( -- outcome )
   elab-instance 0 ed-kind-gapless? elab-left-out 1 ed-kind-gapless? and
   ed-e-gap ed-or-bad ;
+: ed-added-cells ( addr -- addr' u ) elab-kinds cells + ed-added# cells ;
+: ed-added-same? ( -- flag )
+  elab elab-counts ed-added-cells elab elab-expected ed-added-cells compare 0= ;
 : ed-ends ( -- outcome )
-  ed-counts-same? 0= if ed-e-count ed-bad exit then
+  ed-counts-same? ed-added-same? and 0= if ed-e-count ed-bad exit then
   ed-hash-same? 0= if ed-e-sha ed-bad exit then ed-ranks-whole ;
 : ed-open ( c-addr u -- outcome )
   elab elab-reader reader-open
@@ -1633,5 +1716,27 @@ create ed-head-steps
   elab elab-reading @ if ed-busy exit then
   ed-start ok-then2? if true elab elab-reading ! ed-caught else 0 then
   >r ed-close r> throw ;
+
+\ ---- For the kinds other files add (elab-add-kind): this file's own
+\ record-reading words under elab- names, with their stack effects. A
+\ form for elab-on-form is the address of three or more cells: a table of
+\ the record's members (counted strings ending with an empty one), an xt
+\ ( -- slab ) of the slab a record is claimed in, then its steps ( value
+\ i -- outcome ), run in turn while ok, ended by 0.
+synonym elab-member ed-member            ( value key -- index )
+synonym elab-u32 ed-u32                  ( index -- u outcome )
+synonym elab-decl ed-decl                ( index -- d outcome )
+synonym elab-of-kind ed-of-kind          ( d kind -- d outcome )
+synonym elab-refuse ed-bad               ( code -- outcome )
+synonym elab-malformed ed-malformed      ( -- outcome )
+synonym elab-roomed ed-roomed            ( outcome -- outcome ) \ a failure: error 22
+synonym elab-e-unfit ed-e-unfit          ( -- 37 )
+synonym elab-put ed-put                  ( addr x outcome xt -- outcome )
+synonym elab-on-form ed-on-form          ( value form -- outcome )
+synonym elab-array-items ed-array-items  ( index xt -- outcome )
+synonym elab-type-pis ed-type-pis        ( d -- n )
+: elab-format4? ( -- flag ) elab-loaded? ed-v4? and ;
+: ed-tagged-at? ( tag d -- tag flag ) over elab-tagged? ;
+: elab-tag-count ( tag -- n ) elab-facts slab-count ['] ed-tagged-at? count-index ;
 
 base !   \ the BASE this file was loaded with

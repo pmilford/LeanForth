@@ -1,0 +1,5 @@
+{"elab_data":{"export_sha256":"7473bcce297b59e286971022db9a6e867e74d8bb93f58d479cc13e5a7106e88b","format":"leanforth-elab-data","format_version":5,"lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"class":0,"default_instance":0,"eliminator":0,"instance":0,"instance_left_out":0,"matcher":0,"projection":0,"reducibility":0,"sunfold":0,"tag":1},"records_sha256":"7ca7fe19854e9259cca0a588e9d84f6fea7fb5dd9c93f7a48d11611ae7bd1cfa"}}
+{"congr":{"fun":["dite"],"hyps":[9,10,11],"name":["dite_congr"],"priority":1000,"rank":0}}
+{"congr":{"fun":["ite"],"hyps":[9,10,11],"name":["ite_congr"],"priority":1000,"rank":0}}
+{"congr":{"fun":["ite"],"hyps":[0],"name":["Nat","add_zero"],"priority":500,"rank":1}}
+{"tag":{"name":["Nat","add_zero"],"tag":"defeq"}}

@@ -81,6 +81,7 @@ def assemble(lines, **head):
     head's members replacing the header's."""
     body = "".join(r + "\n" for r in lines)
     counts = dict.fromkeys(KINDS, 0)
+    del counts["congr"]   # format 4's (tests/front/test_simp_data.py)
     if head.get("format_version") != "3.2":
         del counts["binder_kinds"]   # formats 3 and 3.1 have no such kind
     for line in lines:
@@ -444,7 +445,8 @@ ERRORS = ["file missing or unreadable", "no line, or a line without its line fee
           "a default instance's rank beyond 65535", "a smart-unfolding body named twice",
           "an index to no earlier entry", "a loose bound variable",
           "universe parameters other than the definition's",
-          "an annotation this reader does not know", "binder kinds named twice"]
+          "an annotation this reader does not know", "binder kinds named twice",
+          "a congruence lemma named twice", "congruence lemmas out of their function's order"]
 
 
 def refusal(line, reason):

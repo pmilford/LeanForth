@@ -1,0 +1,2 @@
+{"elab_data":{"export_sha256":"7473bcce297b59e286971022db9a6e867e74d8bb93f58d479cc13e5a7106e88b","format":"leanforth-elab-data","format_version":"3.2","lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"binder_kinds":0,"class":0,"default_instance":0,"eliminator":0,"instance":0,"instance_left_out":0,"matcher":0,"projection":0,"reducibility":0,"sunfold":0,"tag":1},"records_sha256":"772267e3e6ba381a8ffa300141c2ce2aa78892b73ceded989037a05faaf41845"}}
+{"tag":{"name":["Nat","add_zero"],"tag":"defeq"}}

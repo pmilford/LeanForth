@@ -1070,10 +1070,12 @@ test-differential: reference-manifest
 # damaged file through leanforth check --elab-data. Gforth and Python 3 only.
 test-elab-data:
 	$(RUN) $(GFORTH) tests/front/elab-data.fs
+	$(RUN) $(GFORTH) tests/front/simp-data.fs
 	$(RUN) $(GFORTH) tests/front/elab-check-lf.fs
 	$(RUN) python3 tests/scripts/test_mathlib_slice.py
 test-elab-data-e2e:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/test_elab_data.py
+	GFORTH=$(GFORTH) $(RUN) python3 tests/front/test_simp_data.py
 # With pinned Lean: scripts/export-elab.sh reproduces the init slice's data
 # byte for byte, and for all of Init its records equal pinned Lean's own
 # counts and LeanForth reads them against Init's export (about 60 s).

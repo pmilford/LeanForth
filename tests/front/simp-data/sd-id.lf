@@ -1,0 +1,10 @@
+\ A text the simp slice's export elaborates (plan FE9, slice SD-a): the
+\ check reads its format-4 elaboration data, congruence lemmas and defeq
+\ tags, before the text (tests/front/test_simp_data.py).
+\ Lean: theorem sd_id (a : Nat) : a = id a := by rfl
+theorem sd_id
+  Nat explicit: a
+  a a id =
+:= by
+  by-rfl
+end sd_id

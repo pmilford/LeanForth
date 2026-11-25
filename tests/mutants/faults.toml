@@ -11623,7 +11623,7 @@ reason = "a projection whose field or parameters its types cannot have is read (
 [[fault]]
 id = "fe-ed2-sunfold-read"
 file = "src/front/elab-data.fs"
-old = ''': ed-head-v3? ( index -- flag ) ed-view natural-at if s" 3" compare 0= else false then ;'''
+old = ''': ed-head-v3? ( index -- flag ) s" 3" ed-natural= ;'''
 new = ''': ed-head-v3? ( index -- flag ) ed-view natural-at if 2drop true else false then ;'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "S2 B1: a format-2 file is read as format 3: its \"sunfold\":0 says no definition has a smart-unfolding body, so Nat.add would unfold by its brecOn value"
@@ -18512,8 +18512,8 @@ reason = "S2: a have (non_dep let) read as a let: decoding would zeta-reduce whe
 [[fault]]
 id = "fe-ed3-match-pattern-tag"
 file = "src/front/elab-data.fs"
-old = '''  s" rec_on" counted, s" brec_on" counted, s" match_pattern" counted, 0 0 counted,'''
-new = '''  s" rec_on" counted, s" brec_on" counted, s" match_patterns" counted, 0 0 counted,'''
+old = '''  s" rec_on" counted, s" brec_on" counted, s" match_pattern" counted, s" defeq" counted,'''
+new = '''  s" rec_on" counted, s" brec_on" counted, s" match_patterns" counted, s" defeq" counted,'''
 test = "$GFORTH tests/front/elab-data.fs"
 reason = "S2: the match_pattern tag (S3's whnfMatcher reads it) is not one the reader knows: every format-3 file refused"
 
