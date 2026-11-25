@@ -439,7 +439,7 @@
   "src/front/meta-tactic/cases.fs": {
    "blocks": 64,
    "never_run": 3,
-   "reason": "unreachable: new file (plan TB2, slice E1); cases.fs:71 Eq or HEq missing from the export (mcs-has): every test export holds both; cases.fs:72 an inductive type with no data (mcs-data): the library mode the tactics run in decodes every one (meta-env.fs's me-lib-data); cases.fs:76 a major's type not applied to all its parameters and indices (mcs-arity): a free variable's type through whnf is its inductive type fully applied"
+   "reason": "unreachable: new file (plan TB2, slice E1); cases.fs:71 Eq or HEq missing from the export (mcs-has): every test export holds both; cases.fs:73 an inductive type with no data (mcs-data): the library mode the tactics run in decodes every one (meta-env.fs's me-lib-data); cases.fs:78 a major's type not applied to all its parameters and indices (mcs-arity): a free variable's type through whnf is its inductive type fully applied"
   },
   "src/front/meta-tactic/constructor.fs": {
    "blocks": 49,
@@ -457,7 +457,7 @@
   "src/front/meta-tactic/meta-induction.fs": {
    "blocks": 218,
    "never_run": 8,
-   "reason": "unreachable: new file (plan TB2, slice E1); meta-induction.fs:147, meta-induction.fs:150, meta-induction.fs:158, meta-induction.fs:160, meta-induction.fs:167 Lean's invalid user defined recursor checks (a parameter not the major type's argument, more parameters than its arguments, a motive's sort neither Prop nor a level parameter, a level parameter neither the motive's nor the type's): no declaration of this shape in the test exports; reached by a user recursor (E5); meta-induction.fs:256 a binder of the recursor's type that is no pi (mid-app): the parameters' and the motive's binders were counted from that type and stay pis once instantiated (whnfForall); meta-induction.fs:274 a minor premise with fewer binders than the goal (mid-fields#): a casesOn or casesAuxOn minor premise ends in the motive applied, its fields before it; only a user recursor (E5) reaches it; meta-induction.fs:297 the major premise never applied (mid-end): its position is one of the recursor's binders, each a pi"
+   "reason": "unreachable: new file (plan TB2, slice E1); meta-induction.fs:148, meta-induction.fs:151, meta-induction.fs:159, meta-induction.fs:162, meta-induction.fs:169 Lean's invalid user defined recursor checks (a parameter not the major type's argument, more parameters than its arguments, a motive's sort neither Prop nor a level parameter, a level parameter neither the motive's nor the type's): no declaration of this shape in the test exports; reached by a user recursor (E5); meta-induction.fs:258 a binder of the recursor's type that is no pi (mid-app): the parameters' and the motive's binders were counted from that type and stay pis once instantiated (whnfForall); meta-induction.fs:277 a minor premise with fewer binders than the goal (mid-fields#): a casesOn or casesAuxOn minor premise ends in the motive applied, its fields before it; only a user recursor (E5) reaches it; meta-induction.fs:300 the major premise never applied (mid-end): its position is one of the recursor's binders, each a pi"
   },
   "src/front/meta-tactic/rename.fs": {
    "blocks": 57,
