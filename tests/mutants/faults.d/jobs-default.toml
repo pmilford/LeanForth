@@ -203,3 +203,30 @@ old = ''': d-floor ( d1 d2 -- d ) d- 0 0 dmax ;'''
 new = ''': d-floor ( d1 d2 -- d ) d- ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "a difference of a wall clock set back goes negative: a lap, a busy or waiting time below zero"
+
+# The review's test gaps (findings 4, 5 and 6): measured busy time, the default against a
+# snapshot, and a THROW in the last declaration, each now caught by a test of its own.
+
+[[fault]]
+id = "jd-busy-halved"
+file = "src/kernel/env-schedule.fs"
+old = ''': lf-sch-timed-check ( -- ) lf-sched lf-sch-check @ lf-sch-timing lf-sch-busy d+! ;'''
+new = ''': lf-sch-timed-check ( -- ) lf-sched lf-sch-check @ lf-sch-timing d2/ lf-sch-busy d+! ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "each check's busy time is halved: the workers seem idle half of the time they checked, while busy and waiting still add up to the run"
+
+[[fault]]
+id = "jd-snapshot-serial"
+file = "src/cli/leanforth.fs"
+old = '''  cli-takes-jobs? cli-text-file? 0= and if cli-jobs-default else 1 then ;'''
+new = '''  cli-takes-jobs? cli-text-file? 0= and cli-state opt-snapshot @ 0= and if cli-jobs-default else 1 then ;'''
+test = "python3 tests/cli/test_leanforth.py Jobs.test_default_with_snapshot"
+reason = "an export checked against a snapshot ignores the default and checks one declaration at a time"
+
+[[fault]]
+id = "jd-last-throw-unit"
+file = "src/cli/check-run.fs"
+old = ''': ck-jobs-stopped? ( n -- flag ) lf-input-count < lf-sched-stop lf-input-count < or ;'''
+new = ''': ck-jobs-stopped? ( n -- flag ) lf-input-count < ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "with workers, a THROW in the last declaration's check is not a stopped run (main's test): the unit test, not only the end-to-end one, sees it"

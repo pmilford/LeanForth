@@ -2336,16 +2336,31 @@ class Jobs(unittest.TestCase):
                               r"replaced 0\n")
         self.assertNotIn("workers:", run("check", "--resources", "--jobs", "1", CHAIN)[1])
 
+    # The default's workers line: "(the default), on N cores", or with fewer
+    # cores than 4 "(the default 4, N cores)" (review finding 12).
+    DEFAULT_LINE = (r"\n  workers: (\d+) \(the default(?:\), on| 4,) (\d+) cores?\)?\n    checks "
+                    r"handed out [1-9]\d*, run again 0, not ready 0, forced 0, workers replaced 0\n")
+
     def test_default_workers(self):
         """No --jobs: 4 workers, or the cores when fewer, named as the default."""
         status, out, _ = run("check", "--resources", "tests/cli/nested.ndjson")
         self.assertEqual(status, 0)
-        found = re.search(r"\n  workers: (\d+) \(the default\), on (\d+) cores\n    checks "
-                          r"handed out [1-9]\d*, run again 0, not ready 0, forced 0, workers "
-                          r"replaced 0\n", out)
+        found = re.search(self.DEFAULT_LINE, out)
         self.assertIsNotNone(found, out)
         self.assertEqual(int(found.group(1)), min(4, int(found.group(2))))
         self.assertNotIn("(--jobs)", out)
+
+    def test_default_with_snapshot(self):
+        """An export checked against a snapshot (--snapshot FILE EXPORT, a
+        layer) takes the default too (review finding 5)."""
+        with tempfile.TemporaryDirectory() as tmp:
+            base = str(Path(tmp) / "inductive.lfsnap")
+            self.assertEqual(run("check", "--save-snapshot", base, INDUCTIVE)[0], 0)
+            status, out, _ = run("check", "--resources", "--snapshot", base, DEPENDENT)
+        self.assertEqual(status, 0)
+        found = re.search(self.DEFAULT_LINE, out)
+        self.assertIsNotNone(found, out)
+        self.assertEqual(int(found.group(1)), min(4, int(found.group(2))))
 
     def test_spent(self):
         """A run with workers reports, under --resources and in the JSON

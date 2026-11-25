@@ -765,6 +765,23 @@ nested 1 facts-of 2drop drop constant serial-thrown
 T{ nested 3 facts-of nip nip swap serial-thrown = -> 1 true }T
 T{ serial-thrown serial-nested <> -> true }T
 -1 throw-at !
+\ A THROW in the last declaration's check (review finding 6): wide60's
+\ declarations are checked one by one, so its last check is its last
+\ declaration's, at the highest lf-env-limit a serial run meets. With
+\ workers the run stops there as the serial run does (ck-faulted?, by
+\ check-run.fs's ck-jobs-stopped?: the scheduler's stop below the input's
+\ count, though every declaration was stepped), with the serial run's facts.
+: wide60 ( -- c-addr u ) s" tests/cli/jobs/wide60.ndjson" ;
+variable last-limit  0 last-limit !
+: limit-seeing ( -- ) lf-env-limit last-limit @ max last-limit ! lf-check-declaration ;
+: last-check ( -- n ) fresh >r wide60 1 ['] limit-seeing run-by ck-release r> back last-limit @ ;
+: thrown-last ( jobs -- stopped? h ) fresh >r wide60 rot run-with ck-faulted? sched-facts
+  ck-release r> back ;
+last-check throw-at !
+1 thrown-last nip constant serial-last
+T{ 1 thrown-last -> true serial-last }T
+T{ 3 thrown-last -> true serial-last }T
+-1 throw-at !
 lf-fault-hasty lf-sched-faults !
 T{ nested 3 facts-of 2drop 0> swap serial-nested = -> true true }T
 \ Those the readiness test refused wait on the later heap until the
@@ -1091,6 +1108,26 @@ T{ -1 0 jobs-report 2dup default-line holds? -rot workers-line holds? -> true fa
   fresh >r nested rot run-with spent-facts ck-release r> back ;
 T{ 3 timed-run -> 3 asked true true true true true true true }T
 T{ 1 timed-run 2drop 2drop 2drop nip -> 0 }T
+\ Busy and waiting measured, not only added up (review finding 4): each
+\ check of the fixture's sleeps 20 ms first, counted per worker (slept-by,
+\ a cell each, found by its context; 7 for none). With 2 workers the
+\ workers were busy at least 20 ms for each check in all, each worker at
+\ least 20 ms for each of its own (half of it, with the checks' own time
+\ far below 20 ms, is not), and the driving task waited.
+create slept-by 8 cells allot  slept-by 8 cells erase
+: worker-here ( -- k )
+  lf-sched-workers 0 ?do i lf-sch-ctx @ lf-context @ = if i unloop exit then loop 7 ;
+: slept+ ( -- ) 1 worker-here cells slept-by + +! ;
+: sleeping-check ( -- ) 20 ms slept+ lf-check-declaration ;
+: slept-of ( k -- n ) cells slept-by + @ ;
+: slept-all ( -- n ) 0 lf-sched-workers 0 ?do i slept-of + loop ;
+: busy-enough? ( k -- flag ) dup lf-sched-busy rot slept-of 20000 m* d< 0= ;
+: all-busy-enough? ( -- flag ) true lf-sched-workers 0 ?do i busy-enough? and loop ;
+: sleep-facts ( -- slept? busy? each? waited? )
+  fresh >r slept-by 8 cells erase fixture 2 ['] sleeping-check run-by slept-all dup 0>
+  swap 20000 m* ck-busy-all 2swap d< 0= all-busy-enough? ck-driver-waiting d0= 0=
+  ck-release r> back ;
+T{ sleep-facts -> true true true true }T
 : serial-untimed ( -- zero? jobs? )
   fresh >r nested 1 run-with ck-run-wall d0= ck-jobs-run? ck-release r> back ;
 T{ serial-untimed -> true false }T
