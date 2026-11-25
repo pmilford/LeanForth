@@ -124,11 +124,15 @@ require ./compact-levels.fs
 : expr-payload@ ( e tier -- u ) expr-head@ head-payload ;
 : expr-a@ ( e tier -- u ) expr-record quad-a u32@ ;
 : expr-b@ ( e tier -- u ) expr-record quad-b u32@ ;
-\ Whether e is an application; the head of its spine (Lean's
-\ Expr.getAppFn): down the function side to the first node that is not
-\ one. A loop, linear in the arguments.
+\ Whether e is an application; the head of its spine and its number of
+\ arguments (Lean's Expr.getAppFn and Expr.getAppNumArgs, in one walk):
+\ down the function side to the first node that is not one, which is e
+\ itself, with 0, when e is not an application. A loop, linear in the
+\ arguments.
 : expr-app? ( e tier -- flag ) expr-tag@ tag-app = ;
-: expr-app-fn ( e tier -- f ) begin 2dup expr-app? while tuck expr-a@ swap repeat drop ;
+: expr-app-spine ( e tier -- f n )
+  0 -rot begin 2dup expr-app? while tuck expr-a@ swap rot 1+ -rot repeat drop swap ;
+: expr-app-fn ( e tier -- f ) expr-app-spine drop ;
 : expr-data@ ( e tier -- d ) expr-record quad-data u32@ ;
 \ A letE's body, from its second record.
 : expr-body@ ( e tier -- body ) expr-record /quad + quad-a u32@ ;
@@ -217,7 +221,7 @@ require ./compact-levels.fs
   2dup child-pair >r data-deeper data! over payload-zero? r> and >r pair-under? r>
   flag>outcome ;
 : check-binder ( top exprs -- under? outcome )
-  2dup binder-pair >r data-deeper data! 2dup name-checks r> rot and >r >r
+  2dup binder-pair >r data-deeper data! 2dup name-checks swap r> and >r >r
   pair-under? r> and r> flag>outcome ;
 \ A letE's data: its type's, value's and lowered body's, one level
 \ deeper; valid when all three are expressions of the set and the tag is
@@ -228,9 +232,9 @@ require ./compact-levels.fs
 : body-under? ( top exprs -- flag ) swap body-of swap cons-under? ;
 : let-under? ( top exprs -- flag ) 2dup body-under? >r pair-under? r> and ;
 : check-let ( top exprs -- under? outcome )
-  let-data >r 2dup name-checks r> rot and >r >r let-under? r> and r> flag>outcome ;
+  let-data >r 2dup name-checks swap r> and >r >r let-under? r> and r> flag>outcome ;
 : check-proj ( top exprs -- under? outcome )
-  2dup child-a >r data-deeper data! 2dup name-checks r> rot and >r >r
+  2dup child-a >r data-deeper data! 2dup name-checks swap r> and >r >r
   swap quad-a u32@ swap cons-under? r> and r> flag>outcome ;
 \ A bound variable's index must be below 2^20 - 1, so that its range,
 \ index + 1, is at most Lean's limit (L2); beyond it, full. The index is

@@ -248,3 +248,12 @@ old = '''  cli-elab-format2 cli-elab-format3 cli-elab-format4 cr ;'''
 new = '''  cli-elab-format2 cli-elab-format3 cr ;'''
 test = "python3 tests/front/test_simp_data.py"
 reason = "review simp-sd-a 9: the check's elaboration-data line leaves out the congruence lemmas and defeq tags"
+
+# --- re-check of simp-sd-a, items B and C: Lean's spine (getAppFn, getAppNumArgs) in core.
+[[fault]]
+id = "expr-app-spine-one-level"
+file = "src/core/compact-exprs.fs"
+old = '''  0 -rot begin 2dup expr-app? while tuck expr-a@ swap rot 1+ -rot repeat drop swap ;'''
+new = '''  0 -rot 2dup expr-app? if tuck expr-a@ swap rot 1+ -rot then drop swap ;'''
+test = "$GFORTH tests/core/compact.fs"
+reason = "re-check simp-sd-a C: a spine walked one level down (a call of three arguments seen as one, its head an application)"

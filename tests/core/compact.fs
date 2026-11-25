@@ -109,6 +109,18 @@ u-name 0 pi-head prop lam input expr-make ex constant pi-lam
 u-name 1 pi-head prop pi-lam input expr-make ex constant pi2
 T{ pi2 input expr-pis pi-lam input expr-pis lam input expr-pis c-succ input expr-pis -> 2 1 0 0 }T
 T{ pi2 input expr-pi-end pi-lam input expr-pi-end lam input expr-pi-end -> lam lam lam }T
+\ Spines (Lean's Expr.getAppFn and getAppNumArgs): a constant's call of
+\ three arguments, a bound variable's of two, a lambda's of one; a node
+\ that is no application is its own head, with none.
+c-add-u b0 input expr-app ex b1 input expr-app ex succ-b0 input expr-app ex constant add3
+b1 b0 input expr-app ex b0 input expr-app ex constant b1-2
+lam b1 input expr-app ex constant lam-1
+T{ add3 input expr-app-spine b1-2 input expr-app-spine -> c-add-u 3 b1 2 }T
+T{ lam-1 input expr-app-spine succ-b0 input expr-app-spine -> lam 1 c-succ 1 }T
+T{ c-succ input expr-app-spine b0 input expr-app-spine lam input expr-app-spine -> c-succ 0 b0 0 lam 0 }T
+T{ add3 input expr-app-fn b1-2 input expr-app-fn b0 input expr-app-fn -> c-add-u b1 b0 }T
+T{ add3 input expr-app? lam-1 input expr-app? b0 input expr-app? lam input expr-app?
+   -> true true false false }T
 T{ pi2 input 0 expr-pi-after pi2 input 1 expr-pi-after pi2 input 9 expr-pi-after
    -> pi2 input pi-lam input lam input }T
 T{ pi2 input 0 expr-domain pi2 input 1 expr-domain pi1 input 0 expr-domain -> prop true prop true prop true }T
