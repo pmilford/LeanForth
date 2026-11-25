@@ -62,10 +62,19 @@ reason = "the resource report credits the default's workers to a --jobs option t
 [[fault]]
 id = "jd-busy-uncounted"
 file = "src/kernel/env-schedule.fs"
-old = '''  lf-sch-now lf-sched lf-sch-check @ execute lf-sch-lap lf-sch-busy+ ;'''
-new = '''  lf-sch-now lf-sched lf-sch-check @ execute 2drop ;'''
+old = '''  lf-sch-now 2>r lf-sched lf-sch-check @ execute 2r> lf-sch-lap lf-sch-busy+ ;'''
+new = '''  lf-sch-now 2>r lf-sched lf-sch-check @ execute 2r> 2drop ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "no worker's checks are timed: every worker is reported idle the whole run"
+quick = true
+
+[[fault]]
+id = "jd-time-under-check"
+file = "src/kernel/env-schedule.fs"
+old = '''  lf-sch-now 2>r lf-sched lf-sch-check @ execute 2r> lf-sch-lap lf-sch-busy+ ;'''
+new = '''  lf-sch-now lf-sched lf-sch-check @ execute lf-sch-lap lf-sch-busy+ ;'''
+test = "$GFORTH tests/cli/leanforth.fs"
+reason = "the start time lies between the job's sentinel and the check: a check that replaces the cell below it rewrites the time, the guard misses it and its declaration is published accepted in a worker where the serial run finds it invalid and stops"
 quick = true
 
 [[fault]]

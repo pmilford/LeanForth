@@ -94,8 +94,10 @@
 \ - lf-sched-workers ( -- n ): the workers added;
 \ - lf-sched-clock! ( xt -- ): after lf-sched-init, xt ( -- d ) the wall
 \   clock in microseconds (cli/check-run.fs's ck-wall-now), read by the
-\   jobs and the driving task (a report that does not change the run); 0,
-\   the default, none, and the times below stay 0. lf-sched-busy ( k -- d ),
+\   jobs and the driving task (a report that does not change the run); it
+\   must leave exactly one double and must not throw (a job runs it
+\   around the check, the driving task around its waits); 0, the
+\   default, none, and the times below stay 0. lf-sched-busy ( k -- d ),
 \   after lf-sched-run, the driving context current: the microseconds
 \   worker k's checks ran, summed by its jobs in its context (lf-sch-busy;
 \   a worker replaced after a THROW counts its replacement's only, a lost
@@ -538,13 +540,15 @@ variable lf-sched-faults  0 lf-sched-faults !
 : lf-sch-unready ( d -- ) lf-sched lf-sch-unready# lf-sch-count+ lf-sch-later! ;
 \ The job ( -- ): the check, its wall time added to the worker's own
 \ lf-sch-busy (a double; none when lf-sched-clock! gave no clock). The
-\ check leaves the stack as it found it, so the start time waits under it.
+\ start time waits on the return stack, so the check finds the job's
+\ sentinel directly below it, as job-call (lib/task.fs) requires: a check
+\ that consumes and replaces that cell is caught, never published.
 2 cells context-record: lf-sch-busy
 : lf-sch-now ( -- d ) lf-sched lf-sch-clock @ ?dup if execute else 0 0 then ;
 : lf-sch-lap ( d -- n ) dnegate lf-sch-now d+ 0 0 dmax d>s ;
 : lf-sch-busy+ ( n -- ) s>d lf-sch-busy 2@ d+ lf-sch-busy 2! ;
 : lf-sch-timed-check ( -- )
-  lf-sch-now lf-sched lf-sch-check @ execute lf-sch-lap lf-sch-busy+ ;
+  lf-sch-now 2>r lf-sched lf-sch-check @ execute 2r> lf-sch-lap lf-sch-busy+ ;
 \ Begin d's check in worker k's context and submit it; a refused
 \ beginning is the serial run's stop at d (kept invalid); a refused job
 \ breaks the run.

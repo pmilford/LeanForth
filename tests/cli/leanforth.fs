@@ -683,9 +683,9 @@ variable facts
   ck-fuel-total mix mix ck-fuel-unknowns mix facts @ ;
 variable throw-at  -1 throw-at !
 : throwing-check ( -- ) lf-env-limit throw-at @ = if -77 throw then lf-check-declaration ;
-: run-with ( c-addr u jobs -- )
-  >r 20000000 ck-start r> ck-jobs! ['] throwing-check ck-check-word!
-  false ck-load ok? if ck-check then ;
+: run-by ( c-addr u jobs xt -- )
+  >r >r 20000000 ck-start r> ck-jobs! r> ck-check-word! false ck-load ok? if ck-check then ;
+: run-with ( c-addr u jobs -- ) ['] throwing-check run-by ;
 : sched-counts ( -- unready reruns renewed ) lf-sched-unready lf-sched-reruns lf-sched-renewed ;
 : facts-of ( c-addr u jobs -- h unready reruns renewed )
   fresh >r run-with sched-facts sched-counts ck-release r> back ;
@@ -1094,6 +1094,18 @@ T{ 1 timed-run 2drop 2drop 2drop nip -> 0 }T
 : serial-untimed ( -- zero? jobs? )
   fresh >r nested 1 run-with ck-run-wall d0= ck-jobs-run? ck-release r> back ;
 T{ serial-untimed -> true false }T
+\ A check that consumes and replaces the cell below it (core/environment.fs's
+\ overwriting), at fixturePoly (declaration 1): in a worker the job's
+\ sentinel lies directly below the check (lf-sch-timed-check keeps its start
+\ time on the return stack), so the guard catches it as the serial run's
+\ does: the declaration invalid, the run stopped, the serial run's facts.
+: overwriting-check ( -- ) lf-env-limit 1 = if 1+ then lf-check-declaration ;
+: overwrite-facts ( jobs -- outcome stopped? h )
+  fresh >r fixture rot ['] overwriting-check run-by 1 ck-kept kept-outcome @ ck-stopped?
+  sched-facts ck-release r> back ;
+1 overwrite-facts nip nip constant serial-overwritten
+T{ 1 overwrite-facts -> outcome-invalid true serial-overwritten }T
+T{ 3 overwrite-facts -> outcome-invalid true serial-overwritten }T
 [defined] >string-execute [if]
 : workers-json ( -- )
   ['] type cj-writer jw-start cj-object cj-workers cj-end-object cj-writer jw-end drop ;
