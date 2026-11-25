@@ -995,14 +995,15 @@ lfr-states# 2* 0 xt-table: lfr-states
 : lfr-first-in? ( k -- flag ) dup lfr-frame tfr-step @ swap 1- lfr-frame tfr-step @ 1+ = ;
 : lfr-only-in? ( k -- flag ) dup lfr-first-in? swap 1- lfr-frame lfr-more-in? 0= and ;
 : lfr-in-run? ( k -- flag ) 1- lfr-fresh-recover lfr-frame-flag? ;
-: lfr-body-of-run? ( k -- flag ) dup lfr-in-run? if lfr-only-in? else drop false then ;
+: lfr-body-of-run? ( k -- flag ) dup lfr-in-run? swap lfr-only-in? and ;
+\ xt's flag on frame k when its mode has bit, else false (xt not run).
+: lfr-mode-and ( xt k bit -- flag )
+  over swap lfr-frame-flag? if swap execute else 2drop false then ;
 \ A brace that is a fresh Tactic.run's whole body (lfr-recover-in): the
 \ recover below it Tactic.run's, true, as pinned Lean logs its error.
-: lfr-whole? ( k -- flag )
-  dup lfr-whole-logs lfr-frame-flag? if lfr-body-of-run? else drop false then ;
+: lfr-whole? ( k -- flag ) ['] lfr-body-of-run? swap lfr-whole-logs lfr-mode-and ;
 : lfr-below-recover ( k -- flag ) dup lfr-whole? swap 1- lfr-recover-at or ;
-: lfr-final-at? ( k -- flag )
-  dup lfr-admits lfr-frame-flag? if lfr-below-recover else drop false then ;
+: lfr-final-at? ( k -- flag ) ['] lfr-below-recover swap lfr-admits lfr-mode-and ;
 : lfr-handler? ( k -- flag )
   lfr-frame dup lfr-saved? swap tfr-mode @ mode-fail @ 0<> and ;
 \ (The topmost frame that decides; one below base is the caller's loop's.)
