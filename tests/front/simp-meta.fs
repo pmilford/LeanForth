@@ -47,8 +47,9 @@ T{ ' fl lf-with-simp-keys lf-meta-defaults -> lf-meta-default }T
 T{ ' fl lf-with-simp-meta lf-meta-defaults -> lf-defeq-flags lf-meta-defaults }T
 T{ lf-meta-config ' seen lf-with-simp-keys 2drop 2drop lf-meta-config d= -> true }T
 : boom ( -- ) 7 throw ;
-T{ lf-meta-config ' boom ' lf-with-simp-index catch nip lf-meta-config rot >r d= r>
-   -> true 7 }T
+: after-boom ( -- flag code )
+  lf-meta-config ['] boom ['] lf-with-simp-index catch nip >r lf-meta-config d= r> ;
+T{ after-boom -> true 7 }T
 \ Each proj kind round-trips through the flags.
 : proj-as ( kind -- kind' ) mcfg-proj-bits lf-tr-default ['] lf-meta-proj -rot lf-meta-with ;
 T{ lf-proj-no proj-as lf-proj-yes proj-as lf-proj-delta proj-as lf-proj-delta-i proj-as

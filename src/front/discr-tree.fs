@@ -337,7 +337,7 @@ create dt-edge-hooks /htab-hooks allot
 : dt-unify-run ( e -- outcome ) dt-root-key ok-then2? if dt-run-key then ;
 \ A query: its output, key word and extra count set (dt-set), then run
 \ on its tree in a key scope.
-: dt-set ( out xt extra -- ) dq dq-extra ! dq dq-key ! dq dq-out ! ;
+: dt-set ( out xt extra -- ) swap dq dq-key 2! dq dq-out ! ;   \ dq-key, dq-extra a pair
 : dt-query ( e tree run -- outcome )
   swap dup dt-use lf-dtree-live? 0= if 2drop outcome-ok exit then
   dts slab-clear lf-dt-scoped ;
@@ -352,11 +352,10 @@ create dt-edge-hooks /htab-hooks allot
 \ the tree has a root of the same head with fewer arguments), of each
 \ prefix e.appFn!, (e.appFn!).appFn!, ... with 1, 2, ... (the star root's
 \ values again each time).
-: dt-tag= ( k1 k2 -- flag ) elab-key-tag swap elab-key-tag = ;
-: dt-decl= ( k1 k2 -- flag ) elab-key-decl swap elab-key-decl = ;
-: dt-idx= ( k1 k2 -- flag ) elab-key-idx swap elab-key-idx = ;
 : dt-like? ( k1 k2 -- flag )   \ the same key but for the arity
-  2dup dt-tag= if 2dup dt-decl= if dt-idx= exit then then 2drop false ;
+  over elab-key-tag over elab-key-tag = 0= if 2drop false exit then
+  over elab-key-decl over elab-key-decl <> if 2drop false exit then
+  elab-key-idx swap elab-key-idx = ;
 : dt-same-head? ( k r -- flag )   \ root r's key: k's head, fewer arguments
   dtq lf-dtree-root-key 2dup dt-like?
   if elab-key-arity swap elab-key-arity < else 2drop false then ;

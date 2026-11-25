@@ -252,9 +252,9 @@ lf-tag-sort lf-tag-symbolic-sort lf-tag-fvar lf-tag-lit lf-tag-bvar 5 lf-tags
   dup fi-deps-most > if outcome-unsupported exit then fi-deps slab-clear
   dup ['] fi-dep-of ok-each dup ok? 0= if exit then drop
   dup fi-result! dup ok? if drop dup fi-fwd! outcome-ok then ;
-: fi-deps-made ( m outcome -- m outcome ) dup ok? if drop fi-deps-run then ;
 : lf-meta-fun-deps ( f n -- m outcome )
-  fi-mark fi-state fi-mark0 ! fi-run fi-deps-made fi-state fi-mark0 @ lf-lctx-drop ;
+  fi-mark fi-state fi-mark0 ! fi-run ['] fi-deps-run ok-and
+  fi-state fi-mark0 @ lf-lctx-drop ;
 : lf-param-back-deps ( i -- mask ) fi-deps slab-at @ ;
 : lf-param-head ( i -- name ) fi-deps slab-at cell+ @ ;
 : lf-param-fwd-deps? ( i -- flag ) 1 swap lshift fi-state fi-fwd @ and 0<> ;

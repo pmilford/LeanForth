@@ -102,7 +102,7 @@ end-structure
   if lf-param-back-deps swap ck-bit? else 2drop false then ;
 : ck-fixed? ( i n -- flag )
   over 1+ ?do dup i ck-holds? if drop true unloop exit then loop drop false ;
-: ck-fix ( i n -- ) over swap ck-fixed? if lf-ck-fixed swap ck-kind! else drop then ;
+: ck-fix ( i n -- ) over swap ck-fixed? if lf-ck-fixed over ck-kind! then drop ;
 : ck-fix-all ( n -- ) dup 0 ?do i over ck-fix loop drop ;
 
 : ck-kinds-run ( m -- n outcome )
