@@ -838,8 +838,8 @@ file order (48), the places increasing and below the number of the lemma's leadi
 `simp-congr-lemmas ( f -- c n outcome )` and `simp-defeq? ( d -- flag outcome )` answer unsupported, never
 "none", for data of an older format. Tests: `tests/front/simp-data.fs` (unit, 24 fixtures of
 `tests/front/simp-data/`, a heap sweep), `tests/front/test_simp_data.py` (the fixtures, the finisher, the
-check); faults `tests/mutants/faults.d/simp-data.toml`. Not yet printed by the check's "elaboration data:"
-line: that line is `src/cli/leanforth-text.fs`'s (left to the branch that owns the command line).
+check); faults `tests/mutants/faults.d/simp-data.toml`. The check's "elaboration data:" line ends
+with ", N congruence lemmas, M defeq tags" for format 4 (`cli-elab-format4`, `src/cli/leanforth-text.fs`).
 
 ## Unification hints: not in the data
 
