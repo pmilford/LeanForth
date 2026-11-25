@@ -2007,3 +2007,22 @@ recommendations on simp and speed". The first of them raises the style baseline
 - `src/front/simp-data.fs`, a new entry with globals **2**: the members-and-form pair `sdc-members`, `sdc-form`,
   as every record kind of `elab-data.fs` has. The kind's key and form, two more tables before the review, are
   now an entry of that registry.
+
+### The kernel's validity checks, and one style-baseline entry for the shared timer (2026-11-25)
+
+The owner, 2026-11-25, on the coordinator's three items ("Approve items 1, 2 3. And continue as planned"):
+
+1. **Slice 1 of the design "Validity checks out of the kernel's inner walks" (KERNEL_VALIDITY_CHECKS, branch `kernel-validity-design`) is approved** (the per-check
+   environment stamp, with the changes of its design review): the full environment check runs when a
+   declaration's check begins and before its result is published; inside the check a three-cell compare
+   remains. Estimated gain about 14 points of Init's 952 s. Slices 2 and 3 are decided after slice 1 is
+   measured.
+2. **It is behaviour-preserving kernel refactoring** under "The kernel is code like any other" (2026-11-19):
+   Forth review, the full tier with every pinned-Lean comparison, reported afterwards. The first diagnostic
+   noted inside a check whose state a test deliberately breaks may name a different step.
+3. **`src/lib/bounds.fs`, return-stack operations 8 -> 12** in `tests/forth-quality-baseline.json`, set by
+   hand in the branch `kernel-speed-measure`: the library word `timed ( i*x xt clock -- j*x d )` keeps the
+   start time and the clock on the return stack while the timed word runs (nothing may sit on the data stack
+   under a running check). It replaces two copies of the timing (the command line's and the kernel
+   scheduler's, whose file drops from 18 to 16), so the repository grows by 2.
+

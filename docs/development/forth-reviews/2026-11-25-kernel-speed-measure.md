@@ -44,10 +44,10 @@ Reuse searched: FORTH_LIBRARY/lib (bounds.fs `d-floor`), all of src for `d-floor
 Not looked at: test_leanforth.py's new cases in detail; PROFILING.md and PROJECT_PROGRESS.md text; profile-summary.py beyond its families. Not run: gforth-fast for the Forth tests, Gforth 0.7.3, Init or Mathlib, a non-x86-64 host. Finding 10's edge case is from reading the code only. An AI review does not replace the owner's review.
 Probe files are in /tmp/claude-1000/-home-peter-code-LeanForth/69a89404-3a7f-48aa-b333-1f7651c5eb48/scratchpad/review-kspeed/ (compare.py, compare.out, d2.out, d3.out, pc.out).
 
-## Resolution (2026-11-25, after the rebase on main `87e2d451`: the reviewed commits are now `17f6479e`, `49f6209e`, `709d268f`)
+## Resolution (2026-11-25, after the rebase on main `87e2d451`: the reviewed commits are now `28d3056c`, `f9bf465d`, `362a4a6d`)
 
-1. Fixed in `944f4353`: `ck-timer-stop` is gone; the check is timed through `timed` (finding 2).
-2. Fixed in `944f4353`: `timed ( i*x xt clock -- j*x d )` in `lib/bounds.fs` beside `d-floor`, written
+1. Fixed in `b23d55a3`: `ck-timer-stop` is gone; the check is timed through `timed` (finding 2).
+2. Fixed in `b23d55a3`: `timed ( i*x xt clock -- j*x d )` in `lib/bounds.fs` beside `d-floor`, written
    `tuck execute 2>r swap >r execute r> execute 2r> d-floor` (no deep shuffle; the start and the clock wait on the
    return stack). `lf-sch-timing` is `['] lf-sch-now timed`, `ck-timed-check` is
    `ck-check-word ['] ck-wall-now timed ck-took 2!`; `timer-began`, `ck-timer-start` and `ck-timer-stop` are gone.
@@ -61,13 +61,13 @@ Probe files are in /tmp/claude-1000/-home-peter-code-LeanForth/69a89404-3a7f-48a
    `timed` must keep three cells (start and clock) across xt, which takes four return-stack operations at least,
    and no other word of the file can lose one without a deep shuffle. The ratchet warns on the branch; the merge
    needs the baseline raised for this file in a reviewed commit, or a refactor the reviewer names. Open.
-3. Fixed in `91f50285`: `PTRACE_O_EXITKILL` at the seize, a `finally` that kills and reaps a child still running
+3. Fixed in `105f5247`: `PTRACE_O_EXITKILL` at the seize, a `finally` that kills and reaps a child still running
    (SIGTERM exits through it; a child already reaped is not killed), and the fork child's exec failure gives exit
    127 with one message. Probe: a sampler sent SIGTERM left no `sleep` behind.
-4. Fixed in `91f50285`: `profile-check.sh` refuses a machine other than x86-64 and a missing gforth-fast with exit 5
+4. Fixed in `105f5247`: `profile-check.sh` refuses a machine other than x86-64 and a missing gforth-fast with exit 5
    and one line; the `PTRACE_GETREGS` result is checked (exit 5, one line). Tests `Failures.test_no_engine` and
    `Failures.test_command_not_run` in `tests/scripts/test_profile_check.py`.
-5. Fixed in `15041e87`, from a second profile of Init (run 2, 2026-11-25 07:59, 57,421
+5. Fixed in `3c73fe27`, from a second profile of Init (run 2, 2026-11-25 07:59, 57,421
    samples, kept in `.claude/work/init-profile-2026-11-25/` of the main checkout; shares comparable, wall
    time not). "In short" now gives exclusive shares only (reads 40.3%, hashing 16.3%, validity 12.5%), the
    overlap (16.7 points of the reads and 4.1 of the hashing lie under a validity word; 35.9% inclusive) and
@@ -87,12 +87,12 @@ Probe files are in /tmp/claude-1000/-home-peter-code-LeanForth/69a89404-3a7f-48a
    stores, slabs (src/core, store.fs, slab.fs)", and the document prints the tool's rows one for one. No
    expected table in `tests/scripts/test_profile_check.py` named the old family; a new test
    (`test_store_reads_family`) pins the regrouping.
-9. Fixed in `c8e6ebf9`: faults `ks-time-negative` (D2) and `ks-start-under-check` (D3), both caught by
+9. Fixed in `69d2bf90`: faults `ks-time-negative` (D2) and `ks-start-under-check` (D3), both caught by
    `tests/cli/leanforth.fs` (`scripts/mutants.py --only`: 4 run, 4 caught, with `ks-time-untimed` and
    `ks-timed-backwards`).
-10. The comment is reworded in `944f4353` ("a check that threw before it ended"). The `lf-sch-rerun` edge case is
+10. The comment is reworded in `b23d55a3` ("a check that threw before it ended"). The `lf-sch-rerun` edge case is
     left, open: a test needs a refused begin after an early check in the same worker, which no test reaches today.
 11. Fixed in the same commit: `profile-symbols.fs` writes each piece with `write-file` (`sym-type`,
     `sym-char`, `sym-end`), no buffer. A direct run on `src/main.fs` wrote 29,026 lines in the old format;
     `make test-profile-check` passed (8 tests).
-12. Fixed in `c8e6ebf9`: the `test-profile-check` row is in the end-to-end section.
+12. Fixed in `69d2bf90`: the `test-profile-check` row is in the end-to-end section.
