@@ -2350,6 +2350,27 @@ class Jobs(unittest.TestCase):
         self.assertEqual(int(found.group(1)), min(4, int(found.group(2))))
         self.assertNotIn("(--jobs)", out)
 
+    def test_fewer_cores(self):
+        """With fewer cores than asked (review finding 12; the test-only
+        task-cores-test, as tests/cli/test_parallel_stress.py starts Gforth),
+        the workers line says what was asked and the cores, also for a run
+        cut to one worker, which once had no workers line at all."""
+        def on_cores(cores, *args):
+            result = subprocess.run([GFORTH, "-e", f"{cores} constant task-cores-test",
+                                     str(ROOT / "src/load/cli-checker.fs"), "-e", "cli-main",
+                                     "check", "--resources", *args, "tests/cli/nested.ndjson"],
+                                    capture_output=True, text=True, stdin=subprocess.DEVNULL,
+                                    env=dict(os.environ, GFORTH_ENV="off"))
+            return result.returncode - 100, result.stdout
+        status, out = on_cores(1, "--jobs", "4")
+        self.assertEqual(status, 0)
+        self.assertIn("\n  workers: 1 (--jobs 4, 1 core)\n  input:", out)
+        status, out = on_cores(2)
+        self.assertEqual(status, 0)
+        self.assertIn("\n  workers: 2 (the default 4, 2 cores)\n    checks handed out ", out)
+        self.assertNotIn("workers:", on_cores(1, "--jobs", "1")[1])
+        self.assertIn("\n  workers: 4 (--jobs), on 4 cores\n", on_cores(4, "--jobs", "4")[1])
+
     def test_default_with_snapshot(self):
         """An export checked against a snapshot (--snapshot FILE EXPORT, a
         layer) takes the default too (review finding 5)."""

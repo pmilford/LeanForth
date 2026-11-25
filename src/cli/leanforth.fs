@@ -758,12 +758,23 @@ create cli-fed-ops
 : cli-lacked. ( -- )
   ck-lacked 0= if exit then ."     worker tasks started: " ck-made .decimal
   ."  (the system refused " ck-lacked .decimal ."  more)" cr ;
-\ Where the count came from: --jobs, or the default (cli-workers).
-: cli-jobs-from. ( -- ) cli-jobs if ."  (--jobs)" else ."  (the default)" then ;
+\ Where the count came from: --jobs, or the default (cli-workers); with
+\ fewer cores than asked for (ck-jobs! cut the count to them, to one too,
+\ a run then with no workers, which once had no workers line: review
+\ jobs-default finding 12), what was asked and the cores, the CPUs Linux
+\ has online (lib/task.fs's task-cores).
+: cli-source. ( -- ) cli-jobs if ." --jobs" else ." the default" then ;
+: cli-jobs-from. ( -- ) ."  (" cli-source. ." )" ;
+: cli-cut? ( -- flag ) cli-workers ck-jobs-most > ck-jobs 0> and ;
+: cli-core-count. ( -- ) task-cores dup .decimal 1 = if ."  core" else ."  cores" then ;
+: cli-asked. ( -- )
+  ."  (" cli-source. space cli-workers .decimal ." , " cli-core-count. ." )" cr ;
+: cli-workers-from. ( -- ) cli-cut? if cli-asked. else cli-jobs-from. cli-cores. then ;
+: cli-workers-line. ( -- ) ."   workers: " ck-jobs .decimal cli-workers-from. ;
+: cli-cut-only. ( -- ) cli-cut? if cli-workers-line. then ;
 : cli-jobs. ( -- )
-  ck-parallel? 0= if exit then ck-jobs-run? 0= if cli-no-workers. exit then
-  ."   workers: " ck-jobs .decimal cli-jobs-from. cli-cores.
-  cli-lacked. cli-sched. ;
+  ck-parallel? 0= if cli-cut-only. exit then
+  ck-jobs-run? 0= if cli-no-workers. exit then cli-workers-line. cli-lacked. cli-sched. ;
 \ A run with workers, timed (cli/check-run.fs): the plan's and the jobs'
 \ run's wall seconds, then the seconds each task was busy and waiting in
 \ that run: the driving task (busy handing out, publishing, rolling back),

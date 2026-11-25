@@ -16123,8 +16123,8 @@ reason = "POOL: a run on fewer workers than asked keeps no count of those the ho
 [[fault]]
 id = "pool-lacked-unsaid"
 file = "src/cli/leanforth.fs"
-old = '''  cli-lacked. cli-sched. ;'''
-new = '''  cli-sched. ;'''
+old = '''  ck-jobs-run? 0= if cli-no-workers. exit then cli-workers-line. cli-lacked. cli-sched. ;'''
+new = '''  ck-jobs-run? 0= if cli-no-workers. exit then cli-workers-line. cli-sched. ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "POOL: --resources does not say that the system refused worker tasks"
 

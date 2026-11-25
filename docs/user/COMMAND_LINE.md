@@ -915,7 +915,9 @@ step of plan task 6.5.2 can keep it, with a change to the checker.
 ### Parallel checking (`--jobs`)
 
 `check --jobs N` checks with N workers at once (plan tasks 6.5.4 and
-7.3.1, 2026-11-11; its [kernel] review is pending). The output is the
+7.3.1, 2026-11-11; the plan's row 7.3.1 gives the scheduler's review status
+as "review rvS7 not blocking, owner-approved 2026-11-12"; the default of 4
+workers is the owner's decision of 2026-11-23, below). The output is the
 same as with `--jobs 1`, one declaration at a time, byte for byte but for
 the resource report's times, memory and workers lines, and the JSON
 report but for `measured`: every verdict, diagnostic and fuel count, the
@@ -927,7 +929,10 @@ so the rest of the computer is still ok to run"; until then it was 1):
 workers, or as many as the machine has hardware threads when that is
 fewer (the count Linux lists in `/sys/devices/system/cpu/online`; a host
 without that file counts one, and so checks one at a time, as it would
-with any `--jobs`). `--jobs N` still sets the count, `--jobs 1` one at a
+with any `--jobs`). These "cores" are the CPUs Linux has online, not the
+CPUs the process may run on (its affinity, as `taskset` sets it) nor a
+container's CPU quota: a run limited to fewer still starts that many
+workers, which then take turns. `--jobs N` still sets the count, `--jobs 1` one at a
 time. Three runs stay one at a time without `--jobs`: a LeanForth text
 (`FILE.lf`, whose input no worker can share; the note "--jobs does not
 apply to LeanForth text yet" is printed only when `--jobs N` above 1 is
@@ -935,7 +940,9 @@ given), `check --record` (whose reader is serial; an explicit `--jobs N`
 above 1 with it is still a mistake, exit 4), and `print` and `replay`,
 which take no `--jobs`. The resource report's workers line says where the
 count came from: `workers: 4 (the default), on 10 cores`, or
-`(--jobs)`.
+`(--jobs)`; with fewer cores than asked for it says what was asked and the
+cores, also when that leaves one worker and the run is serial:
+`workers: 2 (the default 4, 2 cores)`, `workers: 1 (--jobs 4, 1 core)`.
 
 Why 4: on this machine (Ryzen 5 7600X, 5 cores of 2 threads each, 39 GB)
 the speed-up per CPU second falls past 4 workers, because two threads

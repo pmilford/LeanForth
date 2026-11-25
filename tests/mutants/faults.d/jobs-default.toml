@@ -48,8 +48,8 @@ reason = "the run ignores the default: check without --jobs still checks one dec
 [[fault]]
 id = "jd-default-said-jobs"
 file = "src/cli/leanforth.fs"
-old = ''': cli-jobs-from. ( -- ) cli-jobs if ."  (--jobs)" else ."  (the default)" then ;'''
-new = ''': cli-jobs-from. ( -- ) ."  (--jobs)" ;'''
+old = ''': cli-source. ( -- ) cli-jobs if ." --jobs" else ." the default" then ;'''
+new = ''': cli-source. ( -- ) ." --jobs" ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "the resource report credits the default's workers to a --jobs option the user never gave"
 
@@ -230,3 +230,13 @@ old = ''': ck-jobs-stopped? ( n -- flag ) lf-input-count < lf-sched-stop lf-inpu
 new = ''': ck-jobs-stopped? ( n -- flag ) lf-input-count < ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "with workers, a THROW in the last declaration's check is not a stopped run (main's test): the unit test, not only the end-to-end one, sees it"
+
+# Fewer cores than asked (review finding 12): the workers line says what was asked and the cores.
+
+[[fault]]
+id = "jd-cut-silent"
+file = "src/cli/leanforth.fs"
+old = ''': cli-cut? ( -- flag ) cli-workers ck-jobs-most > ck-jobs 0> and ;'''
+new = ''': cli-cut? ( -- flag ) false ;'''
+test = "python3 tests/cli/test_leanforth.py Jobs.test_fewer_cores"
+reason = "with fewer cores than asked the cut is silent: on one core --jobs 4 prints no workers line at all"
