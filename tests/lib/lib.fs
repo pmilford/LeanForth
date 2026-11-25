@@ -124,6 +124,14 @@ T{ 0 tallies cell-at@ 1 tallies cell-at@ 2 tallies cell-at@ -> 0 7 1 }T
 \ zero; at zero, or below (a corrupted budget), nothing spent and false.
 variable budget  2 budget !
 T{ budget cell-spend? budget cell-spend? budget cell-spend? budget @ -> true true false 0 }T
+\ d+! and d-floor (review jobs-default finding 3): a double in memory
+\ added to, the carry into the high cell and back; a difference of two
+\ doubles, 0 when the second is larger, across the cell boundary too.
+2variable dsum  0 0 dsum 2!
+T{ 5 0 dsum d+! -1 0 dsum d+! dsum 2@ -> 4 1 }T
+T{ -6 s>d dsum d+! dsum 2@ -> -2 0 }T
+T{ 7 0 3 0 d-floor 3 0 7 0 d-floor 5 0 5 0 d-floor -> 4 0 0 0 0 0 }T
+T{ 0 1 1 0 d-floor -2 s>d -5 s>d d-floor -> -1 0 3 0 }T
 -3 budget !
 T{ budget cell-spend? budget @ -> false -3 }T
 1 budget !

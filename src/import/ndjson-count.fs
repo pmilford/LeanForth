@@ -86,7 +86,6 @@ manifest: counted-manifest
 
 : bytes-of ( n -- addr ) 2* cells count-tally tally-bytes + ;
 : count-of ( n -- addr ) cells count-tally tally-counts + ;
-: d+! ( d addr -- ) dup >r 2@ d+ r> 2! ;
 : max! ( n addr -- ) tuck @ max swap ! ;
 : line-bytes ( record -- n ) record-export @ export-bytes @ ;
 \ Every record is one line: count it and its bytes in its category.

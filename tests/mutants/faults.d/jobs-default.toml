@@ -62,8 +62,8 @@ reason = "the resource report credits the default's workers to a --jobs option t
 [[fault]]
 id = "jd-busy-uncounted"
 file = "src/kernel/env-schedule.fs"
-old = '''  lf-sch-now 2>r lf-sched lf-sch-check @ execute 2r> lf-sch-lap lf-sch-busy+ ;'''
-new = '''  lf-sch-now 2>r lf-sched lf-sch-check @ execute 2r> 2drop ;'''
+old = ''': lf-sch-timed-check ( -- ) lf-sched lf-sch-check @ lf-sch-timing lf-sch-busy d+! ;'''
+new = ''': lf-sch-timed-check ( -- ) lf-sched lf-sch-check @ lf-sch-timing 2drop ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "no worker's checks are timed: every worker is reported idle the whole run"
 quick = true
@@ -71,8 +71,8 @@ quick = true
 [[fault]]
 id = "jd-time-under-check"
 file = "src/kernel/env-schedule.fs"
-old = '''  lf-sch-now 2>r lf-sched lf-sch-check @ execute 2r> lf-sch-lap lf-sch-busy+ ;'''
-new = '''  lf-sch-now lf-sched lf-sch-check @ execute lf-sch-lap lf-sch-busy+ ;'''
+old = ''': lf-sch-timed-check ( -- ) lf-sched lf-sch-check @ lf-sch-timing lf-sch-busy d+! ;'''
+new = ''': lf-sch-timed-check ( -- ) lf-sch-now lf-sched lf-sch-check @ execute lf-sch-now 2swap d-floor lf-sch-busy d+! ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "the start time lies between the job's sentinel and the check: a check that replaces the cell below it rewrites the time, the guard misses it and its declaration is published accepted in a worker where the serial run finds it invalid and stops"
 quick = true
@@ -80,8 +80,8 @@ quick = true
 [[fault]]
 id = "jd-wait-uncounted"
 file = "src/kernel/env-schedule.fs"
-old = ''': lf-sch-timed-wait ( -- k ) lf-sch-ended lf-sch-wait-mark 2@ lf-sch-lap lf-sch-waited+ ;'''
-new = ''': lf-sch-timed-wait ( -- k ) lf-sch-ended ;'''
+old = ''': lf-sch-timed-wait ( -- k ) ['] lf-sch-any-end lf-sch-timing lf-sched lf-sch-waited d+! ;'''
+new = ''': lf-sch-timed-wait ( -- k ) lf-sch-any-end ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "the driving task's waits are not counted: it is reported busy the whole run, never stalled"
 
@@ -183,3 +183,23 @@ old = '''  cli-any-lean? ck-any-version! cli-resources? ck-resources! cli-progre
 new = '''  cli-any-lean? ck-any-version! cli-progress-apply'''
 test = "python3 tests/cli/test_leanforth.py Jobs.test_spent"
 reason = "--resources gives neither the workers' times nor the save phase, in text or JSON"
+
+# Double-cell counters in the library (review finding 3): src/lib/bounds.fs's d+! and d-floor,
+# in place of copies in env-schedule.fs, check-run.fs, ndjson-count.fs, run-record.fs and
+# manifest.fs.
+
+[[fault]]
+id = "jd-d-add-overwrites"
+file = "src/lib/bounds.fs"
+old = ''': d+! ( d addr -- ) dup >r 2@ d+ r> 2! ;'''
+new = ''': d+! ( d addr -- ) 2! ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a double in memory is overwritten, not added to: a worker's busy time is its last check's, a byte count its last line's"
+
+[[fault]]
+id = "jd-d-floor-negative"
+file = "src/lib/bounds.fs"
+old = ''': d-floor ( d1 d2 -- d ) d- 0 0 dmax ;'''
+new = ''': d-floor ( d1 d2 -- d ) d- ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "a difference of a wall clock set back goes negative: a lap, a busy or waiting time below zero"

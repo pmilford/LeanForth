@@ -13904,8 +13904,8 @@ reason = "FRP C2: help states an order of severity that is not tally.fs's"
 [[fault]]
 id = "ck-after-wraps"
 file = "src/cli/check-run.fs"
-old = '''  >r 1000000 m* ck-wall-now r> ck-since 2swap d< 0= ;'''
-new = '''  >r 1000000 * s>d ck-wall-now r> ck-since 2swap d< 0= ;'''
+old = '''  >r 1000000 m* ck-wall-now r> ck-since d-floor d0= ;'''
+new = '''  >r 1000000 * s>d ck-wall-now r> ck-since d-floor d0= ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "FRP D4: a huge --progress interval wraps to a negative time, so a line is written after every report"
 

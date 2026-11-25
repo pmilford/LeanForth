@@ -6,7 +6,7 @@
 \ Interface: cell-pair@ cell-pair! cell-triple@ cell-triple! between? upto?
 \ range-at in-ranges? cells-zero? cells= index? cells-index cells-has?
 \ cell-at@ pair-at record-at first-nonzero first-or-second one-of2?
-\ one-of3? cell-tally cell-spend? epoch+ cell-counted, cell-count
+\ one-of3? cell-tally cell-spend? epoch+ d+! d-floor cell-counted, cell-count
 \ cell-counted! cell-counted+! cell-counted-left cell-counted+?. Requires
 \ portability.fs, outcome.fs (any?, 2dup-under) and module.fs; helpers are
 \ private in lf-lib-private (ADR 0010).
@@ -30,6 +30,9 @@
 \   create three 0 , 0 , 0 ,   4 5 6 three cell-triple!  three cell-triple@
 \                                                       \ 4 5 6
 \   7 5 7 one-of2?  6 5 7 one-of2?  3 1 2 3 one-of3?    \ true false true
+\   2variable spent  0 0 spent 2!  5 0 spent d+!  -1 0 spent d+!  spent 2@
+\                                     \ 4 1: added across the low cell
+\   7 0 3 0 d-floor  3 0 7 0 d-floor  \ 4 0  0 0: a difference, never below 0
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ./portability.fs
@@ -109,6 +112,12 @@ lf-lib set-current
 \ instead of wrapping at max-n, and once negative it stays.
 : epoch+ ( generation -- generation' )
   dup 0< if exit then dup max-n = if drop -1 else 1+ then ;
+\ Doubles: d+! adds d to the double at addr (kept as 2! and 2@ keep it: a
+\ byte, line or microsecond count past 2^32 on 32-bit cells); d-floor is
+\ d1 - d2, or 0 when d2 is the larger (the time since a start, never
+\ negative when a wall clock was set back). Constant time.
+: d+! ( d addr -- ) dup >r 2@ d+ r> 2! ;
+: d-floor ( d1 d2 -- d ) d- 0 0 dmax ;
 \ A cell-counted array or text: its count in the first cell, its cells
 \ or bytes after it. cell-counted, compiles text of any length as one
 \ (its length in a cell, then its bytes), then aligns: for tables of

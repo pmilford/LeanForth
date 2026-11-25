@@ -346,7 +346,7 @@ false constant ck-timed?
 \ The time since the mark at addr; 0, never negative, when the wall clock
 \ (utime is gettimeofday, not monotonic) was set back in between, as
 \ WSL's clock sync does several times a day.
-: ck-since ( d addr -- d' ) 2@ d- 0 0 dmax ;
+: ck-since ( d addr -- d' ) 2@ d-floor ;
 \ Clock gets the time since mark.
 : ck-wall-lap ( mark clock -- ) >r clock-wall ck-wall-now rot ck-since r> clock-wall 2! ;
 : ck-cpu-lap ( mark clock -- ) >r clock-cpu ck-cpu-now rot ck-since r> clock-cpu 2! ;
@@ -808,7 +808,7 @@ create ck-line ck-line-room 2 + allot
   ck-jobs-run? if dup ck-jobs-trail then dup ck-counted ck-lined 1 ck-state ck-cursor +! ;
 \ Whether secs seconds have passed since the wall time kept at addr.
 : ck-after? ( secs addr -- flag )
-  >r 1000000 m* ck-wall-now r> ck-since 2swap d< 0= ;
+  >r 1000000 m* ck-wall-now r> ck-since d-floor d0= ;
 10 constant ck-flush-secs  2000 constant ck-flush-lines
 : ck-flush-secs@ ( -- secs )
   ck-flush-secs ck-state ck-prog-on @ if ck-state ck-prog-secs @ min then ;
@@ -919,7 +919,7 @@ name-table: ck-pline-parts
 \ (waiting: no job to run); the driving task's wait for a job to end and
 \ the rest (busy: handing out, publishing, rolling back, the ticks).
 \ Never negative.
-: ck-less ( d -- d' ) dnegate ck-run-wall d+ 0 0 dmax ;
+: ck-less ( d -- d' ) ck-run-wall 2swap d-floor ;
 : ck-waiting ( k -- d ) lf-sched-busy ck-less ;
 : ck-busy-all ( -- d ) 0 0 lf-sched-workers 0 ?do i lf-sched-busy d+ loop ;
 : ck-waiting-all ( -- d ) 0 0 lf-sched-workers 0 ?do i ck-waiting d+ loop ;

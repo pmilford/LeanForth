@@ -211,7 +211,7 @@ rr-reset rr-no-source
 : rr-lf ( -- c-addr u ) s\" \n" ;
 : rr-feeds ( c-addr u -- n )   \ line feeds in c-addr u
   0 -rot begin rr-lf search while 1 /string rot 1+ -rot repeat 2drop ;
-: rr-d+! ( u addr -- ) >r 0 r@ 2@ d+ r> 2! ;
+: rr-d+! ( u addr -- ) 0 swap d+! ;
 : rr-ends-open? ( c-addr u -- flag ) + 1- 1 rr-lf compare 0<> ;
 : rr-take ( c-addr u facts -- )
   >r 2dup run-record rr-sha sha256-update  dup r@ facts-bytes rr-d+!
