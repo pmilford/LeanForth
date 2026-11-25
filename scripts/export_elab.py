@@ -556,14 +556,14 @@ def gapless(records, kind, group, what):
             groups.setdefault(group(body), []).append(body["rank"])
     for name, ranks in groups.items():
         if sorted(ranks) != list(range(len(ranks))):
-            raise ElabError(f"{what} {name} are not ranked 0, 1, 2, ...")
+            raise ElabError(f"{what} {name} are not 0, 1, 2, ...")
 
 
 def check_ranks(records):
     """Fail unless the ranks of the tree's values under each root key, and
     of each function's congruence lemmas, are 0, 1, 2, ... (each once)."""
-    gapless(records, "instance", lambda b: text(b["keys"][0]), "the values under root")
-    gapless(records, "congr", lambda b: text(b["fun"]), "the congruence lemmas of")
+    gapless(records, "instance", lambda b: text(b["keys"][0]), "the ranks under root")
+    gapless(records, "congr", lambda b: text(b["fun"]), "the ranks of the congruence lemmas of")
 
 
 def congr_kept(body, decls):

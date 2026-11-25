@@ -81,6 +81,7 @@ T{ fixture hyps-beyond refused -> outcome-invalid 4 37 0 }T
 T{ fixture hyps-down refused -> outcome-invalid 2 37 0 }T
 T{ fixture defeq-def refused -> outcome-invalid 6 14 0 }T
 T{ fixture defeq-twice refused -> outcome-invalid 6 29 0 }T
+T{ fixture tag-unknown refused -> outcome-invalid 6 10 0 }T
 T{ fixture count-missing refused -> outcome-invalid 1 10 0 }T
 T{ fixture count-wrong refused -> outcome-invalid 5 20 0 }T
 \ After a refusal, simp-data? is false and the next read works again.
@@ -100,3 +101,9 @@ T{ 0 ' read-good heap-sweep swap 0> -> 0 true }T
 T{ live-blocks @ in-fresh live-blocks @ = -> true }T
 T{ elab-reset simp-congr-count simp-data? -> 0 false }T
 T{ lib stage-free -> }T
+\ Last, as it fills the registry: elab-add-kind takes kinds until
+\ elab-kinds-most and then aborts (a load that adds one too many).
+create spare-kind  sd-congr-key , ' drop , ' noop ,
+: fill-kinds ( -- ior )
+  begin spare-kind ['] elab-add-kind catch ?dup 0= while drop repeat nip ;
+T{ fill-kinds -> -2 }T

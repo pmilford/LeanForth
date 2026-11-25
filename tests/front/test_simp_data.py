@@ -118,6 +118,7 @@ CASES = {
                   "invalid", 2, 37),
     "defeq-def": (assemble(GOOD + [defeq(["ite"])]), "invalid", 6, 14),
     "defeq-twice": (assemble(GOOD + [T_ADD]), "invalid", 6, 29),
+    "tag-unknown": (assemble(GOOD + [T_ADD.replace('"defeq"', '"defeqs"')]), "invalid", 6, 10),
     "count-missing": (assemble(GOOD, drop="congr"), "invalid", 1, 10),
     "count-wrong": (assemble(GOOD, congr=2), "invalid", 5, 20),
 }
@@ -167,7 +168,7 @@ def writer_cases(work):
                                    "written without export_elab.lean --simp"),
            "a defeq tag without --simp": ([T_ADD], 3, RAW_HEAD.replace(',"simp":true', ""),
                                           "a format-4 record in RAW without --simp"),
-           "a rank gap": ([C_ITE1], 4, RAW_HEAD, "not ranked 0, 1, 2"),
+           "a rank gap": ([C_ITE1], 4, RAW_HEAD, "congruence lemmas of [\"ite\"] are not 0, 1, 2"),
            "hypotheses down": ([C_DITE.replace("[9,10,11]", "[10,9]")], 4, RAW_HEAD,
                                "not a list of increasing"),
            "a defeq tag of a definition": ([defeq(["ite"])], 4, RAW_HEAD,
