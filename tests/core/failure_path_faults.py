@@ -57,10 +57,10 @@ FAULTS = [
      "  lf-env-look-mark store-rollback drop ;"),
     ("accept after an injected failure: a check that ends full is finished ok",
      "src/kernel/environment.fs",
-     ": lf-env-finish ( outcome -- ) outcome-sane lf-env-cand lf-cand-outcome ! ;",
+     ": lf-env-finish ( outcome -- ) outcome-sane lf-env-cand lf-cand-outcome ! lf-env-unhold ;",
      ": lf-env-finish ( outcome -- )\n"
      "  outcome-sane dup outcome-full = if drop outcome-ok then\n"
-     "  lf-env-cand lf-cand-outcome ! ;"),
+     "  lf-env-cand lf-cand-outcome ! lf-env-unhold ;"),
     ("a stale \"axioms: none\": printed without reading the slot's axiom set",
      "src/kernel/check-declaration.fs",
      "  lf-env-axioms ok? if lf-check-axioms. else drop .\" axioms: ?\" then ;",
