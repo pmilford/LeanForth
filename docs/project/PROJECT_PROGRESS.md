@@ -29,6 +29,7 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
+- 2026-11-25, 01:25: plan row TB2's case patterns, slice E2b, are **done** on main 31ec9f5e (done check [2026-11-25-tb2-patterns-e2b-done.md](../development/done-checks/2026-11-25-tb2-patterns-e2b-done.md): the checker's own 7 theorems accepted, 5 wrong variants refused; pushed). The language reference has a new section on writing a statement. In work on their branches: blocks slice 3 (`tb2-blocks3`), the kernel timing measurements (`kernel-speed-measure`), simp's first slice SD-a (`simp-sd-a`, Forth-reviewed, its fix round waiting for two owner decisions). Earlier:
 - 2026-11-25, 00:06: plan row TB2's case patterns, slice E2b, are **tested on branch `tb2-patterns-e2b` and
   Forth-reviewed** ([review](../development/forth-reviews/2026-11-24-tb2-patterns-e2b.md)), not merged, not done:
   findings 2-5, 7 and style points S1-S3 fixed on the branch (2: `by-contra: -`, `_` and `rfl` read through the

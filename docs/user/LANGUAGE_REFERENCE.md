@@ -4,7 +4,7 @@
 > fast. Whoever changes, adds, renames or retires a LeanForth word updates
 > this page **in the same branch** (owner, 2026-11-15; `AGENTS.md`).
 >
-> **Status date: 2026-11-15**, written against `main` at the commit that
+> **Status date: 2026-11-25**, written against `main` at the commit that
 > added it, and rewritten the same day from the words' definitions. It
 > lists what the definitions in `src/author/` and `src/front/` do and what
 > the checked files under `tests/front/` and `tests/author/` show. Where a
@@ -152,6 +152,36 @@ a theorem's name, as in `' Nat.add_succ`, means "the theorem itself, as
 a rewrite rule"; see [D.5](#d5-by-rw--by-rewrite-).)
 
 ---
+
+### Writing a statement: the forms a first proof needs
+
+Every form below was written by an independent checker from this reference and accepted by
+`bin/leanforth check` (the done checks of 2026-11-21 to 2026-11-25 under
+`docs/development/done-checks/`). A theorem is `theorem NAME`, then its variables and hypotheses, then the
+statement, then `:= by`, the tactics, and `end NAME`. Everything is postfix: the parts first, the symbol after.
+
+| To say | Write | Lean |
+| --- | --- | --- |
+| a variable a of type Nat | `Nat explicit: a` | `(a : Nat)` |
+| a hypothesis h that a = b | `a b = explicit: h` | `(h : a = b)` |
+| the statement a = b (the last formula, with no `explicit:`) | `a b =` | `: a = b` |
+| a function applied: succ a | `' Nat.succ a $` (function second, value on top) | `Nat.succ a` |
+| succ a = succ b | `' Nat.succ a $ ' Nat.succ b $ =` | `Nat.succ a = Nat.succ b` |
+| P and Q | `a b = b a = ∧` | `a = b ∧ b = a` |
+| A and (B and C), Lean's `A ∧ B ∧ C` | `A B C ∧ ∧` | `A ∧ B ∧ C` |
+| (A and B) and C | `A B ∧ C ∧` | `(A ∧ B) ∧ C` |
+| P or Q | `a b = b a = ∨` | `a = b ∨ b = a` |
+| not P | `a b = ¬` | `¬ a = b` |
+| P if and only if Q | `a b = b a = ↔` | `a = b ↔ b = a` |
+| there is an x equal to a | `' Eq a $ Exists` | `∃ x, a = x` |
+| a hypothesis of an empty or trivial type | `False explicit: h`, `True explicit: h`, `Empty explicit: x` | `(h : False)` |
+| an "and" hypothesis | `a b = b a = ∧ explicit: h` | `(h : a = b ∧ b = a)` |
+
+Three things that trip a first attempt. A tactic needs `:= by`; a bare `:=` before a tactic is error 81. A
+statement in this form cannot hold `→` or `∀` yet, so a goal to introduce is made by `by-revert[ h ]` first. When
+the goal is a negation, `' k by-exact` answers 133 (not supported yet); use `' k by-absurd`, or
+`by-contra[ h ]` and go on from `h`. The line that gives your theorem's verdict is `NAME: accepted`; the lines
+before it are the library's declarations, and a file stops at its first error.
 
 ## Reading this reference
 
