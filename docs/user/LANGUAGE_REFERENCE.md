@@ -2688,6 +2688,12 @@ end simp_hyp
 `of_eq_true (eq_self n)` (`Nat.add_zero` holds by definition, so its
 rewrites leave no step in the proof). In `simp_hyp`, `h` rewrites `a` to
 `b` inside `a * 2`, giving `b * 2 = b * 2`, which `eq_self` closes.
+A rule's result is simplified again, as in Lean: with `h : a = b` and
+`h2 : b = c`, `by-simp-only[ ' h ' h2 ]` takes `a = c` to `c = c`. A
+library rule's variables are found by unification, also when they meet
+twice or sit under `*` or `-`: `n * 0 = 0` by `' Nat.mul_zero`,
+`(a + 1) - (a + 1) = 0` by `' Nat.sub_self` (`simp-only.lf`'s
+`simp_mul_zero` and `simp_sub_self`).
 
 **Running it.** The theorems `by-simp-only[ ]` can use are those of the
 library the file is checked against. The test library is
@@ -2718,13 +2724,11 @@ each):
 - `at[ h ]` after the list (simp at a hypothesis);
 - a library theorem written with `<-` (Lean makes an auxiliary lemma);
 - a hypothesis that is an `↔`, a `¬`, a `≠`, an `∧`, an implication or
-  a `∀` statement (Lean turns each into other rules), and `<-` on a
-  hypothesis that is no equation (Lean's error);
+  a `∀` statement (Lean turns each into other rules);
 - a rule whose two sides are the same term or may swap (`h : True`, used
   as `True = True`, or `Nat.add_comm`: Lean's permutation rules);
-- a definition to unfold (`' Nat.add`), a variable that is no
-  proposition, a term in `<< >>`, a theorem declared earlier in the same
-  LeanForth text;
+- a definition to unfold (`' Nat.add`), a term in `<< >>`, a theorem
+  declared earlier in the same LeanForth text;
 - a library theorem that needs a side condition proved or an instance
   found;
 - unification Lean does that LeanForth's does not yet (`6` against
@@ -2732,6 +2736,13 @@ each):
 - the goal's parts below a `∀`, `fun`, `let` or `match`, an `if`
   (congruence lemmas), and a rewrite inside an argument other terms
   depend on.
+
+**Lean rejects; LeanForth answers not supported yet** (exit 2, error 99,
+never accepted; plan 9.4.8z2): a variable that is no proposition
+(`' a` with `a : Nat`; Lean: "Invalid argument: Variable `a` is not a
+proposition or let-declaration") and `<-` on a hypothesis that is no
+equation (`' h <-` with `h : a ≤ b`; Lean: "Invalid `←` modifier: Cannot
+be applied to a rule that rewrites to `True`").
 
 ---
 
