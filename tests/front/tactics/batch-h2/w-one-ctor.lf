@@ -1,0 +1,8 @@
+\ Wrong twin (batch-h2-wrong.lean's w_one_ctor): True has a constructor,
+\ so Lean's contradiction does not split h, and fails.
+theorem w_one_ctor
+  True explicit: h
+  False
+:= by
+  by-contradiction
+end w_one_ctor

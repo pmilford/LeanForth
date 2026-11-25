@@ -1,6 +1,8 @@
 \ Unit tests of case patterns, slice E2b (plan row TB2, piece E; design
-\ docs/design/TACTIC_PATTERNS.md) over decide's slice of Init in an
-\ authoring run: by-contra[ ], by-contra: and by-contra read as rintro
+\ docs/design/TACTIC_PATTERNS.md) over the patterns slice of Init
+\ (tests/front/patterns-slice.ndjson, which must hold every declaration
+\ the design's section 5 lists) in an authoring run: by-contra[ ],
+\ by-contra: and by-contra read as rintro
 \ patterns (pattern-syntax.fs), tactic-run.fs's lf-tac-ported,
 \ meta-must.fs's lf-meta-try, and contradiction's rule 6
 \ (meta-tactic/contradiction.fs, Lean's elimEmptyInductive) called on
@@ -15,10 +17,21 @@ require ../../../support/tactic-text.fs
 decimal
 
 4000000 lf-term-capacity! drop  100000 lf-cref-capacity! drop
-T{ s" tests/front/decide-slice.ndjson" true lfc-library-open -> outcome-ok }T
-T{ s" tests/front/decide-slice.elab.ndjson" lfc-elab-file! lfc-elab-read lfc-rooms
+T{ s" tests/front/patterns-slice.ndjson" true lfc-library-open -> outcome-ok }T
+T{ s" tests/front/patterns-slice.elab.ndjson" lfc-elab-file! lfc-elab-read lfc-rooms
    -> outcome-ok outcome-ok }T
 lf-author-begin
+\ The export's declarations (TACTIC_PATTERNS.md section 5, with Dvd for
+\ the E1 review's finding 8 and Prod), each found.
+: held? ( c-addr u -- flag ) lfa-intern lf-menv-find? dup if nip then ;
+T{ s" Nat.casesAuxOn" held? s" Nat.Internal.elimOffset" held? s" noConfusion_of_Nat" held?
+   s" Nat.ctorIdx" held? s" Nat.noConfusion" held? -> true true true true true }T
+T{ s" Eq.rec" held? s" Eq.ndrec" held? s" Eq.symm" held? s" HEq" held? s" eq_of_heq" held?
+   s" heq_of_eq" held? -> true true true true true true }T
+T{ s" And" held? s" Or" held? s" Exists" held? s" Iff" held? s" Subtype" held? s" Nat.le" held?
+   -> true true true true true true }T
+T{ s" False" held? s" Empty" held? s" List.Mem" held? s" Dvd.dvd" held? s" Nat.instDvd" held?
+   s" Prod" held? s" Empty.casesOn" held? -> true true true true true true true }T
 : made ( x outcome -- x ) ok? 0= abort" batch-h2 test: not made" ;
 lf-meta-throw-base outcome-rejected - constant thrown-rejected
 lf-meta-throw-base outcome-unsupported - constant thrown-unsupported

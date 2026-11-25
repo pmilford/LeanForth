@@ -44,6 +44,20 @@ theorem bc_nest (a b : Nat) (h : ¬a = b) : ¬((a = b ∧ b = a) ∨ a = b) := b
   contradiction
   contradiction
 
+-- contradiction on an empty type (empty.lf).
+theorem em_empty (a : Nat) (x : Empty) : a = Nat.succ a := by
+  contradiction
+theorem em_later (h : True) (x : Empty) : False := by
+  contradiction
+theorem em_dep (x : Empty) (h : x = x) : False := by
+  contradiction
+
+-- obtain through a substituted field (dvd.lf; the E1 review's probe p27).
+theorem dv_obtain (h : Exists (Dvd.dvd (Nat.succ (Nat.succ Nat.zero)))) : True := by
+  obtain ⟨_ | n, c, hc⟩ := h
+  trivial
+  trivial
+
 def pl (l : Level) : String := match l.toNat with
   | some n => toString n
   | none => "?l"
@@ -66,5 +80,6 @@ def dump (n : Name) : MetaM Unit := do
   IO.println s!"{n} value {← sx i.value}"
 
 #eval do
-  for n in [``bc_tuple, ``bc_alts, ``bc_rfl, ``bc_rfl_word, ``bc_name, ``bc_clear, ``bc_nest] do
+  for n in [``bc_tuple, ``bc_alts, ``bc_rfl, ``bc_rfl_word, ``bc_name, ``bc_clear, ``bc_nest,
+      ``em_empty, ``em_later, ``em_dep, ``dv_obtain] do
     dump n

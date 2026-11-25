@@ -1,0 +1,35 @@
+\ by-contradiction on an empty type (plan row TB2, piece E, slice E2b;
+\ Lean's contradiction, Meta/Tactic/Contradiction.lean's rule
+\ elimEmptyInductive; batch-h2.lean): a hypothesis whose type is an
+\ inductive type with no constructor and no index closes any goal, by
+\ exfalso and cases on it. Empty is a Type, so decide's rule passes it
+\ over.
+
+\ Lean: theorem em_empty (a : Nat) (x : Empty) : a = Nat.succ a := by
+\         contradiction
+theorem em_empty
+  Nat explicit: a  Empty explicit: x
+  a ' Nat.succ a $ =
+:= by
+  by-contradiction
+end em_empty
+
+\ A local that is no candidate (True: one constructor) before one that is.
+\ Lean: theorem em_later (h : True) (x : Empty) : False := by
+\         contradiction
+theorem em_later
+  True explicit: h  Empty explicit: x
+  False
+:= by
+  by-contradiction
+end em_later
+
+\ A hypothesis that depends on the empty one: cases reverts it.
+\ Lean: theorem em_dep (x : Empty) (h : x = x) : False := by
+\         contradiction
+theorem em_dep
+  Empty explicit: x  x x = explicit: h
+  False
+:= by
+  by-contradiction
+end em_dep

@@ -1,0 +1,9 @@
+\ Not supported yet (99): h : a ≤ b is an indexed family (Nat.le), which
+\ Lean's elimEmptyInductive splits by cases with its indices unified
+\ (slice E4); here Lean's contradiction fails after the split.
+theorem x_indexed
+  Nat explicit: a  Nat explicit: b  a b ≤ explicit: h
+  False
+:= by
+  by-contradiction
+end x_indexed

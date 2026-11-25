@@ -1,0 +1,10 @@
+\ Wrong twin (batch-h2-wrong.lean's w_looks_empty): False ∧ a = a has no
+\ proof, but And has one constructor, so Lean's contradiction does not
+\ split h (isElimEmptyInductiveCandidate), and h has a free variable, so
+\ decide's rule passes it over: Lean fails.
+theorem w_looks_empty
+  Nat explicit: a  False a a = ∧ explicit: h
+  False
+:= by
+  by-contradiction
+end w_looks_empty

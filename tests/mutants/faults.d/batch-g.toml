@@ -67,9 +67,8 @@ id = "fsubst-not-applied"
 file = "src/front/rcases.fs"
 old = '''  dup rcs-after1 rcs rcs-rest ! dup rcs-target@ rcs rcs-fs @ swap lf-fsubst-apply'''
 new = '''  dup rcs-after1 rcs rcs-rest ! dup rcs-target@'''
-test = "$GFORTH tests/front/tactics/batch-g/test.fs"
-reason = "TB2 E1: a target is matched as it was before an earlier split reverted it"
-equivalent = "the only targets a later split reverts are an existential's fields, whose patterns in slice E1 are names (nothing done), - (finish maps the clears through the substitution itself) or splits of an Eq (99 before any use); E2's rfl reaches it"
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-h2/check.py"
+reason = "TB2 E1: a target is matched as it was before an earlier split reverted it (batch-h2's dvd.lf, the E1 review's probe p27: hx : 2 ∣ x split after x's Nat split reverted it)"
 
 [[fault]]
 id = "rcases-top-as-sequence"

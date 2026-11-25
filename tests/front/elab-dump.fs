@@ -56,6 +56,11 @@ defer .t
 : decide-dump ( c-addr u -- )
   [: s" tests/front/decide-slice.ndjson" ;] is dump-lib
   [: s" tests/front/decide-slice.elab.ndjson" ;] is dump-data elab-dump ;
+\ The case patterns' slice (tests/front/tactics/batch-h2/check.py; plan
+\ row TB2, piece E).
+: patterns-dump ( c-addr u -- )
+  [: s" tests/front/patterns-slice.ndjson" ;] is dump-lib
+  [: s" tests/front/patterns-slice.elab.ndjson" ;] is dump-data elab-dump ;
 \ The command line's own check, after src/main.fs, each declaration of
 \ the text printed as it is handed to the kernel (lf-front-closing runs
 \ with the type and value below it; decide's check.py --init, against

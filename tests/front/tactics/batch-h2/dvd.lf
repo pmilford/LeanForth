@@ -1,0 +1,19 @@
+\ A field's target substituted by an earlier split (plan row TB2, piece E;
+\ the Forth review of slice E1, finding 8, probe p27): obtain's Nat
+\ split of x reverts hx : 2 ∣ x and introduces it again, so the tuple for
+\ hx (Dvd.dvd on Nat unfolds to an Exists) must be matched on the new
+\ hypothesis (rcases.fs's rcs-first applies the substitution; fault
+\ fsubst-not-applied).
+
+\ Lean: theorem dv_obtain (h : Exists (Dvd.dvd (Nat.succ (Nat.succ Nat.zero)))) : True := by
+\         obtain ⟨_ | n, c, hc⟩ := h
+\         trivial
+\         trivial
+theorem dv_obtain
+  ' Dvd.dvd ' Nat.succ ' Nat.succ Nat.zero $ $ $ Exists explicit: h
+  True
+:= by
+  ' h by-obtain[ << _ | n c hc >> ]
+  by-trivial
+  by-trivial
+end dv_obtain

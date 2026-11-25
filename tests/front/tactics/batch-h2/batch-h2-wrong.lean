@@ -19,3 +19,9 @@ theorem w_contra_alts (a b : Nat) (h : ¬a = b) : ¬(a = b ∨ b = a) := by
   by_contra h1 | h2
   contradiction
   exact h1
+theorem w_looks_empty (a : Nat) (h : False ∧ a = a) : False := by
+  contradiction
+theorem w_one_ctor (h : True) : False := by
+  contradiction
+theorem x_indexed (a b : Nat) (h : a ≤ b) : False := by
+  contradiction
