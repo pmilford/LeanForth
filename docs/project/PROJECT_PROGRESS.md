@@ -37,7 +37,7 @@ status changes when this date is older than them. Stages are those of the
   (`tests/front/patterns-slice`, with Dvd), and plan row 9.4.8t's findings 8, 10 and 11; new tests in
   `tests/front/tactics/batch-h2/` (11 theorems node for node pinned Lean's, 4 wrong twins, 1 not supported);
   batch-h's test file from 120 s to 15 s (each direct sweep run starts in the same metavariable context), no
-  tactics test file over 30 s (batch-d's change sweep moved to `batch-d-sweep`). Left of 9.4.8t: finding 13d,
+  tactics test file over 30 s (batch-d's change sweep moved to `batch-d2`). Left of 9.4.8t: finding 13d,
   N1-N4 (76's Lean text among them). Earlier:
 - 2026-11-24, 22:42: the Later list's parallel items 1 and 2 are **tested on branch `jobs-default` and
   Forth-reviewed** ([review](../development/forth-reviews/2026-11-24-jobs-default.md)), not merged, not done:

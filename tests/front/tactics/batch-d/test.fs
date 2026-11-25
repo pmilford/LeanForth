@@ -308,7 +308,7 @@ T{ bc-le ' p-symm-at both-swept -> true true }T
 \ Through the text: accepted, or full, never another error (a refusal
 \ inside rfl's alternatives is never the next one, nor rwa's assumption).
 \ Each declaration empties the stores, so the frames only. change's
-\ sweep (about 23 s) is in tests/front/tactics/batch-d-sweep/test.fs.
+\ sweep (about 23 s) is in tests/front/tactics/batch-d2/test.fs.
 ' frames-anew sweep-slabs-xt !
 : p-rw-text ( x -- code outcome ) drop hac s\" by-rw[ ' h ] at[ h2 ]\n ' h2 by-exact" text-full ;
 : p-rwa-text ( x -- code outcome ) drop hac s\" by-rwa[ ' h ] at[ h2 ]\n" text-full ;

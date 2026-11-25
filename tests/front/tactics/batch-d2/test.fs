@@ -27,4 +27,4 @@ lf-author-begin
   s\" a b = by-change at[ h ]\n ' h by-exact" text-full ;
 T{ 0 ' p-change-text heap-sweep swept? tlc-frames slab-count -> true 0 }T
 lf-tac-forget
-.( batch-d-sweep test.fs: all tests passed) cr
+.( batch-d2 test.fs: all tests passed) cr
