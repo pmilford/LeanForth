@@ -378,6 +378,15 @@ identical outside `measured`, `settings` and `run`: 59,349 declarations accepted
 654,719,715, the same axiom sets. The decide slice (`tests/front/decide-slice.ndjson`, 1,290 declarations, load
 1.9) went from 3.08 s to 2.52 s of check phase at one worker and from 1.24 s to 1.04 s at four, with reports
 identical to main's at both.
+The profile of the branch afterwards (`make profile-check` of Init on a scratch copy of 2ca4449b, 2026-11-25
+15:22-15:34, load 1.4-1.7, 71,367 samples, 745.5 s wall under the profiler; exclusive shares of that run,
+against the design's profile of main 39800cde): the address words are 5.15 points against 11.95
+(`lf-term-base` 3.02, `lf-terms` 0.57, `lf-term-at` 0.50, `lf-term-view` 0.36, `store-identities` 0.25,
+`store-slot` 0.20, `lf-term-input?` 0.11, `lf-term-id-at` 0.08, `store-records` 0.06; before `lf-term-view`
+3.63, `lf-term-base` 2.97, `lf-term-input?` 1.42, `store-identities` 1.10 and the rest; the design aimed
+under 4). The input decoding's record words are `lf-tin-record` 2.26 and `lf-tin-at` 1.74 (before
+`lf-tin-code` 1.98, `lf-tin-at` 1.58), and `hash-fmix` is 1.93 (it calls nothing now; before 4.42 inclusive with
+its two helpers). The largest word is now the hash table's slot load `htab@` (4.77), the hashing group's work.
 
 So: the algorithm changes (1, 2, 5, 6, 7) take 23-30 points, 666-732 s, **17 to 19 times Lean**; with 3
 and 4 as Forth macros 557-652 s, **14.5 to 17 times**; native hashing and probe 535-630 s, 14 to 16.4
