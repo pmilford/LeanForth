@@ -40,7 +40,16 @@
 \          subgoal, the goal closed (False.casesOn and the like); a Lean
 \          error of cases (rejected) is elim's catch, false, everything
 \          undone, the next local tried; a case cases does not port is 99
-\          (tactic-run.fs's lf-tac-ported). Lean's fuel (searchFuel 16)
+\          (tactic-run.fs's lf-tac-ported). No input reaches that catch
+\          today: on a type with no constructor and no index, cases throws
+\          no Lean error in LeanForth (mkCasesContext?'s "not applicable",
+\          an export without Eq, HEq or I.casesOn, is unsupported in
+\          cases.fs; meta-induction.fs and revert.fs throw only
+\          unsupported; the intro after the revert always meets a pi; Lean's
+\          own induction errors need an index, slice E4), and no room or no
+\          fuel is thrown on, the tactic undone by its runner. The
+\          commitWhen stays as Lean's (:79-81) for the day cases rejects;
+\          fault rule6-no-commit is equivalent. Lean's fuel (searchFuel 16)
 \          is spent once there and otherwise only by the recursion into
 \          the subgoals' fields, which needs a constructor, so an index.
 \       Before the locals, nestedFalseElim (the goal's type holding

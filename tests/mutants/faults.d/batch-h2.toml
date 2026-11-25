@@ -69,3 +69,12 @@ old = ''': mcd-cases ( goal fvar -- ) 0 false lf-goal-cases drop ;'''
 new = ''': mcd-cases ( goal fvar -- ) 2drop ;'''
 test = "$GFORTH tests/front/tactics/batch-h2/test.fs"
 reason = "TB2 E2b: rule 6 counts the goal closed after exfalso alone, its False goal left open (test.fs's g-false value: no open metavariable)"
+
+[[fault]]
+id = "rule6-no-commit"
+file = "src/front/meta-tactic/contradiction.fs"
+old = ''': mcd-committed ( fvar -- flag ) ['] mcd-split lf-commit-when ;'''
+new = ''': mcd-committed ( fvar -- flag ) mcd-split ;'''
+test = "$GFORTH tests/front/tactics/batch-h2/test.fs"
+reason = "TB2 E2b (review finding 1): rule 6 without Lean's commitWhen leaves exfalso's assignment in place when cases fails with a Lean error, and the next local meets an assigned goal"
+equivalent = "review tb2-patterns-e2b finding 1: no input reaches rule 6's false path today; on a type with no constructor and no index lf-goal-cases throws no Lean error (rejected) in LeanForth: mkCasesContext?'s not applicable (no Eq, HEq or I.casesOn in the export) is unsupported in cases.fs, meta-induction.fs and revert.fs throw only unsupported, the intro after the revert always meets a pi, and Lean's own induction errors need an index (slice E4); full and exhausted are thrown on and the tactic's runner undoes the goal, so lf-meta-try never returns false there (contradiction.fs's header)"
