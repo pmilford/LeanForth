@@ -1745,6 +1745,12 @@ test. normal unit tests another big test, well factored libraries another good t
   front end's reduceNat? shares; the kernel keeps
   its refusals (a count of 2^32 or more). Nothing the kernel accepts or rejects changes; one failure path no input
   reaches (an arena too small for the operands) no longer drops two cells too many.
+- **[kernel], in form (branch `tb2-patterns-e2a`, 2026-11-24, ordinary work under this rule):** the kernel's
+  `lf-rebuild-keep` (`src/kernel/mixed-rebuild.fs`), one of seven words with the body `drop outcome-ok` that the
+  Forth review of pattern slice E2a found, now has the body `drop-ok`, the new word of `src/lib/outcome.fs`; the
+  same in `src/core/scratch-marks.fs` (`lf-scratch-kept` removed, `lf-scratch-drop` calls `drop-ok`) and the
+  import's `ly-number`, `rr-any` and `cin-pass-by`. Nothing the kernel or the import accepts, rejects, reads or
+  writes changes.
 
 ## Coverage in the branch in seconds, the whole-suite ratchet at night (2026-11-19, evening)
 

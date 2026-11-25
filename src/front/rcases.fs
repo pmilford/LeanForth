@@ -321,7 +321,7 @@ end-structure
 : rcs-root ( -- node s ) rcs rcs-step @ lf-tac-args# 1- -1 ;
 : rcs-generalized ( goal e -- goal' v )
   rcs-root rcs-name lf-run2 lf-goal-generalize swap 0 run@ ;
-: rcs-target ( goal e -- goal' v ) dup lf-meta-fvar? 0= if rcs-generalized then ;
+: rcs-target ( goal e -- goal' v ) dup lf-meta-fvar? if exit then rcs-generalized ;
 : rcs-start ( goal e -- ) rcs-target >r 0 rcs-root r> rcs-triple+ >r 0 0 r> rcs-task+ ;
 : rcs-walk ( -- goals ) rcs-loop rcs rcs-goals @ ;
 : rcs-run ( goal -- goals ) rcs rcs-step @ 0 lf-tac-elab-arg rcs-start rcs-walk ;
