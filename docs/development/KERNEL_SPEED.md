@@ -288,8 +288,8 @@ the review gate, with the full tier and every pinned-Lean comparison. Shares are
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | Validity checks out of the walks: the environment and stores validated once per pass and when a store changes (K1), node handles checked once when a pass takes a term (the audit memo already knows them), fields read unchecked inside a pass | up to 36% (run 2: samples under a validity word; 41% with the term audits), of which 13-17 points can move (**estimate**; section 10) | algorithm, identical verdicts | kernel/environment.fs, caches.fs, whnf.fs; core/terms.fs; lib/store.fs | 200-400 | high: moves fail-closed checks; malformed-input tests must still fail closed |
 | 2 | Universe substitution as one memoized `replace` pass (as instantiation's), without the reached set, the sort and the binary search | 5-8 points (**estimate**: about half of the 13.1 points of its 19.1% that lie outside validity words; nanoda's is 7.5 s) | algorithm | kernel/mixed-level-substitute.fs | 150-250 | medium: same results and fuel |
-| 3 | Node field reads inlined: `lf-term-first@`, `-second@`, `-tag@`, `-data@` as one address computation, not view, base, input test and slab layers | 6-9 points (**estimate**: a third to a half of the 18.0 points of reads outside validity words, substitution and the memo) | macro or inlining | core/terms.fs, lib/slab.fs, lib/store.fs | 50-150 | low if equal on every input |
-| 4 | Hashing and the probe (`hash32` 5.1% and `htab` 8.1% exclusive): one fused hash word and an unrolled probe, or a native primitive | 2.4 points as Forth macros, 4.7 native (**estimate**: a third or two thirds of the 7.1 points of hashing outside validity words, the replace memo and substitution) | macro, or native (owner's gate) | lib/hash32.fs, lib/htab.fs, lib/memo.fs | 30-80 | none for Forth; native is a new dependency |
+| 3 | Node field reads inlined: `lf-term-first@`, `-second@`, `-tag@`, `-data@` as one address computation, not view, base, input test and slab layers. **Written as plain fused colon words, no macros (2026-11-25, plan 9.4.8z2, branch `kernel-reads-1`, [KERNEL_TERM_READS.md](../design/KERNEL_TERM_READS.md)): the view's base and records address with one fetch of the context each, a store record from the term store's block and capacity without a branch, the entry words fetching the base once; `lib/store.fs` and `lib/slab.fs` unchanged, every check kept** | 6-9 points (**estimate**: a third to a half of the 18.0 points of reads outside validity words, substitution and the memo); the review's 7-10 for the slice; measured below | macro or inlining | core/terms.fs, lib/context.fs | 30-50 | low if equal on every input |
+| 4 | Hashing and the probe (`hash32` 5.1% and `htab` 8.1% exclusive): one fused hash word and an unrolled probe, or a native primitive. **The fused hash word written (2026-11-25, plan 9.4.8z2: `hash-fmix` one colon definition, the review's about 2 points); the probe untouched** | 2.4 points as Forth macros, 4.7 native (**estimate**: a third or two thirds of the 7.1 points of hashing outside validity words, the replace memo and substitution) | macro, or native (owner's gate) | lib/hash32.fs, lib/htab.fs, lib/memo.fs | 30-80 | none for Forth; native is a new dependency |
 | 5 | Instantiation passes whose root is clean skipped before the set-up (charging the root's unit of fuel) | 2% (counted: 13.5 M passes at 1.8 µs), 1.5 points beyond candidate 1 | algorithm | kernel/mixed-open.fs | 5-15 | low |
 | 6 | Cache keys without the re-check of facts and liveness at each lookup | 0.4 points beyond candidate 1: of `lf-node-key`'s 2.17% (run 2), 1.79 lies under validity words (`lf-fvars-live?` 1.59) | algorithm | kernel/caches.fs | 20-60 | medium: the liveness rule must hold |
 | 7 | Replace memo cheaper per operation (179 ns a lookup, 298 ns an insert), same hits | 3.1 points (**estimate**: half of the 6.2 points of its lookups and inserts, 8.30% in run 2, outside validity words; its hashing included) | algorithm | kernel/replace-memo.fs, lib/memo.fs | 30-80 | low: same results and fuel |
@@ -329,8 +329,8 @@ removes first what the rows before it already take (the overlap), so the rows ca
 | 5 clean roots | 2.1 (20 s, run 1's counted copy) | 0.6 (27% of `lf-open-pass` lies under validity words) | 1.5 | 14 | 700-766 | 18.2-19.9 |
 | 6 cache keys | 2.17 (`lf-node-key`) | 1.79 under validity words (`lf-fvars-live?` 1.59) | 0.4 | 4 | 696-762 | 18.1-19.8 |
 | 7 replace memo | 8.30 (`lf-rmemo@`, `lf-rmemo!`) | 2.1 under validity words; its hashing (3.9) stays here, not in 4 | 3.1 | 30 | 666-732 | 17.3-19.1 |
-| 3 field reads inlined | 40.3 reads exclusive | 16.7 under validity, 4.6 in substitution, 1.0 in the memo | 6-9 | 57-86 | 580-675 | 15.1-17.6 |
-| 4 hashing and probe, Forth macros | 16.3 hashing exclusive | 4.1 under validity, 3.9 in the memo, 1.3 in substitution | 2.4 | 23 | 557-652 | 14.5-17.0 |
+| 3 field reads inlined (fused words written, 9.4.8z2; with `hash-fmix` 7.5 points measured, above) | 40.3 reads exclusive | 16.7 under validity, 4.6 in substitution, 1.0 in the memo | 6-9 | 57-86 | 580-675 | 15.1-17.6 |
+| 4 hashing and probe, Forth macros (`hash-fmix` fused, 9.4.8z2; the probe left) | 16.3 hashing exclusive | 4.1 under validity, 3.9 in the memo, 1.3 in substitution | 2.4 | 23 | 557-652 | 14.5-17.0 |
 | 4 the same, native | the same 7.1 | the same | 4.7 | 45 | 535-630 | 13.9-16.4 |
 
 **Candidate 1 is 13-17 points, not the 25-32 of the first version of this table** (corrected 2026-11-25
@@ -365,6 +365,19 @@ agent was working on the machine). `--jobs 1`: check phase 779.5 s, total 794.0 
 246.6 s wall (967.3 s CPU), total 264.6 s (load 2.0 at the start, 5.9 at the end), against 287 s total
 recorded for main on 2026-11-24. The two one-worker pairs put the stamp's gain between 13 and 18 points
 (measured, single runs on a shared machine).
+
+**Measured after the fused reads** (2026-11-25, plan 9.4.8z2, branch `kernel-reads-1` at 2ca4449b against main
+0e73e92c, whose source is that of 0f3b3edd above; [KERNEL_TERM_READS.md](../design/KERNEL_TERM_READS.md); the
+same command on `gforth-fast`, from scratch copies of the two trees, one run each, one after the other, the
+machine shared with another agent's small test runs). Main, 14:51-15:04: check phase 770.3 s wall (770.2 s
+CPU), total 784.6 s (load average 0.6 at the start, 1.2 at the end). Branch, 15:09-15:21: check phase 712.4 s
+wall (701.4 s CPU), total 726.3 s (load 1.9 at the start, 2.1 at the end, 3.8 over the last minute). The fused
+reads and `hash-fmix` take 57.9 s, **7.5 points** of the 770.3 s (measured, single runs; the review's estimate
+was 9-12 points): Init's check is now about 18.6 times Lean's 38.4 s (recorded), against 20.1. Both reports are
+identical outside `measured`, `settings` and `run`: 59,349 declarations accepted, 1 not proved, fuel
+654,719,715, the same axiom sets. The decide slice (`tests/front/decide-slice.ndjson`, 1,290 declarations, load
+1.9) went from 3.08 s to 2.52 s of check phase at one worker and from 1.24 s to 1.04 s at four, with reports
+identical to main's at both.
 
 So: the algorithm changes (1, 2, 5, 6, 7) take 23-30 points, 666-732 s, **17 to 19 times Lean**; with 3
 and 4 as Forth macros 557-652 s, **14.5 to 17 times**; native hashing and probe 535-630 s, 14 to 16.4

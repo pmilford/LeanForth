@@ -2029,3 +2029,6 @@ The owner, 2026-11-25, on the coordinator's three items ("Approve items 1, 2 3. 
 Item 1 is carried out under items 1 and 2, with no new decision, on branch `kernel-validity-1` (plan
 9.4.8z1, 2026-11-25: written and tested, not reviewed, not merged).
 
+
+The one slice of the design "Leaner reads of term nodes" ([KERNEL_TERM_READS.md](../design/KERNEL_TERM_READS.md), its binding changes after the [design review](../development/design-reviews/2026-11-25-kernel-term-reads.md)) is carried out as behaviour-preserving refactoring of core code under "The kernel is code like any other" (2026-11-19), with no new decision, on branch `kernel-reads-1` (plan
+9.4.8z2, 2026-11-25: written and tested, not reviewed, not merged): no check moves, `src/lib/store.fs` is unchanged.
