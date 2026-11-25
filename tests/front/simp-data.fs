@@ -50,6 +50,10 @@ T{ s" tests/front/simp-slice.elab.ndjson" fx simp-congr-count simp-defeq-count
 T{ s" ite" top simp-congr-lemmas swap simp-congr@ drop s" zero_add" nat simp-defeq?
    -> 1 outcome-ok s" ite_congr" top false outcome-ok }T
 
+\ The relation a conclusion of n arguments may be: Eq, Iff, else none (-2).
+: named ( c-addr u -- name ) 0 -rot lib stage-tier name-seek-str drop ;
+T{ 3 sd-relation-name 2 sd-relation-name 4 sd-relation-name -> s" Eq" named s" Iff" named -2 }T
+
 \ Formats 3, 3.1 and 3.2: read, but no simp data: both questions unsupported.
 : older ( c-addr u -- outcome flag c n outcome flag outcome )
   fx simp-data? s" ite" top simp-congr-lemmas s" add_zero" nat simp-defeq? ;

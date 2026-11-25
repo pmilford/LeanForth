@@ -8,7 +8,7 @@
 \ command line.
 include ../support/tester.fs
 include ../support/heap-watch.fs
-require ../../src/cli/check-lf.fs
+require ../../src/cli/leanforth-text.fs
 
 : slice ( -- c-addr u ) s" tests/author/init-slice.ndjson" ;
 T{ slice lfc-env! s" tests/front/init-slice.elab.ndjson" lfc-elab-file! -> }T
@@ -24,5 +24,20 @@ T{ blocks 1 heap-refusals ! lfc-elab-read 0 heap-refusals ! blocks rot - -> outc
 T{ elab-error-code elab-error-line elab-loaded? elab-instance elab-count -> 26 0 false 0 }T
 T{ elab-error-why s" the library's export could not be hashed" compare -> 0 }T
 T{ lfc-elab-read elab-loaded? -> outcome-ok true }T
+
+\ The data's line (leanforth-text.fs's cli-elab-format4): nothing more
+\ for the init slice's format-3.2 data; the simp slice's format-4 data
+\ adds its congruence lemmas and defeq tags.
+create printed 200 allot  variable printed#
+: grab ( c-addr u -- ) tuck printed printed# @ + swap move printed# +! ;
+: said ( xt -- c-addr u )
+  0 printed# ! action-of type >r ['] grab is type catch r> is type throw printed printed# @ ;
+T{ ' cli-elab-format4 said nip -> 0 }T
+T{ ck-stage stage-free -> }T
+: simp ( -- c-addr u ) s" tests/front/simp-slice.ndjson" ;
+T{ simp lfc-env! s" tests/front/simp-slice.elab.ndjson" lfc-elab-file! -> }T
+T{ 12 ck-stage stage-init simp ck-stage stage-read-unchecked -> outcome-ok outcome-ok }T
+T{ lfc-elab-read ' cli-elab-format4 said s" , 2 congruence lemmas, 1 defeq tags" compare
+   -> outcome-ok 0 }T
 T{ ck-stage stage-free -> }T
 bye
