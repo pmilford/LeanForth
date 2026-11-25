@@ -16,7 +16,7 @@ quick = true
 [[fault]]
 id = "jd-explicit-ignored"
 file = "src/cli/leanforth.fs"
-old = ''': cli-workers ( -- n ) cli-jobs 0= if cli-jobs-unset exit then cli-jobs ;'''
+old = ''': cli-workers ( -- n ) cli-jobs cli-jobs-unset first-nonzero ;'''
 new = ''': cli-workers ( -- n ) cli-jobs-unset ;'''
 test = "$GFORTH tests/cli/leanforth.fs"
 reason = "an explicit --jobs N is replaced by the default: --jobs 1 no longer checks one at a time"

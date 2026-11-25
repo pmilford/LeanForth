@@ -281,7 +281,7 @@ manifest: cli-manifest
 : cli-jobs-unset ( -- n )
   cli-takes-jobs? cli-text-file? 0= and if cli-jobs-default else 1 then ;
 \ cli-jobs is 0 exactly when --jobs was not given: the default fills it.
-: cli-workers ( -- n ) cli-jobs 0= if cli-jobs-unset exit then cli-jobs ;
+: cli-workers ( -- n ) cli-jobs cli-jobs-unset first-nonzero ;
 \ check: the megabytes (of 2^20 bytes) each declaration's check may hold
 \ in scratch (--memory-per-check; core/scratch-meter.fs); 0, the
 \ default, sets no limit but the heap's. A check past it is full.
