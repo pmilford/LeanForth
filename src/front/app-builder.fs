@@ -365,25 +365,30 @@ end-structure
 \ unfolds Ne, and matchNot? retries after whnf itself.)
 : lf-match-ne? ( t -- α a b true | false )
   dup 3 s" Ne" lf-meta-app-of? if abl-args3 true else abl-eq-of-not then ;
+: abl-heq-app? ( t -- flag ) 4 s" HEq" lf-meta-app-of? ;
 : abl-heq-at ( t -- α a β b true | t false )
-  dup 4 s" HEq" lf-meta-app-of? if abl-args4 true else false then ;
+  dup abl-heq-app? if abl-args4 true else false then ;
 : lf-match-heq? ( t -- α a β b true | false ) ['] abl-heq-at abl-helper ;
 
 \ ---- mkEqOfHEq (166): eq_of_heq.{u} α a b h when α and β are defeq.
-: abl-homogeneous ( α a β b -- α a b )
-  >r >r over r> lf-defeq! 0= if abl-fail then r> ;
+: abl-heq-arg ( t i -- x ) 4 lf-meta-nth-arg ;
+: abl-homogeneous ( t -- α a b )
+  dup 0 abl-heq-arg over 2 abl-heq-arg lf-defeq! 0= if abl-fail then
+  dup 0 abl-heq-arg swap dup 1 abl-heq-arg swap 3 abl-heq-arg ;
 : lf-mk-eq-of-heq ( h -- h' )
-  dup abl-infer-d abl-heq-at 0= if abl-fail then abl-homogeneous
+  dup abl-infer-d dup abl-heq-app? 0= if abl-fail then abl-homogeneous
   s" eq_of_heq" abl-eq-app swap lf-mk-app ;
 
 \ ---- mkEqNDRec (413), mkEqRec (428): a frame per call open.
-begin-structure /abr
-  field: abr-motive      \ the motive
-  field: abr-minor       \ h1
-  field: abr-major       \ h2
+begin-structure /abr   \ the first six fields in mkAppN's order (abr-apps)
   field: abr-alpha       \ h2's equation: α,
-  field: abr-lhs         \ a
-  field: abr-rhs         \ and b
+  field: abr-lhs         \ a,
+  field: abr-motive      \ the motive,
+  field: abr-minor       \ h1,
+  field: abr-rhs         \ b
+  field: abr-major       \ and h2
+  field: abr-opener      \ abr-lam1 or abr-lam2: the motive's level
+  2 cells +field abr-name   \ the eliminator's name (c-addr u, 2! and 2@)
 end-structure
 /abr context-slab: abr-frames
 : abr ( -- frame ) abr-frames slab-last ;
@@ -396,23 +401,24 @@ end-structure
 : abl-sort-level ( t -- u )
   dup lf-tag-symbolic-sort lf-term-tag? 0= if abl-fail then lf-term-first@ ;
 : abr-open ( lam x -- body ) swap lf-term-second@ swap lf-meta-instantiate1 lf-must ;
-: abr-lam ( lam xt -- u1 )
-  over lf-term-lam? 0= if outcome-unsupported lf-must then
-  >r dup lf-term-first@ 0 lf-binder-default r> lf-with-local-decl ;
+: abr-lambda ( lam -- lam dom name bi )
+  dup lf-term-lam? 0= if outcome-unsupported lf-must then
+  dup lf-term-first@ 0 lf-binder-default ;
 : abr-in1 ( lam x -- u1 ) abr-open lf-infer! abl-sort-level ;
-: abr-in2 ( lam x -- u1 ) abr-open ['] abr-in1 abr-lam ;
-: abr-levels ( xt -- u1 u2 ) abr abr-motive @ swap abr-lam abr abr-alpha @ lf-level! ;
-: abr-eq! ( -- ) abr abr-major @ abl-infer-d abl-eq abr abr-alpha cell-triple! ;
-: abr-head ( c -- f )
-  abr abr-alpha @ lf-mk-app abr abr-lhs @ lf-mk-app abr abr-motive @ lf-mk-app ;
-: abr-tail ( f -- e )
-  abr abr-minor @ lf-mk-app abr abr-rhs @ lf-mk-app abr abr-major @ lf-mk-app ;
-: abr-run ( xt c-addr u -- e )
-  abr abr-major @ abl-refl? if 2drop drop abr abr-minor @ exit then
-  abr-eq! rot abr-levels 2 lf-mk-const abr-head abr-tail ;
+: abr-lam1 ( lam -- u1 ) abr-lambda ['] abr-in1 lf-with-local-decl ;
+: abr-in2 ( lam x -- u1 ) abr-open abr-lam1 ;
+: abr-lam2 ( lam -- u1 ) abr-lambda ['] abr-in2 lf-with-local-decl ;
+: abr-levels ( -- u1 u2 )
+  abr abr-motive @ abr abr-opener @ execute abr abr-alpha @ lf-level! ;
+: abr-eq! ( -- )
+  abr abr-major @ abl-infer-d abl-eq abr abr-rhs ! abr abr-alpha cell-pair! ;
+: abr-apps ( c -- e ) abr abr-alpha 6 abl-fold ;   \ mkAppN c #[α, a, motive, h1, b, h2]
+: abr-run ( -- e )
+  abr abr-major @ abl-refl? if abr abr-minor @ exit then
+  abr-eq! abr abr-name 2@ abr-levels 2 lf-mk-const abr-apps ;
 : abr-framed ( motive h1 h2 xt c-addr u -- e )
-  2>r >r abr abr-motive cell-triple! r> 2r> abr-run ;
+  abr abr-name 2! abr abr-opener ! abr abr-major ! abr abr-motive cell-pair! abr-run ;
 : abl-rec ( motive h1 h2 xt c-addr u -- e ) abr-frames ['] abr-framed lf-with-record ;
-: lf-mk-eq-ndrec ( motive h1 h2 -- e ) ['] abr-in1 s" Eq.ndrec" abl-rec ;
-: lf-mk-eq-rec ( motive h1 h2 -- e ) ['] abr-in2 s" Eq.rec" abl-rec ;
+: lf-mk-eq-ndrec ( motive h1 h2 -- e ) ['] abr-lam1 s" Eq.ndrec" abl-rec ;
+: lf-mk-eq-rec ( motive h1 h2 -- e ) ['] abr-lam2 s" Eq.rec" abl-rec ;
 base !   \ the BASE this file was loaded with

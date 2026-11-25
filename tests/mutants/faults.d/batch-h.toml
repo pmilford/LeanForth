@@ -1,0 +1,117 @@
+# Planted faults of case patterns, slice E2a (plan row TB2, piece E: src/front/meta-tactic/
+# subst.fs, app-builder.fs's mkEqNDRec, mkEqRec and mkEqOfHEq, revert.fs's preserveOrder,
+# rcases.fs's rfl and rintro, pattern-syntax.fs's rintro top level, tactics/subst.fs), read with
+# faults.toml as one list (scripts/mutants.py). Each is caught by the test it names
+# (tests/front/tactics/batch-h/test.fs, batch-g/test.fs or batch-h/check.py).
+
+[[fault]]
+id = "subst-left-first"
+file = "src/front/meta-tactic/subst.fs"
+old = '''  mse-local! mse-sides dup mse-var? if mse-by-rhs exit then drop'''
+new = '''  mse-local! mse-sides over mse-var? if mse-by-lhs exit then drop dup mse-var? if mse-by-rhs exit then drop'''
+test = "$GFORTH tests/front/tactics/batch-h/test.fs"
+reason = "TB2 E2a: substEq eliminates the left side's variable of h : a = b first, where Lean eliminates the right one (test.fs's g-ab fh substEq: fs maps b to a; check.py's sb_right term)"
+
+[[fault]]
+id = "skip-rec-when-dependent"
+file = "src/front/meta-tactic/subst.fs"
+old = '''  msc msc-dep @ if lf-mk-eq-rec else lf-mk-eq-ndrec then ;'''
+new = '''  lf-mk-eq-ndrec ;'''
+test = "$GFORTH tests/front/tactics/batch-h/test.fs"
+reason = "TB2 E2a: a goal that depends on h gets Eq.ndrec of a two-binder motive, which mkEqNDRec rejects (test.fs's ' h ' h = text expects 0)"
+
+[[fault]]
+id = "reduced-path-skipped"
+file = "src/front/meta-tactic/subst.fs"
+old = '''  tuck mse-same? if 2drop lf-subst-symm mse-plain exit then'''
+new = '''  tuck mse-same? drop true if 2drop lf-subst-symm mse-plain exit then'''
+test = "$GFORTH tests/front/tactics/batch-h/test.fs"
+reason = "TB2 E2a: h : n = id m goes to substCore as it is, whose right side is no variable (477), where Lean asserts n = m first (test.fs's id m text expects 0)"
+
+[[fault]]
+id = "dependent-not-reintroduced"
+file = "src/front/meta-tactic/subst.fs"
+old = '''  msc msc-kept @ 2 run-after lf-must dup run-count lf-goal-intro-kept ;'''
+new = '''  msc msc-kept @ 2 run-after lf-must 0 lf-goal-intro-kept ;'''
+test = "$GFORTH tests/front/tactics/batch-h/test.fs"
+reason = "TB2 E2a: the hypotheses reverted with the equation stay binders of the goal, so k names nothing (test.fs's b a = explicit: k text expects 0)"
+
+[[fault]]
+id = "rintro-top-as-one"
+file = "src/front/pattern-syntax.fs"
+old = ''': lft-build-rintro ( i shape -- ) lft-values drop 4 pat-read ;'''
+new = ''': lft-build-rintro ( i shape -- ) lft-values drop 3 pat-read ;'''
+test = "$GFORTH tests/front/tactics/batch-h/test.fs"
+reason = "TB2 E2a: by-rintro[ reads one element as by-rcases[ does, so h1 | h2 k is 474 (test.fs's rintro alternatives text expects 0)"
+
+[[fault]]
+id = "subst-vars-order"
+file = "src/front/meta-tactic/subst.fs"
+old = '''  dup lf-goal-view lf-view-count 0 ?do i msv-at if true unloop exit then loop false ;'''
+new = '''  dup lf-goal-view lf-view-count dup 0 ?do dup 1- i - >r over r> msv-at if 2drop true unloop exit then nip loop drop false ;'''
+test = "$GFORTH tests/front/tactics/batch-h/test.fs"
+reason = "TB2 E2a: subst_vars tries the newest local first, so h : a = b eliminates b before a's own subst eliminates a (test.fs's subst_vars order: b stays, a goes)"
+
+[[fault]]
+id = "revert-kept-context-order"
+file = "src/front/meta-tactic/revert.fs"
+old = ''': mrv-each ( -- xt ) mrv mrv-keep @ if mrv-seed else ['] mrv-local then ;'''
+new = ''': mrv-each ( -- xt ) ['] mrv-local ;'''
+test = "$GFORTH tests/front/tactics/batch-g/test.fs"
+reason = "TB2 E2a: revert-kept reverts in the context's order, not the order asked (batch-g test.fs's rb ra kept order; batch-h's dependent before the equation)"
+
+[[fault]]
+id = "heq-not-converted"
+file = "src/front/meta-tactic/subst.fs"
+old = ''': mse-homogeneous? ( α a β b -- a b flag ) >r rot swap lf-defeq! r> swap ;'''
+new = ''': mse-homogeneous? ( α a β b -- a b flag ) >r rot swap 2drop false r> swap ;'''
+test = "$GFORTH tests/front/tactics/batch-h/test.fs"
+reason = "TB2 E2a: an HEq of one type is never made an equation, so subst of it finds no equation (test.fs's g-ab fq heqToEq: q : a = b; the HEq text expects 0)"
+
+[[fault]]
+id = "rintro-name-dropped"
+file = "src/front/rcases.fs"
+old = '''  rcs-name run-one lf-must rcs rcs-goal @ swap 1 lf-goal-intro-names 0 run@'''
+new = '''  2drop 0 run-one lf-must rcs rcs-goal @ swap 1 lf-goal-intro-names 0 run@'''
+test = "$GFORTH tests/front/tactics/batch-h/test.fs"
+reason = "TB2 E2a: rintro introduces every item hidden, so a name pattern names nothing (test.fs's by-rintro[ k ] ' k by-exact expects 0)"
+
+[[fault]]
+id = "subst-major-not-symm"
+file = "src/front/meta-tactic/subst.fs"
+old = ''': msc-major ( -- h ) msc msc-hx @ msc-symm? 0= if lf-mk-eq-symm then ;'''
+new = ''': msc-major ( -- h ) msc msc-hx @ ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-h/check.py"
+reason = "TB2 E2a: with the left side eliminated the major is h, not h.symm, so the eliminator's term is ill-typed and the kernel rejects sb_left (check.py; test.fs's tactic-ran runs the front end only, not the kernel)"
+
+[[fault]]
+id = "occurs-unchecked"
+file = "src/front/meta-tactic/subst.fs"
+old = '''  2dup swap lf-depends-on? lf-must if msc-occurs then msc msc-a cell-pair! ;'''
+new = '''  msc msc-a cell-pair! ;'''
+test = "$GFORTH tests/front/tactics/batch-h/test.fs"
+reason = "TB2 E2a: h : a = a is substituted though its other side holds a, where Lean says 'a' occurs at (test.fs's a a = text expects 476)"
+
+[[fault]]
+id = "try-skip-ignored"
+file = "src/front/meta-tactic/subst.fs"
+old = '''  dup if drop msc msc-x @ msc-dep? msc msc-hx @ msc-dep? or 0= then ;'''
+new = '''  drop false ;'''
+test = "$GFORTH tests/front/tactics/batch-h/test.fs"
+reason = "TB2 E2a: tryToSkip never skips, so a goal free of b and h still gets Eq.ndrec and fs entries (test.fs's g-true kh skip: fs 0)"
+
+[[fault]]
+id = "rfl-as-name"
+file = "src/front/rcases.fs"
+old = '''  pat-rfl = if 2drop rcs-rfl exit then rcs-split ;'''
+new = '''  pat-rfl = if 2drop rcs-again exit then rcs-split ;'''
+test = "$GFORTH tests/front/tactics/batch-h/test.fs"
+reason = "TB2 E2a: rfl in a pattern does nothing, as a name, so the goal keeps both variables (test.fs's rfl | rfl text expects 0)"
+
+[[fault]]
+id = "ndrec-refl-ignored"
+file = "src/front/app-builder.fs"
+old = '''  abr abr-major @ abl-refl? if abr abr-minor @ exit then'''
+new = '''  abr abr-major @ abl-refl? drop false if abr abr-minor @ exit then'''
+test = "$GFORTH tests/front/tactics/batch-h/test.fs"
+reason = "TB2 E2a: mkEqNDRec builds Eq.ndrec over a major Eq.refl, where Lean gives the minor itself (test.fs's mot1 rfa rfa: the minor's cell)"

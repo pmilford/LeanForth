@@ -56,8 +56,9 @@ theorem rf_alts
   by-rfl
 end rf_alts
 
-\ A cleared field the substitution makes a term (x to Nat.zero): no
-\ longer a free variable, so finish passes it over.
+\ A cleared field that rfl eliminates: nothing depends on it or on its
+\ equation, so substCore clears both at once (tryToSkip) and finish's try
+\ of x finds it gone.
 \ Lean: theorem rf_cleared (h : Exists (Eq Nat.zero)) : True := by
 \         obtain ⟨-, rfl⟩ := h
 \         trivial

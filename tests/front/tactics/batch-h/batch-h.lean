@@ -84,6 +84,10 @@ theorem ri_rfl (a b : Nat) (h : a = b) : b = a := by
   revert h
   rintro rfl
   rfl
+theorem ri_clear_rfl (x : Nat) (h : Nat.zero = x) : x = x := by
+  revert x
+  rintro - rfl
+  rfl
 theorem ri_nat (n : Nat) (h : n = n) : n = n := by
   revert n
   rintro (_ | m) h
@@ -123,5 +127,5 @@ def dump (n : Name) : MetaM Unit := do
   for n in [``sb_right, ``sb_left, ``sb_dep_before, ``sb_dep_after, ``sb_rec, ``sb_rec_left,
       ``sb_heq, ``sb_reduced, ``sb_var_right, ``sb_var_left, ``sb_many, ``sb_skip, ``sb_hidden,
       ``rf_exists, ``rf_right, ``rf_left, ``rf_alts, ``rf_cleared, ``ri_name, ``ri_alts,
-      ``ri_tuple, ``ri_rfl, ``ri_nat, ``sv_two, ``sv_var_first] do
+      ``ri_tuple, ``ri_rfl, ``ri_clear_rfl, ``ri_nat, ``sv_two, ``sv_var_first] do
     dump n

@@ -208,6 +208,7 @@ Rewrite 300, lemma intake 45); SP1c about 1,330 (700 Lean: congruence 385, prepr
 | `constructor` | — | — | `lf-goal-constructor` | — |
 | `cases`, `induction` | targets and `using` by `lf-tac-elab-term` | — | `ElimApp`, `evalAlts` (`meta-tactic/elim.fs`); later `cases`, `subst`, `injection` | eliminators (7) |
 | `obtain`, `rcases` (TB2 E1, branch `tb2-patterns-e1`) | the target by `lf-tac-elab-arg`, generalized by `lf-goal-generalize` | — | Meta `induction` (`meta-tactic/meta-induction.fs`: `lf-recursor-info`, `lf-goal-induction`, the subgoal record `lf-subgoals#`, `lf-subgoal-goal`, `-fields`, `-subst`, `-ctor`; `goal.fs`'s `lf-goal-within`), Meta `cases` without indices (`cases.fs`'s `lf-goal-cases`), `FVarSubst` (`fvar-subst.fs`), `lf-goal-revert-kept`, `lf-goal-intro-kept`, `lf-goal-intro-names`, `generalize.fs`; the walk `rcases.fs`'s `lf-rcases`, the reader `pattern-syntax.fs` | case patterns |
+| `subst`, `subst_vars`, `rfl` patterns, `rintro` (TB2 E2a, branch `tb2-patterns-e2a`) | getFVarId by `lf-tac-get-fvar`, `lf-tac-name-fvar`; rintro's patterns by `tac-shape-rintro` | — | `meta-tactic/subst.fs`: `lf-goal-subst-core`, `lf-goal-heq-to-eq`, `lf-goal-subst-eq`, `lf-goal-subst-var`, `lf-goal-subst`, `lf-goal-subst-vars`; app-builder.fs's `lf-mk-eq-ndrec`, `lf-mk-eq-rec`, `lf-mk-eq-of-heq`; revert.fs's `lf-goal-revert-kept` of several variables; assert.fs's `lf-goal-intro1-as`; rcases.fs's `lf-rintro` | — |
 
 ### 4.2 Changes to the present tactic library, flagged now
 

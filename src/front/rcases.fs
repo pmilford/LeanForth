@@ -52,12 +52,12 @@
 \ its container and first child (-1 0 for a list of one pattern), then a
 \ reference per element.
 \ Not supported yet: a quotient (Quot.ind, slice E5), thrown unsupported
-\ (99); typed pieces, @, several targets and rintro's typed group have
-\ no form. Lean synthesizes pending problems before an rfl
-\ (synthesizeSyntheticMVarsNoPostponing, :283); here they are
-\ synthesized at the walk's end, as for every other pattern (a target
-\ left with a pending instance problem: none in the tests). Errors (Lean's, catchable by try): 470 "Tactic
-\ `rcases` failed: `e` is not a free variable", 471 "Tactic `rcases`
+\ (99); typed pieces, @, several targets and rintro's typed group have no
+\ form. Lean synthesizes pending problems before an rfl (:283); here they
+\ are synthesized at the walk's end, as for every other pattern (a target
+\ left with a pending instance problem: none in the tests). Errors
+\ (Lean's, catchable by try): 470 "Tactic `rcases` failed: `e` is not a
+\ free variable", 471 "Tactic `rcases`
 \ failed: `e : T` is not an inductive datatype".
 \ Lean call list: Term.withSynthesize -> lf-tac-with-synth; elabTerm ->
 \ lf-tac-elab-arg; generalizeExceptFVar -> lf-goal-generalize; fs.apply ->
@@ -328,7 +328,8 @@ end-structure
 \ ---- rintro (:483-516): each item of the pattern's sequence still to
 \ introduce, in order, as one task's pairs (rintroContinue's loop).
 : rcs-item+ ( list run j -- list run' ) >r over r> rcs-elem rcs-intro rcs-triple+ ;
-: rcs-items ( -- pending ) rcs-root pat-seq rcs-list 0 over rcs-len 0 ?do i rcs-item+ loop nip ;
+: rcs-items ( -- pending )
+  rcs-root pat-seq rcs-list 0 over rcs-len 0 ?do i rcs-item+ loop nip ;
 : rcs-intro-run ( goal -- goals ) 0 0 rcs-items rcs-task+ rcs-walk ;
 : lf-rintro ( i goal -- goals ) ['] rcs-intro-run ['] rcs-synth lf-tac-with-synth ;
 base !   \ the BASE this file was loaded with

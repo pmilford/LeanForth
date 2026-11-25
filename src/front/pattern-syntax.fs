@@ -133,7 +133,8 @@ set-current
 : pat-step ( i c-addr u -- i more? )
   2dup pat-words lfa-word-of if nip nip execute else pat-name then ;
 : pat-read ( i closer -- )
-  lft-list-open pat-frames slab-clear pfr-open begin lfa-token-on pat-step 0= until lft-done ;
+  lft-list-open pat-frames slab-clear pfr-open
+  begin lfa-token-on pat-step 0= until lft-done ;
 : lft-build-pattern ( v i shape -- ) lft-values drop 3 pat-read ;
 1 0 ' lft-build-pattern tac-shape-new constant tac-shape-pattern
 : lft-build-rintro ( i shape -- ) lft-values drop 4 pat-read ;

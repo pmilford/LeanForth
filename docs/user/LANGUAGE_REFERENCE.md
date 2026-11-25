@@ -1807,7 +1807,11 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `?: NAME` | `( -- t )` | parsing: one name after it on its line (2 when none); `_` gives `?_` | read: a synthetic hole node with NAME | A new goal tagged NAME; a NAME any metavariable has, an assigned or closed goal's too: 139. | `?NAME` |
 | `<<` .. `>>`, `⟨` .. `⟩` | `( -- )`, then `( v1 .. vn -- t )` | ordinary; `<<` opens a list (a frame: its words take only its items) that `>>` closes, over lines | read: a node of the items | The anonymous constructor: the expected type's one constructor applied to the items, the rest nested; errors 462-467, 132, 83, 458. | `⟨a, b⟩` |
 | `by-exists[` | `( -- )` | ordinary; opens a term block that `]` closes, one term at least (460) | read: a step whose terms are the values up to `]`. Run: refine with `<< e1 .. en ?_ >>`, then `by-trivial` tried | Gives the witnesses; the goal trivial cannot close stays. | `exists e1, .., en` |
-| `by-obtain[` `by-rcases[` | `( e -- )` | ordinary; reads one pattern up to `]` itself (472-474, 458, 72) | read: a step whose value is e and whose pattern items follow, postfix. Run: e generalized unless a hypothesis, then split as the pattern says (470, 471; 99 for rfl and indexed families) | Takes e apart and names its pieces ([D.8](#d8-by-obtain-by-rcases-case-patterns)). | `obtain pat := e`, `rcases e with pat` |
+| `by-obtain[` `by-rcases[` | `( e -- )` | ordinary; reads one pattern up to `]` itself (472-474, 458, 72) | read: a step whose value is e and whose pattern items follow, postfix. Run: e generalized unless a hypothesis, then split as the pattern says (470, 471; 99 for indexed families); `rfl` substitutes (slice E2a) | Takes e apart and names its pieces ([D.8](#d8-by-obtain-by-rcases-case-patterns)). | `obtain pat := e`, `rcases e with pat` |
+| `by-rintro[` | `( -- )` | ordinary; reads one pattern or more up to `]` itself (472, 473, 481, 458, 72) | read: a step whose pattern items follow, postfix. Run: each pattern introduces the goal's next binder, then splits it as by-rcases[ does | Introduces and takes apart ([D.9](#d9-by-subst-by-subst-by-subst-vars-rfl-by-rintro-substitution)). | `rintro p1 .. pn` |
+| `by-subst` | `( h -- )` | ordinary | read: a step whose value is h. Run: Lean's subst (475-479; 99 for a let) | Replaces a variable by what an equation says ([D.9](#d9-by-subst-by-subst-by-subst-vars-rfl-by-rintro-substitution)). | `subst h` |
+| `by-subst[` | `( -- )` | ordinary; names up to `]` (455) | read: a step of hypothesis names. Run: by-subst of each in turn | The same, several at once. | `subst h1 h2` |
+| `by-subst-vars` | `( -- )` | ordinary | Run: subst of every local in turn until none goes | Every equation with a variable side used. | `subst_vars` |
 | `by-exacts[` | `( -- )` | ordinary; opens a term block that `]` closes (no `<-`) | read: a step whose terms are the values up to `]`. Run: `by-exact` of each, then no goal may be left | Closes the goals one term each; a mismatch: 96; a goal left: 89. | `exacts [` (Batteries) |
 | `by-cases: HYP-NAME` | `( p -- )` (top: p) | parsing: one name after it, on its line | read: a step holding p; HYP-NAME a hypothesis word. Run: assigns the main goal `dite p` of two new goals, `pos` (HYP-NAME : p) and `neg` (HYP-NAME : ¬p), which take its place | Splits on whether p holds; p's `Decidable` instance, else `Classical.propDecidable` (the report's axioms then `propext`, `Classical.choice`, `Quot.sound`, which `--strict-axioms` accepts); p no proposition or `_`: 99. | `by_cases HYP-NAME : p` |
 | `by-contra: HYP-NAME` | `( -- )` | parsing: one name after it, on its line | read: a step; HYP-NAME a hypothesis word. Run: `by-contra-core`, then `by-intro:` of HYP-NAME on the same step | Proves the goal p from HYP-NAME : ¬p and the goal `False` (for p = ¬q, HYP-NAME : q); `rfl`: 99. | `by_contra HYP-NAME` (Batteries) |
@@ -2310,8 +2314,7 @@ one pattern at the top (Lean's `rcases h with a b` is a parse error);
 458 a LeanForth word inside the pattern (its `]` is missing); 72 a token
 beginning with `@`.
 
-**Narrower than Lean** (each refused, never accepted): `rfl` in a
-pattern (99, slice E2); a split of an indexed family such as `a = b` or
+**Narrower than Lean** (each refused, never accepted): a split of an indexed family such as `a = b` or
 `a ≤ b` (99, slice E4); a quotient (99); typed pieces `(h : T)`, `@pat`,
 several targets and `obtain pat : T` have no form yet (slice E5); a
 recursor whose parameters are not the major type's first arguments
@@ -2322,6 +2325,110 @@ LeanForth's 76, whose text "malformed elaboration: a term that is no
 node, or a value unfit for the declaration" here means "no hypothesis of
 that name in this goal", where Lean says "Unknown identifier" (plan NR);
 471's message on a function type needs binder kinds (136, plan FE2).
+
+### D.9 `by-subst`, `by-subst[ ]`, `by-subst-vars`, `rfl`, `by-rintro[ ]`: substitution
+
+Plan row TB2, piece E, slice E2a (design
+[TACTIC_PATTERNS.md](../design/TACTIC_PATTERNS.md); tested on branch
+`tb2-patterns-e2a`, not merged). An equation `h : x = t` (or `t = x`)
+whose one side is a variable lets that variable be replaced by the other
+side everywhere: in the goal and in every hypothesis after it, which come
+back under their names (a hidden one hidden still). The equation and the
+variable are gone afterwards (`w-subst-var-used.lf`: naming `b` after
+`' h by-subst` on `h : a = b` is 76, Lean's "Unknown identifier").
+
+| Lean | LeanForth | What it does |
+|---|---|---|
+| `subst h` | `' h by-subst` | h an equation: the right side's variable is eliminated, else the left's, each side as whnf leaves it (`h : n = id m` eliminates `m`); an `HEq a b` of one type is made `a = b` first |
+| `subst x` | `' x by-subst` | x a variable: the oldest equation with x alone on a side (the right first), the other side free of x |
+| `subst h1 h2` | `by-subst[ h1 h2 ]` | each name in turn, in the goal the one before left |
+| `subst_vars` | `by-subst-vars` | subst of every hypothesis in order, the first that goes, again, until none does |
+| `obtain ⟨x, rfl⟩ := h` | `' h by-obtain[ << x rfl >> ]` | `rfl` in a pattern: the piece is an equation, substituted at once |
+| `rintro x ⟨a, b⟩` | `by-rintro[ x << a b >> ]` | each pattern introduces the goal's next binder, then takes it apart |
+| `rintro (a \| b) c` | `by-rintro[ a \| b c ]` | a bar binds tighter than a space: `a \| b` is one pattern |
+| `rintro (x y) -` | `by-rintro[ x y - ]` | rintro's group without a type is its patterns in a row |
+
+Going back to Lean: an element of `by-rintro[ ]` that holds a bar is a
+parenthesized pattern, `by-rintro[ a | b c ]` is `rintro (a | b) c`;
+`by-rintro[ << a | b c >> ]` would be `rintro ⟨a | b, c⟩`. Lean's
+`rintro a | b` is a parse error; LeanForth has no bare top-level bar to
+read that way, so the grouping never changes (`w-rintro-group.lf`).
+
+A substitution, three ways:
+- mathematics: from h : a = b, b may be replaced by a, so b = a becomes
+  a = a;
+- LeanForth (`subst.lf`'s `sb_right`):
+  ```forth
+  theorem sb_right
+    Nat explicit: a  Nat explicit: b
+    a b = explicit: h
+    b a =
+  := by
+    ' h by-subst
+    by-rfl
+  end sb_right
+  ```
+- Lean: `theorem sb_right (a b : Nat) (h : a = b) : b = a := by subst h; rfl`
+  (the term: `Eq.ndrec (motive := fun x => x = a) (Eq.refl a) h`).
+
+`rfl` in a pattern, three ways:
+- mathematics: from h : ∃ x, a = x, the witness x is a itself;
+- LeanForth (`rfl.lf`'s `rf_exists`):
+  ```forth
+  theorem rf_exists
+    Nat explicit: a
+    ' Eq a $ Exists explicit: h  a a = explicit: k
+    a a =
+  := by
+    ' h by-obtain[ << x rfl >> ]
+    ' k by-exact
+  end rf_exists
+  ```
+- Lean: `obtain ⟨x, rfl⟩ := h; exact k`.
+
+`by-rintro[ ]`, three ways (a statement holds no arrow yet, so the
+binders come from `by-revert[ ]`):
+- mathematics: (a = b ∨ b = a) → a = a → (b = a ∨ a = b), by cases on
+  the first premise;
+- LeanForth (`rintro.lf`'s `ri_alts`):
+  ```forth
+  theorem ri_alts
+    Nat explicit: a  Nat explicit: b
+    a b = b a = ∨ explicit: h  a a = explicit: k
+    b a = a b = ∨
+  := by
+    by-revert[ h k ]
+    by-rintro[ h1 | h2 k ]
+    ' Or.inr ' h1 $ by-exact
+    ' Or.inl ' h2 $ by-exact
+  end ri_alts
+  ```
+- Lean: `revert h k; rintro (h1 | h2) k; exact Or.inr h1; exact Or.inl h2`.
+
+Run each with `bin/leanforth check --env tests/front/decide-slice.ndjson
+--elab-data tests/front/decide-slice.elab.ndjson FILE.lf` (the files are
+in `tests/front/tactics/batch-h/`).
+
+**Errors** (Lean's text, the goal after a blank line): 476 "Tactic
+`subst` failed: 'a' occurs at" and the other side (`h : a = a`); 478
+"... invalid equality proof, it is not of the form (x = t) or (t = x)"
+and the type (neither side a variable, or `rfl` on a piece that is no
+equation); 479 "... did not find equation for eliminating 'a'"; 480
+"... variable 'k' is a let-declaration" (only inside `by-subst-vars`,
+which goes on to the next hypothesis); 475 and 477 come from the goal
+operation alone, which the tactics never reach. 481: `by-rintro[ ]`
+with no pattern (Lean's `rintro` needs one). 455: a name in
+`by-subst[ ]` that no hypothesis has, reported at `by-subst[`.
+
+**Narrower than Lean** (each refused, never accepted): `' k by-subst` on
+a let variable, which Lean unfolds (99, `x-let.lf`); on a `by-have:`
+hypothesis, whose revert is not ported (93, `x-have.lf`; Lean accepts);
+an equation whose dependents include a let or a have (93, the same
+revert), also inside `by-subst-vars`; rintro's typed group `(x y : T)`
+and `rintro … : T` (no form, slice E5); a goal whose motive is no lambda
+(none of these tactics builds one). Where Lean synthesizes pending
+instance problems before an `rfl`, LeanForth does so at the end of the
+pattern's walk (no test meets a pending problem there).
 
 ---
 

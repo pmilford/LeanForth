@@ -8,9 +8,10 @@
 \   variable); a let variable (LocalDecl.isLet, which a have is not) Lean
 \   unfolds (zeta-delta, :503-513), which is not supported yet (99,
 \   revert.fs refuses lets; a have, a let with its value hidden, goes to
-\   Meta.subst, whose revert refuses it: 99 too); else Meta.subst (lf-goal-subst: an equation
-\   with a free variable on a side, an HEq made one, or a variable whose
-\   equation it finds), its goal in the main goal's place;
+\   Meta.subst, whose revert refuses it: 93); else Meta.subst
+\   (lf-goal-subst: an equation with a free variable on a side, an HEq
+\   made one, or a variable whose equation it finds), its goal in the
+\   main goal's place;
 \ - by-subst[ h1 h2 ]: forEachVar (:494-498), each name in turn resolved
 \   in the main goal of that moment (lf-tac-name-fvar: 455 for a name no
 \   local has, reported at by-subst['s word), then as by-subst;

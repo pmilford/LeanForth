@@ -275,7 +275,8 @@ end-structure
 : mse-eq-framed ( goal h fs -- fs' goal' )
   mse mse-fs ! lf-goal-heq-to-eq mse mse-goal ! mse mse-h !
   mse-goal@ ['] mse-eq-run lf-with-goal ;
-: lf-goal-subst-eq ( goal h fs -- fs' goal' ) mse-frames ['] mse-eq-framed lf-with-record ;
+: lf-goal-subst-eq ( goal h fs -- fs' goal' )
+  mse-frames ['] mse-eq-framed lf-with-record ;
 
 \ ---- substVar: the oldest equation with x alone on a side (the right
 \ first), the other side free of x; none 479, a let 480.

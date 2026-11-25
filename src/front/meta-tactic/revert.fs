@@ -126,12 +126,11 @@ end-structure
   lf-with-goal ;
 : mrv-framed ( goal fvars xt -- goal' x )
   rot lf-goal-not-assigned -rot mrv-frames ['] mrv-with lf-with-record ;
-: mrv-none? ( goal fvars -- goal 0 true | goal fvars false )
-  dup run-count if false else drop 0 true then ;
-: lf-goal-revert ( goal fvars -- goal' n ) mrv-none? if exit then ['] mrv-run mrv-framed ;
+\ None asked: goal itself and 0 (Lean asks nothing then).
+: mrv-by ( goal fvars xt -- goal' x ) over run-count if mrv-framed exit then 2drop 0 ;
+: lf-goal-revert ( goal fvars -- goal' n ) ['] mrv-run mrv-by ;
 : mrv-keep-run ( -- goal' kept ) true mrv mrv-keep ! mrv-run-kept ;
-: lf-goal-revert-kept ( goal fvars -- goal' kept )
-  mrv-none? if exit then ['] mrv-keep-run mrv-framed ;
+: lf-goal-revert-kept ( goal fvars -- goal' kept ) ['] mrv-keep-run mrv-by ;
 
 \ ---- revertAfter: the locals after fvar, a run.
 : mrv-fvar+ ( run view i -- run' view )

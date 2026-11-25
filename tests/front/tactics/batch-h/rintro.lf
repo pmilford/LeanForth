@@ -64,6 +64,22 @@ theorem ri_rfl
   by-rfl
 end ri_rfl
 
+\ - then rfl: the cleared variable becomes Nat.zero (the goal depends on
+\ it, so no skip), no longer a free variable, so finish passes it over.
+\ Lean: theorem ri_clear_rfl (x : Nat) (h : Nat.zero = x) : x = x := by
+\         revert x
+\         rintro - rfl
+\         rfl
+theorem ri_clear_rfl
+  Nat explicit: x
+  ' Nat.zero x = explicit: h
+  x x =
+:= by
+  ' x by-revert
+  by-rintro[ - rfl ]
+  by-rfl
+end ri_clear_rfl
+
 \ A Nat split (Nat.casesAuxOn), then the next item on each goal.
 \ Lean: theorem ri_nat (n : Nat) (h : n = n) : n = n := by
 \         revert n

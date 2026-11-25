@@ -1063,6 +1063,14 @@
   "shuffles": 0,
   "words": 2
  },
+ "src/front/tactics/rintro.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 1
+ },
  "src/front/tactics/rwa.fs": {
   "globals": 1,
   "long lines": 0,
@@ -1078,6 +1086,14 @@
   "rstack": 0,
   "shuffles": 1,
   "words": 7
+ },
+ "src/front/tactics/subst.fs": {
+  "globals": 3,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 9
  },
  "src/front/tactics/swap.fs": {
   "globals": 1,

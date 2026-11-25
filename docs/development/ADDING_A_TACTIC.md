@@ -66,7 +66,11 @@ s" assumption" tac-k-assumption lf-tactic-lean!
   `tac-shape-pattern` (`src/front/pattern-syntax.fs`, plan row TB2 piece
   E) one value, then a case pattern up to `]`, its items postfix in the
   step's arguments with their spans (`lf-tac-arg-span`), by-obtain['s
-  and by-rcases['s; a reader of its own is a shape made with
+  and by-rcases['s; `tac-shape-rintro` (the same file, slice E2a) no
+  value, one pattern or more under a `pat-seq` node, by-rintro['s; a
+  goal operation that substitutes an equation is `meta-tactic/subst.fs`'s
+  (`lf-goal-subst`, `lf-goal-subst-eq`, `lf-goal-subst-core`, errors
+  475-480); a reader of its own is a shape made with
   `tac-shape-new ( n k build-xt -- shape )`. A
   list sits between its bracket word and `]`, on as many lines as it
   needs (the owner's rules of 2026-11-22; batch 3c: the shared reader
