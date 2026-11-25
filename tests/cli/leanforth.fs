@@ -1106,6 +1106,16 @@ T{ 3 spent-text plan-json holds? -rot 2dup s" jobs' run" holds? -rot tasks-line 
    -> true true true }T
 T{ 3 spent-text 2drop s"     worker  3 " holds? -> true }T
 T{ 1 spent-text nip rot drop -> 0 2 }T
+\ The whole resource report and the JSON report's measured member of a run
+\ with workers: every phase but the save, then the workers' time.
+: measured-json ( -- )
+  ['] type cj-writer jw-start cj-object cj-measured cj-end-object cj-writer jw-end drop ;
+: report-texts ( -- c-addr u c-addr' u' )
+  fresh >r nested 3 run-with ['] cli-resources. >string-execute ['] measured-json
+  >string-execute ck-release r> back ;
+T{ report-texts 2dup s\" \"total\":{\"wall\":" holds? -rot s\" \"workers\":{\"plan\":" holds?
+   2swap 2dup s\" \n  check  " holds? -rot s" jobs' run" holds? -> true true true true }T
+T{ report-texts 2swap s" save" holds? -rot s" save" holds? -> false false }T
 [then]
 \ The save is a phase of the report only when a snapshot was to be
 \ written (here none is: the run did not check), in text and JSON.

@@ -617,7 +617,8 @@ variable lf-sched-faults  0 lf-sched-faults !
 : lf-sch-waited+ ( n -- ) s>d lf-sched lf-sch-waited 2@ d+ lf-sched lf-sch-waited 2! ;
 : lf-sch-timed-wait ( -- k ) lf-sch-ended lf-sch-wait-mark 2@ lf-sch-lap lf-sch-waited+ ;
 : lf-sch-wait-one ( -- )
-  lf-sch-timed-wait dup 0< 0= if lf-sch-settle exit then
+  lf-sch-timed-wait
+  dup 0< 0= if lf-sch-settle exit then
   drop 3 lf-sch-break 0 lf-sched lf-sch-running# ! ;
 
 \ ---- The run. Fill every idle worker from the ready heap (dropping
