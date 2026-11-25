@@ -117,3 +117,4 @@ upper-case letter find no pattern word, with two tests and fault `pattern-word-a
 (the sentence was not found as quoted): contradiction.fs's header should say that revert.fs also throws invalid,
 a LeanForth fault, which is thrown on and never returned as false. Verdict: merge once the case fix is in.
 
+The pre-tier check then found the fix's capital-letter test to be a third copy of an existing phrase; `18c8c784` moves it to the library as `ascii-upper?` (lib/bounds.fs), used by the author layer, the program reader (`ir-lower`) and `pv-lower`, a behaviour-preserving edit in two program files.
