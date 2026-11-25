@@ -30,6 +30,12 @@ status changes when this date is older than them. Stages are those of the
 
 **Now**
 - 2026-11-25, 01:25: plan row TB2's case patterns, slice E2b, are **done** on main 31ec9f5e (done check [2026-11-25-tb2-patterns-e2b-done.md](../development/done-checks/2026-11-25-tb2-patterns-e2b-done.md): the checker's own 7 theorems accepted, 5 wrong variants refused; pushed). The language reference has a new section on writing a statement. In work on their branches: blocks slice 3 (`tb2-blocks3`), the kernel timing measurements (`kernel-speed-measure`), simp's first slice SD-a (`simp-sd-a`, Forth-reviewed, its fix round waiting for two owner decisions). Earlier:
+- 2026-11-25, 00:20: simp slice SD-a (plan FE9, [TACTIC_SIMP.md](../design/TACTIC_SIMP.md) section 6) is
+  **written and tested on branch `simp-sd-a`**, not reviewed, not merged, not done: elaboration data format 4
+  (`ELAB_FORMAT=4 scripts/export-elab.sh`) writes Lean's `@[congr]` lemmas and `defeq` tags (Init: 59 and
+  1,691), `src/front/simp-data.fs` reads them (errors 47, 48), the new test export `tests/front/simp-slice`;
+  the check's count line is not yet extended (`src/cli`, left to its branch). The owner's approval of the simp
+  plan is recorded in [OWNER_DECISIONS.md](OWNER_DECISIONS.md) ("simp: the plan and its spellings"). Earlier:
 - 2026-11-25, 00:06: plan row TB2's case patterns, slice E2b, are **tested on branch `tb2-patterns-e2b` and
   Forth-reviewed** ([review](../development/forth-reviews/2026-11-24-tb2-patterns-e2b.md)), not merged, not done:
   findings 2-5, 7 and style points S1-S3 fixed on the branch (2: `by-contra: -`, `_` and `rfl` read through the

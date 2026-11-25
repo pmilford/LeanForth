@@ -1973,3 +1973,17 @@ approval the coordinator decided that the members appear only with `--resources`
 `memoryPerCheck` appear only with their options, so a report without `--resources` is as before. A
 `--resources --json` report with the members is still refused by the schemas as they were before 2026-11-24
 (`measured` allows no other members); whether that calls for a new report version is open, for the owner.
+
+## simp: the plan and its spellings (2026-11-24)
+
+The owner, 2026-11-24, on the one page of [TACTIC_SIMP.md](../design/TACTIC_SIMP.md)'s second version (section
+0): "Approved the simp plan". That page asked five things, each with the recommendation yes:
+
+1. The spellings inside the bracket list: `' foo <-` (Lean's `← foo`), `-' foo` (erase), `'*` (all
+   hypotheses), `' foo !pre` (Lean's `↓`), `' h by-simpa-using`, and options as a trailing `config[ ]`.
+2. The order of the slices (TACTIC_SIMP.md section 6).
+3. The additions to the exported elaboration data, a [format] gate: the `refl` and `symm` lemma sets and the
+   list of helper theorems the library already holds.
+4. A quiet window for slice SL1a, which adds Lean's reduction settings to `meta-config.fs`, `whnf.fs`,
+   `defeq.fs` and `discr-keys.fs`.
+5. The depth limit counted as Lean counts it and refused past 512.

@@ -444,6 +444,8 @@ printed with its text (`at line 2 (error 12): unknown name`):
 | 44 | `universe parameters other than the definition's` | invalid | `level_params` that are not the definition's, in order, or a `param` level that is none of them |
 | 45 | `an annotation this reader does not know` | unsupported | an `mdata` node other than one entry `sunfoldMatch`, `sunfoldMatchAlt` or `borrowed` with the value true (no other is in `Init`), or an inert node whose `key` is not `save_info`, `noImplicitLambda` or `congrHole` |
 | 46 | `binder kinds named twice` | invalid | two `binder_kinds` records of one declaration (format 3.2) |
+| 47 | `a congruence lemma named twice` | invalid | two `congr` records of one lemma (format 4; `src/front/simp-data.fs`) |
+| 48 | `congruence lemmas out of their function's order` | invalid | a function's `congr` records not one run of lines ranked 0, 1, 2, ... in file order: a run that starts at a rank other than 0, skips a rank, or is split by another function's (format 4) |
 
 Misuse is refused before anything runs:
 
@@ -803,6 +805,41 @@ pinned Lean's (`tests/front/bk-init.golden`), each stopping without the
 records (error 3 or 86: the word takes the wrong number of values), and
 the wrong twin `bk-init-wrong.lf` refused with Lean's "Type mismatch"
 (error 96). Planted faults `fe-bk-*` (`tests/mutants/faults.d/data-bk.toml`).
+
+## Format 4: congruence lemmas and defeq tags (slice SD-a)
+
+Plan FE9, slice SD-a of [TACTIC_SIMP.md](../design/TACTIC_SIMP.md) section 4, under the [import]/[format] gate
+of [SIMP_DATA.md](../design/SIMP_DATA.md) (owner, 2026-11-18), which numbers the format; SD-a writes and reads
+two of its additions, the rest come with SD-b. `ELAB_FORMAT=4 scripts/export-elab.sh OUTPUT EXPORT MODULE...`
+runs `export_elab.lean --simp` and `export_elab.py --format 4`; without `ELAB_FORMAT` the output is format 3,
+3.1 or 3.2, byte for byte as before. A format-4 file's header says `"format_version":4` (the number) and counts
+every kind, `binder_kinds` and `congr` included; inert nodes and `binder_kinds` records are allowed as in 3.2.
+A reader of format 3 refuses it as another format version (error 7); this reader still reads 3, 3.1 and 3.2.
+
+| Record | Members | From |
+| --- | --- | --- |
+| `congr` | `name` (the lemma, a theorem), `fun` (the function), `hyps` (its hypotheses' places among the lemma's binders, increasing), `priority`, `rank` (its place in its function's list: highest priority first, the newest first among equal ones, the order simp tries them) | `congrExtension`, `Meta/Tactic/Simp/SimpCongrTheorems.lean:23-49` |
+| `tag` | the tag `defeq` (format 4 alone): a theorem Lean holds to be proved by `rfl`, which simp's rfl flag and `dsimp` read | `defeqAttr`, `Lean/DefEqAttrib.lean:111` |
+
+`{"congr":{"fun":["ite"],"hyps":[9,10,11],"name":["ite_congr"],"priority":1000,"rank":0}}` and
+`{"tag":{"name":["Nat","add_zero"],"tag":"defeq"}}`. The finisher writes the `congr` records by function and
+then rank, so each function's lemmas are a run of lines; it keeps a record when the export has the function and
+the lemma, leaves it out when the export lacks the function, and refuses (exit status 1) an export that has
+the function but not the lemma: simp would otherwise take another route than Lean's (TACTIC_SIMP.md section 4;
+add the lemma to the slice's roots). `Init` holds 59 `congr` records and 1,691 `defeq` tags (SIMP_DATA.md's
+counts, measured again on 2026-11-24); the test export `tests/front/simp-slice.ndjson` (roots
+`tests/front/simp-slice.roots`) 2 and 1. `decide-slice` and `s2-slice` have functions without their lemmas
+(`Array.foldlM`, `Exists`, `ite`, `dite`), so they stay at format 3.
+
+**Read** by `src/front/elab-data.fs` (the version, the header, the defeq tag: a theorem, error 14; malformed
+in an older format) and `src/front/simp-data.fs`, a kind added with `elab-add-kind`: members as for every
+kind (errors 10-14, 19), the lemma named once (47), each function's records one run ranked 0, 1, 2, ... in
+file order (48), the places increasing and below the number of the lemma's leading Pi binders (37).
+`simp-congr-lemmas ( f -- c n outcome )` and `simp-defeq? ( d -- flag outcome )` answer unsupported, never
+"none", for data of an older format. Tests: `tests/front/simp-data.fs` (unit, 24 fixtures of
+`tests/front/simp-data/`, a heap sweep), `tests/front/test_simp_data.py` (the fixtures, the finisher, the
+check); faults `tests/mutants/faults.d/simp-data.toml`. Not yet printed by the check's "elaboration data:"
+line: that line is `src/cli/leanforth-text.fs`'s (left to the branch that owns the command line).
 
 ## Unification hints: not in the data
 

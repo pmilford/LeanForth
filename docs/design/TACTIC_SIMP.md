@@ -2,7 +2,11 @@
 
 Status (2026-11-24): **second version, after the independent review**
 ([report](../development/design-reviews/2026-11-24-tactic-simp.md), "approve with changes"; every change applied, listed at the
-end). Nothing is built. The design builds on two designs the owner approved on 2026-11-18: [SIMP_DATA.md](SIMP_DATA.md)
+end); the owner approved the plan on 2026-11-24 (OWNER_DECISIONS.md, "simp: the plan and its spellings"). Slice
+SD-a written and tested on branch `simp-sd-a` (2026-11-25; not reviewed, not merged, not done): format 4's `congr`
+records and `defeq` tags, `simp-data.fs`, the test export `tests/front/simp-slice` (decide's slice lacks four
+congruence lemmas of its functions, so it stays at format 3); the check's count line waits for `src/cli`'s branch.
+Nothing else is built. The design builds on two designs the owner approved on 2026-11-18: [SIMP_DATA.md](SIMP_DATA.md)
 (elaboration data format 4) and [LF_LIBRARIES.md](LF_LIBRARIES.md) §3 (library 2). Their slices SP1a to SP3 are
 re-cut here as SD-a, SD-b and SL1a to SL6 (section 6); SP4, MF, S7 and S8 stay as they are. Plan rows: FE9, and TB2's
 simp family. LeanForth paths are relative to `src/front/`, Lean's to the pinned toolchain's `src/lean/`. All of it is

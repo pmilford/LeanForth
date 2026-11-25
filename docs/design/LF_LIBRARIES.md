@@ -257,6 +257,7 @@ per-file pieces (`faults.d/`, pattern rules, sorted JSON Lines). **Planned** col
 | File | Slices that would edit it |
 | --- | --- |
 | `elab-data.fs` (1,534 lines, 65 globals) | FE1c-bk (in flight, `data-bk`), SP1a's reader, FE2f (structures) |
+| `simp-data.fs` (2026-11-25, slice SD-a on branch `simp-sd-a`: format 4's `congr` kind, added to `elab-data.fs`'s reader with `elab-add-kind`; `simp-congr-lemmas`, `simp-defeq?`) | SD-b's kinds, SL1a, SL2 |
 | `instances.fs` | MF2, the trie's move (DT), FE3 |
 | `app-builder.fs` | a2-iii (in flight), S3 (`mkDecide`), LA (`mkPropExt`), S4 (Int literals), SP1b (congruence builders) |
 | `elab-term.fs`, `elab-app.fs` | LA (registry), FE4a (coercions), FE2a-e, FE1c-bk |
