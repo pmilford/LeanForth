@@ -29,6 +29,7 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
+- 2026-11-24, 22:06: plan row TB2's case patterns, slice E2a, are **done** on main da2dd131 (done check [2026-11-24-tb2-patterns-e2a-done.md](../development/done-checks/2026-11-24-tb2-patterns-e2a-done.md): the checker's own 9 theorems accepted, 5 wrong variants refused, after a first NOT DONE for a gap in the reference; pushed, origin/main 27ab87d4). In work on their branches: pattern slice E2b (`tb2-patterns-e2b`), the `--jobs` default of 4 with the workers' busy and waiting time in `--resources` (`jobs-default`, under Forth review); the design of `simp` is written and under its design review. Earlier:
 - 2026-11-24, 20:34: plan row TB2's case patterns, slice E2a, are **tested on branch `tb2-patterns-e2a` and
   Forth-reviewed** ([review](../development/forth-reviews/2026-11-24-tb2-patterns-e2a.md)): findings 1-6 and style
   points a-d fixed on the branch (one HEq reader and `lf-heq-homogeneous?` in app-builder.fs; `lf-run1` beside

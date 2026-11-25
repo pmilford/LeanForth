@@ -2329,8 +2329,14 @@ that name in this goal", where Lean says "Unknown identifier" (plan NR);
 ### D.9 `by-subst`, `by-subst[ ]`, `by-subst-vars`, `rfl`, `by-rintro[ ]`: substitution
 
 Plan row TB2, piece E, slice E2a (design
-[TACTIC_PATTERNS.md](../design/TACTIC_PATTERNS.md); tested on branch
-`tb2-patterns-e2a`, not merged). An equation `h : x = t` (or `t = x`)
+[TACTIC_PATTERNS.md](../design/TACTIC_PATTERNS.md); on main, tests in
+`tests/front/tactics/batch-h/`, done check
+[2026-11-24-tb2-patterns-e2a-done.md](../development/done-checks/2026-11-24-tb2-patterns-e2a-done.md)).
+Writing the statements for these (see also "A complete tactic proof"): an
+application is `' Nat.succ a $`, so n + 1 = n + 1 as successors is
+`' Nat.succ a $ ' Nat.succ a $ =`; a hypothesis that is an "and" of two
+equations is `a b = b a = ∧ explicit: h`; a tuple item in `by-rintro[ ]`
+is written as in `by-obtain[ ]`, `by-rintro[ << x y >> ]`. An equation `h : x = t` (or `t = x`)
 whose one side is a variable lets that variable be replaced by the other
 side everywhere: in the goal and in every hypothesis after it, which come
 back under their names (a hidden one hidden still). The equation and the
@@ -2417,7 +2423,9 @@ equation); 479 "... did not find equation for eliminating 'a'"; 480
 "... variable 'k' is a let-declaration" (only inside `by-subst-vars`,
 which goes on to the next hypothesis); 475 and 477 come from the goal
 operation alone, which the tactics never reach. 481: `by-rintro[ ]`
-with no pattern (Lean's `rintro` needs one). 455: a name in
+with no pattern (Lean's `rintro` needs one). 94 "Tactic `introN` failed:
+no additional binders ...": more `by-rintro[ ]` items than the goal has
+binders. 455: a name in
 `by-subst[ ]` that no hypothesis has, reported at `by-subst[`.
 
 **Narrower than Lean** (each refused, never accepted): `' k by-subst` on
