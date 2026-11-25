@@ -101,16 +101,23 @@ variable sweep-slab-xt    \ ( -- slab ) the slab a slab sweep limits
 \ The current view's locals, each kept as its free variable, name and
 \ flags, and made again in an emptied metavariable context.
 16 constant sweep-view-most
-create sweep-view sweep-view-most 3 * cells allot
+begin-structure /svl
+  field: svl-name        \ the local's name
+  field: svl-fvar        \ its free variable
+  field: svl-flags       \ its flags
+end-structure
+create sweep-view sweep-view-most /svl * allot
 variable sweep-view#
-: sweep-view-at ( i -- addr ) 3 * cells sweep-view + ;
-: sweep-kept ( fvar name flags i -- ) sweep-view-at tuck 2 cells + ! 2! ;
+: sweep-view-at ( i -- addr ) /svl * sweep-view + ;
+: sweep-kept ( fvar name flags i -- )
+  sweep-view-at tuck svl-flags ! tuck svl-name ! svl-fvar ! ;
 : sweep-keep-local ( view i -- )
   dup >r lf-view-local dup lf-local-fvar over lf-local-name rot lf-local-flags r> sweep-kept ;
 : sweep-keep-view ( -- )
   lf-mctx-view dup lf-view-count dup sweep-view-most > abort" sweep-keep-view: too many"
   dup sweep-view# ! 0 ?do dup i sweep-keep-local loop drop ;
+: sweep-local ( addr -- fvar name flags ) dup svl-fvar @ over svl-name @ rot svl-flags @ ;
 : sweep-local-again ( i -- )
-  sweep-view-at dup 2 cells + @ swap 2@ rot lf-local-new ok? 0= abort" sweep-view-anew"
+  sweep-view-at sweep-local lf-local-new ok? 0= abort" sweep-view-anew"
   lf-mctx-view swap lf-view-push ok? 0= abort" sweep-view-anew" lf-mctx-view! ;
 : sweep-view-anew ( -- ) lf-mctx-reset sweep-view# @ 0 ?do i sweep-local-again loop ;

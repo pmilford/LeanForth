@@ -68,11 +68,14 @@ require ./tactic-syntax.fs
   lfa-code: lfa-e-pat-one
 481 outcome-invalid s" by-rintro[ takes one pattern or more" lfa-code: lfa-e-pat-none
 
-\ ---- The open brackets: the top level's (closer 3, ] of one element;
-\ 4, ] of by-rintro['s sequence; 5, ] of by-contra['s one element, a
-\ sequence of one) and each tuple's (1 for <<, 2 for ⟨).
+\ ---- The open brackets: the top level's (closer pc-one, ] of one
+\ element; pc-rintro, ] of by-rintro['s sequence; pc-contra, ] of
+\ by-contra['s one element, a sequence of one) and each tuple's (pc-chev
+\ for <<, pc-angle for ⟨).
+1 constant pc-chev   2 constant pc-angle   3 constant pc-one   4 constant pc-rintro
+5 constant pc-contra
 begin-structure /pfr
-  field: pfr-closer      \ the closer it waits for: 1 >>, 2 ⟩, 3, 4 or 5 ]
+  field: pfr-closer      \ the closer it waits for (a pc- constant)
   field: pfr-from        \ the argument its contents begin at
   field: pfr-elem        \ the open element's first argument, else -1
   field: pfr-items       \ the open element's items
@@ -110,14 +113,17 @@ end-structure
 : pfr-tuple ( i closer -- i ) pfr-close pat-tuple pfr-node ;
 : pfr-elems# ( i closer -- i n ) pfr-close pfr pfr-elems @ ;
 : pfr-one ( i closer -- i ) pfr-elems# 1 <> if lfa-e-pat-one lfa-fail then ;
-: pfr-top ( i -- i ) 3 pfr-one pat-frames slab-drop lfa-bracket-drop ;
+: pfr-top ( i -- i ) pc-one pfr-one pat-frames slab-drop lfa-bracket-drop ;
 \ rintro's top level: one element or more (481), a seq node over them;
-\ by-contra['s: one element (474), a seq node over it.
+\ by-contra['s: one element (474), a seq node over it. ] with a tuple
+\ open: 473.
 : pfr-seq-node ( i -- i ) pat-seq pfr-node lfa-bracket-drop ;
-: pfr-seq ( i -- i ) 4 pfr-elems# 0= if lfa-e-pat-none lfa-fail then pfr-seq-node ;
-: pfr-contra ( i -- i ) 5 pfr-one pfr-seq-node ;
+: pfr-seq ( i -- i )
+  pc-rintro pfr-elems# 0= if lfa-e-pat-none lfa-fail then pfr-seq-node ;
+: pfr-contra ( i -- i ) pc-contra pfr-one pfr-seq-node ;
 : pfr-end-list ( i -- i )
-  pfr pfr-closer @ dup 3 = if drop pfr-top exit then 4 = if pfr-seq else pfr-contra then ;
+  pfr pfr-closer @ case pc-one of pfr-top endof pc-rintro of pfr-seq endof
+  pc-contra of pfr-contra endof lfa-e-pat-closer lfa-fail endcase ;
 
 \ ---- The items and closers: two word lists searched by spelling, the
 \ brackets' (each word ( i -- i more? )) and the leaf items' (each
@@ -127,10 +133,10 @@ wordlist constant pat-leaves
 [defined] warnings [if] warnings @ warnings off [then]   \ _ and - spelt as words
 get-current pat-words set-current
 : | ( i -- i more? ) pfr-bar true ;
-: << ( i -- i more? ) pfr-item 1 pfr-open true ;
-: ⟨ ( i -- i more? ) pfr-item 2 pfr-open true ;
-: >> ( i -- i more? ) 1 pfr-tuple true ;
-: ⟩ ( i -- i more? ) 2 pfr-tuple true ;
+: << ( i -- i more? ) pfr-item pc-chev pfr-open true ;
+: ⟨ ( i -- i more? ) pfr-item pc-angle pfr-open true ;
+: >> ( i -- i more? ) pc-chev pfr-tuple true ;
+: ⟩ ( i -- i more? ) pc-angle pfr-tuple true ;
 : ] ( i -- i more? ) pfr-end-list false ;
 pat-leaves set-current
 : _ ( -- x ) 0 ;
@@ -152,11 +158,11 @@ set-current
 : pat-read ( i closer -- )
   lft-list-open pat-frames slab-clear pfr-open
   begin lfa-token-on pat-step 0= until lft-done ;
-: lft-build-pattern ( v i shape -- ) lft-values drop 3 pat-read ;
+: lft-build-pattern ( v i shape -- ) lft-values drop pc-one pat-read ;
 1 0 ' lft-build-pattern tac-shape-new constant tac-shape-pattern
-: lft-build-rintro ( i shape -- ) lft-values drop 4 pat-read ;
+: lft-build-rintro ( i shape -- ) lft-values drop pc-rintro pat-read ;
 0 0 ' lft-build-rintro tac-shape-new constant tac-shape-rintro
-: lft-build-contra ( i shape -- ) lft-values drop 5 pat-read ;
+: lft-build-contra ( i shape -- ) lft-values drop pc-contra pat-read ;
 0 0 ' lft-build-contra tac-shape-new constant tac-shape-contra
 \ by-contra: NAME and by-contra: the name, or this, as a sequence of one
 \ rintro pattern (Batteries' by_contra h, rintro h); _, - and rfl are

@@ -15,8 +15,8 @@ reason = "TB2 E2b (review finding 2): by-contra: rfl, - and _ read as hypothesis
 [[fault]]
 id = "contra-many-patterns"
 file = "src/front/pattern-syntax.fs"
-old = ''': pfr-contra ( i -- i ) 5 pfr-one pfr-seq-node ;'''
-new = ''': pfr-contra ( i -- i ) 5 pfr-close pfr-seq-node ;'''
+old = ''': pfr-contra ( i -- i ) pc-contra pfr-one pfr-seq-node ;'''
+new = ''': pfr-contra ( i -- i ) pc-contra pfr-close pfr-seq-node ;'''
 test = "$GFORTH tests/front/tactics/batch-h2/test.fs"
 reason = "TB2 E2b: by-contra[ k j ] is read as rintro k j, where Lean's by_contra takes one pattern (test.fs's 474 pair)"
 

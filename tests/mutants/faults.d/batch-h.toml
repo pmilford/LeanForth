@@ -40,8 +40,8 @@ reason = "TB2 E2a: the hypotheses reverted with the equation stay binders of the
 [[fault]]
 id = "rintro-top-as-one"
 file = "src/front/pattern-syntax.fs"
-old = ''': lft-build-rintro ( i shape -- ) lft-values drop 4 pat-read ;'''
-new = ''': lft-build-rintro ( i shape -- ) lft-values drop 3 pat-read ;'''
+old = ''': lft-build-rintro ( i shape -- ) lft-values drop pc-rintro pat-read ;'''
+new = ''': lft-build-rintro ( i shape -- ) lft-values drop pc-one pat-read ;'''
 test = "$GFORTH tests/front/tactics/batch-h/test.fs"
 reason = "TB2 E2a: by-rintro[ reads one element as by-rcases[ does, so h1 | h2 k is 474 (test.fs's rintro alternatives text expects 0)"
 
