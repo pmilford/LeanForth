@@ -712,6 +712,23 @@ profile-existing:
 profile-history:
 	LEAN=$(LEAN_BINARY) GFORTH=$(GFORTH) $(RUN) python3 scripts/profile-history.py
 
+# Where a check spends its time (docs/development/PROFILING.md, "Where a check
+# spends its time"): make profile-check EXPORT=FILE [JOBS=1] checks EXPORT on
+# gforth-fast under the sampling profiler and prints time by word family and
+# by word, and the slowest declarations by time; JOBS here is the check's
+# workers, 1 unless given (only the first thread is sampled). The raw files
+# go to PROFILE_OUT (default build/profile). Not part of any suite;
+# test-profile-check tests the tools on a small export.
+profile-check:
+	@test -n "$(EXPORT)" || { echo "usage: make profile-check EXPORT=FILE [JOBS=1]" >&2; exit 2; }
+	GFORTH_FAST=$(GFORTH_FAST) PROFILE_JOBS=$(if $(filter command line,$(origin JOBS)),$(JOBS),1) \
+	  bash scripts/profile-check.sh $(EXPORT)
+
+test-profile-check:
+	GFORTH_FAST=$(GFORTH_FAST) $(RUN) python3 tests/scripts/test_profile_check.py
+.PHONY: profile-check test-profile-check
+test: test-profile-check
+
 test-program-depth-differential:
 	LEAN=$(LEAN) GFORTH=$(GFORTH) $(RUN) bash tests/program/program-depth-differential.sh
 
