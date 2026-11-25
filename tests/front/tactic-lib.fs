@@ -630,6 +630,11 @@ nat nat prop lf-term-pi lf-made! lf-term-pi lf-made! s" R" binder constant frel9
 : apply-rfl-code ( goal -- code )
   mrf-frames ['] apply-rfl-run ['] lf-with-record catch dup if nip nip nip then ;
 T{ frel9 fr lf-mk-app fr lf-mk-app goal-of apply-rfl-code mrf-frames slab-count -> -4205 0 }T
+\ Its Eq branch (mtg-is-eq's Eq side, plan 9.4.8t): r = r, the sides
+\ equal by approxDefEq, closes with @Eq.refl Nat r, the frame freed.
+fr fr lf-mk-eq goal-of constant g-rr
+T{ g-rr apply-rfl-code mrf-frames slab-count g-rr lf-mvar-value drop
+   dup 2 s" Eq.refl" lf-meta-app-of? swap lf-term-second@ -> 0 0 true fr }T
 \ checkNotAssigned first (review tactic-move M3): an assigned goal is
 \ refused, invalid, before its type is read, by introN (Nat: no binder,
 \ else 94) and by refl (Nat: no Eq, else 93's unsupported).
