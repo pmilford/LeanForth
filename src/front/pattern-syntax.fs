@@ -145,7 +145,7 @@ pat-leaves set-current
 set-current
 [defined] warnings [if] warnings ! [then]
 : pat-leaf? ( c-addr u -- x true | c-addr u false )
-  2dup pat-leaves lfa-word-of if nip nip execute true else false then ;
+  2dup lfa-exact pat-leaves lfa-word-of if nip nip execute true else false then ;
 \ A name: no LeanForth word (else the list is unclosed, 458), no @ (72).
 : pat-word ( c-addr u -- c-addr u )
   dup 0= if lfa-list-unclosed then 2dup lft-at-sign? if lfa-e-tactic lfa-fail then
@@ -153,7 +153,7 @@ set-current
 : pat-name ( i c-addr u -- i true ) pat-word rot pfr-item -rot lft-given 1 pat-span!
   true ;
 : pat-step ( i c-addr u -- i more? )
-  2dup pat-words lfa-word-of if nip nip execute exit then
+  2dup lfa-exact pat-words lfa-word-of if nip nip execute exit then
   pat-leaf? if pat-item true else pat-name then ;
 : pat-read ( i closer -- )
   lft-list-open pat-frames slab-clear pfr-open

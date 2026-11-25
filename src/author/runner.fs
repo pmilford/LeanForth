@@ -154,6 +154,14 @@ end-structure
 : lfa-has-word? ( c-addr u wid -- flag ) search-wordlist dup if nip then 0<> ;
 \ The word c-addr u of wordlist wid, for a layer that may not look names
 \ up itself (tests/core/check_log_isolation.py): pattern-syntax.fs's words.
+\ Forth finds a word whatever the case of its letters, and these word lists
+\ hold lower-case spellings only (rfl), so a token with an upper-case
+\ letter is no word of theirs: Lean's Rfl is a name. lfa-exact makes such
+\ a token empty, which no word list holds: `2dup lfa-exact WID lfa-word-of`.
+: lfa-upper? ( char -- flag ) [char] A [char] Z 1+ within ;
+: lfa-lower? ( c-addr u -- flag )
+  0 ?do count lfa-upper? if drop false unloop exit then loop drop true ;
+: lfa-exact ( c-addr u -- c-addr u' ) 2dup lfa-lower? 0= if drop 0 then ;
 : lfa-word-of ( c-addr u wid -- xt true | false ) search-wordlist 0<> ;
 : lfa-worded? ( c-addr u -- flag )
   2dup lf-words lfa-has-word? if 2drop true exit then

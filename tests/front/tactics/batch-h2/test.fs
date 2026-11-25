@@ -63,6 +63,10 @@ T{ sn s" by-contra by-contradiction" tactic-ran 0 parg swap s" this" name? 1 par
 T{ sn s" by-contra: _ by-contradiction" tactic-ran 0 parg -> 0 0 1 }T
 T{ s" Nat explicit: a Nat explicit: b a a = ¬ explicit: h a b = ¬" s" by-contra: rfl by-contradiction"
    tactic-ran 0 parg -> 0 pat-rfl 1 }T
+\ A pattern word is spelled exactly: Rfl and RFL are names, as Lean's are
+\ (Forth's own lookup takes any case).
+T{ sn s" by-contra: Rfl by-contradiction" tactic-ran 0 parg swap s" Rfl" name? -> 0 1 true }T
+T{ sn s" by-contra[ RFL ] by-contradiction" tactic-ran 0 parg swap s" RFL" name? -> 0 1 true }T
 \ by-contra: - clears what it introduces, as by_contra - and by-contra[ - ]
 \ do: h : ¬a = b alone contradicts nothing (Lean: contradiction failed),
 \ where by-contra: k keeps k : a = b.
