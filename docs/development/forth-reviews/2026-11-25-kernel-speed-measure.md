@@ -67,15 +67,32 @@ Probe files are in /tmp/claude-1000/-home-peter-code-LeanForth/69a89404-3a7f-48a
 4. Fixed in `91f50285`: `profile-check.sh` refuses a machine other than x86-64 and a missing gforth-fast with exit 5
    and one line; the `PTRACE_GETREGS` result is checked (exit 5, one line). Tests `Failures.test_no_engine` and
    `Failures.test_command_not_run` in `tests/scripts/test_profile_check.py`.
-5. Left, open: the summary of `KERNEL_SPEED.md` is unchanged (not reached within this fix round's budget). The
-   overlap figure needs `profile-summary.py --under` on the recorded Init profile, which is not in the worktree.
-6. Left, open: the projection table is not written (same reason).
-7. Left, open: candidate 1's callers and invariant are not written (same reason).
-8. Left, open: the families' names are not mapped (same reason).
+5. Fixed in the commit after `d6e2f2e8`, from a second profile of Init (run 2, 2026-11-25 07:59, 57,421
+   samples, kept in `.claude/work/init-profile-2026-11-25/` of the main checkout; shares comparable, wall
+   time not). "In short" now gives exclusive shares only (reads 40.3%, hashing 16.3%, validity 12.5%), the
+   overlap (16.7 points of the reads and 4.1 of the hashing lie under a validity word; 35.9% inclusive) and
+   one hashing figure (`htab`, `hash32`, `memo` by file). Section 1 and 2 are recomputed wholly from run 2;
+   the document says which run each section's numbers are from. Computed with a scratch script over
+   `check.prof` and the tool's families.
+6. Fixed in the same commit: section 10 is a table (candidate, basis, overlap removed, points, seconds,
+   seconds left, times Lean), shares added as points of 952 s, each row net of the rows before it. The range
+   changed: the algorithm changes give 14-16 times Lean (was 11-14), with Forth macros 11-14 (was 10-12),
+   native 10-13.5 (was 9-11). Candidate 6 is almost wholly inside candidate 1 (0.4 points left).
+7. Fixed in the same commit: candidate 1's callers by samples (`lf-env-current` only through `lf-env-ours`,
+   from `lf-whnf-env?` 11.87 and `lf-env-snapshot` 3.08; `store-count-valid?` mostly from `mark-this?` 2.12
+   and `lf-pool-sound?` 0.98; `between?` 0.57 from validity callers, 1.96 from others, 1.67 of those under a
+   validity word further out), and the invariant, marked as a design assumption, with the checks that stay
+   at a pass's entry.
+8. Fixed in the same commit, the smaller change: `profile-summary.py`'s reads family is now "reads of terms,
+   stores, slabs (src/core, store.fs, slab.fs)", and the document prints the tool's rows one for one. No
+   expected table in `tests/scripts/test_profile_check.py` named the old family; a new test
+   (`test_store_reads_family`) pins the regrouping.
 9. Fixed in `c8e6ebf9`: faults `ks-time-negative` (D2) and `ks-start-under-check` (D3), both caught by
    `tests/cli/leanforth.fs` (`scripts/mutants.py --only`: 4 run, 4 caught, with `ks-time-untimed` and
    `ks-timed-backwards`).
 10. The comment is reworded in `944f4353` ("a check that threw before it ended"). The `lf-sch-rerun` edge case is
     left, open: a test needs a refused begin after an early check in the same worker, which no test reaches today.
-11. Left, open: `profile-symbols.fs` still writes through the counted `sym-buf` (lines of 150 characters today).
+11. Fixed in the same commit: `profile-symbols.fs` writes each piece with `write-file` (`sym-type`,
+    `sym-char`, `sym-end`), no buffer. A direct run on `src/main.fs` wrote 29,026 lines in the old format;
+    `make test-profile-check` passed (8 tests).
 12. Fixed in `c8e6ebf9`: the `test-profile-check` row is in the end-to-end section.

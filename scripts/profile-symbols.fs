@@ -14,28 +14,28 @@
 \ source position added 2026-11-25.
 0 wordlist-link constant sym-wl-off
 0 value sym-fid
-create sym-buf 512 allot
+create sym-c 1 allot
 : sym-hex ( u -- c-addr u ) base @ >r hex 0 <# #s #> r> base ! ;
 : sym-dec ( u -- c-addr u ) base @ >r decimal 0 <# #s #> r> base ! ;
 : sym-kind ( xt -- c )
   >code-address dup docol: = if drop [char] c exit then
   dodoes: = if [char] d else [char] o then ;
-: sym-char+ ( c -- ) sym-buf count + c! 1 sym-buf c+! ;
-: sym+ ( c-addr u -- ) tuck sym-buf count + swap move sym-buf c@ + sym-buf c! ;
+\ Each piece goes straight to the file: a line has no length limit.
+: sym-type ( c-addr u -- ) sym-fid write-file throw ;
+: sym-char ( c -- ) sym-c c! sym-c 1 sym-type ;
+: sym-end ( -- ) s" " sym-fid write-line throw ;
 : sym-where ( nt -- )
-  name>view dup view>filename# loadfilename#>str sym+
-  [char] : sym-char+ view>line sym-dec sym+ ;
+  name>view dup view>filename# loadfilename#>str sym-type
+  [char] : sym-char view>line sym-dec sym-type ;
 : sym-line ( nt -- )
-  dup name>interpret dup >body sym-hex sym-buf place
-  bl sym-char+ sym-kind sym-char+ bl sym-char+
-  dup name>string sym+ bl sym-char+ sym-where
-  sym-buf count sym-fid write-line throw ;
+  dup name>interpret dup >body sym-hex sym-type
+  bl sym-char sym-kind sym-char bl sym-char
+  dup name>string sym-type bl sym-char sym-where sym-end ;
 : sym-one ( nt -- true ) sym-line true ;
 : sym-walk ( -- )
   voclink @ begin dup while
     dup sym-wl-off - ['] sym-one swap traverse-wordlist @ repeat drop ;
-: sym-stack ( c-addr u addr -- )
-  >r sym-buf place r> @ sym-hex sym+ sym-buf count sym-fid write-line throw ;
+: sym-stack ( c-addr u addr -- ) >r sym-type r> @ sym-hex sym-type sym-end ;
 : sym-dump ( -- )
   s" PROF_SYMS" getenv dup 0= if 2drop exit then
   w/o create-file throw to sym-fid  sym-walk

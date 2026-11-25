@@ -102,6 +102,17 @@ class Summary(unittest.TestCase):
         self.assertEqual(fam["term construction and hashing (lf-term-cons, htab, hash32)"],
                          (100.0, 100.0, 0.0))
 
+    def test_store_reads_family(self):
+        """A word of lib/store.fs or lib/slab.fs counts with the core's reads (the family
+        KERNEL_SPEED.md prints); a validity word of the same file stays a validity check."""
+        self.syms.write_text(SYMS + "700 c store-slot /x/src/lib/store.fs:70\n"
+                             "800 c store-count-valid? /x/src/lib/store.fs:80\n")
+        self.prof.write_text("# samples 2\n1\tstore-slot;ck-check\n1\tstore-count-valid?;ck-check\n")
+        fam, _ = self.families()
+        self.assertEqual(fam["reads of terms, stores, slabs (src/core, store.fs, slab.fs)"],
+                         (50.0, 50.0, 0.0))
+        self.assertEqual(fam["validity checks"], (50.0, 50.0, 0.0))
+
     def test_empty(self):
         done = summary(str(self.prof), str(self.syms), "--under", "nowhere")
         self.assertEqual(done.returncode, 2)

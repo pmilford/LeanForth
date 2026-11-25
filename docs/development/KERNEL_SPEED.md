@@ -8,7 +8,12 @@ Gforth 1.0.0 `gforth-fast`, one worker), **recorded** (from a document named bes
 (arithmetic on those). The machine's load average was 0.7 to 1.8 during the profiled run of Init, and 1 to 7
 (other agents' tests) during the counted run and the engine runs. Raw outputs, the counter patch and the
 scratch copies stayed in a scratch folder and are not in the repository, as in
-[PARALLEL_REVIEW.md](PARALLEL_REVIEW.md).
+[PARALLEL_REVIEW.md](PARALLEL_REVIEW.md). That night's profiled run is **run 1**. **Run 2** is a second profile of
+Init made the same way on 2026-11-25 07:59 to 08:18 (57,421 samples; 1,188 s wall while other test runs
+used the machine, so its time is not comparable, its sample shares are), kept read-only with its tables in
+`.claude/work/init-profile-2026-11-25/` of the main checkout (`check.prof`, `check.syms`, `run.log`). The
+summary's shares, section 1, section 2, candidate 1's callers and the projection (section 10) are
+recomputed from run 2; sections 3 to 7 and the counts are run 1's (and its counted copy's).
 
 ## In short
 
@@ -17,12 +22,14 @@ scratch copies stayed in a scratch folder and are not in the repository, as in
   (recorded, [lean-kernel-profile-2026-11-02](measurements/lean-kernel-profile-2026-11-02/README.md)):
   **24.8 times** Lean.
 - The algorithms are Lean's, and their shares match Lean's and nanoda's: instantiation and universe
-  substitution own 48% of the time (Lean 41%, nanoda 51%), whnf 22% (Lean 13%, nanoda 29%).
-- The gap is overhead per primitive, in two parts. **(1) LeanForth's own validity checks: 40% of the time**
-  is spent inside them (handles, stores and the environment re-checked at every gate; Lean's resource checks
-  are 2%). **(2) The term store's layers**: reading one field of a node goes through four to six small
-  words; reads of terms, stores and slabs are 33% of the time where the CPU was, hashing and hash tables
-  13%.
+  substitution own 47% of the time (run 2; Lean 41%, nanoda 51%, recorded), whnf 22% (Lean 13%, nanoda 29%).
+- The gap is overhead per primitive. Exclusive shares (where the CPU was; run 2): **reads of terms, stores
+  and slabs 40.3%** (reading one field of a node goes through four to six small words), **hashing and hash
+  tables 16.3%** (`lib/htab.fs`, `lib/hash32.fs`, `lib/memo.fs`; the one hashing figure used here) and
+  **LeanForth's own validity checks 12.5%** (handles, stores and the environment re-checked at every gate;
+  Lean's resource checks are 2.3%, recorded). They overlap: 16.7 points of the reads and 4.1 of the hashing
+  are made inside a validity word, so the checks with what they call take 35.9% (inclusive); outside them,
+  reads are 23.6% and hashing 12.3%.
 - Time per declaration is flat: 1.43 µs per fuel unit, from the smallest to the slowest declaration
   (log-log correlation 0.993; no declaration of 20 ms or more is off by a factor of 3). Fuel sees all the
   cost; no hidden cost grows with some declarations.
@@ -34,11 +41,12 @@ scratch copies stayed in a scratch folder and are not in the repository, as in
   about 2% of the time. (ii) The `whnf_core` cache is keyed as Lean's and read where Lean reads it; it is
   filled almost as Lean fills it (two small differences, below); 3.7% of its 30.6 million lookups hit, a
   lookup costs 755 ns. Lean's own hit rate cannot be counted (no counters); by its code it should be as low.
-- Ranked candidates (below): the validity checks moved out of the walks (up to 40%, realistically 25-35%),
-  universe substitution as one memoized pass (about 10%), node field reads inlined (about 10%), hashing and
-  the table probe as Forth macros or native code (5-10%), and four small ones (about 2% each). Pure-Forth
-  changes could plausibly reach 10 to 14 times Lean (**estimate**); 3 to 5 times needs a leaner term store
-  as well; native code pays for hashing and the probe, about 10% (**estimate**).
+- Ranked candidates (below; points of the 952 s, each net of the candidates before it): the validity checks
+  moved out of the walks (up to 36, realistically 25-32), universe substitution as one memoized pass (5-8),
+  node field reads inlined (6-9), hashing and the table probe as Forth macros (2.4) or native code (4.7),
+  and three small ones (0.4 to 3.1). The algorithm changes alone could reach 14 to 16 times Lean, with the
+  field reads and hashing as Forth macros 11 to 14 times (**estimate**, section 10); 3 to 5 times needs a
+  leaner term store as well.
 
 ## How it was measured
 
@@ -57,53 +65,66 @@ scratch copies stayed in a scratch folder and are not in the repository, as in
 
 ## 1. Time by family, beside Lean and nanoda
 
-Shares of Init's samples. Exclusive: where the CPU was. Inclusive: the family anywhere on the stack (they
-overlap). Owner: the nearest family outwards that is not a service (store reads, validity, hashing, caches,
-frames, library); owners add up to 100%. LeanForth measured; Lean (`leanchecker --fresh Init`) and nanoda
-(`init.ndjson`, one thread) recorded on 2026-11-02 with `perf` (their families are named by function, so
-some rows are not exact matches).
+Shares of Init's samples in run 2, the rows exactly as `python3 scripts/profile-summary.py check.prof
+check.syms` prints them (measured). Exclusive: where the CPU was. Inclusive: the family anywhere on the
+stack (they overlap). Owner: the nearest family outwards that is not a service (store reads, validity,
+term construction, caches, frames, other library, runtime); owners add up to 100%. Lean (`leanchecker
+--fresh Init`) and nanoda (`init.ndjson`, one thread) recorded on 2026-11-02 with `perf` (their families
+are named by function, so some rows are not exact matches). Run 1's version of this table merged some rows
+by hand and counted only `core/terms.fs`, `lib/store.fs` and `lib/slab.fs` as reads (33.1% there; 32.0% of
+run 2 by that grouping); the tool's reads row now holds all of `src/core` with the store and slab files.
 
-| Family | LeanForth excl / incl / owner | Lean excl / incl / owner | nanoda excl / incl / owner |
+| Family (the tool's row) | LeanForth excl / incl / owner | Lean excl / incl / owner | nanoda excl / incl / owner |
 | --- | --- | --- | --- |
-| Instantiation and abstraction (replace passes, memo) | 3.9 / 35.6 / 33.8 | 15.2 / 42.9 / 41.3 (with universe substitution) | 9.2 / 33.7 / 33.7 |
-| Universe substitution in terms | 3.0 / 20.0 / 14.5 | in the row above (its callers: 12.6 incl.) | 4.7 / 17.3 / 17.3 |
-| whnf: `whnf_core`, delta, iota, projections, literals | 2.7 / 59.0 / 21.8 | 3.3 / 46.0 / 13.0 | 5.9 / 63.4 / 28.7 |
-| Definitional equality | 1.3 / 69.7 / 8.9 | 0.8 / 54.9 / 6.3 | 0.6 / 68.5 / 2.4 |
-| Type inference, declaration checks | 1.5 / 96.7 / 7.5 | 1.7 / 77.3 / 8.6 | 2.2 / 87.7 / 4.2 |
-| Level operations | 1.7 / 4.8 / 3.1 | 1.3 / 2.4 / 1.9 | – |
-| Scheduler, environment, constant lookup | 2.4 / 98.5 / 8.9 | 8.9 / 11.5 / 15.0 (lookup and replay) | – |
-| Term construction and hashing (`lf-term-cons`, htab, hash32) | 13.5 / 26.1 / – | 10.0 / 18.4 / 5.5 (nodes, sharecommon) | 50.4 / 51.8 / – (hash-consing, nodes) |
-| Caches and memo tables | 5.7 / 33.8 / – | 24.7 / 30.6 / – (all hash tables) | 10.1 / 11.2 / – |
-| **Validity checks** (LeanForth's own; inclusive with the term audit `lf-cterm-check`, 37.1 without) | **12.9 / 39.6 / –** | 2.3 / 2.3 / – (resource checks) | – |
-| **Reads of terms, stores, slabs** | **33.1 / 51.7 / –** | – (a pointer read) | – |
-| Memory: allocation, freeing, reference counts | small (stores, no freeing per node) | 21.5 / 22.0 / – | 7.6 / 8.0 / – |
-| Walk machinery (frames) | 4.8 / 96.4 / – | – (C++ recursion) | – |
-| Reading the export | 1.3 (stage, 12.6 s) | 0.4 (olean load) | 6.2 / 9.1 / 9.1 |
+| instantiation and abstraction (replace passes) | 3.31 / 35.13 / 33.63 | 15.2 / 42.9 / 41.3 (with universe substitution and the memo) | 9.2 / 33.7 / 33.7 (with the memo) |
+| instantiation memo (replace memo) | 0.72 / 21.11 / – | in the row above | in the row above |
+| universe substitution | 2.72 / 19.07 / 13.86 | in the first row (its callers: 12.6 incl.) | 4.7 / 17.3 / 17.3 |
+| whnf_core, whnf: rest (head, delta, projection, let) | 2.13 / 58.56 / 20.76 | 3.3 / 46.0 / 13.0 (all of whnf) | 5.9 / 63.4 / 28.7 (all of whnf) |
+| whnf_core: recursors, quotients (iota) | 0.41 / 17.25 / 0.93 | in the row above | in the row above |
+| whnf: Nat and String literals | 0.17 / 0.71 / 0.61 | in the row above | in the row above |
+| definitional equality | 1.17 / 69.05 / 8.76 | 0.8 / 54.9 / 6.3 | 0.6 / 68.5 / 2.4 |
+| type inference, declaration checks | 1.52 / 95.99 / 7.10 | 1.7 / 77.3 / 8.6 | 2.2 / 87.7 / 4.2 |
+| level operations | 1.53 / 4.57 / 2.91 | 1.3 / 2.4 / 1.9 | – |
+| scheduler, environment, publishing | 2.65 / 97.64 / 9.03 | 8.9 / 11.5 / 15.0 (lookup and replay) | – |
+| term construction and hashing (lf-term-cons, htab, hash32) | 13.43 / 25.97 / – | 10.0 / 18.4 / 5.5 (nodes, sharecommon) | 50.4 / 51.8 / – (hash-consing, nodes) |
+| caches (infer, whnf, defeq, free-variable memo; with `lib/memo.fs`) | 4.78 / 33.38 / – | 24.7 / 30.6 / – (all hash tables) | 10.1 / 11.2 / – |
+| **validity checks** (41.28 inclusive with the term audits `lf-cterm-check`, `lf-mls-checks`) | **12.45 / 35.93 / –** | 2.3 / 2.3 / – (resource checks) | – |
+| **reads of terms, stores, slabs (src/core, store.fs, slab.fs)** | **40.31 / 58.63 / –** | – (a pointer read) | – |
+| walk machinery (frames) | 4.69 / 95.66 / – | – (C++ recursion) | – |
+| other library (bounds, outcomes, contexts; inclusive: `timed` and `ok-each` hold every check) | 5.63 / 96.46 / – | – | – |
+| import and decoding (reading the export) | 1.27 / 2.27 / 2.27 | 0.4 (olean load) | 6.2 / 9.1 / 9.1 |
+| Gforth runtime, C library, command line, other | 1.11 / – / 0.14 | – | – |
+| Memory: allocation, freeing, reference counts (not a row of the tool) | small (stores, no freeing per node) | 21.5 / 22.0 / – | 7.6 / 8.0 / – |
 
-By file, where the CPU was: `core/terms.fs` 22.0%, `lib/store.fs` 12.0%, `lib/htab.fs` 8.1%, `lib/slab.fs`
-5.7%, `lib/hash32.fs` 5.1%, `lib/bounds.fs` 4.7%, `lib/frame.fs` 3.7%, `lib/memo.fs` 3.5%; every kernel
-file 2.4% or less (measured). Of the hashing (htab, hash32, memo: 16.6%), 3.4 points serve term
-construction, 4.5 the replace memo, 1.9 the type checker's caches and 6.8 the rest (the audit memo, sets).
+The validity family is a list of names (`VALID` in the tool). It counts `between?`, a general bounds word of
+`lib/bounds.fs`, wholly: 2.53% exclusive, of which 0.57 is called directly by a validity word and 2.24 lies
+under one somewhere on the stack (measured, run 2). Checks named otherwise (`lf-pool-sound?`,
+`frame-sound?`, `htab-shape?`, `slab-has?`) are not in it.
+
+By file, where the CPU was (run 2): `core/terms.fs` 22.95%, `lib/store.fs` 11.65%, `lib/htab.fs` 8.52%,
+`lib/slab.fs` 5.62%, `lib/bounds.fs` 4.53%, `lib/hash32.fs` 4.44%, `lib/frame.fs` 3.56%, `lib/memo.fs`
+3.35%, `kernel/environment.fs` 3.02%; every other kernel file 2.4% or less (measured). Of the hashing
+(htab, hash32, memo: 16.31%), 3.69 points serve term construction, 4.23 the replace memo, 3.07 the type
+checker's caches and 5.33 the rest (the audit memo, sets).
 
 ## 2. The costliest words
 
-Exclusive (measured, % of Init's samples): htab@ 3.31, lf-term-view 3.24, between? 2.80, lf-term-base
-2.55, store-count-valid? 2.28, hash-shift 1.95, lf-tin-code 1.79, hash-mul 1.57, store-identities 1.40,
-lf-tin-at 1.26, store-check 1.26, lf-term-input? 1.23, cells= 1.07, htab-find 1.02, slab-at 0.96, slab-unit
-0.91, hash-fmix 0.90, frame-loop 0.88, mark-identity 0.75, store-slot 0.75, memo-hash 0.71, lf-term-valid?
-0.70, lf-terms 0.69, lf-term-identity 0.68, lf-term-tag@ 0.66. The 25 together: 35%. The profile is flat:
-small words of the data layers, none an algorithm.
+Exclusive (measured, run 2, % of Init's samples): htab@ 3.74, lf-term-view 3.01, between? 2.53,
+lf-term-base 2.49, store-count-valid? 2.04, lf-tin-code 1.80, hash-shift 1.67, store-identities 1.44,
+hash-mul 1.43, lf-tin-at 1.29, cells= 1.24, store-check 1.19, lf-term-input? 1.17, htab-find 1.05, slab-at
+0.93, slab-unit 0.91, lf-term-valid? 0.90, store-slot 0.79, frame-loop 0.78, memo-hash 0.76, mark-identity
+0.75, lf-terms 0.75, lf-term-identity 0.73, lf-term-tag@ 0.68, hash-fmix 0.66. The 25 together: 34.7%. The
+profile is flat: small words of the data layers, none an algorithm.
 
-Inclusive, below the drivers (lf-check-declaration 96.7, inference 94.5, lf-defeq-on 66.5): lf-open-pass
-34.4, lf-open-run 34.4, lf-rebuild-run 29.9, frame-run 28.8, lf-instantiate 26.5, lf-wc-tagged 21.5,
-lf-wc-app 21.3, lf-wc-head 20.6, lf-wc-beta 20.2, lf-mixed-level-substitute 20.0, lf-mls-pass 20.0,
-lf-whnf-beta 19.9, lf-mls-run 19.6, lf-whnf-beta-all 19.2, lf-whnf-put 18.9, lf-env-ours 15.6,
-lf-env-current 15.3, lf-env-valid? 15.0, lf-open-updated 14.8, lf-rebuild-joined 14.8, lf-whnf-substitute
-14.7, lf-open-update 14.6, lf-mls-apply 13.8, lf-mls-build 13.7, lf-term-add 12.8.
+Inclusive, below the drivers (run 2; lf-check-declaration 95.98, lf-minfer-walk-run 93.85, lf-defeq-on
+66.03): lf-open-pass 34.06, lf-open-run 34.04, lf-rebuild-run 29.71, frame-run 28.68, lf-instantiate
+26.10, lf-wc-tagged 21.47, lf-wc-app 21.21, lf-wc-head 20.47, lf-wc-beta 20.09, lf-whnf-beta 19.67,
+lf-mixed-level-substitute 19.06, lf-mls-pass 19.05, lf-whnf-beta-all 19.00, lf-whnf-put 18.62, lf-mls-run
+18.61, lf-env-ours 14.95.
 
 ## 3. Calls and cost per call
 
-Init, one worker: calls counted on the scratch copy, seconds from the profile (measured; cost = seconds /
+Init, one worker: calls counted on the scratch copy, seconds from run 1's profile (measured; cost = seconds /
 calls). Lean's kernel has no counters; the only count recorded for it on Init is 8.8 million delta and iota
 steps (TimedReplay `--diag`, recorded), beside LeanForth's 8.49 million delta unfoldings.
 
@@ -264,34 +285,68 @@ the review gate, with the full tier and every pinned-Lean comparison. Shares are
 
 | # | What | Share it could remove (basis) | Kind | Files | Size (Forth lines) | Trust risk |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Validity checks out of the walks: the environment and stores validated once per pass and when a store changes (K1), node handles checked once when a pass takes a term (the audit memo already knows them), fields read unchecked inside a pass | up to 40% (samples under a validity word), realistically 25-35% (**estimate**) | algorithm, identical verdicts | kernel/environment.fs, caches.fs, whnf.fs; core/terms.fs; lib/store.fs | 200-400 | high: moves fail-closed checks; malformed-input tests must still fail closed |
-| 2 | Universe substitution as one memoized `replace` pass (as instantiation's), without the reached set, the sort and the binary search | about 10% of the 20% (**estimate**: nanoda's is 7.5 s) | algorithm | kernel/mixed-level-substitute.fs | 150-250 | medium: same results and fuel |
-| 3 | Node field reads inlined: `lf-term-first@`, `-second@`, `-tag@`, `-data@` as one address computation, not view, base, input test and slab layers | about 10% (reads are 33% exclusive; **estimate**) | macro or inlining | core/terms.fs, lib/slab.fs, lib/store.fs | 50-150 | low if equal on every input |
-| 4 | Hashing and the probe (`hash32` 5.1% and `htab` 8.1% exclusive): one fused hash word and an unrolled probe, or a native primitive | 5% as Forth macros, about 10% native (**estimate**) | macro, or native (owner's gate) | lib/hash32.fs, lib/htab.fs, lib/memo.fs | 30-80 | none for Forth; native is a new dependency |
-| 5 | Instantiation passes whose root is clean skipped before the set-up (charging the root's unit of fuel) | 2% (counted: 13.5 M passes at 1.8 µs) | algorithm | kernel/mixed-open.fs | 5-15 | low |
-| 6 | Cache keys without the re-check of facts and liveness at each lookup | about 2% (755 ns a `whnf_core` lookup, 26 s for all lookups) | algorithm | kernel/caches.fs | 20-60 | medium: the liveness rule must hold |
-| 7 | Replace memo cheaper per operation (179 ns a lookup, 298 ns an insert), same hits | about 4% (**estimate**: half of its 83 s) | algorithm | kernel/replace-memo.fs, lib/memo.fs | 30-80 | low: same results and fuel |
+| 1 | Validity checks out of the walks: the environment and stores validated once per pass and when a store changes (K1), node handles checked once when a pass takes a term (the audit memo already knows them), fields read unchecked inside a pass | up to 36% (run 2: samples under a validity word; 41% with the term audits), realistically 25-32% (**estimate**) | algorithm, identical verdicts | kernel/environment.fs, caches.fs, whnf.fs; core/terms.fs; lib/store.fs | 200-400 | high: moves fail-closed checks; malformed-input tests must still fail closed |
+| 2 | Universe substitution as one memoized `replace` pass (as instantiation's), without the reached set, the sort and the binary search | 5-8 points (**estimate**: about half of the 13.1 points of its 19.1% that lie outside validity words; nanoda's is 7.5 s) | algorithm | kernel/mixed-level-substitute.fs | 150-250 | medium: same results and fuel |
+| 3 | Node field reads inlined: `lf-term-first@`, `-second@`, `-tag@`, `-data@` as one address computation, not view, base, input test and slab layers | 6-9 points (**estimate**: a third to a half of the 18.0 points of reads outside validity words, substitution and the memo) | macro or inlining | core/terms.fs, lib/slab.fs, lib/store.fs | 50-150 | low if equal on every input |
+| 4 | Hashing and the probe (`hash32` 5.1% and `htab` 8.1% exclusive): one fused hash word and an unrolled probe, or a native primitive | 2.4 points as Forth macros, 4.7 native (**estimate**: a third or two thirds of the 7.1 points of hashing outside validity words, the replace memo and substitution) | macro, or native (owner's gate) | lib/hash32.fs, lib/htab.fs, lib/memo.fs | 30-80 | none for Forth; native is a new dependency |
+| 5 | Instantiation passes whose root is clean skipped before the set-up (charging the root's unit of fuel) | 2% (counted: 13.5 M passes at 1.8 µs), 1.5 points beyond candidate 1 | algorithm | kernel/mixed-open.fs | 5-15 | low |
+| 6 | Cache keys without the re-check of facts and liveness at each lookup | 0.4 points beyond candidate 1: of `lf-node-key`'s 2.17% (run 2), 1.79 lies under validity words (`lf-fvars-live?` 1.59) | algorithm | kernel/caches.fs | 20-60 | medium: the liveness rule must hold |
+| 7 | Replace memo cheaper per operation (179 ns a lookup, 298 ns an insert), same hits | 3.1 points (**estimate**: half of the 6.2 points of its lookups and inserts, 8.30% in run 2, outside validity words; its hashing included) | algorithm | kernel/replace-memo.fs, lib/memo.fs | 30-80 | low: same results and fuel |
 | 8 | `lf-instantiate-mvars` (front end, section 8) | none of the kernel; grows with proofs | algorithm | front/mvars.fs | 20-60 | none (untrusted front end) |
+
+**Candidate 1: where the checks are called** (run 2, samples by the immediate caller on the sampled stack;
+counts are run 1's counted copy). `lf-env-current` (14.60% inclusive, 384.3 M calls) is called only by
+`lf-env-ours` (14.57), which is called by `lf-whnf-env?` (11.87) and `lf-env-snapshot` (3.08); one level
+further out: `lf-caches-on?` 5.91, `lf-audit-on?` 3.92, `lf-env-readable` 1.65, `lf-env-lookup-found` 1.40,
+`lf-whnf-delta-of` 0.70, `lf-iota-recursor` 0.56, `lf-quot-rule` 0.56. `store-count-valid?` (4.54%, 3,644
+M calls): `mark-this?` 2.12, `lf-pool-sound?` 0.98, `lf-term-count-valid?` 0.42, `store-open?` 0.37,
+`store-mark` 0.28, `lf-level-count-valid?` 0.11, `store-valid?` 0.10. `between?` (2.53% exclusive, 13,126 M
+calls) is a general bounds word: its callers are `upto?` 0.92, `store-count-valid?` 0.57, `mark-count?`
+0.44, `htab-shape?` 0.23, `frame-sound?` 0.16, `lf-env-sane?` 0.09, `slab-has?` 0.06; 0.57 points come
+from validity callers and 1.96 from others, of which 1.67 still lie under a validity word further out.
+
+**The invariant candidate 1 needs** (a design assumption, to be verified before the change): a handle
+checked once when a pass takes it stays valid for the whole pass if (a) no store is rolled back, cut or
+freed while a pass runs (marks, `lf-term-rollback`, `memo-cut` and scratch marks only at a pass's end or
+outside it); (b) every handle a pass makes is valid by construction (returned by the store that holds it,
+in that store's current generation); (c) a pass reads no other context's handles (each worker its own
+stores; the shared environment read only through handles checked at entry). The checks that must remain at
+a pass's entry: the environment is the current one and valid (`lf-env-current` once per pass, and again
+after anything that can change it), each input term handle and its store count (`lf-term-input?`,
+`store-count-valid?`), the substitution's handles, and every bounds check of data read from the export.
 
 ## 10. Projection
 
-Where the 24.8 times goes (**estimate** from the shares above): the validity checks are about 380 s of 952; reading
-terms through the store layers and hashing are most of the rest of the excess. The algorithms themselves
-(the owners) cost about what Lean's cost, times the price of a primitive: a field read is four to six
-colon calls (Gforth's `gforth-fast` costs about 1-3 ns a call and return) where C++ reads a pointer; a new
-node costs 458 ns (Lean: an allocation and a hash, tens of ns).
+Every figure is an **estimate**: a share of run 2's samples (measured) times run 1's 952 s for the check
+(measured), Lean's 38.4 s (recorded). Shares are added as points of the 952 s, not compounded; each row
+removes first what the rows before it already take (the overlap), so the rows can be added.
 
-- Candidates 1, 2, 5, 6 and 7 (algorithms): about 45-55% off, 430-520 s, 11-14 times Lean.
-- With 3 and 4 as Forth macros: about 370-450 s, 10-12 times.
-- Native hashing and probe (4): about 330-420 s, 9-11 times; a native field read would add a few percent
-  more, but inlining in Forth gets most of it.
-- 3 to 5 times Lean (115-190 s) is not in reach of local changes: it needs a term store where a node is
-  one block read directly (no view, base and slab layers), passes that walk once (no audit walk before the
-  build), and Forth words fused into fewer, larger ones on the hot paths. Even then Gforth's threaded code
-  stays a few times slower per primitive than compiled C++ (**estimate**).
+| Candidate | Basis, points | Overlap removed, points | Points taken | Seconds | Seconds left | Times Lean |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| 1 validity checks | 35.9 under a validity word (41.3 with the audits) | – | 25-32 | 238-305 | 647-714 | 16.9-18.6 |
+| 2 universe substitution | 19.1 inclusive | 6.0 under validity words (its audit `lf-mls-checks` 1.7 of them) | 5-8 | 48-76 | 571-666 | 14.9-17.4 |
+| 5 clean roots | 2.1 (20 s, run 1's counted copy) | 0.6 (27% of `lf-open-pass` lies under validity words) | 1.5 | 14 | 557-652 | 14.5-17.0 |
+| 6 cache keys | 2.17 (`lf-node-key`) | 1.79 under validity words (`lf-fvars-live?` 1.59) | 0.4 | 4 | 553-648 | 14.4-16.9 |
+| 7 replace memo | 8.30 (`lf-rmemo@`, `lf-rmemo!`) | 2.1 under validity words; its hashing (3.9) stays here, not in 4 | 3.1 | 30 | 524-619 | 13.6-16.1 |
+| 3 field reads inlined | 40.3 reads exclusive | 16.7 under validity, 4.6 in substitution, 1.0 in the memo | 6-9 | 57-86 | 438-562 | 11.4-14.6 |
+| 4 hashing and probe, Forth macros | 16.3 hashing exclusive | 4.1 under validity, 3.9 in the memo, 1.3 in substitution | 2.4 | 23 | 415-539 | 10.8-14.0 |
+| 4 the same, native | the same 7.1 | the same | 4.7 | 45 | 393-517 | 10.2-13.5 |
 
-Which primitives would pay as native code: (a) hashing and the table probe, about 10%; (b) a node field
-read, a few percent after inlining; nothing else is above 3% once the validity checks are moved.
+So: the algorithm changes (1, 2, 5, 6, 7) take 35-45 points, 524-619 s, **14 to 16 times Lean**; with 3
+and 4 as Forth macros 415-539 s, **11 to 14 times**; native hashing and probe 393-517 s, 10 to 13.5 times.
+The earlier version of this section (11-14, 10-12 and 9-11 times) added overlapping candidates: candidate
+1's family counts `lf-fvars-live?` (most of candidate 6), the audit words inside candidate 2 and the memo's
+hashing inside candidate 4. Inside a pass the reads and hashing that candidates 2 and 7 remove are left
+out of 3 and 4, so their lower ends are the safer figures. A field read is four to six colon calls
+(Gforth's `gforth-fast` costs about 1-3 ns a call and return) where C++ reads a pointer; a new node costs
+458 ns (run 1; Lean: an allocation and a hash, tens of ns).
+
+3 to 5 times Lean (115-190 s) is not in reach of local changes: it needs a term store where a node is one
+block read directly (no view, base and slab layers), passes that walk once (no audit walk before the
+build), and Forth words fused into fewer, larger ones on the hot paths. Even then Gforth's threaded code
+stays a few times slower per primitive than compiled C++ (**estimate**). Native code pays for hashing and
+the probe (about 2 points beyond the macros) and, after inlining, a node field read (a few points); nothing
+else is above 3 points once the validity checks are moved.
 
 ## 11. Not measured
 

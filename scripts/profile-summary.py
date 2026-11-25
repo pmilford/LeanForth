@@ -14,8 +14,8 @@ run's time):
   "<libc>" counted to it); inclusive, the samples with any word of the
   family on the stack, once each, so they overlap; and owner, the nearest
   word outwards from the innermost that is not a service word (validity
-  checks, term construction, caches, walk machinery, other library,
-  runtime), so the owner column partitions the samples;
+  checks, term construction, store reads, caches, walk machinery, other
+  library, runtime), so the owner column partitions the samples;
 - the N costliest words, exclusive and inclusive.
 --under WORD keeps only the samples with WORD on the stack (a part of the
 run, such as lf-check-declaration). A development tool, not part of the
@@ -32,6 +32,7 @@ VALID = re.compile(r"(valid\?|intact\?|-ours|^lf-env-current|^between\?|^store-c
                    r"^store-count-valid\?|^lf-term-input\?|^lf-live@|-live\?)$")
 CONS = re.compile(r"^(lf-term-cons|lf-term-share|lf-term-make)")
 TERM_CONS = "term construction and hashing (lf-term-cons, htab, hash32)"
+READS = "reads of terms, stores, slabs (src/core, store.fs, slab.fs)"
 FAMILIES = [
     # (family, file pattern, name pattern); the first match wins
     ("validity checks", r"", VALID),
@@ -55,8 +56,7 @@ FAMILIES = [
      r"src/kernel/(mixed-infer|infer-proj|check-declaration|check-block|inductive-\w+|"
      r"mixed-signature-\w+|mixed-definition-probe)\.fs|src/core/(statement-match|local-context)\.fs", None),
     ("level operations", r"src/kernel/level-\w+\.fs|src/core/(levels|level-scope)\.fs", None),
-    ("core stores: reads of terms, names, references",
-     r"src/core/", None),
+    (READS, r"src/core/|src/lib/(store|slab)\.fs", None),
     ("scheduler, environment, publishing", r"src/kernel/(env-\w+|environment)\.fs|src/lib/task\.fs", None),
     ("import and decoding", r"src/import/|src/lib/(json|bytes|sha256)\.fs", None),
     ("walk machinery (frames)", r"src/lib/(frame|walk)\.fs", None),
@@ -65,7 +65,7 @@ FAMILIES = [
     ("Gforth runtime", r"gforth|/prim$|^kernel/", None),
 ]
 SERVICE = {"validity checks", TERM_CONS, "instantiation memo (replace memo)",
-           "core stores: reads of terms, names, references",
+           READS,
            "caches (infer, whnf, defeq, free-variable memo)", "walk machinery (frames)",
            "other library", "Gforth runtime", "C library", "other"}
 PHASES = [("loading main.fs", "included"), ("stage (read the export)", "ck-stage-phase"),

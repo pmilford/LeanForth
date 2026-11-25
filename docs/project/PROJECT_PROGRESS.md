@@ -51,10 +51,12 @@ status changes when this date is older than them. Stages are those of the
   profiler kept as a tool: time by word family and word, the slowest declarations by time), the JSON report's
   `measured.declarationMicroseconds` with `--resources` (each declaration's check time; optional member within
   0.4 and 0.5) with `scripts/slowest-declarations.py`, and [KERNEL_SPEED.md](../development/KERNEL_SPEED.md):
-  on Init at one worker (952 s, 24.8 times Lean's kernel) about 40% of the time is LeanForth's own validity
-  checks and a third is reading terms through the store layers; the algorithms' shares match Lean's and
-  nanoda's; time per fuel unit is flat (1.43 µs); instantiation sets up 13.5 million passes Lean would skip
-  (about 2%); ranked candidates and a projection (10-14 times Lean in pure Forth, **estimate**). Next: the
+  on Init at one worker (952 s, 24.8 times Lean's kernel) 36% of the time is spent inside LeanForth's own
+  validity checks (12.5% in the checks themselves) and 40% (exclusive) reading terms through the store
+  layers, 16.7 points of it inside the checks; the algorithms' shares match Lean's and nanoda's; time per
+  fuel unit is flat (1.43 µs); instantiation sets up 13.5 million passes Lean would skip (about 2%); ranked
+  candidates and a projection without overlaps (14-16 times Lean by the algorithm changes, 11-14 with Forth
+  macros, **estimate**). Next: the
   Forth review, the tier, the merge; then item 4 (b). Earlier:
 - 2026-11-25, 00:06: plan row TB2's case patterns, slice E2b, are **tested on branch `tb2-patterns-e2b` and
   Forth-reviewed** ([review](../development/forth-reviews/2026-11-24-tb2-patterns-e2b.md)), not merged, not done:
