@@ -509,12 +509,13 @@
   "tokens": 17
  },
  "465b1376b48b": {
-  "copies": 5,
+  "copies": 6,
   "kind": "shape",
   "members": [
    "src/cli/check-run.fs:ck-left",
    "src/front/elab-term.fs:et-coe-at",
    "src/front/infer.fs:if-induct-data",
+   "src/front/tactic-run.fs:lfr-any-end",
    "src/kernel/defeq.fs:lf-lz-unknown",
    "src/present/log-check.fs:lf-lc-declaration?"
   ],
@@ -532,12 +533,13 @@
   "tokens": 14
  },
  "4ade1c7c68a9": {
-  "copies": 4,
+  "copies": 5,
   "kind": "shape",
   "members": [
    "src/author/export.fs:lfx-reached",
-   "src/core/reach.fs:lr-visit",
    "src/core/reach.fs:lr-level-visit",
+   "src/core/reach.fs:lr-visit",
+   "src/front/tactic-run.fs:lfr-pass-or-skip",
    "src/front/tactic-run.fs:lfr-then-end"
   ],
   "reason": "false positive: the guarded test `dup a? if b else drop false then` (or with 2dup/2drop) of two different words",
@@ -694,6 +696,16 @@
   ],
   "reason": "false positive: the guarded test `dup a? if b else drop false then` (or with 2dup/2drop) of two different words",
   "tokens": 7
+ },
+ "5bb12ed1d2ac": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/tactic-run.fs:lfr-repeat-end",
+   "src/import/stage.fs:stage-unmap"
+  ],
+  "reason": "false positive: a test of the top item that keeps it for a two-step action, else drops it (dup X if dup Y Z else drop then), each with its own test and words",
+  "tokens": 9
  },
  "5c3220b21cd7": {
   "copies": 3,
@@ -856,6 +868,16 @@
   ],
   "reason": "accepted: the same test in derivation-log.fs, whose allow-list (tests/core/check_log_isolation.py, ADR 0013 L5) admits no other module's words",
   "tokens": 8
+ },
+ "6f7ad4fe91c5": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/dag-walk.fs:dw-hooks",
+   "src/front/tactic-run.fs:lfr-flagged"
+  ],
+  "reason": "false positive: two fields of a new record set from the stack (tuck F1 ! tuck F2 !), each record's own fields",
+  "tokens": 6
  },
  "719a2248d5cc": {
   "copies": 2,
@@ -1572,11 +1594,12 @@
   "tokens": 6
  },
  "c74b946a2627": {
-  "copies": 2,
+  "copies": 3,
   "kind": "shape",
   "members": [
    "src/front/elab-data.fs:ed-lv-object",
-   "src/front/tactic-run.fs:lfr-advance"
+   "src/front/tactic-run.fs:lfr-advance",
+   "src/front/tactic-run.fs:lfr-alt-mode"
   ],
   "reason": "planned: 9.4.8k front batch (reuse-front, after the front branches merge; came with main's s2-unfold and s1-synth-b)",
   "tokens": 7
@@ -1614,9 +1637,10 @@
   "tokens": 7
  },
  "ca3a2c479aab": {
-  "copies": 3,
+  "copies": 4,
   "kind": "shape",
   "members": [
+   "src/front/tactic-syntax.fs:lft-bare-alt",
    "src/front/tactic-syntax.fs:lft-header",
    "src/kernel/env-schedule.fs:lf-sch-builtins-make",
    "src/program/verify-runner.fs:pv-work"

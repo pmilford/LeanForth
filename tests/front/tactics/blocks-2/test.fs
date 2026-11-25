@@ -101,8 +101,8 @@ T{ tac-shape-then dup shape-at @ swap shape-some @ -> 0 0 }T
 T{ tac-k-then mode@ tac-k-all-goals mode@ -> lf-mode-then lf-mode-per-goal }T
 : mode4 ( mode -- open end fail flags )
   dup mode-open @ over mode-end @ rot dup mode-fail @ swap mode-flags @ ;
-T{ lf-mode-per-goal mode4 -> ' lfr-goals-open ' lfr-goals-end 0 lfr-admits }T
-T{ lf-mode-then mode4 -> ' lfr-goals-open ' lfr-then-end 0 lfr-admits }T
+T{ lf-mode-per-goal mode4 -> ' lfr-goals-open ' lfr-goals-end 0 0 }T
+T{ lf-mode-then mode4 -> ' lfr-goals-open ' lfr-then-end 0 0 }T
 : row-run@ ( kind -- xt ) lfr-row trow-run @ ;
 T{ tac-k-then row-run@ tac-k-all-goals row-run@ -> ' lf-tac-all ' lf-tac-all }T
 T{ tac-k-then lf-tac-word s" <;>" compare tac-k-then lf-tac-lean s" and_then" compare
@@ -225,11 +225,13 @@ T{ fake-frame 3 77 lfr-pass-on fake-frame tfr-at @ fake-frame tfr-next @ lf-goal
    lf-goals 0 run@ -> 3 6 1 77 }T
 T{ 41 fake-frame tfr-todo ! 1 fake-frame tfr-at ! fake-frame lfr-todo@ -> 41 1 }T
 \ A macro's rule raising a logged error under recover: final, the macro
-\ ends there (the older rule never runs); inside a block that does not
+\ ends there (the older rule never runs), 490 since TB2 blocks slice 3,
+\ as the rule's save is open (Lean's expandEval takes the state back,
+\ the log with it, if the rule fails later); inside a block that does not
 \ recover it is an ordinary failure and the older rule runs (Lean's
 \ expandEval keeps recover; review tb2-blocks1, its re-check's finding).
 T{ false ran2 ! hh s" by-probe-mlog ' h by-exact" tactic-ran lf-author-final? ran2 @
-   -> 96 true false }T
+   -> 490 true false }T
 T{ false ran2 ! hh s" by-probe-block by-probe-mlog ' h by-exact by-end" tactic-ran ran2 @
    -> 0 true }T
 lf-tac-forget

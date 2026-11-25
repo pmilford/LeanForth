@@ -377,6 +377,9 @@ end-structure
 \ told (plan row 9.4.8s, blocks slice 2: the fixed blocks on shapes too).
 16 constant tac-block-bars
 32 constant tac-block-headed
+\ tac-block-bare: its alternatives are bare, | then tactics, no header
+\ (by-first's: Lean's first | tacs | tacs, Init/Tactics.lean:429).
+64 constant tac-block-bare
 : lft-block-shape? ( shape|0 -- flag ) dup if shape-block @ 0<> then ;
 : tac-shape-has? ( shape bit -- flag ) swap shape-block @ and 0<> ;
 : lft-self-closing? ( shape -- flag ) tac-block-self tac-shape-has? ;
@@ -390,7 +393,7 @@ end-structure
 : lft-parent@ ( j -- p ) lft-rec tac-parent @ ;
 : lft-up-bars? ( -- flag ) lft-open lft-parent@ tac-block-bars lft-has? ;
 : lft-headed? ( -- flag ) tac-block-headed lft-open-has? ;
-: lft-alt? ( -- flag ) lft-headed? if lft-up-bars? else false then ;
+: lft-alt? ( -- flag ) lft-open 0> if lft-up-bars? else false then ;
 \ A shape's block flags (tac-block and flags); the fixed blocks' shapes,
 \ read by their own words, not by lft-read-as (no builder): by's (in its
 \ row only: the reader keeps the proof's step at 0), by-induction-with's
@@ -513,10 +516,20 @@ end-structure
 : lft-close-names ( pos addr cut? -- ) if lft-cut-names else drop then lft-close ;
 : lft-block-close ( pos cut? -- ) lft-open lft-rec lft-held swap lft-close-names ;
 : lft-names-end ( pos -- ) true lft-block-close ;
-\ An alternative ends with its last tactic, at the next | or by-end.
-: lft-alt-end ( -- ) lft-alt? if lft-read-from lft-names-end then ;
+\ An alternative ends with its last tactic, at the next | or by-end, its
+\ names cut when its shape says so (an induction's; not first's, whose
+\ goals keep them, TACTIC_BLOCKS.md 2).
+: lft-alt-cut ( -- ) lft-read-from tac-block-cuts lft-open-has? lft-block-close ;
+: lft-alt-end ( -- ) lft-alt? if lft-alt-cut then ;
 : lft-in-with ( -- ) lft-bars? lfa-e-tac-closer lfa-must ;
-: lft-w-bar ( -- ) lft-closing lft-alt-end lft-in-with tac-k-alt lft-header ;
+\ A bare alternative (by-first's): | and then its tactics; its | the
+\ second place of an empty one's 85.
+0 0 lft-fixed-shape constant tac-shape-alt
+: lft-bare-alt ( -- )
+  tac-k-alt lft-tactic-new tac-shape-alt lft-shape! lft-arrow! lft-opened ;
+: lft-alt-new ( -- )
+  tac-block-bare lft-open-has? if lft-bare-alt else tac-k-alt lft-header then ;
+: lft-w-bar ( -- ) lft-closing lft-alt-end lft-in-with lft-alt-new ;
 : lft-case-new ( -- i ) 0 lft-tactic lft-inner+ tac-k-case lft-headed-new ;
 : lft-w-case ( -- ) lft-case-new lft-case-tag! lft-headed ;
 \ by-next NAMES... => : Lean's next, the macro case _ NAMES => (Init/
@@ -576,7 +589,9 @@ end-structure
 : lft-word-end ( -- )
   lft-open-flags dup 0<> lfa-e-tac-closer lfa-must lft-not-brace
   lft-past swap tac-block-cuts and lft-block-close ;
-: lft-block-end ( -- ) lft-bars? if lft-past lft-close else lft-word-end then ;
+\ (by-induction-with's alternatives may be none: no held check; first's not.)
+: lft-with? ( -- flag ) lft-bars? tac-block-bare lft-open-has? 0= and ;
+: lft-block-end ( -- ) lft-with? if lft-past lft-close else lft-word-end then ;
 : lft-w-by-end ( -- ) lft-closing lft-alt-end lft-block-end lft-from! ;
 : lft-w-arrow ( -- ) lft-in-proof lfa-e-tac-header lfa-fail ;
 

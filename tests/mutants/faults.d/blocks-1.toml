@@ -74,7 +74,7 @@ reason = "TB2 blocks 1: a block opened while recover is false (and a no-recover 
 [[fault]]
 id = "tb2b1-log-fail-thrown"
 file = "src/front/tactic-run.fs"
-old = ''': lf-tac-logged ( i*x xt -- j*x ) catch lf-tac-recover? lfr-mark throw ;'''
+old = ''': lf-tac-logged ( i*x xt -- j*x ) catch lfr-logs? lfr-mark throw ;'''
 new = ''': lf-tac-logged ( i*x xt -- j*x ) catch false lfr-mark throw ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
 reason = "TB2 blocks 1: Lean's logged class made an ordinary throw: blocks-1 test.fs's by-probe-log at the proof's level is not final"
@@ -106,10 +106,11 @@ reason = "TB2 blocks 1 review 6: a macro's rules run withoutRecover as first's (
 [[fault]]
 id = "tb2b1-final-never"
 file = "src/front/tactic-run.fs"
-old = ''': lfr-final-at? ( k -- flag ) dup lfr-admits lfr-frame-flag? swap lfr-below-recover and ;'''
+old = ''': lfr-final-at? ( k -- flag )
+  dup lfr-admits lfr-frame-flag? if lfr-admit-final? else drop false then ;'''
 new = ''': lfr-final-at? ( k -- flag ) drop false ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
-reason = "TB2 blocks 1: an error leaving an admitting block over one that recovers is not final: blocks-1 test.fs's brace in a have-by in the probe try is taken back (0, not 96)"
+reason = "TB2 blocks 1: an error leaving an admitting block over one that recovers is not final: blocks-1 test.fs's brace in a have-by in the probe try is taken back (not 490 final, TB2 blocks slice 3)"
 
 [[fault]]
 id = "tb2b1-below-own-flag"
@@ -130,8 +131,8 @@ reason = "TB2 blocks 1: below the first frame recover is false, not Tactic.run's
 [[fault]]
 id = "tb2b1-handler-no-restore"
 file = "src/front/tactic-run.fs"
-old = '''  dup lfr-frame tfr-save @ lf-tac-restore lfr-sure lf-tac-forget lfr-frame'''
-new = '''  dup lfr-frame tfr-save @ drop lf-tac-forget lfr-frame'''
+old = ''': lfr-handle ( k -- ) dup lfr-frame lfr-put-back lf-tac-forget lfr-frame lfr-fail-mode ;'''
+new = ''': lfr-handle ( k -- ) dup lfr-frame lfr-unsave drop lf-tac-forget lfr-frame lfr-fail-mode ;'''
 test = "$GFORTH tests/front/tactics/blocks-1/test.fs"
 reason = "TB2 blocks 1: a handler takes an error back without putting the state back: blocks-1 test.fs's probe try that closed a goal and then failed leaves one goal (90 at the second h)"
 

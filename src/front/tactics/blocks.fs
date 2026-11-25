@@ -55,3 +55,25 @@ tac-shape-then lf-tactic-sign: <;> constant tac-k-then
 s" and_then" tac-k-then lf-tactic-lean!
 ' lf-tac-all tac-k-then lf-tactic-action!
 lf-mode-then tac-k-then lf-tactic-mode!
+
+0 0 0 tac-shape-block lf-tactic: by-try constant tac-k-try
+s" try" tac-k-try lf-tactic-lean!
+' lf-tac-all tac-k-try lf-tactic-action!
+lf-mode-try tac-k-try lf-tactic-mode!
+
+0 0 tac-block-bars tac-block-bare or tac-shape-block lf-tactic: by-first
+  constant tac-k-first
+s" first" tac-k-first lf-tactic-lean!
+' lf-tac-all tac-k-first lf-tactic-action!
+lf-mode-first tac-k-first lf-tactic-mode!
+' lf-tac-alternative tac-k-first lf-tactic-alt!
+
+0 0 0 tac-shape-block lf-tactic: by-any-goals constant tac-k-any-goals
+s" any_goals" tac-k-any-goals lf-tactic-lean!
+' lf-tac-all tac-k-any-goals lf-tactic-action!
+lf-mode-any tac-k-any-goals lf-tactic-mode!
+
+0 0 0 tac-shape-block lf-tactic: by-repeat constant tac-k-repeat
+s" repeat" tac-k-repeat lf-tactic-lean!
+' lf-tac-all tac-k-repeat lf-tactic-action!
+lf-mode-repeat tac-k-repeat lf-tactic-mode!

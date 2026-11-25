@@ -90,8 +90,8 @@ reason = "TB2 blocks 2: at[ after t2 closes the then-block first, so t2 is no st
 [[fault]]
 id = "tb2b2-no-hold"
 file = "src/front/tactic-run.fs"
-old = '''  dup lfr-hold dup lfg-open lfr-acted lfg-close ;'''
-new = '''  dup lfg-open lfr-acted lfg-close ;'''
+old = '''  lfr-arm dup lfr-hold dup lfg-open lfr-acted lfg-close ;'''
+new = '''  lfr-arm dup lfg-open lfr-acted lfg-close ;'''
 test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
 reason = "TB2 blocks 2: t1 runs on every goal, none set aside: blocks-2 test.fs's at_rest text (hr) runs ' h by-exact on b = a, 96, not 0"
 
@@ -122,8 +122,8 @@ reason = "TB2 blocks 2: a per-goal block ends after its first pass: blocks-2 tes
 [[fault]]
 id = "tb2b2-no-skip"
 file = "src/front/tactic-run.fs"
-old = '''  lfr-goals-take dup lfr-next-pass if lfr-skip else drop then ;'''
-new = '''  lfr-goals-take dup lfr-next-pass 2drop ;'''
+old = ''': lfr-pass-or-skip ( frame -- ) dup lfr-next-pass if lfr-skip else drop then ;'''
+new = ''': lfr-pass-or-skip ( frame -- ) lfr-next-pass drop ;'''
 test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
 reason = "TB2 blocks 2: a per-goal block over no goal runs its steps once anyway: blocks-2 test.fs's ' h by-exact <;> ' k by-exact runs ' k by-exact with no goal, 90, not 0"
 
@@ -138,18 +138,18 @@ reason = "TB2 blocks 2: the place of the goals not reached is not advanced, so a
 [[fault]]
 id = "tb2b2-then-no-admits"
 file = "src/front/tactic-run.fs"
-old = '''' lfr-goals-open ' lfr-then-end 0 lfr-admits lf-block-mode constant lf-mode-then'''
-new = '''' lfr-goals-open ' lfr-then-end 0 0 lf-block-mode constant lf-mode-then'''
-test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
-reason = "TB2 blocks 2: an error of t2 under recover is not final (Lean logs it): blocks-2 test.fs's by-constructor <;> ' h by-exact reads lf-author-final? false (and the mode's flags 0)"
+old = '''' lfr-goals-open ' lfr-then-end 0 0 lf-block-mode constant lf-mode-then'''
+new = '''' lfr-goals-open ' lfr-then-end 0 lfr-admits lf-block-mode constant lf-mode-then'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: the then-block decides t2's error itself (final), where Lean's all_goals aborts and any_goals takes it back with the log (BuiltinTactic.lean:229-270): blocks-3 test.fs's by-any-goals by-constructor <;> ' h by-exact by-end text is 490, not 0"
 
 [[fault]]
 id = "tb2b2-all-no-admits"
 file = "src/front/tactic-run.fs"
-old = '''' lfr-goals-open ' lfr-goals-end 0 lfr-admits lf-block-mode constant lf-mode-per-goal'''
-new = '''' lfr-goals-open ' lfr-goals-end 0 0 lf-block-mode constant lf-mode-per-goal'''
-test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
-reason = "TB2 blocks 2: an error inside by-all-goals under recover is not final: blocks-2 test.fs's by-all-goals ' h by-exact by-end reads lf-author-final? false (and the mode's flags 0)"
+old = '''' lfr-goals-open ' lfr-goals-end 0 0 lf-block-mode constant lf-mode-per-goal'''
+new = '''' lfr-goals-open ' lfr-goals-end 0 lfr-admits lf-block-mode constant lf-mode-per-goal'''
+test = "$GFORTH tests/front/tactics/blocks-3/test.fs"
+reason = "TB2 blocks 3: by-all-goals decides its error itself (final), where Lean's all_goals aborts and any_goals takes it back with the log (BuiltinTactic.lean:229-270): blocks-3 test.fs's by-any-goals by-all-goals ' h by-exact by-end by-end text is 490, not 0"
 
 [[fault]]
 id = "tb2b2-assigned-run"
@@ -195,7 +195,7 @@ reason = "review tb2-blocks2 finding 2: run-one pushes 0 onto x taken as a run: 
 [[fault]]
 id = "tb2b2-alt-never"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-alt? ( -- flag ) lft-headed? if lft-up-bars? else false then ;'''
+old = ''': lft-alt? ( -- flag ) lft-open 0> if lft-up-bars? else false then ;'''
 new = ''': lft-alt? ( -- flag ) false ;'''
 test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
 reason = "9.4.8s: an alternative is never closed by the next | or by-end, so | finds no block of bars open: blocks-2 test.fs's n by-induction-with | zero => ... texts are 83, not 0"
@@ -203,7 +203,7 @@ reason = "9.4.8s: an alternative is never closed by the next | or by-end, so | f
 [[fault]]
 id = "tb2b2-case-as-alt"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-alt? ( -- flag ) lft-headed? if lft-up-bars? else false then ;'''
+old = ''': lft-alt? ( -- flag ) lft-open 0> if lft-up-bars? else false then ;'''
 new = ''': lft-alt? ( -- flag ) lft-headed? ;'''
 test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
 reason = "9.4.8s: a case block is taken for an alternative, closed before its by-end, which then finds the proof's by: blocks-2 test.fs's by-case: right => ... by-end text is 83, not 0"
@@ -211,7 +211,7 @@ reason = "9.4.8s: a case block is taken for an alternative, closed before its by
 [[fault]]
 id = "tb2b2-with-held"
 file = "src/front/tactic-syntax.fs"
-old = ''': lft-block-end ( -- ) lft-bars? if lft-past lft-close else lft-word-end then ;'''
+old = ''': lft-block-end ( -- ) lft-with? if lft-past lft-close else lft-word-end then ;'''
 new = ''': lft-block-end ( -- ) lft-word-end ;'''
 test = "$GFORTH tests/front/tactics/blocks-2/test.fs"
 reason = "9.4.8s: by-end closes by-induction-with as a by- block, which must hold a tactic of its own (its alternatives are not counted): blocks-2 test.fs's induction texts are 85, not 0"

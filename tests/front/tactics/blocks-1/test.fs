@@ -256,28 +256,33 @@ T{ hh s" by-probe-try ' k by-exact by-end ' h by-exact" tactic-ran -> 0 }T
 T{ hh2 s" by-constructor by-probe-try ' h by-exact ' k by-exact by-end ' h by-exact ' h by-exact"
    tactic-ran -> 0 }T
 T{ hh s" by-probe-try by-probe-gap by-end ' h by-exact" tactic-ran -> 93 }T
+\ (The have-by's unsolved goals, which Lean logs, inside a handler that
+\ may still take them back: 490, unsupported, since TB2 blocks slice 3,
+\ never taken back; the same text outside it is 89, final.)
 T{ hs s" by-probe-try b a = by-have-by: j a b = ' h by-have: x by-end by-end ' h by-exact"
-   tactic-ran -> 89 }T
+   tactic-ran lf-author-final? -> 490 true }T
+lf-tac-forget
+T{ hs s" b a = by-have-by: j a b = ' h by-have: x by-end ' h by-exact" tactic-ran -> 89 }T
 T{ hh s" by-probe-try { ' k by-exact } by-end ' h by-exact" tactic-ran -> 0 }T
 \ A have-by inside the handler: its thrown error leaves it to a frame that
 \ does not recover, so it is not final and the handler takes it (Lean's
 \ q1 is accepted; review tb2-blocks1 finding 2).
 T{ hh s" by-probe-try b a = by-have-by: j ' h by-exact by-end by-end ' h by-exact" tactic-ran
    -> 0 }T
-\ Today's answer pinned, stricter than Lean's: a term error (467, the
-\ logged class) in a have-by inside the handler is final, where Lean's
-\ errToSorry, cleared by withoutRecover and kept by the have-by's fresh
-\ Tactic.run, throws it and try takes it (Lean's q8 is accepted). TB2
-\ blocks slice 3's frame field tfr-sorry changes this answer to Lean's, 0
-\ (docs/design/TACTIC_BLOCKS.md, review tb2-blocks1 finding 1).
+\ Q8: a term error (467, the logged class) in a have-by inside the
+\ handler is thrown, as Lean's errToSorry, cleared by withoutRecover and
+\ kept by the have-by's fresh Tactic.run, throws it, and the handler
+\ takes it (Lean's q8 is accepted; TB2 blocks slice 3's frame field
+\ tfr-sorry, review tb2-blocks1 finding 1; it was 467 final before).
 T{ hh s" by-probe-try b a = by-have-by: j << ' h >> by-exact by-end by-end ' h by-exact"
-   tactic-ran lf-author-final? -> 467 true }T
-lf-tac-forget
+   tactic-ran -> 0 }T
 T{ hh s" by-probe-try ' h by-exact by-end" tactic-ran lfr-saves -> 0 0 }T
 \ A brace inside a have-by inside the handler: the have-by recovers, so
-\ the brace's error is final there (Lean's closeUsingOrAdmit logs it).
+\ Lean's closeUsingOrAdmit logs the brace's error there; the handler's
+\ save is open, so it is 490, final, not 96 (TB2 blocks slice 3).
 T{ hs s" by-probe-try b a = by-have-by: j { ' h by-exact } by-end by-end ' j by-exact"
-   tactic-ran -> 96 }T
+   tactic-ran lf-author-final? -> 490 true }T
+lf-tac-forget
 \ A block run by a loop of its own from the depth below it: its steps run
 \ inside the step; an error in it goes no lower than its base there, and
 \ the loop of the step around it takes it on (here the probe try).

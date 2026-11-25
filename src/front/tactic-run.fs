@@ -202,6 +202,8 @@ begin-structure /tfr      \ an open block
   field: tfr-todo         \ a per-goal block's goals at its open (a run)
   field: tfr-at           \ the place in them of the first goal not reached yet
   field: tfr-acc          \ and the goals its passes left (a run)
+  field: tfr-sorry        \ Lean's errToSorry inside it (slice 3)
+  field: tfr-won          \ true once a pass ended well (by-any-goals)
 end-structure
 /tfr context-slab: trun-frames
 begin-structure /tsv      \ a saved state
@@ -526,9 +528,24 @@ end-structure
 : lfr-done-end ( frame -- )
   dup tfr-rest @ swap tfr-step @ lfr-ending lf-tac-done lfr-goals! ;
 \ An authoring error xt throws made final (author/errors.fs's lfa-final):
-\ no handler takes it back.
+\ no handler takes it back. Lean logged it and went on, so a choice point
+\ still open (a save: try, first, any_goals, repeat, a tactic's own
+\ alternatives) may yet take it back with the state, the messages
+\ included (CoreM.lean:420-424), if a later step fails: LeanForth, which
+\ stops here, cannot tell Lean's answer then, so the error is made 490,
+\ unsupported, not rejected (the coordinator's rule, docs/design/
+\ TACTIC_BLOCKS.md; "log and carry on, as Lean" is a later plan row).
 \ (lfr-mark: an authoring error's THROW code, made final when flag.)
-: lfr-mark ( code flag -- code ) over lf-author-throw = and if lfa-final then ;
+490 outcome-unsupported
+  s" Lean logs this error and goes on; a block around may take it back: not followed yet"
+  lfa-code: lfa-e-tac-undecided
+: lfr-saves ( -- n ) trun-saves slab-count ;
+\ (Only Lean's own error: a refusal of LeanForth's keeps its code.)
+: lfr-undecided? ( -- flag ) lfr-saves 0<> lf-author-code lf-author-lean? and ;
+: lfr-undecided ( -- )
+  lfr-undecided? if lfa-e-tac-undecided lfa-error lfa-err-code ! then ;
+: lfr-logged ( -- ) lfr-undecided lfa-final ;
+: lfr-mark ( code flag -- code ) over lf-author-throw = and if lfr-logged then ;
 : lfr-finally ( i*x xt -- j*x ) catch true lfr-mark throw ;
 : lfr-nested-end ( frame -- ) ['] lfr-done-end lfr-finally ;
 : lfr-focus-end ( frame -- ) tfr-rest @ lf-tac-unfocus ;
@@ -550,16 +567,26 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 : lfr-recover-in ( mode -- flag )
   dup lfr-fresh-recover lfr-mode-flag? swap lfr-kept-in or ;
 : lfr-mode-of ( i -- mode ) lfr-kind lfr-row trow-mode @ ?dup 0= if lf-mode-done then ;
-: lfr-moded ( mode recover addr -- addr )
-  tuck tfr-recover ! -1 over tfr-save ! -1 over tfr-held ! tuck tfr-mode ! ;
-: lfr-push ( mode recover -- addr )
-  1 trun-frames slab-claim lfr-must lfr-frame lfr-moded ;
+\ Lean's errToSorry (TB2 blocks slice 3; review tb2-blocks1 finding 1):
+\ the block below's (true for the first), and a fresh Tactic.run's
+\ (have-by's) the block below's and its recover, as runTermElab clears
+\ errToSorry where recover is false (ElabTerm.lean:31-39) and Tactic.run
+\ resets recover alone (SyntheticMVars.lean:474-537).
+: lfr-sorry@ ( -- flag ) lfr-depth if lfr-top tfr-sorry @ else true then ;
+: lfr-sorry-in ( mode -- flag )
+  lfr-sorry@ swap lfr-fresh-recover lfr-mode-flag? if lfr-inherited and then ;
+: lfr-flagged ( recover sorry addr -- addr ) tuck tfr-sorry ! tuck tfr-recover ! ;
+: lfr-moded ( mode addr -- addr ) -1 over tfr-save ! -1 over tfr-held ! tuck tfr-mode ! ;
+: lfr-claim ( -- addr ) 1 trun-frames slab-claim lfr-must lfr-frame ;
+: lfr-push ( mode -- addr )
+  dup lfr-recover-in over lfr-sorry-in lfr-claim lfr-flagged lfr-moded ;
 : lfr-frame! ( i rest addr -- addr )
   trun trun-entry @ over tfr-log ! tuck tfr-rest ! over 1+ over tfr-next !
   tuck tfr-step ! ;
 : lfr-opened ( addr -- ) dup tfr-mode @ mode-open @ execute ;
-: lf-tac-block ( i rest -- )
-  over lfr-mode-of dup lfr-recover-in lfr-push lfr-frame! lfr-opened ;
+\ Step i's block in a mode of the caller's (by-first's alternatives).
+: lfr-block-as ( i rest mode -- ) lfr-push lfr-frame! lfr-opened ;
+: lf-tac-block ( i rest -- ) over lfr-mode-of lfr-block-as ;
 \ Step i's block over the main goal alone (Lean's focus: none is 90,
 \ before the block opens, Basic.lean:333 and :354).
 : lf-tac-focused ( i -- ) lf-tac-focus lf-tac-block ;
@@ -578,11 +605,12 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 \ with none left the goals kept are the goals (none at the open: no
 \ pass, lfr-skip, its steps all looked at). Lean logs
 \ a pass's error when recover is true, admits its goal and aborts at the
-\ end: the mode admits, so that error is final where the block recovers
-\ and thrown on where it does not (a non-last alternative of first,
-\ try), as Lean throws it; LeanForth stops at the first error (the same
-\ verdict). A frame's address is held across goal-list words only,
-\ which push no frame.
+\ end (throwAbortTactic, BuiltinTactic.lean:229-253), else throws it:
+\ either way the error goes on to the blocks below, which decide (a
+\ handler takes it back with the log, CoreM.lean:420-424; closeUsingOrAdmit
+\ or the proof's by keeps it, final), so the mode does not admit (TB2
+\ blocks slice 3); LeanForth stops at the first error. A frame's address
+\ is held across goal-list words only, which push no frame.
 \ <;> (tactic-syntax.fs's then-step): a step marked tac-then runs with
 \ the main goal alone, the others set aside in the frame of its block
 \ (tfr-held; lfr-hold, Lean's focus); the then-block after it is a
@@ -602,16 +630,16 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 : lfr-pass-end ( frame -- done? ) dup lfr-acc+ lfr-next-pass ;
 : lfr-goals-take ( frame -- frame )
   lf-goals over tfr-todo ! 0 over tfr-acc ! 0 over tfr-at ! ;
-: lfr-goals-open ( frame -- )
-  lfr-goals-take dup lfr-next-pass if lfr-skip else drop then ;
+: lfr-pass-or-skip ( frame -- ) dup lfr-next-pass if lfr-skip else drop then ;
+: lfr-goals-open ( frame -- ) lfr-goals-take lfr-pass-or-skip ;
 : lfr-goals-end ( frame -- ) lfr-pass-end drop ;
 : lfr-chained? ( i -- flag ) lf-tactic-step tac-then @ ;
 : lfr-under ( -- addr ) lfr-depth 2 - lfr-frame ;
 : lfr-unhold ( -- ) lfr-under dup tfr-held @ swap lfr-unheld lf-tac-unfocus ;
 : lfr-then-done ( frame -- ) tfr-step @ lfr-chained? 0= if lfr-unhold then ;
 : lfr-then-end ( frame -- ) dup lfr-pass-end if lfr-then-done else drop then ;
-' lfr-goals-open ' lfr-goals-end 0 lfr-admits lf-block-mode constant lf-mode-per-goal
-' lfr-goals-open ' lfr-then-end 0 lfr-admits lf-block-mode constant lf-mode-then
+' lfr-goals-open ' lfr-goals-end 0 0 lf-block-mode constant lf-mode-per-goal
+' lfr-goals-open ' lfr-then-end 0 0 lf-block-mode constant lf-mode-then
 \ A block whose mode takes the goals itself (a per-goal block): no rest.
 : lf-tac-all ( i -- ) 0 lf-tac-block ;
 : lfr-holds? ( i -- flag ) lfr-chained? lfr-top tfr-held @ 0< and ;
@@ -625,15 +653,13 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 : lf-tac-no-recover ( i*x xt -- j*x ) lfr-depth if lfr-without else execute then ;
 \ An error of Lean's logged class (throwOrLogError, Basic.lean:422-434;
 \ the term elaborator's errToSorry, ElabTerm.lean:31-39): xt's error made
-\ final when the top block recovers (Lean logs it and goes on; LeanForth
-\ stops there, the same verdict), else thrown as any other. Lean's
-\ errToSorry is not modelled apart from recover yet: a fresh Tactic.run
-\ (a have-by) resets recover but keeps errToSorry, so a term error in a
-\ have-by inside a block that does not recover is final here where Lean
-\ throws it: stricter than Lean, never laxer; no text reaches it until
-\ by-try and by-first exist (TB2 blocks slice 3's frame field tfr-sorry,
-\ docs/design/TACTIC_BLOCKS.md 4).
-: lf-tac-logged ( i*x xt -- j*x ) catch lf-tac-recover? lfr-mark throw ;
+\ final when the top block recovers and keeps errToSorry (Lean logs it
+\ and goes on; LeanForth stops there: lfr-mark), else thrown as any
+\ other. A fresh Tactic.run (a have-by) resets recover but keeps
+\ errToSorry (tfr-sorry), so a term error in a have-by inside a block
+\ that does not recover is thrown, as Lean's (TB2 blocks slice 3).
+: lfr-logs? ( -- flag ) lf-tac-recover? if lfr-top tfr-sorry @ else false then ;
+: lf-tac-logged ( i*x xt -- j*x ) catch lfr-logs? lfr-mark throw ;
 : lf-tac-log-fail ( code -- ) ['] lf-tac-stop lf-tac-logged ;
 : lfr-inside? ( b j -- flag )
   dup lf-tactic-count < if lfr-parent swap < 0= else 2drop false then ;
@@ -692,18 +718,10 @@ lf-mode-nested tac-k-by lf-tactic-mode!
   lfr-unsolved dup run-count lfg-entry tlg-after# ! ['] lfg-goal+ run-each
   lfg-kept? drop ;
 : lfg-close ( -- ) lfg-on? if lfg-after then ;
-: lfr-acted ( i -- ) ['] lfr-act catch ?dup if nip lfr-authored throw then ;
-: lfr-step ( i -- )
-  dup trun trun-step ! lfr-spend? 0= if drop lfa-e-tac-fuel lf-tac-fail then
-  dup lfr-hold dup lfg-open lfr-acted lfg-close ;
-: lfr-go ( j -- ) dup 1+ lfr-top tfr-next ! lfr-step ;
 \ A block's end: its mode's, the frame on top, then popped, unless the
 \ mode started its steps again (lf-tac-again: a per-goal block's pass).
 : lfr-pop ( -- ) trun-frames slab-drop ;
 : lfr-more? ( -- flag ) lfr-top lfr-next dup if nip then ;
-: lfr-end-block ( -- )
-  lfr-top dup tfr-mode @ mode-end @ execute lfr-more? 0= if lfr-pop then ;
-: lfr-advance ( -- ) lfr-top lfr-next if lfr-go else lfr-end-block then ;
 
 \ ---- The record checked before anything runs: step 0 the proof (kind
 \ by, no parent), every other step of a known kind but by, its parent
@@ -783,7 +801,6 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 
 \ ---- Saved states (choice points). Only the latest may be restored or
 \ committed, as metavariable marks.
-: lfr-saves ( -- n ) trun-saves slab-count ;
 : lfr-save ( k -- addr ) trun-saves slab-at ;
 : lfr-latest? ( save -- flag ) dup 0< 0= swap lfr-saves 1- = and ;
 : lfr-fill-log ( addr -- )
@@ -875,28 +892,104 @@ lfr-states# 2* 0 xt-table: lfr-states
 : lf-tac-forget-lean ( code -- )
   dup lf-tac-lean-error? 0= if throw then drop lf-tac-forget ;
 
+\ ---- Handlers (plan row TB2, blocks slice 3; docs/design/
+\ TACTIC_BLOCKS.md 1): try, first, repeat and any_goals, Lean's restoring
+\ catch (tryCatchRestore, Elab/Tactic/Basic.lean:378-380) on a frame. A
+\ frame whose mode has lfr-saving takes a save before a step of its own
+\ when it holds none (lfr-arm, before the step's log entry, so a restore
+\ drops that entry and all after it), but none before its last step when
+\ the mode has lfr-last-bare too (first's last alternative runs bare,
+\ BuiltinTactic.lean:637-638). Only a frame holding a save takes an
+\ error (the loop below): the state put back to it, its tfr-held cleared
+\ (the hold a step of it made after the save) and its mode-fail run; a
+\ good end keeps it (lfr-keep). tfr-todo, tfr-at and tfr-acc (any_goals')
+\ change only between its saves, so a restore leaves them naming runs
+\ made before it (slice 3's check of frame fields outside a save).
+8 constant lfr-saving
+16 constant lfr-last-bare
+: lfr-saved? ( frame -- flag ) tfr-save @ 0< 0= ;
+: lfr-unsave ( frame -- save ) tfr-save dup @ swap -1 swap ! ;
+: lfr-keep ( frame -- ) lfr-unsave dup 0< if drop else lf-tac-commit lfr-sure then ;
+: lfr-put-back ( frame -- ) lfr-unsave lf-tac-restore lfr-sure ;
+: lfr-top-flag? ( bit -- flag ) lfr-top tfr-mode @ swap lfr-mode-flag? ;
+: lfr-bare? ( -- flag ) lfr-last-bare lfr-top-flag? lfr-more? 0= and ;
+: lfr-wants? ( -- flag ) lfr-saving lfr-top-flag? lfr-top lfr-saved? 0= and ;
+: lfr-arm ( -- )
+  lfr-wants? lfr-bare? 0= and if lf-tac-save lfr-must lfr-top tfr-save ! then ;
+\ A step: its fuel, the save its block wants, the hold of a <;> chain,
+\ its log entry, its row's action.
+: lfr-acted ( i -- ) ['] lfr-act catch ?dup if nip lfr-authored throw then ;
+: lfr-step ( i -- )
+  dup trun trun-step ! lfr-spend? 0= if drop lfa-e-tac-fuel lf-tac-fail then
+  lfr-arm dup lfr-hold dup lfg-open lfr-acted lfg-close ;
+: lfr-go ( j -- ) dup 1+ lfr-top tfr-next ! lfr-step ;
+: lfr-end-block ( -- )
+  lfr-top dup tfr-mode @ mode-end @ execute lfr-more? 0= if lfr-pop then ;
+: lfr-advance ( -- ) lfr-top lfr-next if lfr-go else lfr-end-block then ;
+\ try (Init/Tactics.lean:445, first | tacs | skip): withoutRecover, kept
+\ at its end; at an error, the state back and the block closed.
+' drop ' lfr-keep ' lfr-skip lfr-no-recover lfr-saving or lf-block-mode
+  constant lf-mode-try
+\ first (evalFirst, BuiltinTactic.lean:631-641, orElse Basic.lean:436):
+\ its steps are its alternatives (|), each a block of its own
+\ (lf-tac-alternative), withoutRecover but the last; one that ends keeps
+\ first's save and closes it (lfr-alt-won); at an error, the state back
+\ and the next alternative (mode-fail drop: its tfr-next is past the one
+\ that failed).
+' drop ' drop ' drop lfr-saving lfr-last-bare or lf-block-mode constant lf-mode-first
+: lfr-alt-won ( frame -- ) drop lfr-under lfr-keep lfr-under lfr-skip ;
+' drop ' lfr-alt-won 0 lfr-no-recover lf-block-mode constant lf-mode-tried
+' drop ' lfr-alt-won 0 0 lf-block-mode constant lf-mode-last
+: lfr-alt-mode ( -- mode ) lfr-top lfr-saved? if lf-mode-tried else lf-mode-last then ;
+: lf-tac-alternative ( j -- ) 0 lfr-alt-mode lfr-block-as ;
+\ repeat (evalRepeat, Elab/Tactic/Repeat.lean:17-26): withoutRecover;
+\ each pass that ends kept and the steps again; at an error, the state
+\ back to the pass's start and the block closed (its end then holds no
+\ save). Step fuel ends a block that never fails (91, no handler's).
+: lfr-repeat-end ( frame -- ) dup lfr-saved? if dup lfr-keep lf-tac-again else drop then ;
+' drop ' lfr-repeat-end ' lfr-skip lfr-no-recover lfr-saving or lf-block-mode
+  constant lf-mode-repeat
+\ any_goals (evalAnyGoals, BuiltinTactic.lean:256-270): a per-goal block
+\ whose pass is kept when it ends (the goal's goals) and put back when it
+\ fails (the goal kept); recover inherited; with no pass that ended
+\ (none at all included) Lean's "Tactic failed on all goals" (469).
+469 lfa-lean s" Tactic failed on all goals:" lfa-code: lfa-e-tac-all-failed
+: lfr-any-open ( frame -- ) false over tfr-won ! lfr-goals-open ;
+: lfr-any-pass ( frame -- ) dup lfr-keep true over tfr-won ! lfr-pass-end drop ;
+: lfr-any-over ( frame -- )
+  dup tfr-won @ if drop else tfr-step @ lfa-e-tac-all-failed lfr-block-fail then ;
+: lfr-any-end ( frame -- ) dup lfr-saved? if lfr-any-pass else lfr-any-over then ;
+: lfr-any-fail ( frame -- ) dup lfr-acc+ lfr-pass-or-skip ;
+' lfr-any-open ' lfr-any-end ' lfr-any-fail lfr-saving lf-block-mode constant lf-mode-any
+
 \ ---- The loop (plan row TB2, blocks slice 1): lfr-loop-from ( base -- )
 \ runs the blocks above depth base to their ends, with the one CATCH of
 \ the run. A Lean error out of a step or a block's end (lf-tac-lean-error?)
-\ goes down the frames from the top: one that admits, over a block that
-\ recovers, makes it final (Lean logs it); one whose mode takes errors
-\ (mode-fail) has the state put back to its save, the error forgotten,
-\ and its mode-fail run, and the loop goes on; none above base, or any
-\ other code, is thrown on. The fail path's first callers outside the
-\ unit tests' probe try are TB2 blocks slice 3's by-try and by-first.
+\ goes down the frames from the top: one that admits makes it final (Lean
+\ logs it: closeUsingOrAdmit when the block below recovers, a nested
+\ block, Term.runTactic, when its own errToSorry is true, review
+\ tb2-blocks1 finding 1; lfr-mark: 490 while a save is open); one that
+\ holds a save and whose mode takes errors (mode-fail) has the state put
+\ back to its save, the error forgotten, and its mode-fail run, and the
+\ loop goes on; none above base, or any other code, is thrown on.
 : lfr-below-recover ( k -- flag ) 1- lfr-recover-at ;
 : lfr-frame-flag? ( k bit -- flag ) swap lfr-mode-at swap lfr-mode-flag? ;
-: lfr-final-at? ( k -- flag ) dup lfr-admits lfr-frame-flag? swap lfr-below-recover and ;
-: lfr-handler? ( k -- flag ) lfr-mode-at mode-fail @ 0<> ;
+: lfr-own-sorry ( k -- flag ) lfr-frame tfr-sorry @ ;
+: lfr-admit-final? ( k -- flag )
+  dup lfr-fresh-recover lfr-frame-flag? if lfr-own-sorry else lfr-below-recover then ;
+: lfr-final-at? ( k -- flag )
+  dup lfr-admits lfr-frame-flag? if lfr-admit-final? else drop false then ;
+: lfr-handler? ( k -- flag )
+  lfr-frame dup lfr-saved? swap tfr-mode @ mode-fail @ 0<> and ;
 \ (The topmost frame that decides; one below base is the caller's loop's.)
 : lfr-decides? ( base k -- base flag ) dup lfr-final-at? swap lfr-handler? or ;
 : lfr-in? ( base k -- k true | false ) tuck > if drop false else true then ;
 : lfr-taker ( base -- k true | false )
   dup lfr-depth ['] lfr-decides? find-last-index if lfr-in? else drop false then ;
-: lfr-handle ( k -- )
-  dup lfr-frame tfr-save @ lf-tac-restore lfr-sure lf-tac-forget lfr-frame
-  dup tfr-mode @ mode-fail @ execute ;
-: lfr-take ( code k -- ) dup lfr-final-at? if drop lfa-final throw then nip lfr-handle ;
+: lfr-fail-mode ( frame -- ) dup lfr-unheld dup tfr-mode @ mode-fail @ execute ;
+: lfr-handle ( k -- ) dup lfr-frame lfr-put-back lf-tac-forget lfr-frame lfr-fail-mode ;
+: lfr-take ( code k -- )
+  dup lfr-final-at? if drop true lfr-mark throw then nip lfr-handle ;
 : lfr-failed ( base code -- )
   dup lf-tac-lean-error? 0= if nip throw then swap lfr-taker if lfr-take else throw then ;
 : lfr-loop-from ( base -- )
