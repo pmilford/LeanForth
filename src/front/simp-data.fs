@@ -12,8 +12,9 @@
 \ code), so no answer below comes from a bad record.
 \
 \ A congr record: name, the lemma (a theorem, named by one record at
-\ most: error 47); fun, the function, the head of the left side of the
-\ lemma's conclusion (an Eq or an Iff: error 37); hyps, its
+\ most: error 47); fun, the function, the constant both sides of the
+\ lemma's conclusion (an Eq or an Iff) call with as many arguments
+\ (error 37); hyps, its
 \ hypotheses' places among the lemma's binders (increasing, each below
 \ the number of the leading Pi binders of its type: error 37); priority;
 \ rank, its place in its function's list. One function's records are one
@@ -110,26 +111,30 @@ end-structure
 : sdc-fit ( value c -- outcome )
   nip dup sdc sdc-decl @ elab-type-pis swap simp-congr-hyps sd-hyps-fit? sd-fit ;
 \ Lean's funName (mkSimpCongrTheorem, SimpCongrTheorems.lean): the
-\ lemma's conclusion, past its written Pis, is Eq _ lhs _ or Iff lhs _
-\ (Expr.eqOrIff?), and fun is the constant at the head of lhs (error 37
-\ otherwise). Lean's other checks of a congr lemma (rhs a call of the
-\ same constant, the hypotheses' shape) are not repeated: the kernel
-\ checks each use of a lemma.
+\ lemma's conclusion, past its written Pis, is Eq _ lhs rhs or Iff lhs
+\ rhs (Expr.eqOrIff?), lhs and rhs call one constant with as many
+\ arguments, and fun is that constant (error 37 otherwise). Lean's check
+\ of the hypotheses' shape is not repeated: the kernel checks each use
+\ of a lemma.
 : sd-a@ ( e -- u ) elab-tier expr-a@ ;   \ an application's function, a constant's name
-: sd-app? ( e -- flag ) elab-tier expr-app? ;
 : sd-const? ( e -- flag ) elab-tier expr-tag@ tag-const = ;
-: sd-arity ( e -- n ) 0 swap begin dup sd-app? while sd-a@ swap 1+ swap repeat drop ;
 \ e's call: the constant at the head of its spine and its number of
 \ arguments; -1 -1 when the head is not a constant.
 : sd-call ( e -- name n )
-  dup elab-tier expr-app-fn dup sd-const? if sd-a@ swap sd-arity else 2drop -1 -1 then ;
+  elab-tier expr-app-spine over sd-const? if swap sd-a@ swap else 2drop -1 -1 then ;
 : sd-named ( c-addr u -- name ) 0 -rot elab-tier name-seek-str drop ;   \ -1: absent
 \ The relation a call of n arguments may be: Eq with 3, Iff with 2; else -2.
 : sd-relation-name ( n -- name )
   dup 3 = if drop s" Eq" sd-named exit then 2 = if s" Iff" sd-named else -2 then ;
 : sd-relation? ( e -- flag ) sd-call sd-relation-name = ;
-: sd-lhs-fun ( e -- name )
-  dup sd-relation? if sd-a@ elab-tier expr-b@ sd-call drop else drop -1 then ;
+\ A relation's sides: its last argument and the one before.
+: sd-rhs ( e -- rhs ) elab-tier expr-b@ ;
+: sd-lhs ( e -- lhs ) sd-a@ sd-rhs ;
+: sd-sides ( e -- lhs rhs ) dup sd-lhs swap sd-rhs ;
+\ The constant both sides call with as many arguments; else -1.
+: sd-same-call ( e -- name )
+  sd-sides sd-call 2>r sd-call 2dup 2r> d= if drop else 2drop -1 then ;
+: sd-lhs-fun ( e -- name ) dup sd-relation? if sd-same-call else drop -1 then ;
 : sd-conclusion ( d -- e ) elab-type@ elab-tier expr-pi-end ;
 : sdc-lhs-fun ( c -- name ) sdc sdc-decl @ sd-conclusion sd-lhs-fun ;
 : sdc-head ( value c -- outcome )
@@ -147,12 +152,14 @@ end-structure
 : sdc-falls ( value c -- outcome ) nip sd-falls? if outcome-ok else sd-order-bad then ;
 : sdc-index ( value c -- outcome )
   nip dup sdc sdc-decl @ sd-lemma-role sd-index memo! elab-roomed ;
+\ The run's order (error 48) comes before the head (error 37): a record
+\ out of place is refused for its place, whatever its lemma.
 create sdc-members
   s" fun" counted, s" hyps" counted, s" name" counted, s" priority" counted,
   s" rank" counted, 0 0 counted,
 create sdc-form  sdc-members , ' simp-congrs ,
   ' sdc-ready , ' sdc-name! , ' sdc-fun! , ' sdc-priority! , ' sdc-hyps! , ' sdc-fit ,
-  ' sdc-head , ' sdc-rank! , ' sdc-order , ' sdc-falls , ' sdc-index , 0 ,
+  ' sdc-rank! , ' sdc-order , ' sdc-falls , ' sdc-head , ' sdc-index , 0 ,
 sdc-form ' sd-clear s" congr" elab-add-kind constant simp-congr-kind
 
 \ ---- The questions.

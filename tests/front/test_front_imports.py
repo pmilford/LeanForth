@@ -87,6 +87,7 @@ TIER_READERS = {
     "expr-pi-end": "the expression after its leading Pis",
     "expr-app?": "whether an expression is an application",
     "expr-app-fn": "the head of an application's spine",
+    "expr-app-spine": "the head of an application's spine and its number of arguments",
     "expr-pi-after": "the expression after at most k leading Pis",
     "expr-domain": "a leading Pi binder's domain",
     "level-tag@": "a level's tag", "level-a@": "its first part",

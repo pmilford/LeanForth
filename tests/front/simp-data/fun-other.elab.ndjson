@@ -1,5 +1,5 @@
-{"elab_data":{"export_sha256":"7473bcce297b59e286971022db9a6e867e74d8bb93f58d479cc13e5a7106e88b","format":"leanforth-elab-data","format_version":4,"lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"binder_kinds":0,"class":0,"congr":3,"default_instance":0,"eliminator":0,"instance":0,"instance_left_out":0,"matcher":0,"projection":0,"reducibility":0,"sunfold":0,"tag":1},"records_sha256":"59b44832d1b4c697bc2e5f26b3903b9e44a4ea13f79d71be9fb8fbd25cfc6736"}}
+{"elab_data":{"export_sha256":"7473bcce297b59e286971022db9a6e867e74d8bb93f58d479cc13e5a7106e88b","format":"leanforth-elab-data","format_version":4,"lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"binder_kinds":0,"class":0,"congr":3,"default_instance":0,"eliminator":0,"instance":0,"instance_left_out":0,"matcher":0,"projection":0,"reducibility":0,"sunfold":0,"tag":1},"records_sha256":"c8aae694b77e2e6e44740b3ce70e8a9ed273fd3ceca455f16b5e3484e398e045"}}
 {"congr":{"fun":["Decidable","decide"],"hyps":[9,10,11],"name":["dite_congr"],"priority":1000,"rank":0}}
 {"congr":{"fun":["ite"],"hyps":[9,10,11],"name":["ite_congr"],"priority":1000,"rank":0}}
-{"congr":{"fun":["ite"],"hyps":[2],"name":["ite_eq_left"],"priority":500,"rank":1}}
+{"congr":{"fun":["HSub","hSub"],"hyps":[],"name":["Nat","succ_sub_succ_eq_sub"],"priority":1000,"rank":0}}
 {"tag":{"name":["Nat","add_zero"],"tag":"defeq"}}

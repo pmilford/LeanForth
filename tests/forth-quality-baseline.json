@@ -789,7 +789,7 @@
   "long words": 0,
   "rstack": 6,
   "shuffles": 2,
-  "words": 34
+  "words": 53
  },
  "src/front/syntax.fs": {
   "globals": 0,

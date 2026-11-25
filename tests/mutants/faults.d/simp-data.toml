@@ -217,8 +217,8 @@ reason = "review simp-sd-a 4: a lemma filed under another function is read: that
 [[fault]]
 id = "sd-lhs-any-relation"
 file = "src/front/simp-data.fs"
-old = '''  dup sd-relation? if sd-a@ elab-tier expr-b@ sd-call drop else drop -1 then ;'''
-new = '''  sd-call drop ;'''
+old = ''': sd-lhs-fun ( e -- name ) dup sd-relation? if sd-same-call else drop -1 then ;'''
+new = ''': sd-lhs-fun ( e -- name ) sd-call drop ;'''
 test = "$GFORTH tests/front/simp-data.fs"
 reason = "review simp-sd-a 4: the conclusion's own head taken for fun (Eq, not the left side's function)"
 
@@ -257,3 +257,20 @@ old = '''  0 -rot begin 2dup expr-app? while tuck expr-a@ swap rot 1+ -rot repea
 new = '''  0 -rot 2dup expr-app? if tuck expr-a@ swap rot 1+ -rot then drop swap ;'''
 test = "$GFORTH tests/core/compact.fs"
 reason = "re-check simp-sd-a C: a spine walked one level down (a call of three arguments seen as one, its head an application)"
+
+# --- re-check of simp-sd-a, items A and D: both sides call fun; an equal priority falls.
+[[fault]]
+id = "sd-rhs-unchecked"
+file = "src/front/simp-data.fs"
+old = '''  sd-sides sd-call 2>r sd-call 2dup 2r> d= if drop else 2drop -1 then ;'''
+new = '''  sd-lhs sd-call drop ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "re-check simp-sd-a A: a lemma whose right side is no call of fun (ite_eq_left, iff_self) is read, which Lean's @[congr] refuses"
+
+[[fault]]
+id = "sd-falls-strict"
+file = "src/front/simp-data.fs"
+old = '''  dup 1- sd-priority@ swap sd-priority@ u< 0= ;'''
+new = '''  dup 1- sd-priority@ swap sd-priority@ u> ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "re-check simp-sd-a D: two lemmas of one function with equal priorities refused (Lean's insert keeps both)"

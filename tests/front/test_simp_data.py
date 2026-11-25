@@ -6,9 +6,10 @@ the writer's congr records and defeq tags, and the check reading them.
 
 1. The fixtures of tests/front/simp-data/ (read by tests/front/simp-data.fs, the reader's
    unit test, each with its expected refusal) are as this file writes them: format-4 data
-   for the simp slice's export (tests/front/simp-slice.ndjson), hand-written: dite's and
-   ite's congruence lemmas (ite's two, the second a stand-in), Nat.add_zero's defeq tag,
-   and one damaged file per refusal. --write-fixtures writes them.
+   for the simp slice's export (tests/front/simp-slice.ndjson), hand-written: dite's,
+   ite's and HSub.hSub's congruence lemmas (each one Lean's mkSimpCongrTheorem takes),
+   Nat.add_zero's defeq tag, and one damaged file per refusal. --write-fixtures writes
+   them.
 2. The finisher (scripts/export_elab.py --format 4) on hand-made RAW against the simp
    slice: congr records kept with their function and lemma, sorted by function and rank
    (ite's rank 1 after its rank 0, though its text sorts first),
@@ -56,9 +57,15 @@ def defeq(name):
 
 C_DITE = congr(["dite"], ["dite_congr"], [9, 10, 11], 0)
 C_ITE = congr(["ite"], ["ite_congr"], [9, 10, 11], 0)
-C_ITE1 = congr(["ite"], ["ite_eq_left"], [2], 1, 500)
+# Nat.succ_sub_succ_eq_sub: succ n - succ m = n - m, both sides HSub.hSub's call of six
+# arguments, so Lean's mkSimpCongrTheorem takes it (no hypotheses: n and m are on the left).
+C_SUB = congr(["HSub", "hSub"], ["Nat", "succ_sub_succ_eq_sub"], [], 0)
+# ite_eq_left: (if c then a else b) = a; its right side is no call of ite, so Lean refuses it
+# as a congr lemma (error 37). The slice has one lemma Lean takes per function, so the order
+# and priority cases file it at rank 1, where the run's checks, made before the head, see it.
+X_ITE1 = congr(["ite"], ["ite_eq_left"], [2], 1, 500)
 T_ADD = defeq(["Nat", "add_zero"])
-GOOD = [C_DITE, C_ITE, C_ITE1, T_ADD]
+GOOD = [C_DITE, C_ITE, C_SUB, T_ADD]
 
 
 def assemble(lines, version=4, drop=None, **counted):
@@ -108,20 +115,26 @@ CASES = {
                  "invalid", 2, 14),
     "fun-unknown": (assemble(swap(C_DITE, C_DITE.replace('["dite"]', '["no_such"]'))),
                     "invalid", 2, 12),
-    "twice": (assemble(swap(C_ITE1, congr(["ite"], ["ite_congr"], [9], 1))), "invalid", 4, 47),
-    "order-swap": (assemble([C_DITE, C_ITE1, C_ITE, T_ADD]), "invalid", 3, 48),
-    "order-gap": (assemble(swap(C_ITE1, C_ITE1.replace('"rank":1', '"rank":2'))),
+    "twice": (assemble(swap(C_SUB, congr(["ite"], ["ite_congr"], [9], 1))), "invalid", 4, 47),
+    "order-swap": (assemble([C_DITE, X_ITE1, C_ITE, T_ADD]), "invalid", 3, 48),
+    "order-gap": (assemble(swap(C_SUB, X_ITE1.replace('"rank":1', '"rank":2'))),
                   "invalid", 4, 48),
-    "order-split": (assemble([C_ITE, C_DITE, C_ITE1, T_ADD]), "invalid", 4, 48),
-    "order-again": (assemble(swap(C_ITE1, C_ITE1.replace('"rank":1', '"rank":0'))),
+    "order-split": (assemble([C_ITE, C_DITE, X_ITE1, T_ADD]), "invalid", 4, 48),
+    "order-again": (assemble(swap(C_SUB, X_ITE1.replace('"rank":1', '"rank":0'))),
                     "invalid", 4, 48),
-    "hyps-beyond": (assemble(swap(C_ITE1, C_ITE1.replace("[2]", "[6]"))), "invalid", 4, 37),
+    "hyps-beyond": (assemble(swap(C_SUB, C_SUB.replace("[]", "[2]"))), "invalid", 4, 37),
     "fun-other": (assemble(swap(C_DITE, C_DITE.replace('["dite"]', '["Decidable","decide"]'))),
                   "invalid", 2, 37),
     "fun-swapped": (assemble([C_DITE.replace('["dite"]', '["ite"]'), C_ITE.replace('["ite"]', '["dite"]'),
-                              C_ITE1, T_ADD]), "invalid", 2, 37),
-    "not-eq": (assemble(swap(C_ITE1, congr(["ite"], ["of_eq_true"], [1], 1, 500))), "invalid", 4, 37),
-    "prio-rising": (assemble(swap(C_ITE, C_ITE.replace("1000", "400"))), "invalid", 4, 48),
+                              C_SUB, T_ADD]), "invalid", 2, 37),
+    "not-eq": (assemble(swap(C_SUB, congr(["ite"], ["of_eq_true"], [1], 1, 500))), "invalid", 4, 37),
+    # Lean's funName: both sides call fun with as many arguments (re-check of simp-sd-a, A).
+    "ite_eq_left": (assemble(swap(C_SUB, X_ITE1)), "invalid", 4, 37),
+    "iff_self": (assemble(swap(C_SUB, congr(["Iff"], ["iff_self"], [], 0))), "invalid", 4, 37),
+    "prio-rising": (assemble([C_DITE, C_ITE.replace("1000", "400"), X_ITE1, T_ADD]),
+                    "invalid", 4, 48),
+    # An equal priority continues the run: refused only at the head, past the run's checks.
+    "prio-equal": (assemble(swap(C_SUB, X_ITE1.replace("500", "1000"))), "invalid", 4, 37),
     "hyps-down": (assemble(swap(C_DITE, C_DITE.replace("[9,10,11]", "[10,9,11]"))),
                   "invalid", 2, 37),
     "defeq-def": (assemble(GOOD + [defeq(["ite"])]), "invalid", 6, 14),
@@ -163,10 +176,10 @@ def finish(work, lines, form=4, head=RAW_HEAD):
 
 def writer_cases(work):
     exists = congr(["Exists"], ["exists_prop_congr"], [4], 0)
-    status, said, out = finish(work, [C_ITE1, exists, C_ITE, C_DITE, T_ADD])
+    status, said, out = finish(work, [X_ITE1, exists, C_ITE, C_DITE, T_ADD])
     lines = out.read_text().split("\n") if status == 0 else []
     if status or json.loads(lines[0])["elab_data"]["format_version"] != 4 \
-            or lines[-5:-1] != [T_ADD, C_DITE, C_ITE, C_ITE1] or "3 congr;" not in said \
+            or lines[-5:-1] != [T_ADD, C_DITE, C_ITE, X_ITE1] or "3 congr;" not in said \
             or "; 1 defeq tags" not in said:
         fail(f"the finisher's format 4: {status} {said} {lines[-4:]}")
     bad = {"a function without its lemma": ([congr(["ite"], ["Nat", "add_comm"], [0], 0)],
@@ -176,7 +189,7 @@ def writer_cases(work):
                                    "written without export_elab.lean --simp"),
            "a defeq tag without --simp": ([T_ADD], 3, RAW_HEAD.replace(',"simp":true', ""),
                                           "a format-4 record in RAW without --simp"),
-           "a rank gap": ([C_ITE1], 4, RAW_HEAD, "congruence lemmas of [\"ite\"] are not 0, 1, 2"),
+           "a rank gap": ([X_ITE1], 4, RAW_HEAD, "congruence lemmas of [\"ite\"] are not 0, 1, 2"),
            "hypotheses down": ([C_DITE.replace("[9,10,11]", "[10,9]")], 4, RAW_HEAD,
                                "not a list of increasing"),
            "a defeq tag of a definition": ([defeq(["ite"])], 4, RAW_HEAD,
