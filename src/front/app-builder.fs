@@ -15,6 +15,10 @@
 \   lf-mk-eq-refl ( a -- h )              mkEqRefl (65)
 \   lf-mk-eq-symm ( h -- h' )             mkEqSymm (98)
 \   lf-mk-eq-trans ( h1 h2 -- h )         mkEqTrans (110)
+\   lf-mk-congr-fun ( h a -- h' ), lf-mk-congr ( h1 h2 -- h )  mkCongrFun
+\       (232), mkCongr (255): their Eq.refl shortcuts; the rest unsupported
+\   lf-mk-of-eq-true, lf-mk-eq-true, lf-mk-eq-false ( h -- h' )  mkOfEqTrue,
+\       mkEqTrue, mkEqFalse (636-660) with their shortcuts
 \   lf-mk-eq-of-heq ( h -- h' )           mkEqOfHEq (166, check true):
 \                                         eq_of_heq.{u} α a b h, h's type
 \                                         through infer HEq α a β b with α
@@ -238,6 +242,24 @@ abl-most cells context-record: abl-cells
   abl-congr-arg? if abl-fused true exit then abl-congr-plain false ;
 : lf-mk-congr-arg ( f h -- h' ) begin abl-congr-step 0= until ;
 
+\ ---- mkCongrFun (232) and mkCongr (255), their shortcuts: an Eq.refl
+\ proof (mkEqRefl of the application, mkCongrArg of the other side). The
+\ general builds (a fused congrArg, congrFun at h's whnfD'd pi, congr)
+\ answer unsupported until simp needs them (plan SL1b; simp's own
+\ congruence proofs use simp/types.fs's primed builders).
+: lf-mk-congr-fun ( h a -- h' )
+  swap abl-refl-arg? if swap lf-mk-app lf-mk-eq-refl else lf-unported then ;
+: lf-mk-congr ( h1 h2 -- h )
+  over abl-refl? if swap lf-term-second@ swap lf-mk-congr-arg exit then
+  dup abl-refl? if lf-term-second@ lf-mk-congr-fun else lf-unported then ;
+
+\ ---- The shortcuts of AppBuilder.lean:630-660: mkOfEqTrue (of_eq_true h,
+\ or h' when h is eq_true _ h'), mkEqTrue (eq_true p h, or h' of
+\ of_eq_true _ h'), mkEqFalse (eq_false h, or h' of of_eq_false _ h').
+: lf-mk-eq-true ( h -- h' )
+  dup 2 s" of_eq_true" lf-meta-app-of? if lf-term-second@ exit then
+  s" eq_true" lf-mk-const0 over lf-infer! lf-mk-app swap lf-mk-app ;
+
 
 \ ---- Expr.hasMVar (core/reach.fs's tables, made for the question and freed).
 : lf-meta-has-mvar? ( term -- flag outcome )
@@ -306,9 +328,7 @@ end-structure
   abm abm-d @ lf-meta-const-fresh lf-must dup abm abm-app ! lf-infer! abm abm-type !
   begin abm-done? 0= while abm-step repeat abm-synths abm abm-app @ lf-instantiate!
   abl-closed ;
-: abm-deeper ( -- e )
-  false lf-mctx-depth{ lf-must >r ['] abm-run catch r> }lf-mctx-depth swap ?dup
-  if nip throw then lf-must ;
+: abm-deeper ( -- e ) ['] abm-run lf-with-new-depth ;
 : abm-framed ( d addr n -- e ) abm abm-open abm-deeper ;
 : abm-of ( d addr n -- e ) abm-frames ['] abm-framed lf-with-record ;
 : lf-mk-app-m-of ( d x1..xn n -- e ) abl-stored abm-of ;
@@ -318,6 +338,15 @@ end-structure
 : abl-mp-by ( h p c-addr u -- e ) abl-decl -rot 2 lf-mk-app-m-of ;
 : lf-mk-eq-mp ( h p -- e ) s" Eq.mp" abl-mp-by ;
 : lf-mk-eq-mpr ( h p -- e ) s" Eq.mpr" abl-mp-by ;
+\ mkOfEqTrue and mkEqFalse (AppBuilder.lean:636, 657): mkAppM but for
+\ their shortcut (above, mkEqTrue).
+: abl-app-m1 ( h c-addr u -- e ) abl-decl swap 1 lf-mk-app-m-of ;
+: lf-mk-of-eq-true ( h -- h' )
+  dup 2 s" eq_true" lf-meta-app-of?
+  if lf-term-second@ else s" of_eq_true" abl-app-m1 then ;
+: lf-mk-eq-false ( h -- h' )
+  dup 2 s" of_eq_false" lf-meta-app-of?
+  if lf-term-second@ else s" eq_false" abl-app-m1 then ;
 \ mkAppOptM (402): the mask stored after the entries, then kept in the
 \ frame, which it marks as mkAppOptM's.
 : abo-framed ( d addr n -- e )

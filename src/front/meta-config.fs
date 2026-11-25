@@ -130,6 +130,50 @@ align here 5 , 4 , 1 , 2 , 0 , 3 , constant mcfg-ranks
 : lf-meta-budget ( -- n ) mcfg mcfg-budget @ ;
 : lf-meta-spend? ( -- flag ) mcfg mcfg-budget cell-spend? ;
 
+\ ---- whnfCore's settings (plan row FE9, simp slice SL1a-1; Lean's
+\ Config fields iota, beta, zeta, zetaDelta and proj, Basic.lean:173-206
+\ and ProjReductionKind, :51-70), kept among the flags so that every
+\ scope above saves and restores them, a THROW included. Each bit is the
+\ setting off, so 0 is Lean's default (all on, proj := yesWithDelta)
+\ and every flags value made before them means what it meant. proj is a
+\ field of two bits holding its kind xor lf-proj-delta: lf-proj-no,
+\ lf-proj-yes, lf-proj-delta (the default) and lf-proj-delta-i, numbered
+\ as Lean's constructors. Read at Lean's sites: whnf.fs (WHNF.lean:404,
+\ 631-633, 651, 658, 682) and defeq.fs (ExprDefEq.lean:330, 419: an
+\ implicit argument or instance compared with the settings at their
+\ defaults, lf-meta-defaults).
+\ - lf-meta-on? ( bit -- flag ): the setting of an off bit is on.
+\ - lf-meta-proj ( -- kind ): the proj kind in force.
+\ - lf-meta-defaults ( flags -- flags' ): every setting at its default.
+\ - Simp's three configurations (Simp.Config's defaults: zetaDelta off,
+\   the rest on; SL5 reads a user's), each at reducible transparency and
+\   given back on both paths: lf-with-simp-keys ( i*x xt -- j*x ),
+\   simpGlobalConfig (SimpTheorems.lean:282: a fresh Config with iota
+\   off, proj := no, zetaDelta off), for a library lemma's keys;
+\   lf-with-simp-index, mkIndexConfig (Types.lean:141: the flags in
+\   force, zetaDelta off, proj := no), for a term's and a hypothesis's
+\   keys; lf-with-simp-meta, mkMetaConfig (Types.lean:162: the flags in
+\   force, zetaDelta off, proj := yesWithDelta), for unification and
+\   reduction.
+512 constant lf-meta-no-iota   1024 constant lf-meta-no-beta
+2048 constant lf-meta-no-zeta   4096 constant lf-meta-no-zeta-delta
+0 constant lf-proj-no   1 constant lf-proj-yes   2 constant lf-proj-delta
+3 constant lf-proj-delta-i
+8192 constant mcfg-proj-unit
+: mcfg-proj-bits ( kind -- bits ) lf-proj-delta xor mcfg-proj-unit * ;
+lf-meta-no-iota lf-meta-no-beta or lf-meta-no-zeta or lf-meta-no-zeta-delta or
+  lf-proj-delta-i lf-proj-delta xor mcfg-proj-unit * or constant lf-meta-settings
+: lf-meta-on? ( bit -- flag ) lf-meta-flag? 0= ;
+: lf-meta-proj ( -- kind ) lf-defeq-flags mcfg-proj-unit / 3 and lf-proj-delta xor ;
+: lf-meta-defaults ( flags -- flags' ) lf-meta-settings invert and ;
+: mcfg-simp ( flags kind -- flags' ) mcfg-proj-bits or lf-meta-no-zeta-delta or ;
+: mcfg-with-simp ( i*x xt flags kind -- j*x ) mcfg-simp lf-tr-reducible lf-meta-with ;
+: lf-with-simp-keys ( i*x xt -- j*x )
+  lf-meta-default lf-meta-no-iota or lf-proj-no mcfg-with-simp ;
+: mcfg-in-force ( -- flags ) lf-defeq-flags lf-meta-defaults ;
+: lf-with-simp-index ( i*x xt -- j*x ) mcfg-in-force lf-proj-no mcfg-with-simp ;
+: lf-with-simp-meta ( i*x xt -- j*x ) mcfg-in-force lf-proj-delta mcfg-with-simp ;
+
 \ ---- The budget of each declaration (branch s1-elab; S1 §8; added at the
 \ end of this file, which branch s2-unfold also changes): --elab-fuel N
 \ sets how many steps one declaration or #check may take

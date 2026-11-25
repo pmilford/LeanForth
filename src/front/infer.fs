@@ -331,10 +331,17 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
   if-pi-telescope ['] if-get-level ok-apply ['] if-imaxes ok-apply
   ['] lf-meta-level-normalize ok-apply ['] if-sort-new ok-apply ;
 
-: lf-infer ( term -- type outcome )
+: if-run ( term -- type outcome )
   dup lf-term-root? 0= if outcome-invalid if-fail exit then
   dup if-lam? if if-lambda exit then
   dup if-pi? if if-forall else if-body then ;
+\ withInferTypeConfig (InferType.lean:228-234): whnfCore's settings at
+\ their defaults (meta-config.fs) while the type is inferred, put back
+\ after; at the defaults, as Lean, no scope at all.
+: if-defaults ( -- flags mode ) lf-defeq-flags lf-meta-defaults lf-defeq-mode ;
+: lf-infer ( term -- type outcome )
+  lf-defeq-flags lf-meta-settings and 0= if if-run exit then
+  ['] if-run if-defaults lf-meta-with ;
 \ Whether Lean's whnf would leave a term whnfCore made as it is: its head
 \ inert (a free variable, metavariable, sort or lambda) or a constant of
 \ the input that is no definition; false where delta might go on (a

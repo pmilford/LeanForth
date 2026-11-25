@@ -15,6 +15,10 @@
 \                                     that run, then x (a frame's list)
 \   lf-run1 ( x -- run )              the run of x alone
 \   lf-run2 ( x y -- run )            the run of x then y
+\   lf-with-new-depth ( i*x xt -- j*x )  withNewMCtxDepth: xt one
+\                                     metavariable depth deeper, closed
+\                                     on both paths (app-builder.fs's
+\                                     mkAppM, simp's tryTheorem)
 \   lf-menv-find? ( name -- d true | false ) Environment.find? (and
 \                                     contains): false when no declaration
 \                                     has the name, any other failure
@@ -222,6 +226,14 @@ end-structure
   over if lf-mctx-commit else lfm-undo outcome-ok then lf-must ;
 : lf-commit-when ( i*x xt -- j*x flag )
   lf-mctx-mark lf-must >r catch ?dup if r> lfm-undo throw then r> lfm-settle ;
+
+\ ---- withNewMCtxDepth (Basic.lean:2011): xt run one metavariable depth
+\ deeper, the depth closed however xt ends (a THROW thrown on after it);
+\ a failure to open or close it thrown.
+: lfm-closed ( j*x code scope -- j*x )
+  }lf-mctx-depth swap ?dup if nip throw then lf-must ;
+: lf-with-new-depth ( i*x xt -- j*x )
+  false lf-mctx-depth{ lf-must >r catch r> lfm-closed ;
 
 \ ---- withLCtx and withContext: xt run in a local context (a view) or the
 \ goal's, the current one put back however xt ends.

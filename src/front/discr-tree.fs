@@ -51,8 +51,19 @@
 \   Lean folds over every root) is unsupported. Below the root a key is made only where a
 \   node has children, as Lean makes it; a star key visits every child,
 \   any other the star child, then the child of its key.
-\ - lf-dt-insert ( keys n v tree -- ) and lf-dt-get-unify ( e tree out
-\   -- ): the two throwing faces (meta-must.fs's lf-must), for library 2's
+\ - lf-dtree-match ( e tree out -- outcome ): getMatch (Main.lean:438-
+\   478), the same walk with getMatchKeyArgs' keys (discr-keys.fs's
+\   lf-dt-match-key: a metavariable of e is other, so only a star of the
+\   tree takes it); lf-dtree-match-extra ( e tree out -- outcome ):
+\   getMatchWithExtra (:479-512), two cells a candidate (the value, then
+\   its count of extra arguments): e's with 0, then, when e is an
+\   application and the tree has a root of e's head with fewer arguments
+\   (mayMatchPrefix, a scan of the roots), each prefix's with 1, 2, ...
+\   Both on the transparency and settings in force (simp's
+\   lf-with-simp-index).
+\ - lf-dt-insert ( keys n v tree -- ), lf-dt-get-unify, lf-dt-get-match
+\   and lf-dt-get-match-extra ( e tree out -- ): the throwing faces
+\   (meta-must.fs's lf-must), for library 2's
 \   callers (LF_LIBRARIES appendix B.1).
 \ Outcomes: ok; lf-meta-stuck, unsupported, exhausted and invalid from
 \ the query's keys (discr-keys.fs) and the builder; unsupported for a
@@ -94,7 +105,10 @@ begin-structure /dtree
   field: dt-star-root           \ the star root's number plus one, 0 for none
   /dtprobe +field dt-probe
 end-structure
-begin-structure /dq  field: dq-tree  field: dq-out  end-structure
+begin-structure /dq  field: dq-tree  field: dq-out
+  field: dq-key     \ the key word: lf-dt-key (getUnify) or lf-dt-match-key
+  field: dq-extra   \ -1, or the extra arguments written after each value
+end-structure
 /dq context-record: dq
 
 : dtq ( -- tree ) dq dq-tree @ ;
@@ -241,11 +255,15 @@ create dt-edge-hooks /htab-hooks allot
 : dt-back ( nodes vals -- )
   dtq dt-vals slab-cut dup dtq dt-nodes slab-count swap ?do i dt-unedge loop
   dtq dt-nodes slab-cut ;
-\ The builder may query or fill other trees: this query's tree and
-\ output are put back after it.
+\ The builder may query or fill other trees: this query's tree, output,
+\ key word and extra count are put back after it.
+\ The query's key word and extra count kept under r, then put back.
+: dt-keep ( r -- k x r ) dq dq-key @ swap dq dq-extra @ swap ;
+: dt-put-back ( k x outcome -- outcome ) swap dq dq-extra ! swap dq dq-key ! ;
+: dt-saved-run ( r -- outcome ) dq 2@ 2>r dtq dup dt-builder @ execute 2r> dq 2! ;
 : dt-build-run ( r -- outcome )
   dup dt-trie-new ok-then? 0= if exit then
-  dq 2@ 2>r dtq dup dt-builder @ execute 2r> dq 2! ;
+  dt-keep dt-saved-run dt-put-back ;
 : dt-built ( r -- outcome )
   dt-mark 2>r dup dt-build-run dup ok? if nip 2r> 2drop exit then
   swap -1 swap dr@ dr-trie ! 2r> dt-back ;
@@ -269,15 +287,18 @@ create dt-edge-hooks /htab-hooks allot
   1 dts slab-claim ok-then? 0= if nip nip nip exit then dt-frame! outcome-ok ;
 : dt-pop ( -- todo node skip )
   dts slab-last df-todo cell-triple@ dts slab-drop ;
+: dt-out ( x -- outcome ) dq dq-out @ slab-push ;
+: dt-extra-out ( -- outcome ) dq dq-extra @ dup 0< if drop outcome-ok else dt-out then ;
+: dt-value-out ( v -- outcome ) dt-out ['] dt-extra-out ok-and ;
 : dt-values-out ( node -- outcome )   \ none for a node below 0
   dup 0< if drop outcome-ok exit then dn@ dn-first @ begin dup 0< 0= while
-    dup dv@ dv-value @ dq dq-out @ slab-push dup ok? 0= if nip exit then drop
+    dup dv@ dv-value @ dt-value-out dup ok? 0= if nip exit then drop
     dv@ dv-next @ repeat drop outcome-ok ;
 : dt-child ( n -- c ) dn@ dn-child @ ;
 : dt-visit-skip ( todo node skip -- outcome )
   swap dt-child swap 1- invert dt-refill outcome-ok ;
 : dt-key-of ( todo -- rest k args outcome )
-  dup lf-dt-rest tuck swap lf-dt-first false rot lf-dt-key ;
+  dup lf-dt-rest tuck swap lf-dt-first false rot dq dq-key @ execute ;
 \ Lean visits the star child first, then the child of the key: their
 \ frames go on in the other order. A star key visits every child.
 : dt-on-key ( rest k args node -- outcome )
@@ -309,16 +330,60 @@ create dt-edge-hooks /htab-hooks allot
 : dt-key-root ( list k -- outcome )
   dt-root-find 0= if 2drop outcome-ok exit then
   dt-root-ready ok-then? if dt-walk-from else nip then ;
-: dt-unify-run ( e -- outcome )
-  true lf-dt-nil lf-dt-key ok-then2? 0= if exit then
+: dt-root-key ( e -- k list outcome ) true lf-dt-nil dq dq-key @ execute ;
+: dt-run-key ( k list -- outcome )
   over elab-key-star? if 2drop outcome-unsupported exit then
   dt-star-results ok-then? if swap dt-key-root else nip then ;
+: dt-unify-run ( e -- outcome ) dt-root-key ok-then2? if dt-run-key then ;
+\ A query: its output, key word and extra count set (dt-set), then run
+\ on its tree in a key scope.
+: dt-set ( out xt extra -- ) dq dq-extra ! dq dq-key ! dq dq-out ! ;
+: dt-query ( e tree run -- outcome )
+  swap dup dt-use lf-dtree-live? 0= if 2drop outcome-ok exit then
+  dts slab-clear lf-dt-scoped ;
 : lf-dtree-unify ( e tree out -- outcome )
-  dq dq-out ! dup dt-use lf-dtree-live? 0= if drop outcome-ok exit then
-  dts slab-clear ['] dt-unify-run lf-dt-scoped ;
+  ['] lf-dt-key -1 dt-set ['] dt-unify-run dt-query ;
+
+\ ---- getMatch and getMatchWithExtra (Main.lean:438-512): getUnify's walk
+\ with getMatchKeyArgs' keys (a metavariable of e is other: a value whose
+\ keys have a star there still comes, by the star child).
+\ getMatchWithExtra: getMatchCore of e with no extra argument, then, when
+\ e is an application whose root key may match a prefix (mayMatchPrefix:
+\ the tree has a root of the same head with fewer arguments), of each
+\ prefix e.appFn!, (e.appFn!).appFn!, ... with 1, 2, ... (the star root's
+\ values again each time).
+: dt-tag= ( k1 k2 -- flag ) elab-key-tag swap elab-key-tag = ;
+: dt-decl= ( k1 k2 -- flag ) elab-key-decl swap elab-key-decl = ;
+: dt-idx= ( k1 k2 -- flag ) elab-key-idx swap elab-key-idx = ;
+: dt-like? ( k1 k2 -- flag )   \ the same key but for the arity
+  2dup dt-tag= if 2dup dt-decl= if dt-idx= exit then then 2drop false ;
+: dt-same-head? ( k r -- flag )   \ root r's key: k's head, fewer arguments
+  dtq lf-dtree-root-key 2dup dt-like?
+  if elab-key-arity swap elab-key-arity < else 2drop false then ;
+: dt-prefix-head? ( k -- flag )
+  dup elab-key-tag elab-key-const elab-key-fvar elab-key-proj one-of3? ;
+: dt-may-prefix? ( k -- flag )
+  dup dt-prefix-head? 0= if drop false exit then
+  false dtq lf-dtree-roots# 0 ?do over i dt-same-head? or loop nip ;
+: dt-match-at ( e n -- outcome ) dq dq-extra ! dt-unify-run ;
+: dt-prefixes ( e -- outcome )
+  0 begin over lf-term-app? while 1+ swap lf-term-first@ swap 2dup dt-match-at
+    dup ok? 0= if nip nip exit then drop repeat 2drop outcome-ok ;
+: dt-first-round ( e -- prefix? outcome )
+  dt-root-key ok-then2? 0= if false swap exit then
+  over dt-may-prefix? if dt-run-key true else dt-run-key false then swap ;
+: dt-extra-run ( e -- outcome )
+  0 dq dq-extra ! dup dt-first-round ok-then? 0= if nip exit then
+  over lf-term-app? and if dt-prefixes else drop outcome-ok then ;
+: lf-dtree-match ( e tree out -- outcome )
+  ['] lf-dt-match-key -1 dt-set ['] dt-unify-run dt-query ;
+: lf-dtree-match-extra ( e tree out -- outcome )
+  ['] lf-dt-match-key 0 dt-set ['] dt-extra-run dt-query ;
 
 \ ---- The throwing faces.
 : lf-dt-insert ( keys n v tree -- ) lf-dtree-insert lf-must ;
 : lf-dt-get-unify ( e tree out -- ) lf-dtree-unify lf-must ;
+: lf-dt-get-match ( e tree out -- ) lf-dtree-match lf-must ;
+: lf-dt-get-match-extra ( e tree out -- ) lf-dtree-match-extra lf-must ;
 
 base !   \ the BASE this file was loaded with

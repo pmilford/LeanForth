@@ -22,6 +22,14 @@
 \   matcher with a metavariable in a discriminant, or a recursor
 \   (Main.lean:359-397); a metavariable is a star; else a read-only or
 \   synthetic-opaque one is other.
+\ - lf-dt-path-head ( type -- k n outcome ): mkPath with noIndexAtArgs
+\   (Main.lean:258-279; simp's hypotheses and bracket terms,
+\   SimpTheorems.lean:502, 509): as lf-dt-path, but every argument of an
+\   application (not a projection's structure, not an arrow's domain) is
+\   a star.
+\ - lf-dt-match-key ( e root? list -- k list' outcome ): getMatchKeyArgs
+\   (Main.lean:421, isMatch true), as lf-dt-key but a metavariable is
+\   always other, never a star (getMatch, discr-tree.fs).
 \ - lf-dt-nat-lit ( e -- u flag outcome ): toNatLit? (Main.lean:111).
 \ - Todo lists, persistent: lf-dt-nil (-1), lf-dt-cons ( term list --
 \   list' outcome ), lf-dt-first ( list -- term ), lf-dt-rest ( list --
@@ -92,6 +100,8 @@ begin-structure /dk
   field: dk-term   \ the term reduced
   field: dk-h      \ its head (getAppFn)
   field: dk-n      \ its number of arguments
+  field: dk-head-only   \ mkPath's noIndexAtArgs: every argument a star
+  field: dk-match  \ getMatchKeyArgs (isMatch): a metavariable is other
 end-structure
 /dk context-record: dk
 /tcell context-slab: dk-cells
@@ -201,8 +211,12 @@ end-structure
   if drop lf-dt-star then outcome-ok ;
 : dk-push-arg ( j -- outcome ) dk-indexed ok-then? if dk-push then ;
 : dk-push-indexed ( -- outcome ) dk-args slab-count ['] dk-push-arg ok-each ;
+\ noIndexAtArgs (Main.lean:258-279, pushWildcards): a star per argument.
+: dk-push-star ( j -- outcome ) drop lf-dt-star dk-push ;
+: dk-push-stars ( -- outcome ) dk-args slab-count ['] dk-push-star ok-each ;
 : dk-push-args ( head -- outcome )
   dk dk-path @ 0= if drop dk-push-all exit then
+  dk dk-head-only @ if drop dk-push-stars exit then
   dk dk-n @ dk-kinds-make dup ok? if drop dk-push-indexed then ;
 
 \ ---- reduceDT (Main.lean:203-245): whnfCore, unfoldDefinition?, strict
@@ -265,6 +279,7 @@ constant dk-key-heads
 \ (getUnifyKeyArgs: always a star under isDefEqStuckEx).
 : dk-stuck-ex? ( -- flag ) lf-defeq-stuck lf-meta-flag? dk dk-path @ 0= and ;
 : dk-mvar ( -- k outcome )
+  dk dk-match @ if dk-other exit then
   dk-stuck-ex? dk-head lf-mvar-assignable? or if dk-star else dk-other then ;
 : dk-arrow ( -- k outcome )
   dk-head lf-term-first@ dk-push dup ok? 0= if no-result exit then
@@ -329,7 +344,9 @@ constant dk-key-heads
 : dk-start ( e root? list path? -- e ) dk dk-path ! dk dk-list ! dk dk-root ! ;
 : dk-key ( e root? list path? -- k list' outcome )
   dk-start dup lf-dt-star = if drop dk-star else dk-reduced then dk dk-list @ swap ;
-: lf-dt-key ( e root? list -- k list' outcome ) false dk-key ;
+: dk-query ( e root? list match? -- k list' outcome ) dk dk-match ! false dk-key ;
+: lf-dt-key ( e root? list -- k list' outcome ) false dk-query ;
+: lf-dt-match-key ( e root? list -- k list' outcome ) true dk-query ;
 
 \ ---- mkPath: pushArgs from the root until the list is empty, at
 \ reducible transparency.
@@ -342,6 +359,9 @@ constant dk-key-heads
 : dk-path-count ( k0 outcome -- k n outcome ) elab-keys# rot tuck - rot ;
 : dk-path-run ( type -- k n outcome )   \ the list cells it made forgotten
   elab-keys# swap dk-cells slab-count >r dk-path-loop r> dk-cells slab-cut dk-path-count ;
-: lf-dt-path ( type -- k n outcome ) ['] dk-path-run lf-tr-reducible lf-meta-at ;
+: dk-path-with ( type head-only? -- k n outcome )
+  dk dk-head-only ! false dk dk-match ! ['] dk-path-run lf-tr-reducible lf-meta-at ;
+: lf-dt-path ( type -- k n outcome ) false dk-path-with ;
+: lf-dt-path-head ( type -- k n outcome ) true dk-path-with ;
 
 base !   \ the BASE this file was loaded with

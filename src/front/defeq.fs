@@ -136,7 +136,8 @@ begin-structure /df
   field: df-y
   field: df-m        \ the activation's open mark, or 0
   field: df-mode     \ the transparency
-  field: df-next     \ de-run, de-ret, de-done or de-stall
+  field: df-flags    \ and the flags the activation's Meta calls run with
+  field: df-next    \ de-run, de-ret, de-done or de-stall
   field: df-entry    \ the step that starts the activation
   field: df-result   \ the answer being returned
   field: df-limit    \ fuel per call (a unit-test setting); 0: the default
@@ -147,9 +148,9 @@ begin-structure /df
   field: df-mark0    \ and the term mark (lf-lctx-drop's) on entry
 end-structure
 /df context-record: df
-7 cells constant de-regs
+8 cells constant de-regs
 begin-structure /de-frame       \ a call's saved activation
-  de-regs +field fr-regs        \ the registers df-k .. df-mode
+  de-regs +field fr-regs        \ the registers df-k .. df-flags
   field: fr-scope               \ the callee's depth scope, or 0
 end-structure
 /de-frame context-slab: de-frames
@@ -206,7 +207,10 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-rank ( mode -- n )
   case lf-tr-none of 0 endof  lf-tr-reducible of 1 endof  lf-tr-instances of 2 endof
     lf-tr-implicit of 3 endof  lf-tr-default of 4 endof  5 swap endcase ;
-: de-bump ( -- )
+\ withImplicitConfig and withExactInstancesConfig (ExprDefEq.lean:330,
+\ 419) also put whnfCore's settings at their defaults (meta-config.fs).
+: de-defaults ( -- ) df df-flags @ lf-meta-defaults df df-flags ! ;
+: de-bump ( -- ) de-defaults
   df df-mode @ de-rank lf-tr-implicit de-rank < if lf-tr-implicit df df-mode ! then ;
 : de-deeper ( -- )
   de-aborted? if exit then
@@ -269,7 +273,7 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
 : de-inst ( t -- t' ) lf-instantiate-mvars de-must drop ;
 \ A Meta call at the activation's transparency (Lean's withTransparency,
 \ meta-config.fs's lf-meta-at), the configured one restored after.
-: de-mode-at ( i*x xt -- j*x ) df df-mode @ lf-meta-at ;
+: de-mode-at ( i*x xt -- j*x ) df df-flags @ df df-mode @ lf-meta-with ;
 \ whnfCoreAtDefEq, whnfCore and whnf at the activation's transparency,
 \ whnfD at default (whnf.fs).
 : de-whnf ( t -- t' flag ) ['] lf-whnf-core-at-defeq de-mode-at de-must ;
@@ -589,7 +593,7 @@ defer de-args-post ( -- )
 : de-inst-types ( -- )
   de-t lf-mvar-type 0= if outcome-invalid de-abort exit then
   de-s de-infer 0= if 2drop exit then ['] de-inst-k de-solve lf-tr-instances df df-mode
-  ! ;
+  ! de-defaults ;
 : de-check-inst ( -- )
   de-s de-inst de-aborted? if drop exit then de-s!
   de-s de-admissible? de-aborted? if drop exit then if de-inst-types else de-inst-synth
@@ -950,7 +954,7 @@ defer de-delta-x ( -- )
 : de-top ( -- ) de-mark? if de-t de-s ['] de-close-k de-solve then ;
 ' de-top is de-top-x
 : de-config ( -- )
-  lf-defeq-mode df df-mode ! outcome-ok df df-outcome ! false df df-taint !
+  lf-meta-config df df-mode ! df df-flags ! outcome-ok df df-outcome ! false df df-taint !
   df df-limit @ ?dup 0= if lf-defeq-default-fuel then df df-fuel !
   lf-lb-undef df df-result ! ;
 : de-start ( t s -- )

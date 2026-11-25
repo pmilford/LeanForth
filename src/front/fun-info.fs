@@ -25,6 +25,12 @@
 \   as whnf unfolds them): Lean marks such a higher-order
 \   out-parameter, which changes isDefEqArgs's order, and class facts
 \   come with plan FE1e1.
+\ - lf-meta-fun-deps ( f n -- m outcome ): the same, and FunInfo's
+\   dependency facts (simp's congruence kinds, congr-thms.fs; at most 62
+\   parameters, more unsupported): lf-param-back-deps ( i -- mask ),
+\   lf-param-fwd-deps? ( i -- flag ), lf-param-head ( i -- name ) (its
+\   type's head past the pis: a constant's name, 0 none, -1 undecided)
+\   and lf-fun-result-deps ( -- mask ); valid as lf-meta-param is.
 \ - lf-meta-class-none? ( type -- flag ): Lean's isClassQuick? answers
 \   none: past its pis, the head is a free variable, an unassigned
 \   metavariable, a Sort, a literal or a bound variable (false: it might
@@ -63,12 +69,18 @@ require ./whnf.fs
 require ./infer.fs
 require ./term-eqv.fs
 require ./prop-quick.fs
+require ./term-find.fs
 
 3 cells context-slab: fi-params
 begin-structure /fi
   field: fi-source   \ the declared type's pi of the next parameter, or -1
   field: fi-decl     \ the head constant's declaration, or -1
+  field: fi-rest     \ the type after the parameters (resultDeps')
+  field: fi-result   \ resultDeps, a mask (lf-meta-fun-deps)
+  field: fi-fwd      \ hasFwdDeps of every parameter, a mask
+  field: fi-mark0    \ lf-meta-fun-deps' term mark
 end-structure
+2 cells context-slab: fi-deps   \ per parameter: backDeps (a mask), its type's head
 /fi context-record: fi-state
 
 \ ---- whnf's fixed points.
@@ -150,7 +162,8 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam lf-tag-pi lf-tag-lit
   dup 0= if false outcome-ok exit then over lf-term-pi? if fi-pi
   else fi-reduce then ;
 : fi-telescope ( type n -- outcome )
-  begin fi-step ok-then? 0= if nip nip exit then 0= until 2drop outcome-ok ;
+  begin fi-step ok-then? 0= if nip nip exit then 0= until drop fi-state fi-rest !
+  outcome-ok ;
 
 \ ---- Higher-order out-parameters (see the header).
 \ outParam T and semiOutParam T are T (Init's reducible definitions
@@ -203,3 +216,46 @@ lf-tag-sort lf-tag-symbolic-sort lf-tag-fvar lf-tag-lit lf-tag-bvar 5 lf-tags
 \ The telescope's free variables (and inferType's) go again at the end.
 : fi-mark ( -- mark ) lf-term-base lf-term-count @ + ;
 : lf-meta-fun-info ( f n -- m outcome ) fi-mark >r fi-run r> lf-lctx-drop ;
+
+\ ---- Dependency facts (FunInfo.lean:44-135, collectDeps and
+\ updateHasFwdDeps), recorded while the parameters are live: per
+\ parameter its backDeps, a mask of the earlier parameters its type holds,
+\ and its type's head past the pis as a name (a constant's: congr-thms.fs
+\ decides isInstance and isDecInst from it; 0 for a free variable, Sort or
+\ literal, which is no class; -1 for any other, undecided); resultDeps
+\ the same of the type after them; hasFwdDeps every parameter a later
+\ one's type or the result's holds. More than fi-deps-most parameters
+\ answer unsupported.
+62 constant fi-deps-most
+: fi-is-x ( x leaf -- x flag ) over = ;
+: fi-occurs? ( term x -- flag outcome ) ['] fi-is-x lf-term-holds-with? ;
+: fi-bit ( mask term j -- mask' outcome )
+  tuck fi-x fi-occurs? ok-then? 0= if nip nip no-result exit then
+  if 1 swap lshift or else drop then outcome-ok ;
+: fi-mask ( term n -- mask outcome )
+  0 swap 0 ?do over i fi-bit ok-then? 0= if nip no-result unloop exit then loop
+  nip outcome-ok ;
+: fi-head-name ( type -- name )
+  lf-meta-forall-body lf-meta-head dup lf-term-const? if lf-const-name exit then
+  fi-not-class? if 0 else -1 then ;
+: fi-dep-push ( mask name -- outcome )
+  1 fi-deps slab-claim ok-then? 0= if nip nip exit then
+  fi-deps slab-at cell-pair! outcome-ok ;
+: fi-dep-of ( i -- outcome )
+  dup fi-x lf-fvar-type tuck swap fi-mask ok-then? 0= if nip exit then
+  swap fi-head-name fi-dep-push ;
+: fi-fwd! ( m -- )
+  fi-state fi-result @ swap 0 ?do i fi-deps slab-at @ or loop fi-state fi-fwd ! ;
+: fi-result! ( m -- outcome )
+  fi-state fi-rest @ swap fi-mask ok-then? if fi-state fi-result ! outcome-ok then ;
+: fi-deps-run ( m -- m outcome )
+  dup fi-deps-most > if outcome-unsupported exit then fi-deps slab-clear
+  dup ['] fi-dep-of ok-each dup ok? 0= if exit then drop
+  dup fi-result! dup ok? if drop dup fi-fwd! outcome-ok then ;
+: fi-deps-made ( m outcome -- m outcome ) dup ok? if drop fi-deps-run then ;
+: lf-meta-fun-deps ( f n -- m outcome )
+  fi-mark fi-state fi-mark0 ! fi-run fi-deps-made fi-state fi-mark0 @ lf-lctx-drop ;
+: lf-param-back-deps ( i -- mask ) fi-deps slab-at @ ;
+: lf-param-head ( i -- name ) fi-deps slab-at cell+ @ ;
+: lf-param-fwd-deps? ( i -- flag ) 1 swap lshift fi-state fi-fwd @ and 0<> ;
+: lf-fun-result-deps ( -- mask ) fi-state fi-result @ ;

@@ -208,8 +208,9 @@ wc-smatch-kind 1+ constant wc-srec-kind
 
 \ ---- Leaves: metavariables, let variables, lets.
 : wc-delayed? ( mvar -- flag ) lf-mvar-delayed? ;
-: wc-let-value ( fvar -- value true | false )
-  dup lf-fvar-let? if lf-fvar-value true else drop false then ;
+: wc-let-value ( fvar -- value true | false )   \ zetaDelta (WHNF.lean:404)
+  dup lf-fvar-let? lf-meta-no-zeta-delta lf-meta-on? and
+  if lf-fvar-value true else drop false then ;
 : wc-zeta ( let -- term outcome )
   dup lf-let-well? if dup lf-let-body swap lf-let-value lf-meta-instantiate1
   else drop -1 outcome-invalid then ;
@@ -230,6 +231,9 @@ wc-smatch-kind 1+ constant wc-srec-kind
   wc-let-value if nip wc-rebuild wc-go else wc-done then ;
 : wc-let-head ( e head -- e' flag outcome )
   nip wc-zeta ['] wc-rebuild ok-apply wc-go ;
+\ zeta off (WHNF.lean:631-633) keeps a let or drops an unused binding,
+\ which no caller's setting asks for yet: unsupported, never a guess.
+: wc-zeta-on? ( -- flag ) lf-meta-no-zeta lf-meta-on? ;
 : wc-unsupported ( e head -- e' flag outcome ) outcome-unsupported wc-2drop-fail ;
 : wc-invalid ( e head -- e' flag outcome ) outcome-invalid wc-2drop-fail ;
 
@@ -386,7 +390,7 @@ wc-smatch-kind 1+ constant wc-srec-kind
 \ instances.
 : wc-at-most-i ( mode -- mode' )
   dup lf-tr-all lf-tr-default lf-tr-implicit one-of3? if drop lf-tr-instances then ;
-: wc-lower ( -- ) wc wc-proj-i @ if lf-defeq-mode wc-at-most-i lf-defeq-mode! then ;
+: wc-lower ( -- ) lf-defeq-mode wc-at-most-i lf-defeq-mode! ;
 : wc-proj-at ( p -- k ) lf-proj-leaf lf-proj-idx ;
 \ Only after wc-ctor? (wc-project), as wc-ctor-arity.
 : wc-ctor-params ( ctor -- n )
@@ -402,9 +406,17 @@ wc-smatch-kind 1+ constant wc-srec-kind
   dup lf-lit-leaf? if drop outcome-unsupported no-result-flag exit then
   wc-proj-frame ok-then? 0= if wc-drop-fail exit then
   wc-project if wc-rebuild wc-go else wc-stay then ;
-: wc-proj-head ( e head -- e' flag outcome )
+\ The proj setting (WHNF.lean:677-682): no leaves the projection, yes
+\ reduces the structure by whnfCore, yesWithDelta by whnf,
+\ yesWithDeltaI by whnfAtMostI (and lf-whnf-core-at-defeq always).
+: wc-proj-setting ( -- kind ) wc wc-proj-i @ if lf-proj-delta-i else lf-meta-proj then ;
+: wc-part-act ( kind -- )
+  dup lf-proj-yes = if wc-core-act wc wc-act ! then lf-proj-delta-i = if wc-lower then ;
+: wc-proj-part ( e head -- e' flag outcome )
   lf-proj-struct swap 0 wc-proj-kind wc-frame ok-then? 0= if no-result-flag exit then
-  wc-lower true outcome-ok ;
+  wc-proj-setting wc-part-act true outcome-ok ;
+: wc-proj-head ( e head -- e' flag outcome )
+  wc-proj-setting lf-proj-no = if drop wc-done else wc-proj-part then ;
 
 : wc-recursor? ( d -- flag ) lf-menv-kind lf-kind-recursor = ;
 \ ---- Matchers (reduceMatcher?, WHNF.lean:509; plan S2 merge B): the
@@ -500,7 +512,9 @@ wc-smatch-kind 1+ constant wc-srec-kind
   dup lf-menv-matcher? ok-then? 0= if wc-defn-fail exit then if wc-matcher exit then
   dup lf-menv-aux-def? ok-then? 0= if wc-defn-fail exit then
   if wc-aux-def else 2drop wc-done then ;
+\ iota off (WHNF.lean:651): a constant head stays.
 : wc-decl-head ( e head d -- e' flag outcome )
+  lf-meta-no-iota lf-meta-flag? if 2drop wc-done exit then
   dup lf-menv-kind dup lf-kind-definition = if drop wc-defn-head exit then
   lf-kind-quotient = if drop wc-unsupported exit then
   dup wc-recursor? if wc-iota else 2drop wc-done then ;
@@ -519,17 +533,26 @@ wc-smatch-kind 1+ constant wc-srec-kind
     lf-tag-constant of wc-const-head endof  lf-tag-projection of wc-proj-head endof
     lf-tag-annotation of wc-annot-head endof
     lf-tag-bvar of wc-invalid endof  >r drop wc-done r> endcase ;
+\ beta off (WHNF.lean:639-649): Lean still takes a lambda a step made at
+\ the head, which this loop does not tell apart: unsupported.
+: wc-beta ( e head -- e' flag outcome )
+  lf-meta-no-beta lf-meta-flag? if outcome-unsupported wc-2drop-fail exit then
+  drop lf-meta-head-beta wc-go ;
+: wc-let-at-head ( e head -- e' flag outcome )
+  wc-zeta-on? if wc-let-head else outcome-unsupported wc-2drop-fail then ;
 : wc-head-step ( e head -- e' flag outcome )
-  dup lf-term-lam? if drop lf-meta-head-beta wc-go exit then
-  dup lf-let? if wc-let-head else dup lf-term-tag@ wc-head-tag then ;
+  dup lf-term-lam? if wc-beta exit then
+  dup lf-let? if wc-let-at-head else dup lf-term-tag@ wc-head-tag then ;
 : wc-app ( e -- e' flag outcome )
   dup wc-args lf-meta-spine ok-then? if wc-head-step else wc-drop-fail then ;
 : wc-leaf-step ( e tag -- e' flag outcome )
   case lf-tag-mvar of wc-mvar endof  lf-tag-fvar of wc-fvar endof
     lf-tag-projection of dup wc-proj-head endof  lf-tag-annotation of wc-annot endof
     lf-tag-bvar of outcome-invalid wc-drop-fail endof  >r wc-done r> endcase ;
+: wc-let-step ( let -- e' flag outcome )
+  wc-zeta-on? if wc-zeta wc-go else outcome-unsupported wc-drop-fail then ;
 : wc-core-step ( e -- e' flag outcome )
-  dup lf-let? if wc-zeta wc-go exit then
+  dup lf-let? if wc-let-step exit then
   dup lf-meta-app? if wc-app else dup lf-term-tag@ wc-leaf-step then ;
 
 \ ---- Delta: whnf's step once whnfCore ends (reduceNat?, then
