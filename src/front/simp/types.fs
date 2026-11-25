@@ -51,12 +51,15 @@ end-structure
 : st-ae ( -- ae ) stc stc-ae @ ;
 : st-ah ( -- ah ) stc stc-ah @ ;
 \ mkCongrPrefix (697): c.{u, v} α β, α the type of e's argument, β e's.
-: st-ty ( x -- type level ) lf-infer! dup lf-level! ;
-: st-types ( e -- α β u v ) dup lf-term-second@ st-ty rot st-ty >r swap r> ;
+: st-alpha ( -- α ) st-e lf-term-second@ lf-infer! ;
+: st-beta ( -- β ) st-e lf-infer! ;
 : st-prefix ( c-addr u -- pre )
-  st-e st-types 2swap 2>r 2 lf-mk-const 2r> >r lf-mk-app r> lf-mk-app ;
-: st-fun ( -- h ) s" congrFun'" st-prefix st-e lf-term-first@ st-fe st-fh st-ae 4 lf-mk-app-n ;
-: st-arg ( -- h ) s" congrArg" st-prefix st-e lf-term-second@ st-ae st-fe st-ah 4 lf-mk-app-n ;
+  st-alpha lf-level! st-beta lf-level! 2 lf-mk-const
+  st-alpha lf-mk-app st-beta lf-mk-app ;
+: st-fun ( -- h )
+  s" congrFun'" st-prefix st-e lf-term-first@ st-fe st-fh st-ae 4 lf-mk-app-n ;
+: st-arg ( -- h )
+  s" congrArg" st-prefix st-e lf-term-second@ st-ae st-fe st-ah 4 lf-mk-app-n ;
 : st-both ( -- h )
   s" congr" st-prefix st-e lf-term-first@ st-fe st-e lf-term-second@ st-ae st-fh st-ah
   6 lf-mk-app-n ;

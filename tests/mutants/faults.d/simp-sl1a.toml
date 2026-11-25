@@ -3,8 +3,8 @@
 # settings, discr-keys.fs's head-only keys, discr-tree.fs's match queries,
 # congr-thms.fs's kinds); read with faults.toml as one list (scripts/mutants.py).
 # The simp loop's own faults (post-before-pre, cache-ignored, rfl-step-kept,
-# step-check-after-increment, congrfun-for-congrfun', dsimp-guard-off) come
-# with simp/*.fs, which this branch does not yet hold.
+# step-check-after-increment, congrfun-for-congrfun-prime, dsimp-guard-off) are at
+# the end, each caught by tests/front/tactics/simp-1/test.fs.
 
 [[fault]]
 id = "head-keys-full"
@@ -77,3 +77,51 @@ old = '''  }lf-mctx-depth swap ?dup if nip throw then lf-must ;'''
 new = '''  drop ?dup if throw then ;'''
 test = "$GFORTH tests/front/simp-meta.fs"
 reason = "SL1a: withNewMCtxDepth's depth left open after xt"
+
+[[fault]]
+id = "post-before-pre"
+file = "src/front/simp/main.fs"
+old = '''  dup lf-simp-pre false lf-simp-rewrite? if rot drop true else false then ;'''
+new = '''  dup lf-simp-post false lf-simp-rewrite? if rot drop true else false then ;'''
+test = "$GFORTH tests/front/tactics/simp-1/test.fs"
+reason = "SL1a: pre (rewritePre) asks the post theorems, so a post rule rewrites before a pre one (Rewrite.lean:536-547)"
+
+[[fault]]
+id = "cache-ignored"
+file = "src/front/simp/main.fs"
+old = '''  dup 0 sm-cache memo-at ?dup if nip 2@ true else false then ;'''
+new = '''  false ;'''
+test = "$GFORTH tests/front/tactics/simp-1/test.fs"
+reason = "SL1a: simpLoop never finds a cached result (Main.lean:679-682), so a term met again costs steps"
+
+[[fault]]
+id = "congrfun-for-congrfun-prime"
+file = "src/front/simp/types.fs"
+old = '''  s" congrFun'" st-prefix st-e lf-term-first@ st-fe st-fh st-ae 4 lf-mk-app-n ;'''
+new = '''  s" congrFun" st-prefix st-e lf-term-first@ st-fe st-fh st-ae 4 lf-mk-app-n ;'''
+test = "$GFORTH tests/front/tactics/simp-1/test.fs"
+reason = "SL1a: mkCongr' with the function's proof alone builds congrFun, not Lean's congrFun' (Types.lean:714)"
+
+[[fault]]
+id = "rfl-step-kept"
+file = "src/front/simp/rewrite.fs"
+old = '''  sr-rfl? if lf-simp-none true exit then'''
+new = '''  false if lf-simp-none true exit then'''
+test = "$GFORTH tests/front/tactics/simp-1/test.fs"
+reason = "SL1a: an rfl theorem's rewrite keeps its proof (useImplicitDefEqProof, Rewrite.lean:110), so n + 0 + 0 = n is no longer of_eq_true (eq_self n)"
+
+[[fault]]
+id = "step-check-after-increment"
+file = "src/front/simp/main.fs"
+old = ''': sm-count ( -- ) sm sm-steps @ sm sm-max @ > if lf-unported then 1 sm sm-steps +! ;'''
+new = ''': sm-count ( -- ) 1 sm sm-steps +! sm sm-steps @ sm sm-max @ > if lf-unported then ;'''
+test = "$GFORTH tests/front/tactics/simp-1/test.fs"
+reason = "SL1a: the step check runs after the increment (Main.lean:683-686 checks first), one step short of maxSteps"
+
+[[fault]]
+id = "dsimp-guard-off"
+file = "src/front/simp/main.fs"
+old = ''': sm-dsimp ( a -- a ) dup sm-kept? 0= if lf-unported then ;'''
+new = ''': sm-dsimp ( a -- a ) ;'''
+test = "$GFORTH tests/front/tactics/simp-1/test.fs"
+reason = "SL1a: an argument dsimp would visit (dsimp is not ported) is kept as it is, where Lean's dsimp may change it"

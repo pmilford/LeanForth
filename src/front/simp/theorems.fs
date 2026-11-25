@@ -68,13 +68,13 @@ end-structure
 : lf-simp-thm-rfl? ( t -- flag ) sth sth-rfl @ ;
 
 \ ---- The record: found by its proof, else claimed.
-: sth-same? ( proof decl? t -- flag )
-  sth dup sth-decl? @ rot = >r sth-proof @ = r> and ;
+\ sth-proof and sth-decl? are a pair: 2@ gives ( decl? proof ).
+: sth-same? ( proof decl? t -- flag ) >r swap r> sth 2@ d= ;
 : sth-find ( proof decl? -- t true | false )
   lf-simp-thms# 0 ?do 2dup i sth-same? if 2drop i true unloop exit then loop 2drop false ;
 : sth-new ( proof decl? -- t )
   1 simp-thms slab-claim lf-must dup >r sth tuck sth-decl? ! sth-proof ! r> ;
-: sth-claim ( proof decl? -- t ) 2dup sth-find if nip nip else sth-new then ;
+: sth-claim ( proof decl? -- t ) 2dup sth-find 0= if sth-new exit then nip nip ;
 : sth-flags! ( post rfl t -- t )
   dup >r sth tuck sth-rfl ! tuck sth-post ! lf-simp-default-prio swap sth-prio ! r> ;
 : sth-tree ( post -- tree ) if simp-post-tree else simp-pre-tree then ;
@@ -84,9 +84,10 @@ end-structure
 \ ---- The keys (mkSimpTheoremKeys, 380): the left side of an Eq.
 \ isPerm (291), kept on the side of caution: two metavariables, or two
 \ applications of the same head to as many arguments, may be a perm.
+: sth-heads ( lhs rhs -- hl hr flag ) lf-meta-head-args >r swap lf-meta-head-args r> = ;
 : sth-perm? ( lhs rhs -- flag )
   2dup lf-mvar? swap lf-mvar? and if 2drop true exit then
-  lf-meta-head-args rot lf-meta-head-args rot = >r lf-meta-eqv lf-must r> and ;
+  sth-heads >r lf-meta-eqv lf-must r> and ;
 : sth-lhs ( type -- lhs )
   lf-eq? 0= if lf-unported then rot drop 2dup sth-perm? if lf-unported then drop ;
 : sth-decl-path ( d -- k n ) lf-const-meta-applied nip sth-lhs lf-dt-path lf-must ;

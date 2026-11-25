@@ -22,6 +22,8 @@
 \   binderNameHint unsupported (resolveBinderNameHint, 152);
 \   addExtraArgs (Types.lean:617) with Meta.mkCongrFun on each extra
 \   argument (app-builder.fs: Eq.refl alone, else unsupported).
+\ - lf-simp-arg ( e n k -- a ): argument k (from 0) of e, an application
+\   to n arguments (Expr.getArg!).
 \ - lf-simp-rfl-match? ( e tree -- flag ): whether a theorem with the rfl
 \   flag is among e's candidates (the dsimp guard of simp/main.fs).
 \ Throws as meta-must.fs's words do. Untrusted: a rewrite's proof is
@@ -54,26 +56,29 @@ end-structure
 : sr-sorted ( -- )
   2 cells ['] sr-desc sr-sort sorter-init lf-must ['] sr-prio sr-sort sorter-key!
   sr-cands slab-base sr-cands slab-count 2/ sr-sort sort-records lf-must ;
-: sr-cands-of ( e tree -- n ) ['] sr-query lf-with-simp-index sr-sorted sr-cands slab-count 2/ ;
+: sr-cands-of ( e tree -- n )
+  ['] sr-query lf-with-simp-index sr-sorted sr-cands slab-count 2/ ;
 : sr-pair ( i -- thm extra ) 2* sr-cands slab-at 2@ swap ;
 
 \ ---- tryTheoremCore's term: e less its extra arguments, and those.
 : sr-strip ( e n -- e' ) 0 ?do lf-term-first@ loop ;
-: sr-extra-arg ( e n j -- a ) - 1- sr-strip lf-term-second@ ;
+: lf-simp-arg ( e n j -- a ) - 1- sr-strip lf-term-second@ ;
 : sr-congr-fun ( h a -- h' ) over lf-simp-none? if drop else lf-mk-congr-fun then ;
 : sr-extras ( e' h -- e'' h' )
-  srt srt-n @ 0 ?do srt srt-e @ srt srt-n @ i sr-extra-arg >r
+  srt srt-n @ 0 ?do srt srt-e @ srt srt-n @ i lf-simp-arg >r
     swap r@ lf-mk-app swap r> sr-congr-fun loop ;
 
 \ ---- getValue and the telescope.
 : sr-mvar ( app mvar kind -- app' ) drop dup sr-xs slab-push lf-must lf-mk-app ;
 : sr-value ( t -- val d ) dup lf-simp-thm-proof swap lf-simp-thm-decl?
   if dup lf-meta-const-fresh lf-must swap else -1 then ;
-: sr-open ( t -- ) sr-xs slab-clear sr-value >r dup lf-infer! r> ['] sr-mvar
-  lf-forall-meta-telescope-reducing lf-instantiate! lf-whnf-r! srt srt-type ! srt srt-app ! ;
+: sr-keep ( app type -- ) lf-instantiate! lf-whnf-r! srt srt-type ! srt srt-app ! ;
+: sr-open ( t -- )
+  sr-xs slab-clear sr-value >r dup lf-infer! r> ['] sr-mvar
+  lf-forall-meta-telescope-reducing sr-keep ;
 : sr-sides ( -- lhs rhs ) srt srt-type @ lf-eq? 0= if lf-unported then rot drop ;
-: sr-unifies? ( -- flag )
-  sr-sides drop srt srt-e @ srt srt-n @ sr-strip ['] lf-defeq! lf-with-simp-meta ;
+: sr-e0 ( -- e ) srt srt-e 2@ swap sr-strip ;   \ srt-e, srt-n a pair
+: sr-unifies? ( -- flag ) sr-sides drop sr-e0 ['] lf-defeq! lf-with-simp-meta ;
 
 \ ---- synthesizeArgs: an unassigned argument of a proposition or of a
 \ type that may be a class.
@@ -81,30 +86,29 @@ end-structure
 : sr-open? ( x -- flag ) lf-instantiate! lf-mvar? ;
 : sr-needs? ( x -- flag )
   lf-infer! dup lf-meta-is-prop lf-must swap lf-meta-class-none? 0= or ;
-: sr-synthesize ( -- )
-  sr-xs slab-count 0 ?do i sr-x dup sr-open? if sr-needs? if lf-unported then else drop then loop ;
+: sr-check-x ( x -- ) dup sr-open? if sr-needs? if lf-unported then else drop then ;
+: sr-synthesize ( -- ) sr-xs slab-count 0 ?do i sr-x sr-check-x loop ;
 : sr-left? ( -- flag ) false sr-xs slab-count 0 ?do i sr-x sr-open? or loop ;
 : sr-occurs ( e acc m -- e acc' ) >r over r> swap lf-mvar-occurs? lf-must or ;
-: sr-in? ( e -- flag )
-  false sr-xs slab-count 0 ?do i sr-x lf-instantiate! dup lf-mvar? if sr-occurs else drop then
-  loop nip ;
+: sr-in-x ( e acc x -- e acc' ) lf-instantiate! dup lf-mvar? if sr-occurs else drop then ;
+: sr-in? ( e -- flag ) false sr-xs slab-count 0 ?do i sr-x sr-in-x loop nip ;
 
 \ ---- tryTheoremCore's go: the rewrite, or none.
 : sr-rfl? ( -- flag ) srt srt-thm @ lf-simp-thm-rfl? ;
 : sr-proof ( -- h true | false )
   sr-rfl? if lf-simp-none true exit then
   sr-left? if false exit then srt srt-app @ lf-instantiate! true ;
-: sr-hint-node? ( node -- flag )
-  dup lf-term-const? if lf-const-name s" binderNameHint" lf-name-dotted? else drop false then ;
+: sr-hint-node? ( node -- flag ) s" binderNameHint" lf-meta-const-named? ;
 : sr-hint? ( type -- flag ) ['] sr-hint-node? lf-term-holds-node? lf-must ;
 : sr-rhs ( -- rhs ) sr-sides nip lf-instantiate! ;
-: sr-same? ( rhs -- flag ) srt srt-e @ srt srt-n @ sr-strip lf-instantiate! lf-meta-eqv lf-must ;
+: sr-same? ( rhs -- flag ) sr-e0 lf-instantiate! lf-meta-eqv lf-must ;
 : sr-result ( h -- e' h true | false )
   sr-rhs dup sr-same? if 2drop false exit then
   sr-rfl? if dup sr-in? if 2drop false exit then then
   srt srt-type @ sr-hint? if lf-unported then swap sr-extras true ;
 : sr-go ( t -- e' h true | false )
-  sr-open sr-unifies? 0= if false exit then sr-synthesize sr-proof if sr-result else false then ;
+  sr-open sr-unifies? 0= if false exit then
+  sr-synthesize sr-proof if sr-result else false then ;
 : sr-try ( e t n -- e' h true | false )
   srt srt-n ! dup srt srt-thm ! swap srt srt-e ! ['] sr-go lf-with-new-depth ;
 

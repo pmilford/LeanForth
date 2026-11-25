@@ -84,8 +84,7 @@ begin-structure /sa
   field: sa-h   \ a proof kept across a child's visit
   field: sa-n   \ the application's arguments
   field: sa-i   \ its next argument
-  field: sa-x   \ the result so far: its term
-  field: sa-y   \ and its proof
+  2 cells +field sa-r   \ the result so far ( e h ), a pair
 end-structure
 /sa context-slab: sm-acts
 : sa ( -- addr ) sm-acts slab-last ;
@@ -107,7 +106,8 @@ end-structure
   dup 0 sm-cache memo-at ?dup if nip 2@ true else false then ;
 : sm-remember ( e' h e -- e' h ) >r 2dup r> 0 sm-cache memo-claim lf-must 2! ;
 : sm-count ( -- ) sm sm-steps @ sm sm-max @ > if lf-unported then 1 sm sm-steps +! ;
-: sm-finish ( e' h -- e' h frames 0 ) sa sa-e @ sm-remember sm-pop sm-done ;
+: sm-act-e ( -- e ) sa sa-e @ ;
+: sm-finish ( e' h -- e' h frames 0 ) sm-act-e sm-remember sm-pop sm-done ;
 
 \ ---- reduceStep (Main.lean:213): the steps not ported refused.
 : sm-head-decl ( e -- d true | false )
@@ -119,12 +119,14 @@ end-structure
   dup lf-menv-matcher? lf-must if drop true exit then lf-menv-aux-recursor? lf-must ;
 : sm-struct-proj? ( d -- flag )   \ reduceProjFn? unfolds a structure's
   dup lf-menv-proj-fn? lf-must if lf-menv-proj-class? lf-must 0= else drop false then ;
+: sm-iota-check ( app? d -- ) swap if sm-decl-iota? if lf-unported then else drop then ;
 : sm-head-check ( e -- )
   dup lf-term-app? swap sm-head-decl 0= if drop exit then
-  dup sm-struct-proj? if lf-unported then swap if sm-decl-iota? if lf-unported then else drop then ;
-: sm-let-tag? ( tag -- flag ) dup lf-tag-let = swap lf-tag-let-nondep = or ;
-: sm-odd-tag? ( tag -- flag )   \ proj, zeta, foldRawNatLit, mdata
-  dup sm-let-tag? over lf-tag-projection = or over lf-tag-annotation = or swap lf-tag-lit = or ;
+  dup sm-struct-proj? if lf-unported then sm-iota-check ;
+\ zeta, proj, mdata and foldRawNatLit's nodes.
+lf-tag-let lf-tag-let-nondep lf-tag-projection lf-tag-annotation lf-tag-lit 5 lf-tags
+  constant sm-odd-tags
+: sm-odd-tag? ( tag -- flag ) sm-odd-tags lf-tag-in? ;
 : sm-reduce-step ( e -- e' )
   dup lf-meta-head dup lf-mvar? if drop lf-instantiate! exit then
   lf-term-lam? if lf-meta-head-beta lf-must exit then
@@ -132,23 +134,23 @@ end-structure
 
 \ ---- isOfNatNatLit, isOfScientificLit, isCharLit (Main.lean:39-64).
 : sm-raw? ( e -- flag ) lf-tag-lit lf-term-tag? ;
-: sm-arg-at ( e n k -- a ) - 1- 0 ?do lf-term-first@ loop lf-term-second@ ;
-: sm-named? ( e c-addr u -- flag )
-  rot dup lf-term-const? if lf-const-name -rot lf-name-dotted? else drop 2drop false then ;
 : sm-of-nat? ( e -- flag )
-  dup lf-meta-head-args >r s" OfNat.ofNat" sm-named? r@ 3 < 0= and
-  if r> 1 sm-arg-at sm-raw? else r> 2drop false then ;
+  dup lf-meta-head-args >r s" OfNat.ofNat" lf-meta-const-named? r@ 3 < 0= and
+  if r> 1 lf-simp-arg sm-raw? else r> 2drop false then ;
 : sm-char? ( e -- flag )
   dup 1 s" Char.ofNat" lf-meta-app-of? if lf-term-second@ sm-raw? else drop false then ;
 : sm-scientific? ( e -- flag )
   dup 5 s" OfScientific.ofScientific" lf-meta-app-of? 0= if drop false exit then
-  dup lf-term-second@ sm-raw? swap 5 2 sm-arg-at sm-raw? and ;
-: sm-literal? ( e -- flag ) dup sm-of-nat? over sm-char? or swap sm-scientific? or ;
+  dup lf-term-second@ sm-raw? swap 5 2 lf-simp-arg sm-raw? and ;
+: sm-literal? ( e -- flag )
+  dup sm-of-nat? if drop true exit then
+  dup sm-char? if drop true exit then sm-scientific? ;
 
 \ ---- congr (Main.lean:637) and congrDefault's mkCongrSimp? (Types.lean:773).
+: sm-lemmas? ( d' -- flag ) simp-congr-lemmas lf-must nip 0<> ;
 : sm-congr-lemmas? ( f -- flag )
   dup lf-term-const? 0= if drop false exit then
-  lf-const-name lf-menv-data-decl 0= if false exit then simp-congr-lemmas lf-must nip 0<> ;
+  lf-const-name lf-menv-data-decl if sm-lemmas? else false then ;
 : sm-congr-check ( e -- )
   lf-meta-head dup sm-congr-lemmas? if lf-unported then
   lf-congr-simp-kinds lf-must lf-congr-plain? 0= if lf-unported then ;
@@ -161,17 +163,18 @@ end-structure
     lf-tag-fvar of lf-fvar-let? 0= endof nip false swap endcase ;
 : sm-rfl-free? ( a -- flag )
   dup lf-simp-pre lf-simp-rfl-match? swap lf-simp-post lf-simp-rfl-match? or 0= ;
-: sm-dsimp ( a -- a ) dup sm-stable-node? if dup sm-rfl-free? if exit then then lf-unported ;
+: sm-kept? ( a -- flag ) dup sm-stable-node? 0= if drop false exit then sm-rfl-free? ;
+: sm-dsimp ( a -- a ) dup sm-kept? 0= if lf-unported then ;
 
 \ ---- simpAppUsingCongr (Types.lean:732): the head, then each argument.
 0 constant sm-way-simp   1 constant sm-way-inst   2 constant sm-way-dsimp
-: sm-prefix ( -- p ) sa sa-e @ sa sa-n @ sa sa-i @ - 1- 0 ?do lf-term-first@ loop ;
+: sm-prefix ( -- p ) sa sa-e @ sa sa-n @ sa sa-i @ - 1- sr-strip ;
 : sm-arg ( -- a ) sm-prefix lf-term-second@ ;
-: sm-fr! ( e h -- ) sa sa-y ! sa sa-x ! ;
-: sm-fr@ ( -- e h ) sa sa-x @ sa sa-y @ ;
+: sm-fr! ( e h -- ) sa sa-r 2! ;
+: sm-fr@ ( -- e h ) sa sa-r 2@ ;
 : sm-next ( e h -- ) sm-fr! 1 sa sa-i +! ;
 : sm-arrow? ( -- flag ) sm-prefix lf-term-first@ lf-infer! lf-whnf-d! lf-arrow? ;
-: sm-dep-way ( -- way ) sm-arrow? if sm-way-simp else sm-way-dsimp then ;
+: sm-dep-way ( -- way ) sm-arrow? 0= sm-way-dsimp and ;   \ sm-way-simp is 0
 : sm-info ( -- m ) sa sa-e @ lf-meta-head sa sa-n @ lf-meta-fun-deps lf-must ;
 : sm-way ( -- way )
   sm-info sa sa-i @ > 0= if sm-dep-way exit then
@@ -180,12 +183,10 @@ end-structure
 : sm-fun-only ( a -- ) >r sm-prefix sm-fr@ r> lf-simp-congr-fun sm-next ;
 : sm-more? ( -- flag ) sa sa-i @ sa sa-n @ < ;
 defer sm-simp-arg ( a -- a frames xt )
+: sm-kept ( way -- ) sm-arg swap sm-way-dsimp = if sm-dsimp then sm-fun-only ;
 : sm-app-args ( -- ... frames next )
-  begin sm-more? while sm-way case
-      sm-way-simp of sm-arg sm-simp-arg exit endof
-      sm-way-inst of sm-arg sm-fun-only endof
-      sm-arg sm-dsimp sm-fun-only endcase repeat
-  sm-fr@ sm-pop sm-done ;
+  begin sm-more? while sm-way dup sm-way-simp = if drop sm-arg sm-simp-arg exit then
+  sm-kept repeat sm-fr@ sm-pop sm-done ;
 : sm-app-simped ( ae ah frames -- ... )
   drop 2>r sm-prefix sm-fr@ 2r> lf-simp-congr sm-next sm-app-args ;
 : sm-app-head ( fe fh frames -- ... ) drop sm-fr! sm-app-args ;
@@ -196,25 +197,28 @@ defer sm-simp-call ( e cont -- e frames xt )
   dup sm-push dup lf-meta-args# sa sa-n ! lf-meta-head ['] sm-app-head sm-simp-call ;
 : sm-app ( e -- ... )
   dup sm-literal? if lf-simp-none sm-done exit then dup sm-congr-check sm-app-open ;
-: sm-leaf ( e -- e h )
-  dup lf-term-tag@ case lf-tag-constant of sm-reduce-step endof
-    lf-tag-sort of endof   lf-tag-lit of endof   lf-tag-str of endof
-    lf-tag-mvar of lf-instantiate! endof
-    lf-tag-fvar of dup lf-fvar-let? if lf-unported then endof
-    lf-unported endcase lf-simp-none ;
+lf-tag-sort lf-tag-lit lf-tag-str 3 lf-tags constant sm-plain-tags
+: sm-fvar ( e -- e ) dup lf-fvar-let? if lf-unported then ;
+: sm-leaf-of ( e tag -- e' )
+  case lf-tag-constant of sm-reduce-step endof   lf-tag-mvar of lf-instantiate! endof
+    lf-tag-fvar of sm-fvar endof   dup sm-plain-tags lf-tag-in? 0= if lf-unported then
+  endcase ;
+: sm-leaf ( e -- e h ) dup lf-term-tag@ sm-leaf-of lf-simp-none ;
 : sm-step ( e frames -- ... ) drop dup lf-term-app? if sm-app else sm-leaf sm-done then ;
 defer sm-loop-call ( e cont -- e frames xt )
-: sm-trans-cache ( e2 h2 frames -- ... ) drop sa sa-h @ -rot lf-simp-trans sm-finish ;
+: sm-joined-h ( e2 h2 frames -- e h ) drop sa sa-h @ -rot lf-simp-trans ;
+: sm-trans-cache ( e2 h2 frames -- ... ) sm-joined-h sm-finish ;
 : sm-again ( e h -- ... ) sa sa-h ! ['] sm-trans-cache sm-loop-call ;
 : sm-post-continue ( e3 h3 -- ... )
-  over sa sa-e @ sm-same? if sm-finish else sm-again then ;
+  over sm-act-e sm-same? if sm-finish else sm-again then ;
 : sm-joined ( e2 h2 e3 h3 -- e3 h ) 2>r nip 2r> lf-simp-trans ;
 : sm-post ( e2 h2 -- ... )
   over lf-simp-post false lf-simp-rewrite? if sm-joined then sm-post-continue ;
-: sm-stepped ( e2 h2 frames -- ... ) drop sa sa-h @ -rot lf-simp-trans sm-post ;
+: sm-stepped ( e2 h2 frames -- ... ) sm-joined-h sm-post ;
+: sm-step-call ( e -- e frames xt ) ['] sm-stepped ['] sm-step sm-call ;
 : sm-pre-continue ( e1 h1 -- ... )
   sa sa-h ! dup sm-reduce-step 2dup sm-same?
-  if drop ['] sm-stepped ['] sm-step sm-call else nip ['] sm-trans-cache sm-loop-call then ;
+  if drop sm-step-call else nip ['] sm-trans-cache sm-loop-call then ;
 : sm-pre ( e -- e1 h1 true | e false )
   dup lf-simp-pre false lf-simp-rewrite? if rot drop true else false then ;
 : sm-loop ( e frames -- ... )
@@ -244,7 +248,7 @@ defer sm-loop-call ( e cont -- e frames xt )
   sm-ready ['] sm-guarded lf-defeq-flags lf-defeq-elab or lf-tr-reducible lf-meta-with ;
 
 \ ---- simpTargetCore (Main.lean:781) and applySimpResultToTarget.
-: sm-true? ( e -- flag ) s" True" sm-named? ;
+: sm-true? ( e -- flag ) s" True" lf-meta-const-named? ;
 : sm-close ( goal h -- 0 )
   dup lf-simp-none? if drop s" True.intro" lf-mk-const0 else lf-mk-of-eq-true then
   lf-mvar-assign lf-must 0 ;
