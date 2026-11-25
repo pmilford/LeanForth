@@ -4,7 +4,9 @@
 # run scripts/export_elab.lean with the pinned toolchain, then
 # scripts/export_elab.py, which keeps the records of the export's own
 # declarations and writes the file `leanforth check --elab-data` reads
-# (format 3 or 3.1: every smart-unfolding body, the match_pattern tag).
+# (format 3 or 3.1: every smart-unfolding body, the match_pattern tag; with
+# ELAB_FORMAT=4, format 4: also the @[congr] lemmas and defeq tags simp reads,
+# docs/design/SIMP_DATA.md section 3, slice SD-a of docs/design/TACTIC_SIMP.md).
 # A development tool, run when a library is exported, like scripts/export.sh
 # (owner decision of 2026-11-12, "Front-end syntax", answer 8); a user who
 # only checks LeanForth text needs no Lean.
@@ -20,17 +22,23 @@
 #              the project's .tools toolchain)
 #   LEAN_PATH  where Lean finds the modules' .olean files, as for
 #              scripts/export.sh (Init needs none)
+#   ELAB_FORMAT  3 (the default) or 4
 set -eu
 
 here=$(cd "$(dirname "$0")/.." && pwd)
 lean=${LEAN:-$here/.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean}
 if [ $# -lt 3 ]; then
-  sed -n '11,16p' "$0" >&2
+  sed -n '14,19p' "$0" >&2
   exit 2
 fi
 output=$1
 export_file=$2
 shift 2
+case ${ELAB_FORMAT:-3} in
+  3) simp= ;;
+  4) simp=--simp ;;
+  *) printf 'ELAB_FORMAT is 3 or 4, not %s\n' "$ELAB_FORMAT" >&2; exit 2 ;;
+esac
 
 # Never run an elan proxy, nor anything not known to be a toolchain's Lean
 # (scripts/lean_pin.py, review F5): it is judged before it is asked its version.
@@ -50,5 +58,6 @@ toolchain=$("$lean" --print-prefix)
 raw=$(mktemp)
 trap 'rm -f "$raw"' EXIT   # only this script's own temporary file
 PATH="$toolchain/bin:$PATH" "$lean" -DwarningAsError=true --run \
-  "$here/scripts/export_elab.lean" "$@" >"$raw"
-python3 "$here/scripts/export_elab.py" "$raw" "$export_file" "$output" --bind
+  "$here/scripts/export_elab.lean" $simp "$@" >"$raw"
+python3 "$here/scripts/export_elab.py" "$raw" "$export_file" "$output" --bind \
+  --format "${ELAB_FORMAT:-3}"
