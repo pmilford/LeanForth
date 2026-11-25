@@ -1,4 +1,49 @@
-# Opt-in profiling of existing tables
+# Opt-in profiling
+
+## Where a check spends its time
+
+`make profile-check EXPORT=FILE [JOBS=1]` checks an export on `gforth-fast`
+under a sampling profiler and prints where the time went (added 2026-11-25;
+the measurements made with it are in [KERNEL_SPEED.md](KERNEL_SPEED.md)):
+
+- the phases (stage, feed, check);
+- time by word family: instantiation and abstraction passes, universe
+  substitution, term construction and hashing, `whnf_core`'s parts,
+  definitional equality, type inference, validity checks, caches, the
+  scheduler, import and decoding, the walk machinery, the rest. Three
+  columns: *exclusive* (where the CPU was), *inclusive* (samples with the
+  family anywhere on the stack, once each; they overlap) and *owner* (the
+  nearest family outwards that is not a service family such as validity
+  checks, term construction, caches, store reads or the walk machinery;
+  the owner column adds up to 100%);
+- the costliest words, exclusive and inclusive, with their files;
+- the slowest declarations by time, with their fuel and nanoseconds per
+  fuel unit (`scripts/slowest-declarations.py`, from the run's JSON report
+  with `--resources`, which gives each declaration's own check time).
+
+The parts, all in `scripts/`: `profile-sample.py` runs the check as a child,
+stops it with `ptrace` every `PROFILE_INTERVAL` seconds (default 0.01) and
+reads its Forth return stack; `profile-symbols.fs`, loaded after
+`src/main.fs`, writes every word's address, name and source position for
+it; `profile-summary.py` makes the tables (`--under WORD` keeps one part of
+the run, such as `lf-check-declaration`); `profile-check.sh` ties them
+together. The raw files (`check.prof`, `check.syms`, `check.json`) stay in
+`PROFILE_OUT` (default `build/profile`). `make test-profile-check` tests the
+tools: the tables exactly on a profile made by hand, and a whole run on the
+579-declaration S2 slice.
+
+Limits: x86-64 Linux and Gforth 1.0's `gforth-fast` only (the sampler reads
+its instruction pointer in `rbx` and its return-stack pointer in `r14`).
+Only the first thread is sampled, so profile at `JOBS=1` (the default
+here). Each sample stops the check briefly: at 0.02 s a one-worker check of
+`Init` took 968 s, against 970 s recorded without the profiler
+(KERNEL_SPEED.md). The tool reads the product, it does
+not change it: for call counts, patch a scratch copy of `src/` instead, as
+KERNEL_SPEED.md's "How it was measured" does. First written as the
+perf-scan's tools (agent PERF1, 2026-11-12;
+[measurements/perf-scan-2026-11-18/tools/](measurements/perf-scan-2026-11-18/tools/)).
+
+## Profiling of existing tables
 
 From the repository root, run `scripts/profile-existing.sh [repetitions]`;
 from another directory, use the path to that script. The default

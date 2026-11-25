@@ -46,6 +46,16 @@ status changes when this date is older than them. Stages are those of the
   1,691), `src/front/simp-data.fs` reads them (errors 47, 48), the new test export `tests/front/simp-slice`;
   the check's count line is not yet extended (`src/cli`, left to its branch). The owner's approval of the simp
   plan is recorded in [OWNER_DECISIONS.md](OWNER_DECISIONS.md) ("simp: the plan and its spellings"). Earlier:
+- 2026-11-25, 00:32: the Later list's speed item 4 (a), the measurement, is **written on branch
+  `kernel-speed-measure`**, not reviewed, not merged, not done: `make profile-check EXPORT=...` (the sampling
+  profiler kept as a tool: time by word family and word, the slowest declarations by time), the JSON report's
+  `measured.declarationMicroseconds` with `--resources` (each declaration's check time; optional member within
+  0.4 and 0.5) with `scripts/slowest-declarations.py`, and [KERNEL_SPEED.md](../development/KERNEL_SPEED.md):
+  on Init at one worker (952 s, 24.8 times Lean's kernel) about 40% of the time is LeanForth's own validity
+  checks and a third is reading terms through the store layers; the algorithms' shares match Lean's and
+  nanoda's; time per fuel unit is flat (1.43 µs); instantiation sets up 13.5 million passes Lean would skip
+  (about 2%); ranked candidates and a projection (10-14 times Lean in pure Forth, **estimate**). Next: the
+  Forth review, the tier, the merge; then item 4 (b). Earlier:
 - 2026-11-25, 00:06: plan row TB2's case patterns, slice E2b, are **tested on branch `tb2-patterns-e2b` and
   Forth-reviewed** ([review](../development/forth-reviews/2026-11-24-tb2-patterns-e2b.md)), not merged, not done:
   findings 2-5, 7 and style points S1-S3 fixed on the branch (2: `by-contra: -`, `_` and `rfl` read through the
@@ -366,7 +376,9 @@ status changes when this date is older than them. Stages are those of the
      38%), so the gap looks like a constant cost per primitive more than one bad algorithm.
      The owner's order for it (2026-11-23), each fitted in where it can be: (a) the measurement: the profiler a
      kept tool, time per declaration, counts and time per primitive on Init with nanoda's beside them, and the
-     same Init check timed on each Gforth engine; (b) the algorithm changes with identical verdicts: the validity
+     same Init check timed on each Gforth engine (**written on branch `kernel-speed-measure`, 2026-11-25**:
+     `make profile-check`, `declarationMicroseconds`, [KERNEL_SPEED.md](../development/KERNEL_SPEED.md); not
+     reviewed, not merged); (b) the algorithm changes with identical verdicts: the validity
      re-checks removed, the cache with a 3.7% hit rate compared with Lean's, and instantiation and universe
      substitution skipped wherever Lean skips them (no loose variables, no universe parameters); (c) lowest: native
      primitives, for now measured only (which two or three would pay, and how much), not built.
