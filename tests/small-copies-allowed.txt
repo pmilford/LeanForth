@@ -10,3 +10,4 @@ src/front/fvar-subst.fs:fsb-key  the key of a substitution's pair (a run of two 
 src/front/fvar-subst.fs:fsb-val  the term of a substitution's pair, not another record's second cell
 src/front/meta-tactic/meta-induction.fs:lf-rinfo-decl  a field of RecursorInfo's run, not ElimInfo's (elim.fs's lf-elim-decl reads another record at the same cell)
 src/front/rcases.fs:rcs-target@  the target of a pending run's first triple (node, s, target), not another record's third cell
+src/front/elab-data.fs:elab-type@  the type field of a staged declaration, beside elab-decl-name its name field: two fields, not a copy

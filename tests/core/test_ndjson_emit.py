@@ -58,7 +58,10 @@ NOT_EXPORTS = {
     **{f"tests/front/{name}.elab.ndjson": "elaboration data (docs/programming/ELABORATION_DATA.md)"
        for name in ("init-slice", "eliminators", "cut-off", "whnf-slice", "bad-keys", "odd-keys",
                     "s1-slice", "s2-slice", "format31", "format32", "binder-merge",
-                    "mul-wrong", "implicit-lambda", "decide-slice", "patterns-slice")},
+                    "mul-wrong", "implicit-lambda", "decide-slice", "patterns-slice",
+                    "simp-slice")},
+    **{path.relative_to(ROOT).as_posix(): "simp's elaboration data fixtures (tests/front/test_simp_data.py)"
+       for path in (ROOT / "tests/front/simp-data").glob("*.elab.ndjson")},
 }
 SEED = 20261103
 SPELLINGS = int(os.environ.get("LF_REEXPORT_SPELLINGS", "2"))
