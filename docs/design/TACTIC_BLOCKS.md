@@ -16,8 +16,19 @@ done-checked; where it differs from this text: the per-goal modes (`lf-mode-per-
 `tactic-run.fs` beside the others, so `tactic-blocks.fs` still waits; a block's end pops its frame unless its mode
 started the steps again (`lf-tac-again`), so `mode-end` keeps its stack effect; t1 is found by walking up from the
 step before `<;>` (no field `tac-last`); `<;>` with no step before it is a code of its own, 468, not 86; the
-per-goal modes admit (an error inside them is final where the block recovers, as Lean's logged one); plan row 9.4.8s is done there: by-induction-with, `|`, by-case: and by-next are on block shapes (flags `tac-block-bars`, `tac-block-headed`). Slice 3: not
-started. Second version, by the architect
+per-goal modes admit (an error inside them is final where the block recovers, as Lean's logged one); plan row 9.4.8s is done there: by-induction-with, `|`, by-case: and by-next are on block shapes (flags `tac-block-bars`, `tac-block-headed`). Slice 2 is done (on main).
+**Slice 3 written and tested on its branch `tb2-blocks3`** (2026-11-25; `by-try`, `by-first`, `by-repeat`,
+`by-any-goals`; `tests/front/tactics/blocks-3/`), not Forth-reviewed, merged or done-checked; so all
+three slices are written. Where it differs from this text: the handler modes are in `tactic-run.fs`
+beside the others (`tactic-blocks.fs` is not made); a handler's save is taken lazily, before a step
+of its own when it holds none (`lfr-arm`, so a restore drops that step's log entry), and only a frame
+holding a save takes an error (so first's last alternative and a handler after its failure pass
+errors on); the per-goal modes no longer admit (Lean's all_goals aborts, BuiltinTactic.lean:
+229-253, and the blocks below decide: any_goals takes it back); a have-by's unsolved goals are
+final only when its errToSorry is true, else thrown (pinned Lean throws them inside try: the have
+is taken back), so "have-by leaving a goal inside by-try" is accepted, as Lean; any_goals with no
+goal is Lean 4.35's "Tactic failed on all goals" (469), not error 90 (evalAnyGoals has no check);
+the coordinator's rule covers every open save (a macro's rules too): 490. Second version, by the architect
 agent, after the independent design review
 ([2026-11-22-tactic-blocks.md](../development/design-reviews/2026-11-22-tactic-blocks.md): approve with changes, all
 eleven findings applied, see "Review response"). Plan row TB2, piece F of

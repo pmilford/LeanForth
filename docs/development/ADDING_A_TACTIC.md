@@ -124,20 +124,27 @@ s" assumption" tac-k-assumption lf-tactic-lean!
   at its `}`, as Lean's), and its row names the frame's mode with
   `lf-tactic-mode! ( mode kind -- )`: `lf-mode-done` (the default: Lean's
   closeUsingOrAdmit, no goal left at its end, 89), `lf-mode-nested`
-  (Term.runTactic: a fresh recover, its unsolved goals always reported)
+  (Term.runTactic: a fresh recover, its unsolved goals reported when its
+  errToSorry, the frame's `tfr-sorry`, is true, else thrown)
   or `lf-mode-focus` (the goals left before the others), or, over every
   goal with `lf-tac-all ( i -- )`, `lf-mode-per-goal` (Lean's all_goals:
   the block once on each goal not solved when reached, the goals left in
-  order; blocks slice 2); a new mode is
+  order; blocks slice 2), or a handler (blocks slice 3): `lf-mode-try`,
+  `lf-mode-first` (its `|` alternatives by `lf-tac-alternative`),
+  `lf-mode-repeat`, `lf-mode-any`; a new mode is
   `lf-block-mode ( open-xt end-xt fail-xt|0 flags -- mode )` with the
-  flags `lfr-admits`, `lfr-no-recover`, `lfr-fresh-recover`; a mode's end
+  flags `lfr-admits`, `lfr-no-recover`, `lfr-fresh-recover`, `lfr-saving`
+  (a save before a step of its own when it holds none: only a frame
+  holding a save takes an error back) and `lfr-last-bare` (none before
+  its last step); `lfr-keep ( frame -- )` keeps a held save; a mode's end
   may run the block's steps again with `lf-tac-again ( frame -- )`
   (`tactics/blocks.fs`; `tactics/have.fs`'s `by-have-by:`). A tactic Lean
   writes as a sign, not a `by-` word, registers with `lf-tactic-sign:`
   (`{`, `<;>`: its shape `tac-shape-then`, the reader's then-step). An error of Lean's logged class (throwOrLogError, a term that
   does not elaborate) is raised with `lf-tac-log-fail ( code -- )` or
   `lf-tac-logged ( i*x xt -- j*x )`: final while the block recovers
-  (`lf-tac-recover? ( -- flag )`), else thrown; `lf-tac-no-recover ( i*x
+  (`lf-tac-recover? ( -- flag )`) and keeps errToSorry, 490 (unsupported)
+  instead while a save is open, else thrown; `lf-tac-no-recover ( i*x
   xt -- j*x )` runs xt as Lean's withoutRecover (try's and first's
   alternatives but the last).
 - A tactic that takes Lean's location (`at h ⊢`) is registered with a

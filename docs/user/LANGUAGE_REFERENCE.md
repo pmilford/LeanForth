@@ -1790,14 +1790,132 @@ the first half first. Lean: `constructor` / `all_goals constructor` /
 Narrower than Lean (each an answer, never a wrong acceptance): where
 Lean's `all_goals` (and so `<;>`) logs an error, admits that goal, runs
 the other goals and aborts at the end, LeanForth stops at the first error
-(the owner's decision 6; the same verdict and the same first error). That
-error is final when the block recovers (no handler can take it back), as
-Lean's logged error, so inside slice 3's `any_goals`, where Lean may roll
-the logged error back, LeanForth will reject: stricter, never laxer, to be
-settled with the coordinator's rule in slice 3. A name given by t1 and used
+(the owner's decision 6; the same verdict and the same first error). The
+error goes on to the blocks around it, as Lean's abort does: a
+`by-any-goals` pass takes it back with the pass (slice 3), a brace or the
+proof's `by` keeps it (final). A name given by t1 and used
 after the chain on a goal that lacks it is 76 (malformed elaboration)
 where Lean says unknown identifier (`w-then-name.lf`; both reject,
 TACTIC_STATUS row NR).
+
+**Tactic blocks, slice 3: `by-try`, `by-first`, `by-repeat`, `by-any-goals`**
+(plan row TB2, piece F; design [TACTIC_BLOCKS.md](../design/TACTIC_BLOCKS.md); tested on
+its branch `tb2-blocks3`, not merged, not done; `src/front/tactics/blocks.fs` over the
+runner's handlers in `src/front/tactic-run.fs`; tests in `tests/front/tactics/blocks-3/`).
+Each is a block closed by `by-end`; the steps inside may be any tactics or blocks. A
+handler block takes back only Lean's own errors: a refusal of LeanForth's (not supported,
+no room, out of fuel, an internal fault) passes through every one of them.
+
+| Mathematics | LeanForth | Lean |
+|---|---|---|
+| try an argument; if it fails, as if not tried | `by-try ' k by-exact by-end` | `try exact k` |
+| the first of several arguments that works | `by-first \| ' k by-exact \| ' h by-exact by-end` | `first \| exact k \| exact h` |
+| the argument again until it no longer applies | `by-repeat by-constructor by-end` | `repeat constructor` |
+| the argument in each case where it works | `by-any-goals ' h by-exact by-end` | `any_goals exact h` |
+| try the argument in every case left | `by-constructor <;> by-try ' h by-exact by-end` | `constructor <;> try exact h` |
+
+- `by-try tacs by-end` is Lean's `try tacs` (Init/Tactics.lean:445, `first | tacs | skip`):
+  when the block fails with Lean's error, the proof goes on from the state as it was at
+  `by-try` (goals, assignments, names, step log); the tactics inside run without Lean's
+  error recovery, so an error Lean would log there is thrown and taken back.
+  `by-try ' k by-exact by-end ' h by-exact` proves `a = b` (`try_skip`).
+- `by-first | tacs | tacs ... by-end` is Lean's `first` (BuiltinTactic.lean:631-641): each
+  alternative is begun by `|` and runs on the state as it was at `by-first`; the first that
+  ends is kept and the rest never run; every alternative but the last runs without error
+  recovery; the last runs as the block around it does, and its error is the block's
+  (`w-first-all.lf`, 96). One alternative alone is that block. An alternative that closes a
+  goal and then fails is rolled back whole (`first_rollback`). Names given in the
+  alternative that ran stay after `by-end` (`names_first`).
+- `by-repeat tacs by-end` is Lean's `repeat` (Elab/Tactic/Repeat.lean:17-26): the block again
+  and again, without error recovery, until a pass fails; that pass is put back, the earlier
+  ones kept. A block that never fails is stopped by the run's step fuel: error 91 (exit 3),
+  never a loop.
+- `by-any-goals tacs by-end` is Lean's `any_goals` (BuiltinTactic.lean:256-270): the block on
+  each goal alone, in order; where it fails that goal is kept as it was; the goals left are
+  those of each pass, in order. It fails only when it ends on no goal: 469, Lean's "Tactic
+  failed on all goals:" at `by-any-goals` (also with no goal at all; Lean prints the block's
+  text after it, LeanForth does not). A failing `by-all-goals` or `<;>` inside a pass is
+  taken back with the pass (`any_all_goals`, `any_chain`).
+- `t <;> by-try ... by-end` and `t <;> by-first ... by-end`: a block is one t2 (`try_then`,
+  `first_then`).
+- Errors: an empty `by-first` or alternative 85; a tactic before the first `|` 72; `|`
+  where no `by-first` or `by-induction-with` is innermost 83.
+
+A worked theorem with each word (from `try.lf`, `first.lf`, `repeat.lf`, `any-goals.lf`), each
+checked with `bin/leanforth check --env tests/front/decide-slice.ndjson --elab-data
+tests/front/decide-slice.elab.ndjson FILE.lf`:
+
+```forth
+theorem try_partial
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor
+  by-try ' h by-exact ' h by-exact by-end
+  ' h by-exact
+  ' k by-exact
+end try_partial
+```
+
+Mathematically: a = b ∧ b = a splits in two; the attempt to prove both parts by h proves
+the first and fails on the second, so it is dropped whole, and h and k prove the parts.
+Lean: `constructor` / `try (exact h; exact h)` / `exact h` / `exact k`.
+
+```forth
+theorem first_then
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor <;> by-first | ' k by-exact | ' h by-exact by-end
+end first_then
+```
+
+Mathematically: in each part, k if it fits, else h. Lean: `constructor <;> first | exact k |
+exact h`.
+
+```forth
+theorem repeat_ctor
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = a b = ∧ b a = ∧
+:= by
+  by-repeat by-constructor by-end
+  ' h by-exact
+  ' h by-exact
+  ' k by-exact
+end repeat_ctor
+```
+
+Mathematically: split conjunctions until the first part is an equation, then prove the
+three parts. Lean: `repeat constructor` / `exact h` / `exact h` / `exact k`.
+
+```forth
+theorem any_some
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  a b = b a = ∧
+:= by
+  by-constructor
+  by-any-goals ' h by-exact by-end
+  ' k by-exact
+end any_some
+```
+
+Mathematically: h proves the parts it fits (a = b); k the one left. Lean: `constructor` /
+`any_goals exact h` / `exact k`.
+
+Narrower than Lean (each an answer, never a wrong acceptance): where Lean logs an error and
+goes on (a term that does not elaborate, a brace that fails, under error recovery) while a
+block that may still take it back is open (a `by-any-goals` pass, or an alternative or
+`by-try` around a block that recovers again, such as `by-have-by:`), LeanForth cannot tell
+whether a later failure will take the message back: it answers 490, not supported yet
+(exit 2), "Lean logs this error and goes on; a block around may take it back: not followed
+yet" (`u-any-term.lf`, `u-any-brace.lf`, which Lean rejects; `u-any-gap.lf`, which Lean
+accepts: the known gap, until "log and carry on, as Lean"). The same holds for an error a
+tactic's own alternatives may take back (a macro's rules). Outside such a block the error
+is Lean's rejection, as before.
 
 A statement's hypothesis is written with a tick when it stands alone,
 `' h by-apply`, because its type is not unfolded to count its arguments

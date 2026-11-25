@@ -17,7 +17,7 @@ core-Lean proof (column "Compared with").
 Pieces named in the last column: **A** shapes (done), **B** holes `?_` `_` (done for refine, exact,
 apply and have where unification fills them, batch 3b; the rows say what is left), **C** anonymous
 constructor (done, `<< >>`, batch 3c), **D** locations (done for hypotheses and the goal; written `at[ ]` since batch 3b), **E**
-cases and patterns, **F** blocks (slice 1 done: braces, `by-focus`, `by-have-by:`; slice 2 tested on its branch `tb2-blocks2`, not merged: `<;>`, `by-all-goals`; slice 3 to come), **G** macro word (done), **NL** name lists (done for intro, revert,
+cases and patterns, **F** blocks (slice 1 done: braces, `by-focus`, `by-have-by:`; slice 2 done: `<;>`, `by-all-goals`; slice 3 tested on its branch `tb2-blocks3`, not merged: `by-try`, `by-first`, `by-repeat`, `by-any-goals`), **G** macro word (done), **NL** name lists (done for intro, revert,
 clear and rename_i, batch 3b; a list sits between its bracket word and `]`, over lines since batch 3c), **FE2** `→`, `∀`, `fun` in statements
 and terms, **REFL** Lean's `@[refl]` lemma set brought over with the elaboration data,
 **NR** names resolved as Lean does everywhere (unknown identifier messages), **LC** a local
@@ -30,11 +30,11 @@ Elab/Tactic/ElabTerm.lean:31-39; `closeUsingOrAdmit`, Basic.lean:351-361). LeanF
 final there (`tactic-run.fs`'s `lf-tac-log-fail`, `lf-tac-logged`, the loop's admitting
 frames): no try or first may take one back, and the run stops at it, the same verdict. With
 recover false (a try's or first's alternative that is not the last) they are thrown, as Lean's,
-with one exception: Lean's term elaborator has a flag of its own, errToSorry, which
-withoutRecover clears and a have-by's fresh Tactic.run does not set again, so today a term error
-in a have-by inside a block that does not recover is final where Lean throws it. That is
-stricter than Lean, never laxer; no text can reach it until by-try and by-first exist, and
-blocks slice 3 models the flag (TACTIC_BLOCKS.md 4, the frame field `tfr-sorry`).
+with Lean's term-elaborator flag errToSorry modelled since blocks slice 3 (the frame field
+`tfr-sorry`, on branch `tb2-blocks3`): withoutRecover clears it and a have-by's fresh
+Tactic.run does not set it again, so a term error, or the unsolved goals, of a have-by inside a
+block that does not recover are thrown, as Lean's (the review's Q8 is accepted). A logged error
+while a handler's save is open answers 490, unsupported (the coordinator's rule).
 The pinned-Lean twins of these classes inside `any_goals` come with blocks slice 3, which builds
 the handlers that can tell them apart; slice 1's unit tests pin them with probe handlers
 (`tests/front/tactics/blocks-1/test.fs`).
@@ -75,7 +75,10 @@ the handlers that can tell them apart; slice 1's unit tests pin them with probe 
 | `by-have-by:` | `have h : T := by tacs` (Lean, Init/Tactics.lean:942; Term.runTactic, Elab/SyntheticMVars.lean:474-537) | Lean | T's elaboration errors; its unsolved goals (always); an error leaving its block when the block around recovers | as `by-have:`'s name, binders and patterns (`_`: 99); its unsolved goals told at `by-have-by:`, Lean's at `by` | 99 / place differs | as `by-have:`'s |
 | `<;>` | `t1 <;> t2`, the macro `focus (t1; all_goals t2)` (Lean, Init/Tactics.lean:451-456) | Lean | any error of t2 (all_goals logs it, admits that goal, aborts at the end) | where Lean logs t2's error on a goal and runs the others, LeanForth stops at the first (the same verdict and first error); final where the block recovers, so inside slice 3's `any_goals` it will reject where Lean may roll the logged error back; a name t1 gave used on a goal that lacks it: 76 where Lean says unknown identifier (row NR) | rejected / 76 (message differs) | log and carry on (plan row); slice 3 |
 | `by-all-goals` | `all_goals` (Lean, BuiltinTactic.lean:229-253) | Lean | any error of its block (logged, the goal admitted, aborts at the end) | as `<;>`'s | rejected | as `<;>`'s |
-| `try`, `first`, `any_goals`, `repeat` | (Lean) | | not built |  | no word | F, slice 3 |
+| `by-try` | `try` (Lean, Init/Tactics.lean:445: `first \| tacs \| skip`) | Lean | none: its block runs without recover (a have-by inside it recovers again, its errToSorry false: its term errors and unsolved goals are thrown, as pinned Lean's) | an error Lean logs in a block inside it that recovers again (a brace in a have-by) while its save is open: 490 | unsupported | log and carry on (plan row) |
+| `by-first` | `first` (Lean, BuiltinTactic.lean:631-641) | Lean | the last alternative's, as the block around it; the others none (withoutRecover) | as `by-try`'s | unsupported | log and carry on |
+| `by-repeat` | `repeat` (Lean, Elab/Tactic/Repeat.lean:17-26) | Lean | none (withoutRecover) | a block that never fails ends in step fuel (91), where Lean ends in maxHeartbeats | exhausted | — |
+| `by-any-goals` | `any_goals` (Lean, BuiltinTactic.lean:256-270) | Lean | its block's (recover kept): a term error, a failing brace, a have-by's unsolved goals in a pass | an error Lean logs in a pass: 490, since a later failure of the pass would take it back (`u-any-gap.lf`: Lean accepts); Lean prints the block's text after 469's message, LeanForth does not | unsupported / message shorter | log and carry on |
 | `by-refine` | `refine` (Lean) | Lean | its terms' elaboration errors | a `?: NAME` some metavariable has (findUserName? reuse, 139); a hole argument left open (99) and an implicit argument left open (95, message differs) as exact's; the place of error 461 (a `_` left open, Lean's message and context): LeanForth reports it at the step's word, Lean at the hole; `refine'` not built | 139 / 99 / 95 / 461 (place differs) | mvarArgNames; small batch |
 | `<< >>`, `⟨ ⟩` | anonymous constructor `⟨ ⟩` (Lean, Elab/BuiltinNotation.lean:43) | Lean | its elaboration errors (the term's) | where Lean postpones it (no expected type, an expected metavariable application, an operand of `+`); an expected pi (Lean: "not an inductive type"); an item of another type (Lean: application type mismatch); a private constructor; a type over 30 characters in the message (Lean indents it); the error's place: LeanForth's step word with `<<` second, Lean's `⟨` | 132 / 133 / 131 / 139 / message differs / place differs | FE2 postponing; coercions FE4; small batch |
 | `by-exists[ ]` | `exists` (Lean, Init/Tactics.lean:1293) | Lean | its terms' elaboration errors | what `<< >>`, `by-refine` and `by-trivial` lack (trivial's unsupported rules make it unsupported) | as those | as those |
