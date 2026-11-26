@@ -178,3 +178,174 @@ All code fixes are in `5da9a111` (on `12334f6c`); the record is the commit after
 - **Finding 13**: documented in `5da9a111` (D.11: field notation, `HAdd Nat Nat Bool`); plan row 9.4.8z12 (g).
 - **S1**: fixed in `5da9a111` (`tfr-passes`, an alias of `tfr-at` at the record). **S2**: plan row 9.4.8z12 (a). **S3**: fixed in `5da9a111` (`tgz-with`). **S4**: fixed in `5da9a111` (comment). **S5**: plan row 9.4.8z12 (b).
 - **Baseline entries**: made in `5da9a111` as the owner approved on 2026-11-26 (OWNER_DECISIONS.md, last section): done 1, funext 2, generalize 2, infer-instance 1, skip 1, by hand; no existing entry raised.
+
+## Re-check (2026-11-26)
+
+Range reviewed: 12334f6c..727d4c72. The code fix is 5da9a111 and the record is 727d4c72. Findings: 1 blocking, 1 medium, 3 low. Verdict: **blocking**, because of finding 1 (the iterate bound). The local-instance fix (point 1 of your brief) has no blocking finding.
+
+### Findings
+
+**1. Blocking: the `by-iterate` bound misses the other blocks, so LeanForth accepts proofs that pinned Lean refuses with "maximum recursion depth has been reached".**
+- **Where:** `src/front/tactics/iterate.fs:40-48` (`tit-weight`, `tit-weights`, `tit-bounded`, `tit-open`).
+  - Only iterate frames are weighed.
+  - The weight is checked only when an iterate opens.
+  - The comment at `:16-20` ("128 … leaves room for the blocks around") is false.
+- **Probes** (LeanForth on the head gives exit 0; Lean refuses):
+  - `i_try_36`: 36 nested `by-try` around `126 by-iterate by-skip by-end`. Lean accepts 35 and fails from 36.
+  - `i_anyg_48`: 48 nested `by-any-goals` around the same iterate. Lean accepts 40 and fails at 48.
+  - `i_haveby_20`: nested `by-have-by:` bodies around the same iterate. Lean accepts 17 and fails from 18.
+  - `j_iter_out_try_36`: `126 by-iterate` whose body is 36 nested `by-try` around `by-skip`. Lean accepts 20 and fails at 36. Blocks opened inside an iterate are never checked at all.
+- **Older than the branch, same cause (no iterate involved):**
+  - `j_haveby0_40` and `j_haveby0_60`: Lean accepts 30 nested have-by and fails at 40.
+  - `j_try0_80` and `j_try0_100`: Lean's one-line twin accepts 70 nested `try` and fails at 80 (at parse time).
+  - LeanForth accepts all four.
+- **Lean's cost per level, measured:**
+  - iterate n: about 2n+3 levels
+  - try: about 7
+  - first, any_goals, all_goals: about 5.5
+  - have-by: about 14
+  - `{ }`: about 0 (60 nested pass)
+  - repeat: a loop (`Elab/Tactic/Repeat.lean:17-26`), constant depth
+  - the limit, maxRecDepth: 512
+- **Fix:** one recursion budget in the runner, checked whenever any block opens. It replaces the iterate-only walk.
+
+```forth
+\ tactic-run.fs: Lean's maxRecDepth (512) over the open blocks, at every
+\ block's open. Units of two levels (pinned Lean 4.35.0, 2026-11-26):
+\ iterate n: n + 2 (2n + 3 levels); a have-by body: 8 (14); any other
+\ block: 4 (try 7, first and any_goals about 6).
+240 constant lfr-rec-most              \ 480 levels, 32 left for the rest
+: lfr-weight ( frame -- w ) dup tfr-mode @ tbm-weight @ execute ;
+: lfr-weights ( -- w ) 0 lfr-depth 0 ?do i lfr-frame lfr-weight + loop ;
+: lfr-rec-check ( -- ) lfr-weights lfr-rec-most > if lf-tac-unported then ;
+\ the weight set per mode after lf-block-mode (default ' lfr-block-weight, : lfr-block-weight ( frame -- w ) drop 4 ;)
+\ iterate.fs: : tit-weight ( frame -- w ) tit-count 2 + ;   ' tit-weight tit-mode lf-mode-weight!
+```
+
+- **Tests to add** for each wrapper, on both sides of Lean's limit: try 35/36, any_goals 40/48, have-by 17/18 around iterate 126; iterate 126 around 20/36 tries; have-by 30/40 and try 70/80 with no iterate.
+- **Docs:** update `LANGUAGE_REFERENCE.md:2014` and D.11 (around `:3010-3017`).
+- If the no-iterate part is not fixed in this branch, give it a plan row.
+
+**2. Medium: the local-instance tests do not cover the paths the Resolution claims.**
+- The Resolution says obtain/rintro, generalize and let locals are covered, but `tests/front/tactics/local-instances/test.fs` tests only the header, have-by and revert-then-intro.
+- My probes show that these paths work today, but nothing pins them:
+  - `by-let:` (li10; Lean's term uses e)
+  - `by-have:` with a term (li09)
+  - `by-obtain[` (li11)
+  - `by-generalize:` (li12, li18)
+  - `by-intros` (li20)
+  - rename keeping the mark (li13)
+  - clear removing it (li14: accepted, term equal to Lean's)
+- The transparency of isClassExpensive? is not pinned either: planted fault F1 (below) survives every branch test.
+- **Fix:** add these as unit tests or as `u-`/accepted `.lf` files with Lean twins. Include `True Decidable id explicit: d` (li01/li01b): `id` is `implicit_reducible` (Prelude.lean:131), so Lean does not treat d as a local instance and the text must be accepted with the global instance.
+
+**3. Low: coverage lost by the fix (documented, never accepting a wrong result).**
+- (a) The guard asks only for the class (`instances.fs:418-422`). So `(d : Decidable True)` blocks `Decidable (a = b)` (139), where Lean tries d, fails to unify and takes the same global instance. Before the fix this was accepted with Lean's term. Name it under plan FE3 or 9.4.8z12.
+- (b) A local whose type is a pi with a reducible-definition head under the binders now stops with error 93.
+  - Probe r2, `' Nat.succ_ne_zero by-have`: exit 0 before the fix, exit 2 now (error 93); Lean accepts.
+  - `LANGUAGE_REFERENCE.md:3043-3046` should name code 93 and the common way to reach it (`by-have` of a library lemma such as Nat.succ_ne_zero).
+  - The port of whnf under binders is planned in 9.4.8z12 (e).
+
+**4. Low: a fidelity detail of withNewLocalInstanceImp.**
+- Lean skips implementation-detail locals (`Meta/Basic.lean:1417-1422`, `isImplementationDetail`); `li-classed` (`local-instances.fs:60-62`) does not.
+- No word in `src/` makes such a local today, and the effect would only be more "not supported yet" answers.
+- **Fix:** `dup lf-local-detail? if outcome-ok exit then` at the start of `li-classed`, or a comment saying why it is not needed.
+
+**5. Low (reuse, mostly planned).** `lf-class-whnf?` is the complete isClass?, but the other isClass? callers keep the quick test, which answers unsupported where Lean goes on: `elab-pending.fs:261` (`lf-elab-class?`), `simp/rewrite.fs:89` (`sr-class?`), `synth.fs:714`, and the fun-info/congr-thms path. Plan row 9.4.8z12 (e) moves `lf-class-whnf?` beside `lf-class?`; add to that row that these callers switch to it, or say why they keep the quick test.
+
+### Transparency and whnf of the port (point 1c)
+
+The port follows Lean's lines:
+- **isClassQuick?:** run at the ambient transparency (`getDefInfoTemp`, Basic.lean:1363-1371; `it-defn-temp?` reads the same rule).
+- **isClassExpensive?** (Basic.lean:1554-1556): whnf under withReducible (`lf-with-reducible`, `lf-meta-whnf`).
+- **isClassApp?** (Basic.lean:1544-1552): after whnf only a class constant at the head counts. Turning "undefined" into none through `li-none` is right because whnfR leaves no reducible head.
+
+Where it differs, the difference is safe:
+- Under binders a body that needs whnf is unsupported, where Lean opens the telescope.
+- Failures are passed on as outcomes, where Lean's isClass? catches them and answers none.
+
+It cannot loop: there is no recursion, and whnf has its own fuel (whnf.fs:74-81; running out gives an exhausted outcome). The deferred `lf-local-classed` is set only at load time (telescope.fs:127, local-instances.fs:63). No new VARIABLE, VALUE or table is written after loading.
+
+### Probe table (LeanForth head 727d4c72 vs pinned Lean 4.35.0)
+
+"Term equal" means LeanForth's terms equal Lean's node for node (`sx` dump). Every shape below that Lean refuses was **accepted before the fix** (12334f6c), and every class-typed local was accepted before with the global instance.
+
+| Probe | Shape | LeanForth now | Lean | Result |
+|---|---|---|---|---|
+| li02 | `(d : outParam (Decidable True))`, then `decide` by rfl | 139, exit 2 | refused | fixed (accepted before) |
+| li04, li05 | `{d}` and `⦃d⦄` : Decidable True, rfl | 139 | refused | fixed |
+| li06, li20 | revert d, then `by-intro:` / `by-intros`, rfl | 139 | refused | fixed |
+| li08 | `by-have-by:` e, then rfl of decide | 139 | refused | fixed |
+| li09 | `by-have:` e := instDecidableTrue, rfl | 139 | refused | fixed |
+| li11 | `by-obtain[` d from ∃ x, instDecidableTrue = x, rfl | 139 | refused | fixed |
+| li12 | `by-generalize:` instDecidableTrue = d, rfl | 139 | refused | fixed |
+| li26 | the 139 inside `by-try` | exit 2 (not swallowed) | refused | safe |
+| li03, li23 | `(d : DecidableEq Nat)`, `outParam (DecidableEq Nat)`, infer `Decidable (a = b)` | 139 | accepted with d | safe |
+| li07 | revert DecidableEq d, `by-intro[ e ]`, infer | 139 | accepted with e | safe |
+| li10 | `by-let:` e, infer | 139 | accepted with e | safe |
+| li13 | `by-rename:` of d, infer | 139 | accepted with e2 | safe |
+| li18 | generalize, then infer | 139 | accepted with d | safe |
+| li25 | `' Nat.decLe by-have` (∀ n m, Decidable (n ≤ m)), infer | 139 | accepted with this | safe |
+| li01, li01b | `(d : id (Decidable True))`, infer / rfl | accepted | accepted (no local instance) | term equal |
+| li14 | clear d, rfl | accepted | accepted | term equal |
+| li15, li16, li17 | `a ≠ b`, `¬ a = b`, `Fin a`, infer | accepted | accepted | term equal |
+| li27 | `by-cases:` a ≤ b | accepted | accepted | term equal |
+| r1, r3, r4, r5, r7, r8, r9 | `by-have` of le_refl, lt_irrefl, add_zero, zero_le, not_lt_zero, le_succ; `(hl : a ≤ b)` | accepted | accepted | term equal |
+| r2 | `' Nat.succ_ne_zero by-have` | 93, exit 2 (exit 0 before) | accepted | lost coverage (finding 3b) |
+| r6 | `' instDecidableEqNat by-have` | 136 (also before) | accepted | older gap |
+| li19 | natural-form `forall` in a statement | error 70 | n/a | statement binders cannot be written; kernel form runs no instance search |
+| i_try_35 / i_try_36, 40, 60 | try×k around iterate 126 | accepted | 35 accepted / 36+ refused | **blocking** |
+| i_anyg_40 / i_anyg_48 | any_goals×k around iterate 126 | accepted | 40 accepted / 48 refused | **blocking** |
+| i_haveby_20 | have-by×20 around iterate 126 | accepted | refused (fails from 18) | **blocking** |
+| j_iter_out_try_20 / 36 | iterate 126 around try×k | accepted | 20 accepted / 36 refused | **blocking** |
+| i_focus_35, 40, 60 | `{ }`×k | accepted | accepted | same |
+| i_rep_36 | repeat of a body that never fails | 91, exit 3 | heartbeat timeout | both refuse |
+| i_first_40/48, i_haveby_30/40, i_rep_60 | — | error 39 (line too long) | — | not reached |
+| j_haveby0_30 / 40, 60; j_try0_80, 100 | nesting with no iterate | accepted | 30 accepted / 40+ refused; try 70 accepted / 80 refused | older than the branch, same cause |
+
+### Planted faults (scratch copy of the head)
+
+| Fault | Branch tests | My probes |
+|---|---|---|
+| F1: `lf-class-whnf?` without `lf-with-reducible` (local-instances.fs:53), so isClassExpensive? runs at default | **survives** local-instances test.fs and batch-small-1 test.fs and check.py | li01 and li01b give 139 where Lean and the head accept |
+| F2: `tit-weight` without the mode test (iterate.fs:42) | caught (batch-small-1b test.fs:92, 126 alone gives 99; caught only incidentally, through the root frame) | — |
+| F3: `lf-let-decl-new` pushing its local unmarked (telescope.fs:136) | caught (local-instances test.fs, the have's local) | under the fault li08 is accepted where Lean refuses. The same fault limited to the dependent let would survive, because no test has a class-typed `by-let:` |
+
+### Reuse and style
+- **Reuse searched:**
+  - `check-duplicates.py` in the worktree: 187 baseline groups, none new or grown.
+  - `--new-words --base 12334f6c --head 727d4c72`: none.
+  - `check-lib-callers.py`: ok.
+  - Grepped `src/` for isClass?, isClassExpensive? and isClassApp? ports and callers of `lf-class?`. No copy found; finding 5 is the only reuse point.
+  - Grepped every path that makes or pushes a local (`lf-local-new`, `lf-view-push`, `lf-local-decl-new`, `lf-let-decl-new`, `lf-view-refvar`, `lf-local-renamed`). Each one marks or keeps the mark as Lean does: defeq's binder locals are not marked, matching isDefEqBindingAux, and replaceLocalDeclDefEq keeps its local instances.
+- **Metrics** (`forth-metrics.py --words 10` on local-instances.fs, iterate.fs, telescope.fs, elab-decl.fs): 141 words, 83% of one or two lines, none over 5 lines, every word has a stack comment, no globals, no locals, 6 deep shuffles (all in telescope.fs), 39 return-stack operations, no long lines.
+- **Style:** no new style findings in the re-checked words.
+
+### Not checked
+- gforth-fast and Gforth 0.7.3.
+- `make cover-changed`, `make mutants` on the implementer's faults, `check.py --lean`.
+- Lean's depth for nested first and have-by past LeanForth's line limit; `<;>` and all_goals in LeanForth.
+- Whnf fuel running out inside `lf-class-whnf?` (only the implementer's heap sweep covers refusals there).
+- The cost of the extra whnf for each pushed local, and fed mode.
+- li20-li27 on the pre-fix tree.
+
+### What I ran
+- `bin/leanforth check` on the decide slice, on scratch copies of 727d4c72 and 12334f6c (`git archive`).
+- `tests/front/elab-dump.fs` for the term dumps; pinned Lean 4.35.0 called directly on my twins.
+- The local-instances, batch-small-1 and batch-small-1b `test.fs` files and the batch-small-1 and batch-small-1b `check.py` files, in a scratch copy, for the faults.
+- Everything under `ulimit -u 500`. No elan proxies, no make, no agents; no repository or worktree was modified.
+
+Probes, twins and the harness were in the re-checker's scratch folder (`probes/`, with the runner `run.sh`); a copy of the probes and twins is kept in the main checkout's `.claude/work/small-tactics-1-recheck-probes/` (machine-local).
+
+AI review does not replace the project's required human review.
+
+### Resolution (second fix round, 2026-11-26, branch `small-tactics-1-fix2`)
+
+The code fixes are `33e51e05`, `34dc834a` and `91ac4bb9` (on `727d4c72`); the record is the commit after them.
+
+- **Finding 1** (blocking): fixed in `33e51e05`. One bound in the runner (`tactic-run.fs`'s `lfr-weighed`, in `lfr-block-as`, so every block that opens is checked before its mode's open): each mode has a weight ( frame -- w ), a new field of the mode record (`mode-weight`, `lf-mode-weight!`, set while the modules load; no module-level state), in units of two of Lean's levels, and a block that would make the open blocks weigh more than `lf-tac-depth-most` (240: 480 of Lean's 512 levels) is 99 at its step, its frame taken off and its goals put back (`lfr-unopen`), as an ordinary unsupported step leaves them; iterate's own walk (`tit-most`, `tit-weights`, `tit-bounded`) is gone and `tit-weight` (count, at most the bound, and 2) is iterate's mode weight. The weights, each at least one level's cost on pinned Lean 4.35.0 in its costliest one-line spelling (measured on both sides of the limit around `iterate 126 skip`, 255 levels): the proof's `by` 4 (Lean about 7 levels), a have-by body 8 (`(have z : a = b := by { X; exact h })`: 16 accepted, 17 refused, 15.6 levels at most), `iterate n` n + 2 (2n + 3: 251 accepted, 252 refused), `repeat` 5 (`repeat ((X); fail)`: 27/28, 9.3), first's alternatives 0 (first itself 4: `first | (X)` 41/42, 6.1), any other block 4 (`try (X)` 35/36, 7.2; any_goals, all_goals and focus 41/42, 6.1; `(· X)` 40/45, 6.3; `(next => X)` 35/40, 7.1; `skip <;> try (X)` 16/18 and `skip <;> { X }` 30/34, so the then-block about 7.4; `{ X }` 200/250, 1.3). Without iterate: `try (...)` 72/74 and have-by 32/34. Written in layout Lean goes deeper (try 60, have-by 22 around iterate 126), so the one-line twins are the stricter reference. LeanForth accepts up to: 27 try, any_goals, all_goals, first, focus or braces around 126 by-iterate (Lean 35 and 41), 13 have-by or `<;>` try (Lean 16), 21 repeat (Lean 27), 27 try inside it (Lean 35), 29 have-by and 59 try alone (Lean 32 and 72), iterate 234 alone (Lean 251). The re-check's probes are all 99 now: i_try_36, i_anyg_48, i_haveby_20, j_iter_out_try_36, j_haveby0_40 and 60, j_try0_80 and 100. Tests: `tests/front/tactics/rec-depth/` (test.fs on both sides of LeanForth's bound and past Lean's for each block listed, the weights of every mode, the refused frame and goals, the nine-digit count; check.py: `u-rd-try.lf` and `u-rd-have.lf` exit 2 with 99, and with `--lean` pinned Lean accepts rec-depth.lean's 13 theorems and refuses rec-depth-wrong.lean's 13 with the depth error). Faults `sm1-depth-weight-ignored`, `-check-skipped`, `-have-by-light`, `-repeat-light`, `-alternative-weighed`, `-refused-frame-kept`, `-refused-goals-kept`, `-bound-off-by-one`, and the re-pointed `sm1-iterate-zero-runs`, `-any-count`, `-unbounded`, `-own-weight-only`: each caught. Verdicts moved by the bound, all in LeanForth's own tests: `u-it-deep.lf` (200 now accepted: made 235), iterate's unit tests at 127 and 62 + 63 (now accepted: 235 and 116 + 117), and `tests/front/tactic-run.fs`'s 1,000 nested blocks (accepted before; Lean refuses that depth): it keeps its purpose (heap frames, no host recursion) in a test mode that weighs nothing, and pins the 99 at the 60th block otherwise. Docs: LANGUAGE_REFERENCE.md D.2 (the bound and its weights), the `by-iterate` row and D.11; iterate.fs's comment.
+- **Finding 2** (medium): fixed in `34dc834a`. `tests/front/tactics/local-instances/test.fs` pins by-let:'s local (li10), by-have: with a term (li09), by-obtain[ (li11), by-generalize: (li12, li18), by-intros after revert (li20), by-rename: keeping the mark (li13) and by-clear removing it (li14, accepted), and `True Decidable id explicit: d` accepted with the global instance (li01, li01b). F1 is `sm1-local-instance-default-whnf` and F3 limited to the dependent let `sm1-local-instance-let-unmarked`, both caught by that file.
+- **Finding 3**: (a) plan row 9.4.8z12 (e) in `91ac4bb9` (the guard compares the full type); (b) documented in `91ac4bb9` (LANGUAGE_REFERENCE.md D.11: error 93, `' Nat.succ_ne_zero by-have`), its port 9.4.8z12 (e).
+- **Finding 4**: fixed in `91ac4bb9`: `li-classed` skips an implementation-detail local (`lf-local-detail?`), tested with such a local of a class's type; fault `sm1-local-instance-detail-classed`, caught.
+- **Finding 5**: plan row 9.4.8z12 (e) in `91ac4bb9`: `lf-elab-class?`, `sr-class?`, `synth.fs:714` and the fun-info/congr-thms path switch to `lf-class-whnf?`.
+- **Style**: `tactic-run.fs` stays at its baseline (3 deep shuffles, 21 return-stack operations, no long word); no baseline entry raised.
