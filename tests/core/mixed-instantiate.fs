@@ -472,7 +472,31 @@ T{ outcome-ok u-end 7 u-rmemo lf-rmemo-begin 0 u-find outcome-ok u-end -> true }
 \ unreachable, after the next call begins.
 T{ u-call 0 u-keep 1 u-keep outcome-ok u-end u-call u-rmemo lf-rmemo-scratch memo-count -> 2 }T
 T{ u-rmemo lf-rmemo-empty u-rmemo lf-rmemo-count 7 u-rmemo lf-rmemo-begin 0 u-find -> 0 false }T
+\ A negative stamp is taken as 0 (stamps are >= 0): the call is numbered
+\ and never finds the entries of the scratch call whose number it names.
+T{ outcome-ok u-end u-call 0 u-keep outcome-ok u-end u-rmemo lf-rmemo-stamp @ u-rmemo lf-rmemo-begin
+   0 u-find u-rmemo lf-rmemo-scratch? -> false true }T
+outcome-ok u-end
 u-rmemo lf-rmemo-release
+\ A refused memo: the heap refuses the scratch memo, made second. The
+\ table is made, and a stamped call keeps, finds and, failing, has its
+\ entries cut as before; an unstamped call keeps nothing (a miss). The
+\ next call makes the scratch memo alone, the table's entries kept.
+create v-rmemo /lf-rmemo allot  v-rmemo /lf-rmemo erase
+: v-made ( -- n ) live-blocks @ 0 v-rmemo lf-rmemo-begin live-blocks @ swap - ;
+v-made 2/ constant memo-blocks  v-rmemo lf-rmemo-release
+: v-refused ( stamp -- ) v-rmemo lf-rmemo-release memo-blocks 1+ heap-refusals ! v-rmemo lf-rmemo-begin ;
+: v-live ( -- table? scratch? ) v-rmemo lf-rmemo-table memo-live? v-rmemo lf-rmemo-scratch memo-live? ;
+: v-keep ( offset -- ) n11 twice-0 rot v-rmemo lf-rmemo! ;
+: v-find ( offset -- flag ) twice-0 swap v-rmemo lf-rmemo@ dup if nip then ;
+: v-end ( outcome -- ) v-rmemo lf-rmemo-end ;
+T{ memo-blocks 0> 7 v-refused v-live heap-refusals @ -> true true false 0 }T
+T{ 0 v-keep 0 v-find outcome-ok v-end 7 v-rmemo lf-rmemo-begin v-live 0 v-find -> true true true true }T
+outcome-ok v-end
+T{ 7 v-refused 5 v-keep 5 v-find outcome-invalid v-end 7 v-rmemo lf-rmemo-begin 5 v-find -> true false }T
+outcome-ok v-end
+T{ 0 v-refused 0 v-keep 0 v-find outcome-ok v-end v-rmemo lf-rmemo-count -> false 0 }T
+v-rmemo lf-rmemo-release
 
 \ ---------------------------------------------------------------------------
 \ The lean walk (kernel/open-walk.fs, group kernel-speed-3), with steps
@@ -544,4 +568,22 @@ T{ fresh-app first-field u32@ fresh-app fresh-app first-field u32! fresh-app 1 i
 T{ closed-11 lf-open-closed? 5 lf-open-fuel ! closed-11 subst 1 lf-instantiate-rev lf-open-fuel @
    -> true closed-11 outcome-ok 4 }T
 T{ 0 lf-open-fuel ! closed-11 subst 1 lf-instantiate-rev lf-open-fuel @ -> -1 outcome-exhausted 0 }T
+\ The closed root's test of the stores' counts (lf-scratch-counts?) stands
+\ for the scratch mark's refusal: each family whose count is not valid
+\ (its seal broken) is refused, and the root is invalid, fuel unchanged.
+: counts-without ( store -- flag ) dup seal-flip lf-scratch-counts? swap seal-flip ;
+T{ lf-scratch-counts? lf-terms counts-without lf-levels counts-without lf-crefs counts-without
+   -> true false false false }T
+: closed-without ( store -- node outcome fuel )
+  5 lf-open-fuel ! dup seal-flip closed-11 subst 1 lf-instantiate-rev rot seal-flip lf-open-fuel @ ;
+T{ lf-terms closed-without -> -1 outcome-invalid 5 }T
+T{ lf-levels closed-without -> -1 outcome-invalid 5 }T
+T{ lf-crefs closed-without -> -1 outcome-invalid 5 }T
+\ A closed root under a scope makes the memo call its pass makes: the
+\ memo stamped with x's identity plus one, its base the table's count.
+: x-stamp ( -- stamp ) x lf-term-identity drop 1+ ;
+: memo-based? ( -- flag ) lf-open-memo dup lf-rmemo-base @ swap lf-rmemo-table memo-count = ;
+max-n lf-open-memo lf-rmemo-base !
+T{ 5 lf-open-fuel ! closed-11 subst scoped lf-open-fuel @ lf-open-memo lf-rmemo-stamp @ x-stamp =
+   memo-based? -> closed-11 outcome-ok 4 true true }T
 bye

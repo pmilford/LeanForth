@@ -17,10 +17,12 @@
 \ (memo-empty) when an unstamped call begins with it holding more than
 \ lf-rmemo-scratch-most entries, and its numbering begins again (group
 \ kernel-speed-3, the prototype's P1; until then every entry was taken
-\ out one by one at the call's end). A stamped call (a stamp other than
-\ 0) keeps its entries in the main table; one that fails has them taken
-\ out again (Algorithm R, as lib/htab.fs removes); one that succeeds
-\ keeps them, for later calls with the same stamp. A stamp names
+\ out one by one at the call's end). A stamp is >= 0; a negative one is
+\ taken as 0, so that it never names a scratch call's number. A stamped
+\ call (a stamp above 0) keeps its entries in the main table; one that
+\ fails has them taken out again (Algorithm R, as lib/htab.fs removes);
+\ one that succeeds keeps them, for later calls with the same stamp. A
+\ stamp names
 \ the substitution: a caller stamps only calls whose result for a node and
 \ offset the stamp alone fixes (mixed-open.fs: closing a term with the
 \ free variables of an inference scope, named by its innermost one; a new
@@ -37,9 +39,13 @@
 \ cells, values of two, whose check hook gives a value only while its
 \ result has the identity kept with it), made when first needed (a context
 \ that never substitutes holds no heap block) and freed with the context;
-\ a memo the heap cannot make or grow keeps nothing more: a miss. A call
-\ that THROWs (or never ends) leaves entries no later call finds, and the
-\ count shows them until the memo is emptied. Stamped entries are
+\ a memo the heap cannot make or grow keeps nothing more: a miss; each of
+\ the two is made again, alone, when a call begins with it not live. A
+\ call that THROWs (or never ends) leaves its entries: an unstamped call's
+\ no later call finds, and the count stops showing them when the next
+\ unstamped call begins (lf-rmemo-held!); a stamped call's stay in the
+\ table. The passes' recovery after a THROW (lf-open-reset,
+\ lf-mixed-rebuild-reset) empties both memos. Stamped entries are
 \ emptied with lf-rmemo-empty (inference does when a job starts) and when
 \ a stamped call begins with more than lf-rmemo-cap entries, which bounds
 \ the memory (about 50 bytes an entry).
@@ -100,7 +106,14 @@ end-structure
 : lf-rmemo-shape ( memo -- )
   >r lf-rmemo-kcells 2 r@ memo-init drop ['] lf-kept-node? r> memo-check! ;
 : lf-rmemo-release ( memo -- ) ['] memo-free lf-rmemo-both ;
-: lf-rmemo-make ( memo -- ) dup lf-rmemo-release ['] lf-rmemo-shape lf-rmemo-both ;
+\ Each memo made again only when it is not live (the heap refused it),
+\ the other's entries kept; the scratch memo's numbering begins again
+\ when it is made.
+: lf-rmemo-mend ( memo' -- flag )
+  dup memo-live? if drop false else dup memo-free lf-rmemo-shape true then ;
+: lf-rmemo-make ( memo -- )
+  dup lf-rmemo-table lf-rmemo-mend drop
+  dup lf-rmemo-scratch lf-rmemo-mend if lf-rmemo-restart else drop then ;
 : lf-rmemo-empty ( memo -- ) ['] memo-empty lf-rmemo-both ;
 
 \ A call. A stamped call's entries are the table's from the base on; an
@@ -123,15 +136,21 @@ end-structure
   1 over lf-rmemo-calls +! dup lf-rmemo-calls @ negate swap lf-rmemo-stamp ! ;
 : lf-rmemo-unstamped ( memo -- ) dup lf-rmemo-sweep dup lf-rmemo-held! lf-rmemo-number ;
 : lf-rmemo-begin ( stamp memo -- )
+  over 0< if nip 0 swap then
   2dup lf-rmemo-ready over if lf-rmemo-stamped else nip lf-rmemo-unstamped then ;
 \ The end of a call with its outcome: a stamped call that succeeded keeps
 \ its entries; any other stamped call's are taken out, newest first; an
-\ unstamped call's are left where no other call finds them.
+\ unstamped call's are left where no other call finds them; nothing is
+\ done when the memo the call keeps in is not live.
 : lf-rmemo-scratch? ( memo -- flag ) lf-rmemo-stamp @ 0< ;
+\ The memo a call's entries are in: the scratch memo for an unstamped
+\ call, else the table, the record's first field.
+0 lf-rmemo-table 0<> [if] .( replace-memo.fs: the table comes first) cr abort [then]
+: lf-rmemo-in ( memo -- memo' ) dup lf-rmemo-scratch? 0 lf-rmemo-scratch and + ;
 : lf-rmemo-keeps? ( outcome memo -- flag ) lf-rmemo-stamp @ 0<> swap ok? and ;
 : lf-rmemo-drop ( memo -- ) dup lf-rmemo-base @ swap lf-rmemo-table memo-cut ;
 : lf-rmemo-end ( outcome memo -- )
-  dup lf-rmemo-live? 0= if 2drop exit then
+  dup lf-rmemo-in memo-live? 0= if 2drop exit then
   dup lf-rmemo-scratch? if nip lf-rmemo-held! exit then
   tuck lf-rmemo-keeps? if drop else lf-rmemo-drop then ;
 
@@ -141,10 +160,6 @@ end-structure
 : lf-rmemo-key! ( node offset memo -- flag )
   >r swap lf-term-identity 0= if drop r> drop false exit then
   r@ lf-rmemo-key ! r> lf-rmemo-place true ;
-\ The memo a call's entries are in: the scratch memo for an unstamped
-\ call, else the table, the record's first field.
-0 lf-rmemo-table 0<> [if] .( replace-memo.fs: the table comes first) cr abort [then]
-: lf-rmemo-in ( memo -- memo' ) dup lf-rmemo-scratch? 0 lf-rmemo-scratch and + ;
 : lf-rmemo-entry ( memo -- key memo' ) dup lf-rmemo-key swap lf-rmemo-in ;
 : lf-rmemo@ ( node offset memo -- result true | false )
   dup >r lf-rmemo-key! 0= if r> drop false exit then

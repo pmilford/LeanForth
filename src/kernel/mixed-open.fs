@@ -254,7 +254,13 @@ defer lf-open-unchanged? ( node frames -- flag )
 \ The same tests in the same order for the lean walk of instantiate,
 \ instantiate_rev and the scope mode (open-walk.fs, group kernel-speed-3):
 \ a result, or false for a binary node to rebuild; the join is
-\ lf-open-update. Abstract keeps the visits above.
+\ lf-open-update. Abstract keeps the visits above, so the per-node
+\ decision is written twice, in step by hand: group kernel-speed-3
+\ changed only the passes its prototype measured and compared with main
+\ (instantiation, P3), and the walk's look and join are one pair of
+\ global DEFERs, so it has one client. Sending abstract through the walk,
+\ with its look and join from a walker record, so that this decision
+\ exists once, is plan row 9.4.8z9 (the shared replace walker).
 : lf-open-pair? ( x frames -- r outcome true | x false )
   2dup lf-open-skip? if drop outcome-ok true exit then
   2dup lf-open-known? if nip nip outcome-ok true exit then
@@ -341,7 +347,7 @@ defer lf-open-unchanged? ( node frames -- flag )
   lf-term-tag@ lf-term-binary-tag? lf-scratch-counts? and
   lf-open-frames dup frame-sound? swap frame-fuel @ 0> and and ;
 : lf-open-quick? ( node -- flag )
-  dup lf-open-closed? dup if drop lf-open-root? else nip then ;
+  dup lf-open-closed? if lf-open-root? else drop false then ;
 : lf-open-quick ( node -- node outcome )
   -1 lf-open-fuel +! outcome-ok
   lf-open-stamp ?dup if lf-open-memo lf-rmemo-begin lf-open-end then ;

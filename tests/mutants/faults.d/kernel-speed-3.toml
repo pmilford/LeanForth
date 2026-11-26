@@ -49,6 +49,33 @@ new = ''': lf-rmemo-in ( memo -- memo' ) lf-rmemo-table ;'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
 reason = "unstamped entries go into the stamped table, never taken out"
 
+# The fix round of the Forth review (2026-11-26): stamps >= 0, and a
+# refused memo remade alone.
+
+[[fault]]
+id = "ks3-rmemo-negative-stamp-kept"
+file = "src/kernel/replace-memo.fs"
+old = '''  over 0< if nip 0 swap then'''
+new = '''  '''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "a negative stamp names a scratch call's number and finds that call's entries"
+
+[[fault]]
+id = "ks3-rmemo-remake-both"
+file = "src/kernel/replace-memo.fs"
+old = '''  dup lf-rmemo-table lf-rmemo-mend drop'''
+new = '''  dup lf-rmemo-release dup lf-rmemo-table lf-rmemo-mend drop'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "a refusal of the scratch memo drops the stamped entries the table kept"
+
+[[fault]]
+id = "ks3-rmemo-end-needs-both-live"
+file = "src/kernel/replace-memo.fs"
+old = '''  dup lf-rmemo-in memo-live? 0= if 2drop exit then'''
+new = '''  dup lf-rmemo-live? 0= if 2drop exit then'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "with the scratch memo refused, a failed stamped call's entries stay in the table"
+
 # ---- P3: the lean walk of instantiation and the closed root.
 
 [[fault]]
@@ -142,3 +169,20 @@ old = '''  lf-open-data@ if dup lf-data-loose 0= swap lf-data-fvar? 0= and else 
 new = '''  lf-open-data@ if lf-data-loose 0= else false then ;'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
 reason = "a root holding a free variable is given back unvisited: a dead one is never met"
+
+[[fault]]
+id = "ks3-scratch-counts-always-true"
+file = "src/core/scratch-marks.fs"
+old = ''': lf-scratch-counts? ( -- flag ) 0 lf-scratch-families ['] lf-scratch-count-at? all? nip ;'''
+new = ''': lf-scratch-counts? ( -- flag ) true ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "a closed root comes back ok over a level or reference store whose count is not valid"
+quick = true
+
+[[fault]]
+id = "ks3-closed-root-scope-memo-skipped"
+file = "src/kernel/mixed-open.fs"
+old = '''  lf-open-stamp ?dup if lf-open-memo lf-rmemo-begin lf-open-end then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "a closed root under a scope skips the memo call: a crowded memo is not emptied at that call"
