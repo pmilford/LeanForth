@@ -8,7 +8,7 @@
 [[fault]]
 id = "mf2-step1-skipped"
 file = "src/front/instances.fs"
-old = '''  ['] it-class-pass it-ranks-pass ['] it-keys-ranks ok-and ;'''
+old = '''  ['] it-class-pass it-dt lf-rix-each ['] it-keys-ranks ok-and ;'''
 new = '''  it-keys-ranks ;'''
 test = "$GFORTH tests/front/instances-late.fs && $GFORTH tests/front/instances.fs"
 reason = "a record used unchecked: a root's build skips step 1, so instMulNat (class Add, filed under Mul) goes into Mul's tree unchecked and Mul's query answers instead of refusing (115)"

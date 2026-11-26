@@ -16645,9 +16645,9 @@ reason = "the §4 check accepts an instance recorded under another class"
 
 [[fault]]
 id = "fe-inst-rank-ignored"
-file = "src/front/instances.fs"
-old = ''': it-place ( v -- outcome ) dup it-rank it-ranked it-put ;'''
-new = ''': it-place ( v -- outcome ) dup it-rank 0 max 0 min it-ranked it-put ;'''
+file = "src/front/data-index.fs"
+old = ''': rix-place ( v rix -- outcome ) 2dup rix-rank swap rix-ranked slab-cell-put ;'''
+new = ''': rix-place ( v rix -- outcome ) 2dup rix-rank 0 max 0 min swap rix-ranked slab-cell-put ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "a root's values are not placed by rank (the tree loses Lean's child order and values)"
 
@@ -16694,8 +16694,7 @@ reason = "s1-synth review M4: an erased instance is a candidate"
 [[fault]]
 id = "fe-inst-verified-always"
 file = "src/front/instances.fs"
-old = '''  it-same-data dup it-status slab-count index? if it-status@ it-verified = else drop false
-  then ;'''
+old = '''  it-same-data dup it-dt lf-rix-record? if it-status@ it-verified = else drop false then ;'''
 new = '''  drop true ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "s1-synth review M4: every value reads as verified, a left-out one and an unchecked one too"
@@ -16719,8 +16718,8 @@ reason = "s1-synth review M4: getUnifyKeyArgs' numeral below the root (toNatLit?
 [[fault]]
 id = "fe-default-rank-ignored"
 file = "src/front/instances.fs"
-old = ''': it-dplace ( j -- outcome ) dup it-dvalue swap elab-default-rank it-defaults it-put ;'''
-new = ''': it-dplace ( j -- outcome ) dup it-dvalue swap drop 0 it-defaults it-put ;'''
+old = '''  dup it-dvalue swap elab-default-rank it-defaults slab-cell-put ;'''
+new = '''  dup it-dvalue swap drop 0 it-defaults slab-cell-put ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "s1-synth review M4: default instances are not placed by rank (Pow's gap lost)"
 
@@ -17315,8 +17314,8 @@ reason = "s1-synth re-check H1': an instance filed under its class's root key wi
 [[fault]]
 id = "fe-inst-key-refusal-forgotten"
 file = "src/front/instances.fs"
-old = '''  lf-dtree-root-key it-prepared it-refused ['] it-insert-ranked ok-and ;'''
-new = '''  lf-dtree-root-key it-prepared ['] it-insert-ranked ok-and ;'''
+old = ''': it-checks ( rix -- outcome ) drop it-root-checks it-refused ;'''
+new = ''': it-checks ( rix -- outcome ) drop it-root-checks ;'''
 test = "$GFORTH tests/front/instances-odd.fs"
 reason = "s1-synth re-check M1': a key difference (113) refuses only its own root, and queries of other roots still answer"
 
@@ -17338,9 +17337,9 @@ reason = "s1-synth re-check L3': the checks, trees and refusal of one read of th
 
 [[fault]]
 id = "fe-inst-rank-gap-read"
-file = "src/front/instances.fs"
-old = '''  ok-then? if it-ranked slab-count = flag>outcome then ;'''
-new = '''  ok-then? if drop outcome-ok then ;'''
+file = "src/front/data-index.fs"
+old = '''  -rot ok-then? if swap rix-ranked slab-count = flag>outcome else nip then ;'''
+new = '''  -rot ok-then? if 2drop outcome-ok else nip then ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "s1-synth re-check L2': a root whose values leave a rank empty is built, the hole read as left-out 0"
 
@@ -17355,8 +17354,8 @@ reason = "s1-synth second re-check L1: the 114 an unverified record left turns a
 [[fault]]
 id = "fe-inst-verified-other-read"
 file = "src/front/instances.fs"
-old = '''  it-same-data dup it-status slab-count index? if it-status@ it-verified = else drop false'''
-new = '''  dup it-status slab-count index? if it-status@ it-verified = else drop false'''
+old = '''  it-same-data dup it-dt lf-rix-record? if it-status@ it-verified = else drop false then ;'''
+new = '''  dup it-dt lf-rix-record? if it-status@ it-verified = else drop false then ;'''
 test = "$GFORTH tests/front/instances-odd.fs"
 reason = "s1-synth second re-check L2: after a new read of the data an instance still answers verified until the next query"
 
@@ -17804,9 +17803,9 @@ reason = "s1-synth re-check M3' (reviewer's fault): an exhausted or refused step
 
 [[fault]]
 id = "rc-roots-instances-only"
-file = "src/front/instances.fs"
-old = ''': it-value-root ( k -- outcome ) it-value it-root-key it-dt lf-dtree-root-add nip ;'''
-new = ''': it-value-root ( k -- outcome ) it-value dup 0< if drop outcome-ok exit then it-root-key it-dt lf-dtree-root-add nip ;'''
+file = "src/front/data-index.fs"
+old = '''  over rix-value over rix-keys drop over lf-dtree-root-add nip ;'''
+new = '''  over rix-value dup 0< if drop outcome-ok exit then over rix-keys drop over lf-dtree-root-add nip ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "s1-synth re-check M3' (reviewer's fault): a root only left-out values have is unknown, its query answers no values"
 

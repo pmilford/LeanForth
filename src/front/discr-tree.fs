@@ -40,6 +40,11 @@
 \   with no trie has no values. The builder may query or fill other
 \   trees (the query's tree and output slab are put back after it), not
 \   its own tree but by lf-dtree-insert under root r.
+\ - lf-dtree-force ( k tree -- outcome ): root key k's trie built now by
+\   the builder when k has a root and the root no trie (as a query would
+\   build it); ok when k has no root, the tree is not made or the root is
+\   built; else the builder's outcome. A value inserted afterwards goes
+\   after the root's built values.
 \ - lf-dtree-unify ( e tree out -- outcome ): getUnify (Main.lean:567) at
 \   the transparency in force (the caller's withReducible): the values
 \   whose keys may unify with e appended to the slab out (one cell
@@ -271,6 +276,9 @@ create dt-edge-hooks /htab-hooks allot
   dup dr@ dr-trie @ dup 0< 0= if nip outcome-ok exit then drop
   dtq dt-builder @ 0= if drop -1 outcome-ok exit then
   dup dt-built ok-then? if dr@ dr-trie @ outcome-ok else no-result then ;
+: lf-dtree-force ( k tree -- outcome )
+  dup lf-dtree-live? 0= if 2drop outcome-ok exit then
+  dt-use dt-root-find if dt-root-ready nip else drop outcome-ok then ;
 
 \ ---- getUnify's process (Main.lean:577-605) on the tree's stack of
 \ frames (todo, node, skip): skip 0 or more visits a node; skip below 0

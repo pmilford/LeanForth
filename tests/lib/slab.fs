@@ -62,6 +62,23 @@ T{ 100 s3 slab-reserve s3 slab-capacity s3 slab-trim s3 slab-capacity s3 slab-co
 T{ 5 s3 slab-claim nip s3 slab-count -> outcome-ok 62 }T
 s3 slab-free
 T{ s3 slab-live? 0 s3 slab-room -> false outcome-invalid }T
+\ slab-zeroed: an empty slab claims n units, all zero (their old bytes
+\ overwritten); a slab with units is left as it is; beyond the limit
+\ full, nothing claimed. slab-cell-put: cell i set, the cells added
+\ before it -1; within the count no growth; beyond the limit full.
+1 cells 8 s3 slab-init drop
+T{ 3 s3 slab-claim 2drop 7 0 s3 slab-at ! 7 2 s3 slab-at ! s3 slab-clear -> }T
+T{ 3 s3 slab-zeroed s3 slab-count 0 s3 slab-at @ 2 s3 slab-at @ -> outcome-ok 3 0 0 }T
+T{ 5 s3 slab-zeroed s3 slab-count -> outcome-ok 3 }T
+s3 slab-clear
+T{ 9 s3 slab-zeroed s3 slab-count -> outcome-full 0 }T
+T{ 42 2 s3 slab-cell-put s3 slab-count 0 s3 slab-at @ 1 s3 slab-at @ 2 s3 slab-at @
+   -> outcome-ok 3 -1 -1 42 }T
+T{ 5 1 s3 slab-cell-put s3 slab-count 1 s3 slab-at @ -> outcome-ok 3 5 }T
+\ Beyond the limit: full, x not stored, the cells added up to the limit
+\ kept (-1).
+T{ 9 8 s3 slab-cell-put s3 slab-count 7 s3 slab-at @ -> outcome-full 8 -1 }T
+s3 slab-free
 
 \ Clearing: count 0, generation + 1; at max-n the slab is poisoned.
 T{ s2 slab-generation s2 slab-clear s2 slab-count s2 slab-generation -> 0 0 1 }T

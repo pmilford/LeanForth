@@ -66,7 +66,7 @@ T{ s" instAddNat" inst-named lf-inst-verified? -1 lf-inst-verified?
 \ own lf-default-instances (HAdd's one, not Pow's).
 : status-of ( c-addr u -- s ) inst-named it-status@ ;
 : unchecked# ( n slab -- k ) 0 rot 0 ?do over i swap slab-at @ it-unchecked <> - loop nip ;
-: ichecked# ( -- n ) elab-instance elab-count it-status unchecked# ;
+: ichecked# ( -- n ) 0 elab-instance elab-count 0 ?do i it-status@ it-unchecked <> - loop ;
 : dchecked# ( -- n ) elab-default elab-count it-dstatus unchecked# ;
 : defaults# ( c-addr u -- n outcome )
   menv-name elab-decl-of drop lf-default-instances rot drop ;
@@ -99,7 +99,7 @@ lf-defeq-elab lf-defeq-stuck or lf-defeq-flags!
 \ heap requests comes again.
 : shrink ( slab -- ) dup slab-clear slab-trim drop ;
 : fresh ( -- )   \ the reset gives the tree's tables and slabs back
-  lf-inst-reset it-ranked shrink it-out shrink it-status shrink it-dstatus shrink
+  lf-inst-reset it-out shrink it-dstatus shrink
   dk-cells shrink dk-args shrink dk-kinds shrink ;
 : refused ( k -- outcome fired? )
   full-goal swap fresh heap-refusals ! lf-inst-candidates nip nip
@@ -284,8 +284,9 @@ T{ lf-mctx-view 999999 lf-mctx-view! nat add lf-inst-candidates nip nip swap lf-
    lf-inst-error -> outcome-invalid 0 }T
 \ A root's values fill its ranks, else invalid (a gap the reader
 \ refuses; it would read as left-out 0): checked on the last root built.
-T{ it-ranked slab-count dup 1- outcome-ok it-gapless swap outcome-ok it-gapless
-   5 outcome-full it-gapless -> outcome-invalid outcome-ok outcome-full }T
+: gapless ( n outcome -- outcome ) it-dt rix-gapless ;
+T{ it-dt rix-ranked slab-count dup 1- outcome-ok gapless swap outcome-ok gapless
+   5 outcome-full gapless -> outcome-invalid outcome-ok outcome-full }T
 : first-tag ( k n outcome -- tag outcome ) nip swap elab-key-tag swap ;
 T{ l0 sort lf-dt-path first-tag -> elab-key-other outcome-ok }T
 \ Exhausted: the budget spent before the first key.

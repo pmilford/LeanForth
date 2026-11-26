@@ -73,7 +73,7 @@
 \ Interface: /slab slab-init slab-free slab-live? slab-valid? slab-count slab-since
 \ slab-capacity slab-limit slab-unit slab-at slab-base slab-data slab-top slab-room
 \ slab-reserve slab-hold slab-claim slab-claim-one slab-commit slab-cut slab-remove
-\ slab-bad-cut slab-trim
+\ slab-bad-cut slab-trim slab-zeroed slab-cell-put
 \ slab-clear slab-bytes slab-used-bytes slab-limit-max slab-offset
 \ slab-push slab-pop slab-2push slab-2pop slab-last slab-drop
 \ slab-keep slab-restore slab-forget slab-kept
@@ -237,6 +237,12 @@ lf-lib set-current
 : slab-claim ( n slab -- i outcome )
   2dup slab-room dup ok? if drop dup slab-count -rot slab-commit outcome-ok
   else nip nip no-result then ;
+\ A table of n units made once, every byte zero: an empty slab claims
+\ them (ok, or slab-claim's outcome, nothing claimed); one that holds
+\ units already is left as it is (ok).
+: slab-zeroed ( n slab -- outcome )
+  dup slab-count if 2drop outcome-ok exit then tuck slab-claim nip
+  ok-then? if dup slab-base swap slab-used-bytes erase outcome-ok then ;
 \ Shrink the block to the units in use (at least one), for a slab that is
 \ complete: ok, full when RESIZE fails (nothing changed), or invalid.
 : slab-trim ( slab -- outcome )
@@ -280,6 +286,17 @@ lf-lib set-current
   cell swap slab-claim-wide ok-store ;
 : slab-2push ( x1 x2 slab -- outcome )
   2 cells swap slab-claim-wide ok-then? if 2! outcome-ok else nip nip then ;
+\ A slab of cells used as an array by index: x stored in cell i, the slab
+\ first grown to i + 1 cells, the cells it adds set to -1 (none). ok, or
+\ slab-push's outcome, x not stored (the cells added before stay, -1); i
+\ must not be negative.
+lf-lib-private set-current
+: slab-cells-to ( n slab -- outcome )
+  begin 2dup slab-count > while -1 over slab-push dup ok? 0= if nip nip exit then drop
+  repeat 2drop outcome-ok ;
+lf-lib set-current
+: slab-cell-put ( x i slab -- outcome )
+  over 1+ over slab-cells-to ok-then? 0= if nip nip exit then slab-at ! outcome-ok ;
 \ Pop the newest cell or pair; slab-drop gives the newest unit back and
 \ slab-last is its address. An empty slab, one whose count is past its
 \ capacity or one too narrow throws slab-underflow, nothing changed:

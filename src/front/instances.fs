@@ -103,13 +103,14 @@
 \ layer only); unsupported; exhausted; full when a slab cannot grow.
 \ Untrusted. State: the record it (the last error, the counts, the
 \ roots' pass or the refusal, the data's generation, the record checked
-\ last, a key comparison's ends, the sort, and the tree, given back by
-\ lf-inst-reset and the context's teardown) and the slabs it-status and
-\ it-dstatus (per instance and default record: unchecked, class ok,
-\ unverified or verified), it-ranked (a root's values by rank),
-\ it-defaults (lf-default-instances' answer) and it-out (a query's
-\ values), in the checker context (ADR 0009). Loads in decimal whatever
-\ BASE is, then restores it.
+\ last, a key comparison's ends, the sort, and the tree, a ranked-record
+\ index of src/front/data-index.fs whose kind is it-kind, with a status
+\ per instance, given back by lf-inst-reset and the context's teardown)
+\ and the slabs it-dstatus (per default record: unchecked, class ok,
+\ unverified or verified, as an instance's status), it-defaults
+\ (lf-default-instances' answer) and it-out (a query's values), in the
+\ checker context (ADR 0009). Loads in decimal whatever BASE is, then
+\ restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/sort.fs
@@ -120,6 +121,7 @@ require ./lctx-views.fs
 require ./meta-must.fs
 require ./telescope.fs
 require ./discr-tree.fs
+require ./data-index.fs
 
 0 constant it-unchecked   1 constant it-class-ok   2 constant it-unverified
 3 constant it-verified
@@ -137,19 +139,17 @@ begin-structure /it
   field: it-blamed        \ the data declaration of the record checked last
   /kcmp +field it-kcmp
   /sorter +field it-sort-rec   \ getInstances' priority sort (lib/sort.fs)
-  /dtree +field it-tree   \ the instance tree (discr-tree.fs), its roots the data's
+  /rix +field it-rix      \ the instance tree (data-index.fs), its roots the data's
 end-structure
 /it context-record: it
-1 cells context-slab: it-status
 1 cells context-slab: it-dstatus
-1 cells context-slab: it-ranked
 1 cells context-slab: it-defaults
 1 cells context-slab: it-out
-: it-dt ( -- tree ) it it-tree ;
-:noname ( -- ) it-dt lf-dtree-free ; context-teardown
+: it-dt ( -- tree ) it it-rix ;
+:noname ( -- ) it-dt lf-rix-free ; context-teardown
 
 : lf-inst-reset ( -- )   \ tables of the data as it is now
-  it-dt lf-dtree-free it-status slab-clear it-dstatus slab-clear it /it erase
+  it-dt lf-rix-free it-dstatus slab-clear it /it erase
   elab-generation it it-data ! ;
 \ Tables of the data as it is: another read, or a reset of it
 \ (elab-generation), forgets them before any query or count reads them.
@@ -294,7 +294,7 @@ end-structure
 \ or unsupported: unverified) is kept and answered ok; any other is
 \ answered as it is and the record stays as it was.
 : it-final? ( outcome -- flag ) dup ok? swap outcome-unsupported = or ;
-: it-status@ ( i -- s ) it-status slab-at @ ;
+: it-status@ ( i -- s ) it-dt lf-rix-status ;
 : it-dstatus@ ( j -- s ) it-dstatus slab-at @ ;
 : it-tally ( s -- )
   dup it-class-ok = if drop exit then
@@ -303,11 +303,8 @@ end-structure
 : it-keep ( outcome s addr -- outcome )   \ s, or unverified, kept at addr when final
   rot dup it-final? 0= if nip nip exit then rot it-new-status swap ! outcome-ok ;
 : it-record ( outcome i s -- outcome )   \ an instance's: the counts follow
-  over >r swap it-status slab-at it-keep
+  over >r swap it-dt lf-rix-status-at it-keep
   r> over ok? if it-status@ it-tally else drop then ;
-: it-slab-ready ( n slab -- outcome )   \ n zeroed cells, once
-  dup slab-count if 2drop outcome-ok exit then
-  2dup slab-claim nip ok-then? 0= if nip exit then slab-base swap cells erase outcome-ok ;
 
 \ ---- Each record checked when first needed (MATHLIB_FRONT.md §3): step
 \ 1 by its root's build, step 3 by its class's default instances; the
@@ -325,9 +322,6 @@ end-structure
   dup it-dstatus@ it-unchecked <> if drop outcome-ok exit then
   dup elab-default@ drop nip it-blame
   dup lf-default-check it-verified rot it-dstatus slab-at it-keep ;
-: it-records-ready ( -- outcome )
-  elab-instance elab-count it-status it-slab-ready
-  dup ok? if drop elab-default elab-count it-dstatus it-slab-ready then ;
 \ A refusal of the data, an invalid answer with a refusal's code (112,
 \ 113, 115, 116), answers every later query the same until another read
 \ or lf-inst-reset; any other invalid (no code: a term or context view
@@ -343,58 +337,33 @@ end-structure
 \ is (it-same-data).
 : it-query ( -- ) it-same-data it-no-error ;
 : lf-inst-verified? ( v -- flag )
-  it-same-data dup it-status slab-count index? if it-status@ it-verified = else drop false
-  then ;
+  it-same-data dup it-dt lf-rix-record? if it-status@ it-verified = else drop false then ;
 \ The refusal's code (0: none) and the record it refused.
 : lf-inst-refusal ( -- code ) it-same-data it it-pass @ dup it-passed = if drop 0 then ;
 : lf-inst-refused-decl ( -- d ) it it-blamed @ ;
 
-\ ---- A root's tree (discr-tree.fs's builder): its values placed by rank,
-\ step 1 for its instances, then step 2, then inserted in rank order, so
-\ that every child list is Lean's stored order; nothing kept of a failure.
-: it-grow-to ( n slab -- outcome )   \ at least n cells, the new ones -1
-  tuck slab-count - dup 0> 0= if 2drop outcome-ok exit then
-  2dup swap slab-claim ok-then? 0= if nip nip exit then
-  rot slab-at swap cells -1 fill outcome-ok ;
-: it-put ( v rank slab -- outcome )
-  over 1+ over it-grow-to ok-then? 0= if nip nip exit then slab-at ! outcome-ok ;
-: it-place ( v -- outcome ) dup it-rank it-ranked it-put ;
-: it-root-of? ( v k -- flag ) swap it-root-key elab-key= ;
-: it-counted ( n outcome -- n' outcome ) dup ok? if swap 1+ swap then ;
-: it-gathered ( n idx k -- n' outcome )   \ value idx placed, and counted, when under k
-  swap it-value tuck swap it-root-of? if it-place it-counted else drop outcome-ok then ;
-\ The n values placed fill every rank (the reader refuses a gap, which
-\ would read as left-out 0, and two values of one rank): else invalid.
-: it-gapless ( n outcome -- outcome )
-  ok-then? if it-ranked slab-count = flag>outcome then ;
-: it-gather ( k -- k outcome )
-  it-ranked slab-clear dup 0 it-values# rot ['] it-gathered ok-fold it-gapless ;
-: it-ranked@ ( r -- v ) it-ranked slab-at @ ;
+\ ---- A root's tree (data-index.fs's builder): its values placed by rank;
+\ the checks, step 1 for its instances, then step 2; then the values
+\ inserted in rank order, so that every child list is Lean's stored
+\ order; nothing kept of a failure.
 : it-keys-pass ( i -- outcome )
   dup it-status@ it-class-ok <> if drop outcome-ok exit then
   dup elab-instance@ 2drop it-blame
   dup ['] it-keys-verdict it-checked-by swap it-verified it-record ;
-\ Step xt ( i -- outcome ) on each instance of the root's ranks.
-: it-on-rank ( xt r -- xt outcome )
-  it-ranked@ dup 0< if drop outcome-ok else over execute then ;
-: it-ranks-pass ( xt -- outcome ) it-ranked slab-count ['] it-on-rank ok-each nip ;
-: it-keys-ranks ( -- outcome ) ['] it-keys-pass it-ranks-pass ;
+: it-keys-ranks ( -- outcome ) ['] it-keys-pass it-dt lf-rix-each ;
 : it-root-checks ( -- outcome )   \ step 1 on every instance of the root, then step 2
-  ['] it-class-pass it-ranks-pass ['] it-keys-ranks ok-and ;
-: it-prepared ( k -- outcome ) it-gather nip ['] it-root-checks ok-and ;
-: it-insert-rank ( r -- outcome ) it-ranked@ dup it-keys rot it-dt lf-dtree-insert ;
-: it-insert-ranked ( -- outcome ) it-ranked slab-count ['] it-insert-rank ok-each ;
-: it-root-build ( r tree -- outcome )
-  lf-dtree-root-key it-prepared it-refused ['] it-insert-ranked ok-and ;
+  ['] it-class-pass it-dt lf-rix-each ['] it-keys-ranks ok-and ;
+: it-checks ( rix -- outcome ) drop it-root-checks it-refused ;
+: it-records# ( -- n ) elab-instance elab-count ;
+: it-entry ( v -- v outcome ) outcome-ok ;   \ the tree holds the value itself
+' it-values# ' it-value ' it-records# ' it-keys ' it-rank ' it-checks ' it-entry
+  rix-kind, constant it-kind
 
 \ ---- The roots: every value's root key, made once per data read
-\ (lf-inst-classes), by lib/htab.fs in the tree (discr-tree.fs).
-: it-value-root ( k -- outcome ) it-value it-root-key it-dt lf-dtree-root-add nip ;
-: it-tree-ready ( -- outcome )
-  it-dt lf-dtree-ready dup ok? if ['] it-root-build it-dt lf-dtree-builder! then ;
-: it-roots-made ( -- outcome ) it-values# ['] it-value-root ok-each ;
-: it-pass-run ( -- outcome )   \ the slabs, the tree with its builder, its roots
-  it-records-ready ['] it-tree-ready ok-and dup ok? if drop it-roots-made then ;
+\ (lf-inst-classes) by data-index.fs.
+: it-pass-run ( -- outcome )   \ the default instances' statuses, the tree and its roots
+  elab-default elab-count it-dstatus slab-zeroed dup ok? 0= if exit then drop
+  it-kind it-dt lf-rix-kind! it-dt lf-rix-roots ;
 : lf-inst-classes ( -- outcome )
   it-query it it-pass @ ?dup 0= if it-pass-run it-pass-keep exit then
   dup it-passed = if drop outcome-ok else it-fail then ;
@@ -448,7 +417,8 @@ end-structure
 -1 constant it-gap
 : lf-default-gap? ( v -- flag ) 0< ;
 : it-dvalue ( j -- v ) dup it-dstatus@ it-verified <> if drop it-gap then ;
-: it-dplace ( j -- outcome ) dup it-dvalue swap elab-default-rank it-defaults it-put ;
+: it-dplace ( j -- outcome )
+  dup it-dvalue swap elab-default-rank it-defaults slab-cell-put ;
 : it-default-of? ( class j -- flag ) it-default-class = ;
 : it-default-one ( class j -- class outcome )
   2dup it-default-of? if dup it-default-pass ok-then? if it-dplace then

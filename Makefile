@@ -1128,6 +1128,7 @@ test-differential: reference-elab-data reference-mathlib-slice
 # #synth traces (a few minutes).
 test-instances:
 	$(RUN) $(GFORTH) tests/front/discr-tree.fs
+	$(RUN) $(GFORTH) tests/front/data-index.fs
 	$(RUN) $(GFORTH) tests/front/instances.fs
 	$(RUN) $(GFORTH) tests/front/instances-bad.fs
 	$(RUN) $(GFORTH) tests/front/instances-late.fs

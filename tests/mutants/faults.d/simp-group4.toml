@@ -68,3 +68,51 @@ new = '''  -rot bounds ?do i sr-arg-at drop loop drop true ;'''
 test = "$GFORTH tests/front/tactics/simp-4/test.fs"
 reason = "a side condition the discharger did not prove is taken as proved: h1's proof keeps its metavariable, an unassigned argument"
 equivalent = "the proof then holds an assignable metavariable, which sr-proof refuses (hasAssignableMVar), so the theorem fails either way; Lean's synthesizeArgs returns false one step earlier"
+
+[[fault]]
+id = "rix-checks-skipped"
+file = "src/front/data-index.fs"
+old = ''': rix-prepared ( rix -- outcome ) dup rix-gather ok-then? if rix-checks then ;'''
+new = ''': rix-prepared ( rix -- outcome ) rix-gather ;'''
+test = "$GFORTH tests/front/data-index.fs && $GFORTH tests/front/instances-late.fs"
+reason = "a root built without its kind's checks: the index's log stays empty, and an instance filed under another class goes into the tree unchecked"
+
+[[fault]]
+id = "rix-left-out-checked"
+file = "src/front/data-index.fs"
+old = '''  over rix-ranked@ dup 0< if drop outcome-ok exit then >r over r> swap execute ;'''
+new = '''  over rix-ranked@ >r over r> swap execute ;'''
+test = "$GFORTH tests/front/data-index.fs"
+reason = "the checks walk a left-out value as a record (a value the export lacks has no record to check)"
+
+[[fault]]
+id = "rix-entry-ignored"
+file = "src/front/data-index.fs"
+old = '''  2dup rix-keys 2swap >r r@ rix-entry'''
+new = '''  2dup rix-keys 2swap >r outcome-ok'''
+test = "$GFORTH tests/front/data-index.fs"
+reason = "the tree holds the value instead of the kind's entry for it (simp's default set needs a theorem record per lemma)"
+
+[[fault]]
+id = "rix-force-unbuilt"
+file = "src/front/data-index.fs"
+old = '''  dup lf-rix-roots ok-then? if lf-dtree-force else nip then ;'''
+new = '''  dup lf-rix-roots ok-then? if 2drop outcome-ok else nip then ;'''
+test = "$GFORTH tests/front/data-index.fs"
+reason = "forcing a root builds nothing: a value inserted next (a bracket lemma) would come before the root's data values, against Lean's order"
+
+[[fault]]
+id = "slab-zeroed-unerased"
+file = "src/lib/slab.fs"
+old = '''  ok-then? if dup slab-base swap slab-used-bytes erase outcome-ok then ;'''
+new = '''  ok-then? if drop outcome-ok then ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "a table claimed on a slab used before keeps the old bytes: its status cells are not zero"
+
+[[fault]]
+id = "slab-cell-put-unfilled"
+file = "src/lib/slab.fs"
+old = '''  begin 2dup slab-count > while -1 over slab-push dup ok? 0= if nip nip exit then drop'''
+new = '''  begin 2dup slab-count > while 0 over slab-push dup ok? 0= if nip nip exit then drop'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "the cells grown before the one set read as 0, a value, not -1 (none): a gap in a root's ranks would read as record 0"
