@@ -25,19 +25,21 @@ T{ elab-error-code elab-error-line elab-loaded? elab-instance elab-count -> 26 0
 T{ elab-error-why s" the library's export could not be hashed" compare -> 0 }T
 T{ lfc-elab-read elab-loaded? -> outcome-ok true }T
 
-\ The data's line (leanforth-text.fs's cli-elab-format4): nothing more
-\ for the init slice's format-3.2 data; the simp slice's format-4 data
-\ adds its congruence lemmas and defeq tags.
+\ The data's line (leanforth-text.fs's cli-elab-format4 and
+\ cli-elab-format41): nothing more for the init slice's format-3.2 data;
+\ the simp slice's format-4.1 data adds its congruence lemmas and defeq
+\ tags, then its realized congruence theorems.
 create printed 200 allot  variable printed#
 : grab ( c-addr u -- ) tuck printed printed# @ + swap move printed# +! ;
 : said ( xt -- c-addr u )
   0 printed# ! action-of type >r ['] grab is type catch r> is type throw printed printed# @ ;
-T{ ' cli-elab-format4 said nip -> 0 }T
+T{ ' cli-elab-format4 said nip ' cli-elab-format41 said nip -> 0 0 }T
 T{ ck-stage stage-free -> }T
 : simp ( -- c-addr u ) s" tests/front/simp-slice.ndjson" ;
 T{ simp lfc-env! s" tests/front/simp-slice.elab.ndjson" lfc-elab-file! -> }T
 T{ 12 ck-stage stage-init simp ck-stage stage-read-unchecked -> outcome-ok outcome-ok }T
-T{ lfc-elab-read ' cli-elab-format4 said s" , 7 congruence lemmas, 33 defeq tags" compare
+T{ lfc-elab-read ' cli-elab-format4 said s" , 9 congruence lemmas, 33 defeq tags" compare
    -> outcome-ok 0 }T
+T{ ' cli-elab-format41 said s" , 5 realized congruence theorems" compare -> 0 }T
 T{ ck-stage stage-free -> }T
 bye

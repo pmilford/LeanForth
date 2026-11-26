@@ -1,0 +1,8 @@
+{"elab_data":{"export_sha256":"dac8c99a569997f2bd9e5d6da3386175c31d95fb309770491d5acd93ceb175a3","format":"leanforth-elab-data","format_version":"4.1","lean_githash":"eb6cafb7290e8bd5f2937522d8d804f58f02bafc","lean_version":"4.35.0","modules":["Init"],"records":{"binder_kinds":0,"class":0,"congr":3,"default_instance":0,"eliminator":0,"instance":0,"instance_left_out":0,"matcher":0,"projection":0,"realized":3,"reducibility":0,"sunfold":0,"tag":1},"records_sha256":"cf31afc3db44c42223c01c5082fe4a89d10836b203cf63da49d226b72440db6d"}}
+{"congr":{"fun":["dite"],"hyps":[9,10,11],"name":["dite_congr"],"priority":1000,"rank":0}}
+{"congr":{"fun":["ite"],"hyps":[9,10,11],"name":["ite_congr"],"priority":1000,"rank":0}}
+{"congr":{"fun":["HSub","hSub"],"hyps":[],"name":["Nat","succ_sub_succ_eq_sub"],"priority":1000,"rank":0}}
+{"tag":{"name":["Nat","add_zero"],"tag":"defeq"}}
+{"realized":{"arg_kinds":[1,3],"fun":["Decidable","decide"],"kind":"congr_simp","name":["Decidable","decide","congr_simp"]}}
+{"realized":{"arg_kinds":[0,1,3,1,1],"fun":["ite"],"kind":"congr_simp","name":["ite","congr_simp"]}}
+{"realized":{"arg_kinds":[1,3],"fun":["Decidable","decide"],"kind":"congr_simp","name":["Decidable","decide","congr_simp"]}}

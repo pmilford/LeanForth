@@ -23,6 +23,18 @@
 \ and numbers are checked as elab-data.fs checks them (errors 10-14, 19,
 \ 22 for no room).
 \
+\ A realized record (format 4.1, slice SD-b; scripts/export_simp.lean):
+\ name, a theorem f.congr_simp Lean realized in the library
+\ (Meta/CongrTheorems.lean:405-446); fun, f (error 37 when name is not
+\ f's congr_simp; one record a function at most, error 47); kind, the
+\ text congr_simp; arg_kinds, the kinds congrKindsExt holds for it
+\ (numbers 0-3: congr-thms.fs's lf-ck-fixed, -eq, -cast, -subsingleton;
+\ another number error 10). simp-realized ( f -- r flag outcome ): f's
+\ record r and true, or false (Lean would realize the theorem in the
+\ user's file: no record), unsupported for data older than 4.1;
+\ simp-realized@ ( r -- thm ), simp-realized-kinds ( r -- addr n ) (the
+\ kinds, cells), simp-realized-count ( -- n ).
+\
 \ simp-data? ( -- flag ): the data read is of format 4, so the answers
 \ below are Lean's; when it is not (no data, or an older format)
 \ simp-congr-lemmas and simp-defeq? answer unsupported, never "none".
@@ -42,9 +54,10 @@
 \   \ prints 0 0 1 1000 -1
 \
 \ State: a context memo, sd-index, of a function's run (its first record
-\ and length, under the key f 0) and of each lemma's record (key d 1), and
-\ a context slab of the records (their places a span of elab-data.fs's
-\ elab-orders); emptied by every
+\ and length, under the key f 0), of each lemma's record (key d 1) and of
+\ a function's realized record (key f 2), and the context slabs of the
+\ records (their places and kinds spans of elab-data.fs's elab-orders);
+\ emptied by every
 \ reset of the data (the kind's clear), freed with the context.
 \ Loads in decimal whatever BASE is, then restores it.
 
@@ -61,7 +74,7 @@ end-structure
 /memo context-record: sd-index
 /simp-congr context-slab: simp-congrs
 :noname ( -- ) sd-index memo-free ; context-teardown
-0 constant sd-fun-role   1 constant sd-lemma-role
+0 constant sd-fun-role   1 constant sd-lemma-role   2 constant sd-real-role
 
 : sdc ( c -- addr ) simp-congrs slab-at ;
 : sd-clear ( -- ) simp-congrs slab-clear sd-index memo-clear ;
@@ -165,6 +178,44 @@ create sdc-form  sdc-members , ' simp-congrs ,
   ' sdc-rank! , ' sdc-order , ' sdc-falls , ' sdc-head , ' sdc-index , 0 ,
 sdc-form ' sd-clear s" congr" elab-add-kind constant simp-congr-kind
 
+\ ---- Realized congruence theorems (format 4.1).
+begin-structure /simp-real
+  field: sdr-decl   field: sdr-fun
+  field: sdr-kinds   field: sdr-kinds#   \ the argument kinds: a span of elab-orders
+end-structure
+/simp-real context-slab: simp-reals
+: sdr ( r -- addr ) simp-reals slab-at ;
+: sdr-name! ( value r -- outcome )
+  sdr swap c" name" elab-member sd-lemma ['] sdr-decl elab-put ;
+: sdr-fun! ( value r -- outcome )
+  sdr swap c" fun" elab-member elab-decl ['] sdr-fun elab-put ;
+: sdr-kind ( value r -- outcome )
+  drop c" kind" elab-member s" congr_simp" elab-text= 0= if elab-malformed exit then
+  outcome-ok ;
+: sdr-kinds! ( value r -- outcome )
+  sdr sdr-kinds swap c" arg_kinds" elab-member elab-numbers ;
+: simp-realized-kinds ( r -- addr n ) sdr sdr-kinds elab-span@ ;
+: sd-kind? ( n -- flag ) 4 u< ;   \ congr-thms.fs's four kinds, 0-3
+: sdr-kinds-ok ( value r -- outcome )
+  nip simp-realized-kinds cells bounds ?do
+    i @ sd-kind? 0= if elab-malformed unloop exit then
+  cell +loop outcome-ok ;
+\ name is fun's congr_simp (Lean's reserved name, CongrTheorems.lean:399).
+: sd-congr-simp-of ( f -- name )
+  elab-decl-name s" congr_simp" elab-tier name-seek-str drop ;
+: sdr-fit ( value r -- outcome )
+  nip sdr dup sdr-fun @ sd-congr-simp-of swap sdr-decl @ elab-decl-name = sd-fit ;
+: sdr-index ( value r -- outcome )
+  nip dup sdr sdr-fun @ sd-real-role 2dup sd-index memo-at
+  if 2drop drop elab-e-congr-twice elab-refuse exit then sd-index memo! elab-roomed ;
+: sdr-clear ( -- ) simp-reals slab-clear ;
+create sdr-members
+  s" arg_kinds" counted, s" fun" counted, s" kind" counted, s" name" counted, 0 0 counted,
+create sdr-form  sdr-members , ' simp-reals ,
+  ' sdc-ready , ' sdr-name! , ' sdr-fun! , ' sdr-kind , ' sdr-kinds! , ' sdr-kinds-ok ,
+  ' sdr-fit , ' sdr-index , 0 ,
+sdr-form ' sdr-clear s" realized" elab-add-kind41 constant simp-realized-kind
+
 \ ---- The questions.
 : simp-data? ( -- flag ) elab-format4? ;
 : simp-congr-lemmas ( f -- c n outcome )
@@ -178,5 +229,10 @@ sdc-form ' sd-clear s" congr" elab-add-kind constant simp-congr-kind
   simp-data? 0= if drop false outcome-unsupported exit then
   elab-tag-defeq elab-tagged? outcome-ok ;
 : simp-defeq-count ( -- n ) elab-tag-defeq elab-tag-count ;
+: simp-realized ( f -- r flag outcome )
+  elab-format41? 0= if drop 0 false outcome-unsupported exit then
+  sd-real-role sd-index memo@ if true else 0 false then outcome-ok ;
+: simp-realized@ ( r -- thm ) sdr sdr-decl @ ;
+: simp-realized-count ( -- n ) simp-reals slab-count ;
 
 base !   \ the BASE this file was loaded with

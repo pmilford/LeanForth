@@ -1,10 +1,13 @@
-\ Unit tests of src/front/simp-data.fs (plan FE9, slice SD-a of
-\ docs/design/TACTIC_SIMP.md) and of the format-4 parts of
+\ Unit tests of src/front/simp-data.fs (plan FE9, slices SD-a and SD-b of
+\ docs/design/TACTIC_SIMP.md) and of the format-4 and 4.1 parts of
 \ src/front/elab-data.fs it rests on: the fixtures of tests/front/simp-data/
 \ (tests/front/test_simp_data.py writes them) read against the simp slice's
 \ export: the good file's congruence lemmas by function in rank order, their
 \ hypotheses, priorities and ranks, the defeq tag; the slice's own data
-\ from the writer; a format-3.2 file answering unsupported, never "none";
+\ from the writer (a run of two lemmas of one function, ForM.forM's,
+\ plan task SD-b.8); format 4.1's realized congruence theorems by
+\ function, their argument kinds; a format-3.2 file answering
+\ unsupported, never "none";
 \ every damaged file refused with its outcome, line and code, nothing kept;
 \ every heap allocation of a read refused in turn (tests/support/
 \ meta-sweeps.fs: full or the same answer, never another); the context's
@@ -14,7 +17,8 @@ include ../support/tester.fs
 include ../support/heap-watch.fs
 include ../support/meta-sweeps.fs
 hex require ../../src/front/simp-data.fs base @ decimal constant base-after-load
-T{ base-after-load simp-congr-kind elab-kinds-most elab-tag-defeq -> 16 11 16 8 }T
+T{ base-after-load simp-congr-kind simp-realized-kind elab-kinds-most elab-tag-defeq
+   -> 16 11 12 16 8 }T
 
 create lib /stage allot
 : digest ( -- sha ) lib stage-manifest manifest-digest ;
@@ -49,11 +53,26 @@ T{ s" add_zero" nat simp-defeq? s" ite_congr" top simp-defeq? s" ite" top simp-d
 : prio ( c p -- flag ) over sdc sdc-priority ! sd-falls? ;
 T{ 1 2 sdc sdc-rank ! 2 1000 prio 2 1001 prio 2 999 prio 2 0 prio -> true false true true }T
 
-\ The slice's own data from the writer: dite_congr, ite_congr and the
-\ five lemmas of the functions simp slice SL1a-1's roots brought in, 33
-\ defeq tags (Nat.add_zero's; Nat.zero_add is proved by induction).
+\ The slice's own data from the writer (format 4.1): dite_congr,
+\ ite_congr, ForM.forM's two and the five lemmas of the functions simp
+\ slice SL1a-1's roots brought in, 33 defeq tags (Nat.add_zero's;
+\ Nat.zero_add is proved by induction), five realized theorems.
 T{ s" tests/front/simp-slice.elab.ndjson" fx simp-congr-count simp-defeq-count
-   -> outcome-ok 7 33 }T
+   simp-realized-count -> outcome-ok 9 33 5 }T
+\ A run of two (plan task SD-b.8): ForM.forM's lemmas in Lean's order,
+\ Vector.forM_congr (rank 0) then Array.forM_congr (rank 1).
+: two ( c-addr u c-addr u -- d ) 2swap 0 -rot part -rot part lib stage-find drop ;
+T{ s" ForM" s" forM" two simp-congr-lemmas rot dup simp-congr-rank swap simp-congr@ drop
+   -> 2 outcome-ok 0 s" Vector" s" forM_congr" two }T
+T{ s" ForM" s" forM" two simp-congr-lemmas drop + 1- dup simp-congr-rank swap simp-congr@
+   -> 1 s" Array" s" forM_congr" two 1000 }T
+: dec ( -- d ) s" Decidable" s" decide" two ;
+: real-kinds ( f -- k0 .. kn-1 n ) simp-realized drop drop simp-realized-kinds
+  dup >r cells bounds ?do i @ 1 cells +loop r> ;
+T{ dec simp-realized rot simp-realized@ elab-decl-name
+   -> true outcome-ok 0 s" Decidable" part s" decide" part s" congr_simp" part }T
+T{ dec real-kinds s" ite" top real-kinds -> 1 3 2 0 1 3 1 1 5 }T
+T{ s" add_zero" nat simp-realized -> 0 false outcome-ok }T
 T{ s" ite" top simp-congr-lemmas rot simp-congr@ drop s" zero_add" nat simp-defeq?
    -> 1 outcome-ok s" ite_congr" top false outcome-ok }T
 
@@ -73,7 +92,7 @@ T{ s" tests/front/simp-data/plain3.elab.ndjson" older
 
 \ Every damaged file refused: outcome, line, code; nothing kept.
 : refused ( c-addr u -- outcome line code kept )
-  fx elab-error-line elab-error-code simp-congr-count simp-defeq-count + ;
+  fx elab-error-line elab-error-code simp-congr-count simp-defeq-count + simp-realized-count + ;
 create fx-buf 128 allot
 : fx+ ( u c-addr n -- u' ) >r over fx-buf + r@ move r> + ;
 : fixture ( "name" -- c-addr u )
@@ -81,7 +100,15 @@ create fx-buf 128 allot
 T{ fixture v3-congr refused -> outcome-invalid 2 11 0 }T
 T{ fixture v32-defeq refused -> outcome-invalid 2 10 0 }T
 T{ fixture v5 refused -> outcome-unsupported 1 7 0 }T
-T{ fixture v41 refused -> outcome-unsupported 1 7 0 }T
+T{ fixture v41-uncounted refused -> outcome-invalid 1 10 0 }T
+T{ fixture v4-realized refused -> outcome-invalid 6 11 0 }T
+T{ fixture real-other refused -> outcome-invalid 6 37 0 }T
+T{ fixture real-kind refused -> outcome-invalid 6 10 0 }T
+T{ fixture real-kinds-big refused -> outcome-invalid 6 10 0 }T
+T{ fixture real-kinds-text refused -> outcome-invalid 6 10 0 }T
+T{ fixture real-twice refused -> outcome-invalid 8 47 0 }T
+T{ fixture real-def refused -> outcome-invalid 6 14 0 }T
+T{ fixture real-unknown refused -> outcome-invalid 6 12 0 }T
 T{ fixture unknown-kind refused -> outcome-invalid 6 11 0 }T
 T{ fixture no-hyps refused -> outcome-invalid 2 10 0 }T
 T{ fixture rank-text refused -> outcome-invalid 2 10 0 }T
@@ -110,13 +137,22 @@ T{ fixture count-missing refused -> outcome-invalid 1 10 0 }T
 T{ fixture count-wrong refused -> outcome-invalid 5 20 0 }T
 \ After a refusal, simp-data? is false and the next read works again.
 T{ simp-data? good simp-congr-count -> false outcome-ok 3 }T
+\ Format 4 has no realized records: unsupported, never "none"; 4.1 has.
+T{ dec simp-realized -> 0 false outcome-unsupported }T
+: good41 ( -- outcome ) s" tests/front/simp-data/good41.elab.ndjson" fx ;
+T{ good41 simp-realized-count dec simp-realized rot drop -> outcome-ok 2 true outcome-ok }T
+\ A later read of an older format forgets 4.1: unsupported again.
+T{ s" tests/front/simp-data/plain32.elab.ndjson" fx dec simp-realized rot drop
+   -> outcome-ok false outcome-unsupported }T
 
 \ The heap: every allocation of a read of the good file refused in turn
 \ (the kind's slabs and memo given back before each run, so that each
 \ first claim allocates): full or the same three lemmas, never another.
-: anew ( -- ) simp-congrs sweep-slab-anew elab-orders sweep-slab-anew sd-index memo-free ;
+: anew ( -- )
+  simp-congrs sweep-slab-anew simp-reals sweep-slab-anew elab-orders sweep-slab-anew
+  sd-index memo-free ;
 ' anew sweep-slabs-xt !
-: read-good ( e -- x outcome ) drop good simp-congr-count swap ;
+: read-good ( e -- x outcome ) drop good41 simp-congr-count simp-realized-count + swap ;
 T{ 0 ' read-good heap-sweep swap 0> -> 0 true }T
 ' noop sweep-slabs-xt !
 \ A context's memo and slabs go with it: no heap block kept.

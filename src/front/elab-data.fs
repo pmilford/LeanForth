@@ -144,7 +144,12 @@
 \ the words elab-member .. elab-type-pis below, the elab- faces of this
 \ file's own (front/simp-data.fs reads the congr kind with them: errors 47
 \ and 48 are its). elab-format4? ( -- flag ): the data read is of format
-\ 4; elab-tag-count ( tag -- n ): its declarations with that tag.
+\ 4 or 4.1; elab-tag-count ( tag -- n ): its declarations with that tag.
+\ Format 4.1 (the text "4.1"; slice SD-b): format 4 and the kinds added by
+\ elab-add-kind41 ( form clear c-addr u -- kind ), each after every kind
+\ format 4 reads (else it aborts), read in a format-4.1 file alone (in
+\ format 4 unknown, error 11, and not counted in its header);
+\ elab-format41? ( -- flag ): the data read is of format 4.1.
 \
 \ Example (the export read but not sealed, its manifest checked):
 \   create lib /stage allot   12 lib stage-init drop
@@ -333,6 +338,7 @@ begin-structure /elab
   field: elab-v31                    \ true: the header says format 3.1 or 3.2
   field: elab-v32                    \ true: it says 3.2 (binder kinds) or 4
   field: elab-v4                     \ true: it says 4 (the kinds other files add)
+  field: elab-v41                    \ true: it says 4.1 (also elab-add-kind41's)
 end-structure
 /elab context-record: elab
 /ed-fact context-slab: elab-facts
@@ -361,6 +367,7 @@ begin-structure /ed-kind
   field: ed-kind-number  \ elab-kinds + its place
   field: ed-kind-form    \ the record's form, read by ed-on-form
   field: ed-kind-clear   \ ( -- ), run by every reset
+  field: ed-kind-v41     \ true: read in format 4.1 alone (elab-add-kind41)
 end-structure
 elab-kinds-most elab-kinds - constant ed-added-most
 begin-structure /ed-added
@@ -381,6 +388,13 @@ create ed-added  /ed-added allot  ed-added /ed-added erase
 : ed-clear-entry ( entry -- ) name-entry-data ed-kind-clear @ execute ;
 : ed-added-clears ( -- ) ed-names ['] ed-clear-entry name-table-each ;
 : ed-v4? ( -- flag ) elab elab-v4 @ ;
+: ed-v41? ( -- flag ) elab elab-v41 @ ;
+\ The added kinds format 4 reads: those before the first of format 4.1.
+: ed-v41-kind? ( x i -- x flag ) elab-kinds + ed-kind-data ed-kind-v41 @ ;
+: ed-added-v4# ( -- n )
+  0 ed-added# ['] ed-v41-kind? find-index 0= if ed-added# then ;
+\ The added kinds the file's format reads.
+: ed-added-read# ( -- n ) ed-v41? if ed-added# else ed-added-v4# then ;
 
 : ed-view ( -- view ) elab elab-json ;
 : ed-stage ( -- stage ) elab elab-stage @ ;
@@ -630,7 +644,7 @@ create ed-rank-hooks /htab-hooks allot
 : ed-head-clear ( -- )
   elab elab-counts elab-kinds-most cells erase
   elab elab-expected elab-kinds-most cells erase
-  0 elab elab-modules# ! 0 elab elab-inits# !
+  0 elab elab-modules# ! 0 elab elab-inits# ! false elab elab-v41 !
   false elab elab-v31 ! false elab elab-v32 ! false elab elab-v4 ! ed-added-clears ;
 : elab-reset ( -- )
   ed-slabs-clear elab-keys-clear ed-tables-clear false elab elab-loaded !
@@ -678,11 +692,15 @@ create ed-reason-names  s" erased" counted, s" not_exported" counted, 0 0 counte
 : ed-kind-new ( c-addr u -- c-addr u )
   2dup ed-kind-index dup if nip then abort" elab-add-kind: a kind spelt twice" ;
 : ed-entry, ( form clear c-addr u -- c-addr u )
-  2dup ed-names name-entry  ed-added# elab-kinds + ,  2swap swap , , ;
+  2dup ed-names name-entry  ed-added# elab-kinds + ,  2swap swap , ,  false , ;
 \ The entry just laid down, found by its key, takes the next place.
 : ed-added-file ( c-addr u -- kind ) ed-names name-table-find ed-added-push ;
-: elab-add-kind ( form clear c-addr u -- kind )
+: ed-add ( form clear c-addr u -- kind )
   ed-added-open ed-added-room ed-kind-new ed-entry, ed-added-file ;
+: elab-add-kind ( form clear c-addr u -- kind )
+  ed-added-v4# ed-added# <> abort" elab-add-kind: format 4 after a 4.1 kind" ed-add ;
+: elab-add-kind41 ( form clear c-addr u -- kind )
+  ed-add true over ed-kind-data ed-kind-v41 ! ;
 \ The kinds of formats 3 and 3.1, which have no binder_kinds: the table's
 \ entries before it, copied when loaded.
 : ed-table-copy, ( addr u -- ) here swap dup allot move ;
@@ -1553,8 +1571,9 @@ create ed-kind-handlers
 : ed-wrapped? ( -- flag ) ed-one-member? if ed-object-value? else false then ;
 : ed-tally ( kind -- ) elab elab-counts cell-tally ;
 \ A record of an added kind, read by its form's reader in format 4 alone.
+: ed-added-read? ( kind -- flag ) elab-kinds - ed-added-read# < ed-v4? and ;
 : ed-on-added ( value -- outcome )
-  ed-v4? 0= if drop ed-e-kind ed-bad exit then
+  elab elab-kind @ ed-added-read? 0= if drop ed-e-kind ed-bad exit then
   elab elab-kind @ ed-kind-data ed-kind-form @ ed-on-form ;
 : ed-handler ( kind -- xt )
   dup elab-kinds u< if cells ed-kind-handlers + @ else drop ['] ed-on-added then ;
@@ -1583,12 +1602,16 @@ create ed-head-keys
 : ed-natural= ( index c-addr u -- flag )
   rot ed-view natural-at if compare 0= else 2drop false then ;
 : ed-head-v3? ( index -- flag ) s" 3" ed-natural= ;
-\ Format 4 (the number): 3.2's kinds and inert nodes, the added kinds.
+\ Format 4 (the number): 3.2's kinds and inert nodes, the added kinds;
+\ 4.1 (the text) also elab-add-kind41's.
 : ed-v4! ( flag -- ) dup elab elab-v4 ! dup elab elab-v31 ! elab elab-v32 ! ;
 : ed-head-v4 ( index -- flag ) s" 4" ed-natural= dup ed-v4! ;
 : ed-head-v4-or-3 ( index -- flag ) dup ed-head-v4 swap ed-head-v3? or ;
+: ed-head-v41 ( index -- flag ) s" 4.1" ed-text= dup elab elab-v41 ! ;
+: ed-head-v4x ( index -- flag )
+  dup ed-head-v41 if drop true dup ed-v4! else ed-head-v4-or-3 then ;
 : ed-head-version ( value i -- outcome )
-  drop c" format_version" ed-member dup ed-head-v31 if drop true else ed-head-v4-or-3 then
+  drop c" format_version" ed-member dup ed-head-v4x if drop true else ed-head-v31 then
   ed-e-version ed-or-other ;
 : ed-head-shape ( value i -- outcome )
   drop ed-head-keys ed-shape? ed-e-malformed ed-or-bad ;
@@ -1608,11 +1631,12 @@ create ed-head-keys
 \ Format 3.2 counts every kind; 3 and 3.1 all but binder_kinds (none).
 : ed-kinds-named ( -- table n )
   ed-v32? if ed-kind-names elab-kinds else ed-v3-kinds elab-binders then ;
-: ed-kinds# ( -- n ) ed-v4? if elab-kinds ed-added# + else ed-kinds-named nip then ;
+: ed-kinds# ( -- n )
+  ed-v4? if elab-kinds ed-added-read# + else ed-kinds-named nip then ;
 \ Format 4 counts the kinds of 3.2 and every added one.
 : ed-added-counted? ( object i -- object flag ) ed-added-key over swap ed-member 0< 0= ;
 : ed-all-added? ( object -- flag )
-  ed-added# ['] ed-added-counted? count-index ed-added# = ;
+  ed-added-read# ['] ed-added-counted? count-index ed-added-read# = ;
 : ed-v4-shaped? ( object -- flag )
   ed-kinds# over ed-view members? 0= if drop false exit then
   dup ed-kind-names swap ed-view all-keys? swap ed-all-added? and ;
@@ -1762,9 +1786,11 @@ synonym elab-array-items ed-array-items  ( index xt -- outcome )
 synonym elab-type-pis ed-type-pis        ( d -- n )
 synonym elab-numbers ed-numbers          ( span index -- outcome ) \ u32s into elab-orders
 synonym elab-span@ ed-span@              ( span -- addr n )
+synonym elab-text= ed-text=              ( index c-addr u -- flag )
 synonym elab-tier ed-tier                ( -- tier ) \ the stage's names and terms
 synonym elab-type@ ed-type@              ( d -- e )
 : elab-format4? ( -- flag ) elab-loaded? ed-v4? and ;
+: elab-format41? ( -- flag ) elab-format4? ed-v41? and ;
 : ed-tagged-at? ( tag d -- tag flag ) over elab-tagged? ;
 : elab-tag-count ( tag -- n ) elab-facts slab-count ['] ed-tagged-at? count-index ;
 

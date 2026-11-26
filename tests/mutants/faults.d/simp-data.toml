@@ -109,7 +109,7 @@ reason = "SD-a: a defeq tag of a definition is read (Lean's defeq attribute mark
 [[fault]]
 id = "ed-added-any-format"
 file = "src/front/elab-data.fs"
-old = '''  ed-v4? 0= if drop ed-e-kind ed-bad exit then'''
+old = '''  elab elab-kind @ ed-added-read? 0= if drop ed-e-kind ed-bad exit then'''
 new = ''''''
 test = "$GFORTH tests/front/simp-data.fs"
 reason = "SD-a: a congr record is read in a format-3 file"
@@ -244,8 +244,8 @@ equivalent = "review simp-sd-a finding 7: the v4 flag is set only while a format
 [[fault]]
 id = "cli-elab-format4-silent"
 file = "src/cli/leanforth-text.fs"
-old = '''  cli-elab-format2 cli-elab-format3 cli-elab-format4 cr ;'''
-new = '''  cli-elab-format2 cli-elab-format3 cr ;'''
+old = '''  cli-elab-format2 cli-elab-format3 cli-elab-format4 cli-elab-format41 cr ;'''
+new = '''  cli-elab-format2 cli-elab-format3 cli-elab-format41 cr ;'''
 test = "python3 tests/front/test_simp_data.py"
 reason = "review simp-sd-a 9: the check's elaboration-data line leaves out the congruence lemmas and defeq tags"
 
@@ -274,3 +274,68 @@ old = '''  dup 1- sd-priority@ swap sd-priority@ u< 0= ;'''
 new = '''  dup 1- sd-priority@ swap sd-priority@ u> ;'''
 test = "$GFORTH tests/front/simp-data.fs"
 reason = "re-check simp-sd-a D: two lemmas of one function with equal priorities refused (Lean's insert keeps both)"
+
+# --- slice SD-b: format 4.1, the realized records (simp-data.fs, elab-data.fs's kinds of 4.1).
+[[fault]]
+id = "realized-any-format"
+file = "src/front/elab-data.fs"
+old = ''': ed-added-read? ( kind -- flag ) elab-kinds - ed-added-read# < ed-v4? and ;'''
+new = ''': ed-added-read? ( kind -- flag ) drop ed-v4? ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-b: a realized record (format 4.1's kind) is read in a format-4 file"
+
+[[fault]]
+id = "realized-v4-counted"
+file = "src/front/elab-data.fs"
+old = '''  0 ed-added# ['] ed-v41-kind? find-index 0= if ed-added# then ;'''
+new = '''  ed-added# ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-b: format 4's header must then count the realized kind, so SD-a's format-4 files are refused"
+
+[[fault]]
+id = "kind4-after-kind41"
+file = "src/front/elab-data.fs"
+old = '''  ed-added-v4# ed-added# <> abort" elab-add-kind: format 4 after a 4.1 kind" ed-add ;'''
+new = '''  ed-add ;'''
+test = "$GFORTH tests/front/elab-kinds.fs"
+reason = "SD-b: a format-4 kind added after a 4.1 kind would leave the kinds format 4 reads no prefix of the registry"
+
+[[fault]]
+id = "realized-name-unfit"
+file = "src/front/simp-data.fs"
+old = '''  nip sdr dup sdr-fun @ sd-congr-simp-of swap sdr-decl @ elab-decl-name = sd-fit ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-b: a realized record's theorem must be its function's congr_simp (Lean's reserved name)"
+
+[[fault]]
+id = "realized-kinds-unchecked"
+file = "src/front/simp-data.fs"
+old = '''    i @ sd-kind? 0= if elab-malformed unloop exit then'''
+new = ''''''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-b: an argument kind beyond 3 (none of mkCongrSimpCore?'s) is malformed"
+
+[[fault]]
+id = "realized-kind-text-unchecked"
+file = "src/front/simp-data.fs"
+old = '''  drop c" kind" elab-member s" congr_simp" elab-text= 0= if elab-malformed exit then'''
+new = '''  drop'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-b: a realized record's kind is congr_simp alone (simp_helper is planned, not read)"
+
+[[fault]]
+id = "realized-twice"
+file = "src/front/simp-data.fs"
+old = '''  if 2drop drop elab-e-congr-twice elab-refuse exit then sd-index memo! elab-roomed ;'''
+new = '''  drop sd-index memo! elab-roomed ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-b: a function's second realized record replaces the first instead of refusing the file"
+
+[[fault]]
+id = "cli-elab-format41-silent"
+file = "src/cli/leanforth-text.fs"
+old = '''  ." , " simp-realized-count .decimal ."  realized congruence theorems" ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/elab-check-lf.fs"
+reason = "SD-b: the check's elaboration-data line leaves out the realized congruence theorems"

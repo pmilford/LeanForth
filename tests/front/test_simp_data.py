@@ -74,14 +74,18 @@ def realized(fun, kinds, kind="congr_simp", name=None):
 
 
 R_DECIDE = realized(["Decidable", "decide"], [1, 3])
+R_ITE = realized(["ite"], [0, 1, 3, 1, 1])
 GOOD = [C_DITE, C_ITE, C_SUB, T_ADD]
+GOOD41 = GOOD + [R_DECIDE, R_ITE]
 
 
 def assemble(lines, version=4, drop=None, **counted):
     """A file for the simp slice holding lines, its header counting them."""
     body = "".join(r + "\n" for r in lines)
     counts = dict.fromkeys(export_elab.KINDS, 0)
-    if version != 4:
+    if version != "4.1":
+        del counts["realized"]
+    if version not in (4, "4.1"):
         del counts["congr"]
         if version != "3.2":
             del counts["binder_kinds"]
@@ -110,7 +114,23 @@ CASES = {
     "v3-congr": (assemble(GOOD[:3], 3), "invalid", 2, 11),
     "v32-defeq": (assemble([T_ADD], "3.2"), "invalid", 2, 10),
     "v5": (assemble(GOOD, 5), "unsupported", 1, 7),
-    "v41": (assemble(GOOD, "4.1"), "unsupported", 1, 7),
+    "v41-uncounted": (assemble(GOOD, "4.1", drop="realized"), "invalid", 1, 10),
+    "good41": (assemble(GOOD41, "4.1"), "ok", 0, 0),
+    "v4-realized": (assemble(GOOD + [R_DECIDE]), "invalid", 6, 11),
+    "real-other": (assemble(GOOD + [R_DECIDE.replace('["Decidable","decide"],"kind"',
+                                                     '["ite"],"kind"')], "4.1"),
+                   "invalid", 6, 37),
+    "real-kind": (assemble(GOOD + [R_DECIDE.replace('"kind":"congr_simp"', '"kind":"simp_helper"')], "4.1"),
+                  "invalid", 6, 10),
+    "real-kinds-big": (assemble(GOOD + [R_DECIDE.replace("[1,3]", "[1,4]")], "4.1"),
+                       "invalid", 6, 10),
+    "real-kinds-text": (assemble(GOOD + [R_DECIDE.replace("[1,3]", '"13"')], "4.1"),
+                        "invalid", 6, 10),
+    "real-twice": (assemble(GOOD41 + [R_DECIDE], "4.1"), "invalid", 8, 47),
+    "real-def": (assemble(GOOD + [R_ITE.replace('["ite","congr_simp"]', '["ite"]')], "4.1"),
+                 "invalid", 6, 14),
+    "real-unknown": (assemble(GOOD + [R_ITE.replace('["ite","congr_simp"]', '["no_such"]')],
+                              "4.1"), "invalid", 6, 12),
     "unknown-kind": (assemble(GOOD + ['{"simp":{"name":["ite_congr"]}}']), "invalid", 6, 11),
     "no-hyps": (assemble(swap(C_DITE, C_DITE.replace('"hyps":[9,10,11],', ""))),
                 "invalid", 2, 10),
@@ -249,12 +269,14 @@ def check_cases(work):
     status, said = check(SLICE, DATA)
     if status or "sd_id: accepted" not in said:
         fail(f"the simp slice's own format-4 data: {status} {said[-300:]}")
-    if not count_line(said).endswith(", 7 congruence lemmas, 33 defeq tags"):
+    if not count_line(said).endswith(", 9 congruence lemmas, 33 defeq tags, "
+                                      "5 realized congruence theorems"):
         fail(f"the count line of format-4 data: {count_line(said)!r}")
     status, said = check(work / "slice.ndjson", FIXTURES / "plain32.elab.ndjson")
     if status or not count_line(said).endswith(" smart-unfolding bodies"):
         fail(f"the count line of format-3.2 data: {status} {count_line(said)!r}")
-    for name in ("good", "v3-congr", "twice", "order-swap", "hyps-beyond"):
+    for name in ("good", "good41", "v3-congr", "twice", "order-swap", "hyps-beyond",
+                 "real-other", "v4-realized"):
         _, outcome, line, code = CASES[name]
         status, said = check(work / "slice.ndjson", FIXTURES / f"{name}.elab.ndjson")
         want = "sd_id: accepted" if outcome == "ok" else f"refused at line {line} (error {code})"
@@ -272,8 +294,8 @@ def main(argv):
         (work / "slice.ndjson.manifest.json").write_text(json.dumps(manifest, indent=2))
         writer_cases(work)
         check_cases(work)
-    print(f"simp data (format 4): all tests passed ({len(CASES)} fixtures, 14 finisher runs, "
-          "6 checks)")
+    print(f"simp data (formats 4 and 4.1): all tests passed ({len(CASES)} fixtures, 14 finisher "
+          "runs, 11 checks)")
 
 
 if __name__ == "__main__":

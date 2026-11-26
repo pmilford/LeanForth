@@ -49,9 +49,13 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 : cli-elab-format4 ( -- )
   simp-data? 0= if exit then ." , " simp-congr-kind cli-elab-count.
   ."  congruence lemmas, " simp-defeq-count .decimal ."  defeq tags" ;
+\ Format 4.1's realized congruence theorems.
+: cli-elab-format41 ( -- )
+  elab-format41? 0= if exit then
+  ." , " simp-realized-count .decimal ."  realized congruence theorems" ;
 : cli-elab-note ( -- )
   cli-elab-file nip 0= if exit then ." elaboration data: " cli-elab-format1
-  cli-elab-format2 cli-elab-format3 cli-elab-format4 cr ;
+  cli-elab-format2 cli-elab-format3 cli-elab-format4 cli-elab-format41 cr ;
 : cli-text-error ( -- )
   ." error: " lf-author-code lf-author-outcome dup cli-author-outcome.
   ." : the LeanForth text was not checked: " lf-author-error. cr outcome>code cli-code! ;

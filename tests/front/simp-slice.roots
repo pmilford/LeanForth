@@ -43,3 +43,10 @@ exists_prop_congr
 Vector.mk_congr
 Array.extract_congr
 Array.foldl_congr
+Decidable.decide.congr_simp
+ite.congr_simp
+if_pos
+Nat.sub_add_cancel
+ForM.forM
+Vector.forM_congr
+Array.forM_congr
