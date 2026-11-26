@@ -76,8 +76,9 @@ begin-structure /sca
 end-structure
 /sca context-slab: sc-args
 1 constant sc-simplified   2 constant sc-has-proof   4 constant sc-has-cast
-: sc-flag! ( bit -- ) sa sa-h @ or sa sa-h ! ;
-: sc-flag? ( bit -- flag ) sa sa-h @ and 0<> ;
+: sa-flags ( a -- a' ) sa-h ;   \ the activation's proof cell, a bit set here
+: sc-flag! ( bit -- ) sa sa-flags @ or sa sa-flags ! ;
+: sc-flag? ( bit -- flag ) sa sa-flags @ and 0<> ;
 : sc-arg ( i -- addr ) sa sa-xs @ + sc-args slab-at ;
 : sc-result! ( a h i -- ) sc-arg sca-r 2! ;
 : sc-claim ( kind a -- )
@@ -133,9 +134,10 @@ end-structure
 : sc-vals-all ( base type -- base type ) sm-n 0 ?do i sc-arg-val loop ;
 : sc-rhs ( base type -- e )
   swap sc-vals lf-meta-instantiate-forall lf-must lf-simp-sides nip ;
+: sc-auto-rhs ( base c -- e ) lf-infer! sc-vals-all sc-rhs ;
+: sc-applied ( base c -- p ) over sc-vals lf-mk-app-cells swap sm-xs slab-cut ;
 : sc-auto-proof ( -- e' h )
-  sm-xs slab-count dup sc-realized sc-thm-of tuck lf-infer! sc-vals-all sc-rhs
-  swap rot tuck sc-vals lf-mk-app-cells swap sm-xs slab-cut ;
+  sm-xs slab-count sc-realized sc-thm-of 2dup sc-auto-rhs -rot sc-applied ;
 : sc-auto-finish ( -- ... )
   sc-simplified sc-flag? 0= if sm-act-e lf-simp-none sc-visit-fn exit then
   sc-has-cast sc-flag? if lf-unported then
