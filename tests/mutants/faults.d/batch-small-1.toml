@@ -273,6 +273,22 @@ new = ''': tl-classed ( fvar name flags -- local ) lf-local-new lf-must ;'''
 test = "$GFORTH tests/front/tactics/local-instances/test.fs"
 reason = "small tactics 1 (review finding 1): a local the tactic library makes (a have's, intro's) is no local instance, where introNImp's withNewLocalInstances makes it one (test.fs's have and intro locals, 139)"
 
+[[fault]]
+id = "sm1-local-instance-default-whnf"
+file = "src/front/local-instances.fs"
+old = '''  2drop r> ['] li-expensive lf-with-reducible ;'''
+new = '''  2drop r> li-expensive ;'''
+test = "$GFORTH tests/front/tactics/local-instances/test.fs"
+reason = "re-check finding 2 (its F1): isClassExpensive? whnfs at default transparency, not withReducible, so (d : id (Decidable True)) is a local instance where Lean's isClass? answers none (test.fs's id parameter: 139, Lean accepts)"
+
+[[fault]]
+id = "sm1-local-instance-let-unmarked"
+file = "src/front/telescope.fs"
+old = '''  swap >r tl-let-fvar r> lf-binder-default tl-pushed ;'''
+new = '''  dup >r swap >r tl-let-fvar r> lf-binder-default r> if tl-pushed else 2>r dup 2r> lf-local-new lf-must lf-mctx-view swap lf-view-push lf-must then ;'''
+test = "$GFORTH tests/front/tactics/local-instances/test.fs"
+reason = "re-check finding 2 (its F3, the dependent let alone): a let's local is pushed unmarked, so by-let:'s class-typed local is no local instance where Lean's mkLetDecl makes one (test.fs's by-let: e: 139)"
+
 # The runner's bound on Lean's recursion depth (re-check of the Forth review, finding 1:
 # tactic-run.fs's lf-tac-depth-most and the modes' weights), caught by
 # tests/front/tactics/rec-depth/test.fs.

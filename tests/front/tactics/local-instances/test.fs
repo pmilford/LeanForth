@@ -9,7 +9,10 @@
 \    (explicit or instance implicit, named inferInstance too), a
 \    DecidableEq parameter, a have's local, intro's local after revert,
 \    and the statement's own decide (Lean's rfl then fails); a local of
-\    no class leaves the search as it was;
+\    no class leaves the search as it was; the locals of by-let:,
+\    by-have: with a term, by-obtain[, by-generalize: and by-intros are
+\    marked, by-rename: keeps the mark, by-clear drops it; a class only
+\    past default whnf (id) is none, isClassExpensive? being reducible;
 \ 2. malformed input: none of its own (the types are the elaborator's);
 \ 3. records: the local's class is the class's name in the context's
 \    names, the one instances.fs's guard compares;
@@ -111,6 +114,40 @@ T{ s" Nat Inhabited explicit: i Nat explicit: a Nat explicit: b a b = explicit: 
 T{ s" True Decidable explicit: d Nat explicit: a Nat explicit: b a b = explicit: h a b =" have-ii tactic-ran
    -> 139 }T
 lf-tac-forget
+
+\ ---- 1, 6. The other paths that make a local (re-check of the Forth
+\ review, finding 2; probes li09-li14, li18, li20 and li01 of 2026-11-26
+\ against pinned Lean): by-let:'s local (a dependent let; Lean uses e),
+\ by-have:'s with a term, by-obtain['s, by-generalize:'s and by-intros'
+\ after revert are local instances (139: Lean uses them, or with
+\ Decidable True refuses rfl), by-rename: keeps the mark (Lean uses e2)
+\ and by-clear removes the local with it (accepted, as Lean); a type that
+\ is a class only past whnf at default transparency is none, as id is
+\ implicit_reducible (Prelude.lean:131) and isClassExpensive? runs
+\ withReducible: accepted with the global instance, as Lean.
+: dec-k ( -- c-addr u ) s" True Decidable.decide Bool.true = by-have-by: k by-rfl by-end ' h by-exact" ;
+: hdt ( -- c-addr u ) s" Nat explicit: a Nat explicit: b True Decidable explicit: d a b = explicit: h a b =" ;
+T{ hh s" True Decidable instDecidableTrue by-let: e True Decidable by-have-by: f by-infer-instance by-end ' h by-exact"
+   tactic-ran -> 139 }T   lf-tac-forget
+T{ hh s" True Decidable instDecidableTrue by-have: e True Decidable.decide Bool.true = by-have-by: k by-rfl by-end ' h by-exact"
+   tactic-ran -> 139 }T   lf-tac-forget
+T{ s" Nat explicit: a Nat explicit: b ' Eq instDecidableTrue $ Exists explicit: h2 a b = explicit: h a b ="
+   s" ' h2 by-obtain[ << d _ >> ] True Decidable.decide Bool.true = by-have-by: k by-rfl by-end ' h by-exact"
+   tactic-ran -> 139 }T   lf-tac-forget
+T{ hh s" instDecidableTrue by-generalize: d True Decidable by-have-by: f by-infer-instance by-end ' h by-exact"
+   tactic-ran -> 139 }T   lf-tac-forget
+T{ hh s" instDecidableTrue by-generalize: d True Decidable.decide Bool.true = by-have-by: k by-rfl by-end ' h by-exact"
+   tactic-ran -> 139 }T   lf-tac-forget
+T{ hdt s" by-revert[ d ] by-intros True Decidable.decide Bool.true = by-have-by: k by-rfl by-end ' h by-exact"
+   tactic-ran -> 139 }T   lf-tac-forget
+T{ hdt s" True Decidable by-rename: e2 True Decidable by-have-by: e by-infer-instance by-end ' h by-exact"
+   tactic-ran -> 139 }T   lf-tac-forget
+T{ hdt s" ' d by-clear True Decidable.decide Bool.true = by-have-by: k by-rfl by-end ' h by-exact" tactic-ran
+   -> 0 }T
+T{ s" Nat explicit: a Nat explicit: b True Decidable id explicit: d a b = explicit: h a b ="
+   s" True Decidable by-have-by: e by-infer-instance by-end ' h by-exact" tactic-ran -> 0 }T
+T{ s" Nat explicit: a Nat explicit: b True Decidable id explicit: d a b = explicit: h a b =" dec-k
+   tactic-ran -> 0 }T
 
 \ ---- 5. Resources: the locals' slab short of room, each j in turn; every
 \ heap allocation refused in turn: the answer, or full.
