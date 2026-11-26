@@ -41,25 +41,23 @@ require ../meta-config.fs
 require ./theorems.fs
 require ./main.fs
 
-\ ---- The lemma trees' kind: the values of the tree's phase (the post
-\ tree's, or the pre tree's), the theorem record made for each when its
-\ root is built; the checks run per lemma when it is tried.
-: ds-ok ( rix -- outcome ) drop outcome-ok ;
-: ds-post? ( rix -- flag ) lf-simp-post-tree = ;
-: ds-count ( rix -- n ) ds-post? simp-lemmas# ;
-: ds-value ( k rix -- v ) ds-post? simp-lemma-value ;
-' ds-count ' ds-value ' simp-lemma-count ' simp-lemma-keys ' simp-lemma-rank ' ds-ok
-  ' lf-simp-data-entry rix-kind, constant ds-kind
-
-\ ---- The simprocs' kind: the entries of the index's phase, the tree
-\ holding each entry's number.
+\ ---- The kinds' values: an index's list of the data (simp-set-data.fs's
+\ simp-value), a tree's lemmas or a phase's simprocs.
 /rix context-record: ds-proc-pre
 /rix context-record: ds-proc-post
+: ds-list ( rix -- post procs? )
+  dup lf-simp-post-tree = over ds-proc-post = or
+  swap dup ds-proc-pre = swap ds-proc-post = or ;
+: ds-count ( rix -- n ) ds-list simp-values# ;
+: ds-value ( k rix -- v ) ds-list simp-value ;
+: ds-ok ( rix -- outcome ) drop outcome-ok ;
+\ The lemma trees' kind: the theorem record made for each value when its
+\ root is built; the checks run per lemma when it is tried.
+' ds-count ' ds-value ' simp-lemma-count ' simp-lemma-keys ' simp-lemma-rank ' ds-ok
+  ' lf-simp-data-entry rix-kind, constant ds-kind
+\ The simprocs' kind: the tree holds each entry's number.
 : ds-self ( p -- p outcome ) outcome-ok ;
-: ds-proc-post? ( rix -- flag ) ds-proc-post = ;
-: ds-proc-count ( rix -- n ) ds-proc-post? simp-procs# ;
-: ds-proc-value ( k rix -- p ) ds-proc-post? simp-proc-value ;
-' ds-proc-count ' ds-proc-value ' simp-proc-count ' simp-proc-keys ' simp-proc-rank
+' ds-count ' ds-value ' simp-proc-count ' simp-proc-keys ' simp-proc-rank
   ' ds-ok ' ds-self rix-kind, constant ds-proc-kind
 1 cells context-slab: ds-out
 :noname ( -- ) ds-proc-pre lf-rix-free ds-proc-post lf-rix-free ; context-teardown

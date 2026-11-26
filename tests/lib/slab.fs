@@ -87,6 +87,14 @@ T{ s2 slab-clear s2 slab-generation s2 slab-live? -> max-n true }T
 T{ s2 slab-clear s2 slab-generation s2 slab-live? 1 s2 slab-room -> -1 false outcome-invalid }T
 T{ s2 slab-clear s2 slab-generation -> -1 }T
 s2 slab-free
+\ slabs-clear: each of the n slabs cleared (count 0, generation + 1), what
+\ lies below them kept; n = 0 clears none.
+1 cells 10 s2 slab-init drop  1 cells 10 s3 slab-init drop
+T{ 2 s2 slab-claim 2drop 3 s3 slab-claim 2drop s2 s3 2 slabs-clear -> }T
+T{ s2 slab-count s2 slab-generation s3 slab-count s3 slab-generation -> 0 1 0 1 }T
+T{ 4 s3 slab-claim 2drop 9 s3 0 slabs-clear s3 slab-count -> 9 s3 4 }T
+T{ 7 s3 1 slabs-clear s3 slab-count s3 slab-generation -> 7 0 2 }T
+s2 slab-free s3 slab-free
 
 \ Corrupting any sealed field, or the count, fails closed.
 1 cells 10 s2 slab-init drop  4 s2 slab-claim 2drop

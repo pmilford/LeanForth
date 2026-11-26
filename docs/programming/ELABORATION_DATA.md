@@ -898,7 +898,7 @@ below in its header; one written before this (format 4.1 with `realized` alone) 
 | `simp_lemma` | `set`, `origin` (a declaration), `inv`, `post`, `proof` (a theorem: the lemma or its `_simp_N` helper), `priority`, `perm`, `rfl` (its proof's `defeq` tag, error 50), `backward_rfl`, `keys`, `rank` | the default set's `pre` and `post` trees, `SimpTheorem` (SimpTheorems.lean:155) |
 | `simp_left_out` | `set`, `post`, `keys` (foreign constants allowed), `rank`, `priority`, `origin`, `proof` (names, not both the library's: error 51), `reason` (`not_exported`) | a tree value whose origin or proof the export lacks |
 | `simp_unfold` | `set`, `name` (a declaration) | `toUnfold` |
-| `simproc` | `name` (a Lean function: a well-formed name, kept whatever the export holds), `keys` (foreign constants allowed), `post`, `rank`, `dsimproc` | `simprocExtension`'s trees, `builtinSimprocDeclsRef` |
+| `simproc` | `name` (a Lean function: a well-formed name, kept whatever the export holds, as dotted text less its macro scopes, `Name.eraseMacroScopes`: `UInt8.reduceEq._@.Lean…._hyg.N` is kept as `UInt8.reduceEq`; simp's simproc ports are found by it), `keys` (foreign constants allowed), `post`, `rank`, `dsimproc` | `simprocExtension`'s trees, `builtinSimprocDeclsRef` |
 
 The lemma record is SIMP_DATA.md's `simp`, written `simp_lemma` so that no record kind is a folder name of the
 checkout. The finisher keeps a lemma when the export has its origin and its proof (else `simp_left_out`, its rank
@@ -914,7 +914,7 @@ from 0.43 to 2.18 MB.
 10-14, 19, 22), keys one term (30), the checks of the table. Ranks are checked when a root is built
 (`src/front/data-index.fs`: a gap or two values of one rank answer invalid there), not when the file is read.
 `simp-default? ( -- flag )` is true only for 4.1 data holding the `simp_set` record; `by-simp` answers unsupported
-without it. Tests: `tests/front/simp-data.fs` (the slice's data, 21 fixtures of `tests/front/simp-data/`, a heap
+without it. The check's data line ends with ", N default simp lemmas, N left out, N simprocs, N definitions to unfold" for such data (`cli-elab-simp-set`). Tests: `tests/front/simp-data.fs` (the slice's data, 21 fixtures of `tests/front/simp-data/`, a heap
 sweep), `tests/front/test_simp_data.py` (the fixtures; `export_simp.py` kept, left-out and dropped records, format 4
 byte for byte, three refusals); faults in `tests/mutants/faults.d/simp-group4.toml`.
 

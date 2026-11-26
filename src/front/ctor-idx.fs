@@ -91,7 +91,7 @@ require ./constructions.fs
 \ ---- The type: Pi {params} {indices} (x : T params indices), Nat.
 : xs-binder ( job j -- job outcome )
   over tuck type-binder swap implicit swap rot binder, outcome-ok ;
-: xs-binders ( job -- outcome ) dup xs-count ['] xs-binder ok-each nip ;
+: xs-binders ( job -- outcome ) ['] xs-count ['] xs-binder ok-each-of ;
 : arrow-domain ( job -- e outcome ) dup xs-count 1- swap ind-app ;
 : arrow ( job -- e outcome )
   dup arrow-domain ok-keep? 0= if exit then

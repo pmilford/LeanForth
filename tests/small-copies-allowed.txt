@@ -13,3 +13,10 @@ src/front/rcases.fs:rcs-target@  the target of a pending run's first triple (nod
 src/front/elab-data.fs:ed-type@  the type field of a staged declaration, beside elab-decl-name its name field: two fields, not a copy
 src/core/terms.fs:lf-term-fns  the shared word the kernel's copies (lf-iota-peel, lf-quot-peel and the others) move to in plan row 9.4.8z2 (review B1 of 2026-11-25); src/kernel is not changed on branch simp-sl1a-1
 src/core/terms.fs:lf-term-arg  the shared word the kernel's lf-iota-arg, lf-ind-arg and the others move to in plan row 9.4.8z2 (review B1 of 2026-11-25)
+src/front/simp-set-data.fs:ssl-post!  a kept lemma's step of its form table (its record in ss-lemmas), beside ssj-post! a left-out lemma's (ss-lefts): both call the one member word ss-post!
+src/front/simp-set-data.fs:ssj-post!  a left-out lemma's step of its form table (its record in ss-lefts), beside ssl-post! a kept lemma's: both call the one member word ss-post!
+src/front/simp-set-data.fs:ssl-prio!  a kept lemma's step of its form table, beside ssj-prio! a left-out lemma's: both call the one member word ss-prio!
+src/front/simp-set-data.fs:ssj-prio!  a left-out lemma's step of its form table, beside ssl-prio! a kept lemma's: both call the one member word ss-prio!
+src/front/simp-set-data.fs:ssl-rank!  a kept lemma's step of its form table, beside ssj-rank! a left-out lemma's: both call the one member word ss-rank!
+src/front/simp-set-data.fs:ssj-rank!  a left-out lemma's step of its form table, beside ssl-rank! a kept lemma's: both call the one member word ss-rank!
+src/front/data-index.fs:lf-rix-status  a record's status cell read (data-index.fs's slab of cells), not core/input.fs's rule cell: two records' readers

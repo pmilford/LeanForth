@@ -72,8 +72,8 @@ equivalent = "the proof then holds an assignable metavariable, which sr-proof re
 [[fault]]
 id = "rix-checks-skipped"
 file = "src/front/data-index.fs"
-old = ''': rix-prepared ( rix -- outcome ) dup rix-gather ok-then? if rix-checks then ;'''
-new = ''': rix-prepared ( rix -- outcome ) rix-gather ;'''
+old = '''  dup rix-gather ['] rix-checks ok-with ['] rix-insert-ranked ok-with nip ;'''
+new = '''  dup rix-gather ['] rix-insert-ranked ok-with nip ;'''
 test = "$GFORTH tests/front/data-index.fs && $GFORTH tests/front/instances-late.fs"
 reason = "a root built without its kind's checks: the index's log stays empty, and an instance filed under another class goes into the tree unchecked"
 
@@ -160,8 +160,8 @@ reason = "a left-out lemma's keys may not name a constant the library lacks: the
 [[fault]]
 id = "simp-phase-swapped"
 file = "src/front/simp-set-data.fs"
-old = ''': ss-phase ( v post -- outcome ) if ss-post else ss-pre then slab-push elab-roomed ;'''
-new = ''': ss-phase ( v post -- outcome ) if ss-pre else ss-post then slab-push elab-roomed ;'''
+old = ''': ss-lemma-list ( post -- slab ) if ss-post else ss-pre then ;'''
+new = ''': ss-lemma-list ( post -- slab ) if ss-pre else ss-post then ;'''
 test = "$GFORTH tests/front/simp-data.fs"
 reason = "post lemmas filed in the pre tree: simp would try them before visiting the subterms"
 
@@ -244,3 +244,35 @@ old = '''  0= if lf-unported then ;'''
 new = '''  drop ;'''
 test = "$GFORTH tests/front/tactics/simp-4/test.fs"
 reason = "a data lemma whose recorded keys are not its statement's is tried: the tampered Nat.add_zero record is used"
+
+[[fault]]
+id = "slabs-clear-one-short"
+file = "src/lib/slab.fs"
+old = ''': slabs-clear ( slab1 .. slabn n -- ) 0 ?do slab-clear loop ;'''
+new = ''': slabs-clear ( slab1 .. slabn n -- ) 1 ?do slab-clear loop ;'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "the last slab given is left uncleared (and on the stack): a module's reset keeps one of its slabs' units"
+
+[[fault]]
+id = "ok-each-of-keeps-record"
+file = "src/lib/outcome.fs"
+old = ''': ok-each-of ( x count xt -- outcome ) >r over swap execute r> ok-each nip ;'''
+new = ''': ok-each-of ( x count xt -- outcome ) >r over swap execute 1- r> ok-each nip ;'''
+test = "$GFORTH tests/lib/lib.fs"
+reason = "the record's last part is never stepped: a construction's last front binder, an index's last value root"
+
+[[fault]]
+id = "simproc-name-scopes-kept"
+file = "src/front/simp-set-data.fs"
+old = '''  2dup s" _@" compare 0= if 2drop ssn-end exit then'''
+new = '''  2dup s" _@" compare 0= if 2drop outcome-ok exit then'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "a macro-made simproc's hygienic suffix kept in its name: UInt8.reduceEq is not found by its port's name"
+
+[[fault]]
+id = "cli-simp-set-uncounted"
+file = "src/cli/leanforth-text.fs"
+old = '''  cli-elab-simp-set cr ;'''
+new = '''  cr ;'''
+test = "GFORTH=$GFORTH python3 tests/front/test_simp_data.py"
+reason = "the check's elaboration-data line leaves out the default simp set's kinds"

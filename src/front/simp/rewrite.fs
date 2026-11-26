@@ -70,7 +70,7 @@ begin-structure /srt
 end-structure
 /srt context-slab: sr-frames
 : srt ( -- addr ) sr-frames slab-last ;
-: lf-simp-rewrite-reset ( -- ) sr-frames slab-clear sr-cands slab-clear sr-xs slab-clear ;
+: lf-simp-rewrite-reset ( -- ) sr-frames sr-cands sr-xs 3 slabs-clear ;
 \ A call's frame, its bases the slabs' counts; given back with what the
 \ call put above them.
 : sr-push ( -- )

@@ -244,8 +244,8 @@ equivalent = "review simp-sd-a finding 7: the v4 flag is set only while a format
 [[fault]]
 id = "cli-elab-format4-silent"
 file = "src/cli/leanforth-text.fs"
-old = '''  cli-elab-format2 cli-elab-format3 cli-elab-format4 cli-elab-format41 cr ;'''
-new = '''  cli-elab-format2 cli-elab-format3 cli-elab-format41 cr ;'''
+old = '''  cli-elab-format2 cli-elab-format3 cli-elab-format4 cli-elab-format41'''
+new = '''  cli-elab-format2 cli-elab-format3 cli-elab-format41'''
 test = "python3 tests/front/test_simp_data.py"
 reason = "review simp-sd-a 9: the check's elaboration-data line leaves out the congruence lemmas and defeq tags"
 

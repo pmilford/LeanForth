@@ -726,6 +726,12 @@ T{ 0 4 ' nested-squares ok-each -> 6 outcome-ok }T
 \ A step that leaves an outcome outside the vocabulary stops the loop.
 : step-odd ( k -- outcome ) drop 99 ;
 T{ 3 ' step-odd ok-each -> 99 }T
+\ ok-each-of: the record's count asked of it, each step given it and k,
+\ the record dropped: the outcome alone, the first failure's.
+: rec-count ( x -- n ) 10 / ;
+T{ 0 step-trail ! 37 ' rec-count ' step-k ok-each-of step-trail @ -> outcome-ok 123 }T
+T{ 0 step-trail ! 60 ' rec-count ' step-k ok-each-of step-trail @ -> outcome-unknown 1234 }T
+T{ 0 step-trail ! 5 ' rec-count ' step-k ok-each-of step-trail @ -> outcome-ok 0 }T
 \ ok-fold: x := step ( x k y -- x' outcome ), y given to every step and
 \ kept; the failing step's x' and outcome.
 : fold-step ( x k y -- x' outcome )

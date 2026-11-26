@@ -53,9 +53,16 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 : cli-elab-format41 ( -- )
   elab-format41? 0= if exit then
   ." , " simp-realized-count .decimal ."  realized congruence theorems" ;
+\ Format 4.1's default simp set (front/simp-set-data.fs), when it has one.
+: cli-elab-simp-set ( -- )
+  simp-default? 0= if exit then ." , " simp-lemma-kind cli-elab-count.
+  ."  default simp lemmas, " simp-left-kind cli-elab-count. ."  left out, "
+  simp-proc-kind cli-elab-count. ."  simprocs, " simp-unfold-kind cli-elab-count.
+  ."  definitions to unfold" ;
 : cli-elab-note ( -- )
   cli-elab-file nip 0= if exit then ." elaboration data: " cli-elab-format1
-  cli-elab-format2 cli-elab-format3 cli-elab-format4 cli-elab-format41 cr ;
+  cli-elab-format2 cli-elab-format3 cli-elab-format4 cli-elab-format41
+  cli-elab-simp-set cr ;
 : cli-text-error ( -- )
   ." error: " lf-author-code lf-author-outcome dup cli-author-outcome.
   ." : the LeanForth text was not checked: " lf-author-error. cr outcome>code cli-code! ;

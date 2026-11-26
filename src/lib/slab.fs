@@ -74,7 +74,7 @@
 \ slab-capacity slab-limit slab-unit slab-at slab-base slab-data slab-top slab-room
 \ slab-reserve slab-hold slab-claim slab-claim-one slab-commit slab-cut slab-remove
 \ slab-bad-cut slab-trim slab-zeroed slab-cell-put
-\ slab-clear slab-bytes slab-used-bytes slab-limit-max slab-offset
+\ slab-clear slabs-clear slab-bytes slab-used-bytes slab-limit-max slab-offset
 \ slab-push slab-pop slab-2push slab-2pop slab-last slab-drop
 \ slab-keep slab-restore slab-forget slab-kept
 \ slab-underflow slab-all? slab-2all?
@@ -347,6 +347,9 @@ lf-lib-private set-current
 lf-lib set-current
 : slab-clear ( slab -- )
   0 over slab-used ! 0 over slab-depth ! slab-epoch dup @ epoch+ swap ! ;
+\ Several slabs cleared at once, the n slabs below n each as slab-clear
+\ (a module's reset of the slabs that go together).
+: slabs-clear ( slab1 .. slabn n -- ) 0 ?do slab-clear loop ;
 lf-lib-private set-current
 
 \ The mark stack. Entry k (from 0, the oldest) is at slab-entry.

@@ -639,13 +639,10 @@ create ed-rank-hooks /htab-hooks allot
   1 over ed-key-types# ! ed-key-find dup 0= if nip then ;
 
 \ ---- Forgetting: every table empty, the counts zero, nothing loaded.
-: ed-bodies-clear ( -- )
-  elab-suns slab-clear elab-nodes slab-clear elab-levels slab-clear ;
 : ed-slabs-clear ( -- )
-  elab-facts slab-clear elab-insts slab-clear elab-orders slab-clear
-  elab-dflts slab-clear elab-elims slab-clear elab-types slab-clear elab-lefts slab-clear
-  elab-classes slab-clear elab-matches slab-clear elab-alts slab-clear
-  elab-projs slab-clear ed-bodies-clear elab-bks slab-clear elab-bk-doms slab-clear ;
+  elab-facts elab-insts elab-orders elab-dflts elab-elims elab-types elab-lefts
+  elab-classes elab-matches elab-alts elab-projs elab-suns elab-nodes elab-levels
+  elab-bks elab-bk-doms 16 slabs-clear ;
 : ed-tables-clear ( -- )
   ed-table? if ed-table htab-clear then
   ed-ranks dup htab-live? if htab-clear else drop then ;
@@ -1798,6 +1795,7 @@ synonym elab-type-pis ed-type-pis        ( d -- n )
 synonym elab-numbers ed-numbers          ( span index -- outcome ) \ u32s into elab-orders
 synonym elab-span@ ed-span@              ( span -- addr n )
 synonym elab-text= ed-text=              ( index c-addr u -- flag )
+synonym elab-string ed-text              ( index -- c-addr u true | false ) \ a string's
 synonym elab-tier ed-tier                ( -- tier ) \ the stage's names and terms
 synonym elab-type@ ed-type@              ( d -- e )
 synonym elab-bool ed-bool                ( index -- flag outcome )

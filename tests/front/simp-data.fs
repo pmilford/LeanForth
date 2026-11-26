@@ -150,22 +150,34 @@ T{ fixture count-wrong refused -> outcome-invalid 5 20 0 }T
 \ line with its code, nothing kept; 4.1 data without the set: no
 \ default set (simp answers unsupported).
 : set-kept ( -- n )
-  simp-lemma-count simp-proc-count + true simp-lemmas# + false simp-lemmas# + ;
+  simp-lemma-count simp-proc-count + true false simp-values# + false false simp-values# + ;
 : set-refused ( c-addr u -- outcome line code kept ) fx elab-error-line elab-error-code set-kept ;
 T{ s" tests/front/simp-slice.elab.ndjson" set-refused simp-default? simp-lemma-count
-   true simp-lemmas# false simp-lemmas# simp-proc-count
+   true false simp-values# false false simp-values# simp-proc-count
    -> outcome-ok 0 0 4798 true 194 4397 0 207 }T
+\ The slice's simproc names: a macro's (UInt8.reduceEq._@.Lean...) less its
+\ scopes, a plain one; no name keeps a scope.
+: named? ( c-addr u -- flag )
+  simp-proc-count 0 ?do 2dup i simp-proc-name compare 0= if 2drop true unloop exit then
+  loop 2drop false ;
+: scoped? ( -- flag ) false simp-proc-count 0 ?do i simp-proc-name s" _@" search nip nip or loop ;
+T{ s" UInt8.reduceEq" named? s" reduceIte" named? s" Nat.reduceAdd" named? scoped?
+   -> true true true false }T
 T{ fixture set41 set-refused simp-default? -> outcome-ok 0 0 4 true }T
 T{ 0 simp-lemma-rank 0 simp-lemma-prio 0 simp-lemma-rfl? 0 simp-lemma-perm? 0 simp-lemma-keys nip
    -> 33 1000 true false 7 }T
-T{ 0 simp-lemma-proof s" add_zero" nat = 0 true simp-lemma-value 1 true simp-lemma-value
+T{ 0 simp-lemma-proof s" add_zero" nat = 0 true false simp-value 1 true false simp-value
    -> true 0 -1 }T
-T{ -1 simp-lemma-rank -1 simp-lemma-prio -1 simp-lemma-keys nip false simp-lemmas# -> 0 1000 2 0 }T
+T{ -1 simp-lemma-rank -1 simp-lemma-prio -1 simp-lemma-keys nip false false simp-values#
+   -> 0 1000 2 0 }T
 T{ s" Eq" s" ndrec" two simp-unfold? s" add_zero" nat simp-unfold? -> true false }T
-T{ false simp-procs# true simp-procs# 0 false simp-proc-value dup simp-proc-dsimproc? swap
+T{ false true simp-values# true true simp-values# 0 false true simp-value dup simp-proc-dsimproc? swap
    simp-proc-rank 0 simp-proc-keys nip -> 1 0 true 0 2 }T
+\ Its name kept as text, for the ports to be found by.
+T{ 0 simp-proc-name s" Char.isValue" compare -> 0 }T
 \ A pre lemma (Lean's @[simp ↓]): in the pre tree's values.
-T{ fixture lemma-pre set-refused false simp-lemmas# 0 false simp-lemma-value true simp-lemmas#
+T{ fixture lemma-pre set-refused false false simp-values# 0 false false simp-value
+   true false simp-values#
    -> outcome-ok 0 0 4 1 0 1 }T
 T{ fixture good41 set-refused simp-default? -> outcome-ok 0 0 0 false }T
 T{ fixture set-twice set-refused -> outcome-invalid 13 52 0 }T
@@ -184,7 +196,7 @@ T{ fixture left-reason set-refused -> outcome-invalid 10 10 0 }T
 T{ fixture left-name set-refused -> outcome-invalid 10 10 0 }T
 T{ fixture unfold-unknown set-refused -> outcome-invalid 11 12 0 }T
 T{ fixture proc-name set-refused -> outcome-invalid 12 10 0 }T
-T{ fixture proc-keys-cut set-refused -> outcome-invalid 12 30 0 }T
+T{ fixture proc-keys-cut set-refused ss-names slab-count -> outcome-invalid 12 30 0 0 }T
 T{ fixture v4-lemma set-refused -> outcome-invalid 6 11 0 }T
 T{ fixture set41-uncounted set-refused -> outcome-invalid 1 10 0 }T
 T{ fixture set-name-text set-refused -> outcome-invalid 8 52 0 }T

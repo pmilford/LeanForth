@@ -33,7 +33,8 @@ create printed 200 allot  variable printed#
 : grab ( c-addr u -- ) tuck printed printed# @ + swap move printed# +! ;
 : said ( xt -- c-addr u )
   0 printed# ! action-of type >r ['] grab is type catch r> is type throw printed printed# @ ;
-T{ ' cli-elab-format4 said nip ' cli-elab-format41 said nip -> 0 0 }T
+T{ ' cli-elab-format4 said nip ' cli-elab-format41 said nip ' cli-elab-simp-set said nip
+   -> 0 0 0 }T
 T{ ck-stage stage-free -> }T
 : simp ( -- c-addr u ) s" tests/front/simp-slice.ndjson" ;
 T{ simp lfc-env! s" tests/front/simp-slice.elab.ndjson" lfc-elab-file! -> }T
@@ -41,5 +42,10 @@ T{ 12 ck-stage stage-init simp ck-stage stage-read-unchecked -> outcome-ok outco
 T{ lfc-elab-read ' cli-elab-format4 said s" , 9 congruence lemmas, 33 defeq tags" compare
    -> outcome-ok 0 }T
 T{ ' cli-elab-format41 said s" , 5 realized congruence theorems" compare -> 0 }T
+\ And its default simp set (simp-set-data.fs's kinds); none in the init
+\ slice's data, read above.
+T{ ' cli-elab-simp-set said
+   s" , 194 default simp lemmas, 4203 left out, 207 simprocs, 2 definitions to unfold" compare
+   -> 0 }T
 T{ ck-stage stage-free -> }T
 bye

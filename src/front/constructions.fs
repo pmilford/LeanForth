@@ -242,7 +242,7 @@ end-structure
   over 2dup lowering tuck first-index + swap with-domain moved ;
 : minor-binder ( job i -- job outcome )
   over 2dup lifting tuck first-minor + swap with-domain moved ;
-: front-binders ( job -- outcome ) dup first-minor ['] copy-binder ok-each nip ;
+: front-binders ( job -- outcome ) ['] first-minor ['] copy-binder ok-each-of ;
 : index-binders ( job -- outcome ) dup aux-indices @ 1+ ['] index-binder ok-each nip ;
 : minor-binders ( job -- outcome ) dup aux-minors @ ['] minor-binder ok-each nip ;
 \ The type: the block around the conclusion.

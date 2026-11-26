@@ -138,11 +138,11 @@ end-structure
 : rix-insert-rank ( rix r -- rix outcome ) over rix-ranked@ over rix-insert-value ;
 : rix-insert-ranked ( rix -- outcome )
   dup rix-ranked slab-count ['] rix-insert-rank ok-each nip ;
-: rix-prepared ( rix -- outcome ) dup rix-gather ok-then? if rix-checks then ;
-\ The builder (discr-tree.fs's lf-dtree-builder!): the tree is the index.
+\ The builder (discr-tree.fs's lf-dtree-builder!): the tree is the index;
+\ its values gathered, checked, inserted.
 : rix-build ( r tree -- outcome )
   tuck lf-dtree-root-key over rix-root !
-  dup rix-prepared ok-then? if rix-insert-ranked then ;
+  dup rix-gather ['] rix-checks ok-with ['] rix-insert-ranked ok-with nip ;
 
 \ ---- The roots: the slabs, the tree with its builder, every value's root.
 : rix-slab-ready ( slab -- outcome )
@@ -154,7 +154,7 @@ end-structure
 : rix-status-ready ( rix -- outcome ) dup rix-records# swap rix-status slab-zeroed ;
 : rix-value-root ( rix k -- rix outcome )
   over rix-value over rix-keys drop over lf-dtree-root-add nip ;
-: rix-roots-made ( rix -- outcome ) dup rix-values# ['] rix-value-root ok-each nip ;
+: rix-roots-made ( rix -- outcome ) ['] rix-values# ['] rix-value-root ok-each-of ;
 : rix-made! ( rix outcome -- outcome ) ok-then? if true swap rix-made ! outcome-ok then ;
 : lf-rix-roots ( rix -- outcome )
   dup rix-kind @ 0= over rix-made @ or if drop outcome-ok exit then

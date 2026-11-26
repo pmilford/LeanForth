@@ -381,7 +381,9 @@ def check_cases(work):
     if status or "sd_id: accepted" not in said:
         fail(f"the simp slice's own format-4 data: {status} {said[-300:]}")
     if not count_line(said).endswith(", 9 congruence lemmas, 33 defeq tags, "
-                                      "5 realized congruence theorems"):
+                                      "5 realized congruence theorems, 194 default simp "
+                                      "lemmas, 4203 left out, 207 simprocs, 2 definitions "
+                                      "to unfold"):
         fail(f"the count line of format-4 data: {count_line(said)!r}")
     status, said = check(work / "slice.ndjson", FIXTURES / "plain32.elab.ndjson")
     if status or not count_line(said).endswith(" smart-unfolding bodies"):
