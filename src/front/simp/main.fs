@@ -201,17 +201,18 @@ defer lf-simp-dprocs? ( e post? -- flag )   ' lf-simp-no-dprocs is lf-simp-dproc
 \ (transformWithCache: pre dpre, the parts, post dpost and dsimpReduce),
 \ so the argument is kept only when every node of it, the argument and
 \ each part of an application (a superset of the visits), would be given
-\ back: a sort; a constant that is no structure
-\ projection function, that the set does not unfold and that is no
-\ matcher or recursor (reduce's proj, unfold? and iota); a free variable
-\ that is no let; an application of such a head (a lambda's would
-\ beta-reduce); and no rfl theorem and no dsimproc of the set is a
-\ candidate at it. A numeral, Char or scientific literal (isOfNatNatLit
-\ .., doNotVisitOfNat) is checked as a node, its parts not visited; a
-\ raw literal anywhere else is folded by dsimpReduce (foldRawNatLit), a
-\ string literal has no key here (discr-keys.fs), and any other node (a
-\ binder, let, projection, annotation) would be visited: unsupported. The nodes to scan wait on the data stack under
-\ their count, at most sm-scan-most (more unsupported).
+\ back: a sort; a constant that is no structure projection function,
+\ that the set does not unfold and that is no matcher or recursor
+\ (reduce's proj, unfold? and iota); a free variable that is no let; an
+\ application of such a head (a lambda's would beta-reduce); and no rfl
+\ theorem and no dsimproc of the set is a candidate at it. A numeral,
+\ Char or scientific literal (isOfNatNatLit .., doNotVisitOfNat) is
+\ checked as a node, its parts not visited; a raw literal anywhere else
+\ is folded by dsimpReduce (foldRawNatLit), a string literal has no key
+\ here (discr-keys.fs), and any other node (a binder, let, projection,
+\ annotation) would be visited: unsupported. The nodes to scan wait on
+\ the data stack under their count, at most sm-scan-most (more
+\ unsupported).
 64 constant sm-scan-most
 : sm-plain-const? ( c -- flag )
   dup sm-unfold? 0= swap lf-const-name lf-menv-find lf-must sm-struct-proj? 0= and ;
