@@ -119,6 +119,9 @@ T{ ' add-comm catch lf-meta-outcome -> outcome-unsupported }T
 \ A nested call is refused (the frames busy), unsupported.
 : nested ( -- ) true sm-frames frame-depth ! n0 simp 2drop ;
 T{ ' nested catch lf-meta-outcome 0 sm-frames frame-depth ! -> outcome-unsupported }T
+\ A leaf simp's walk has no rule for (a loose bound variable): not supported, never kept.
+: leaf-bvar ( -- ) 0 lf-term-bvar lf-made! sm-leaf 2drop ;
+T{ ' leaf-bvar catch lf-meta-outcome -> outcome-unsupported }T
 
 \ ---- 3. Builders.
 T{ lf-simp-none n0 h1 lf-simp-trans -> n0 h1 }T
