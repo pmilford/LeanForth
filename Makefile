@@ -719,13 +719,17 @@ profile-history:
 # workers, 1 unless given (only the first thread is sampled). The raw files
 # go to PROFILE_OUT (default build/profile). Not part of any suite;
 # test-profile-check tests the tools on a small export.
+# The sampler reads the engine's own registers, so it needs the gforth-fast
+# binary itself, never a wrapper of scripts/ (under make coverage GFORTH_FAST
+# is scripts/gforth-fast, the wrapper beside coverage-gforth.sh).
+PROFILE_FAST := $(or $(call find_tool,gforth/bin/gforth-fast),$(GFORTH_FAST))
 profile-check:
 	@test -n "$(EXPORT)" || { echo "usage: make profile-check EXPORT=FILE [JOBS=1]" >&2; exit 2; }
-	GFORTH_FAST=$(GFORTH_FAST) PROFILE_JOBS=$(if $(filter command line,$(origin JOBS)),$(JOBS),1) \
+	GFORTH_FAST=$(PROFILE_FAST) PROFILE_JOBS=$(if $(filter command line,$(origin JOBS)),$(JOBS),1) \
 	  bash scripts/profile-check.sh $(EXPORT)
 
 test-profile-check:
-	GFORTH_FAST=$(GFORTH_FAST) $(RUN) python3 tests/scripts/test_profile_check.py
+	GFORTH_FAST=$(PROFILE_FAST) $(RUN) python3 tests/scripts/test_profile_check.py
 .PHONY: profile-check test-profile-check
 test: test-profile-check
 
