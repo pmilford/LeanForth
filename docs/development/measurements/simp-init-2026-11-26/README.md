@@ -179,3 +179,71 @@ variables. Levels that are not numerals print as Lean prints them, for example `
 - **Bracket kinds come from the item text.** An item with a space or a parenthesis counts as a term.
 - **The theorem list is from source ranges.** It misses one-liners inside other declarations and
   macro-generated theorems (see "Why N is less than 898").
+
+## The harness: `make reference-simp-init` (simp group 4, pass 3)
+
+The measurement's Lean side is now the harness's: `tests/front/simp-init.lean` also prints each
+theorem as LeanForth text (`lf`: binders `v1 .. vk` with their kinds, the statement in postfix,
+`by-simp` or `by-simp[ ' NAME .. ]`, `<-` after a reversed item) or why it cannot be written
+(`lf_why`), and its statement's S-expression (`type`). `tests/front/check_simp_init.py` runs every
+text through `tests/front/simp-init.fs` (Init's export and its format-4.1 data read once, each
+text run by the authoring words on Gforth 1.0, the word that refused read from the backtrace of
+the first unsupported throw), then checks the texts that ran with `bin/leanforth check` against
+Init's snapshot (one file, `elab-dump.fs`'s `cli-dump`), and compares every accepted theorem's
+type and value with Lean's statement and re-run term, node for node. `make reference-simp-init`
+(`tests/front/simp-init.sh`: Init exported, its 4.1 data written, the Lean side run) is part of
+`make daily` only, after `make parallel-init` (the snapshot); without the snapshot a user's run
+says SKIPPED, a recorded one fails.
+
+```sh
+ulimit -u 500
+make reference-simp-init GFORTH=.tools/gforth/bin/gforth \
+    LEAN=.tools/elan/toolchains/leanprover--lean4---v4.35.0/bin/lean   # INIT_EXPORT=... to reuse an export
+```
+
+Run of 2026-11-26, branch `simp-group-4-p3`: 2 min 33 s wall with `INIT_EXPORT` (the export
+exists; 14 s of it the 4.1 data, 14 s the Lean side, the rest the two LeanForth passes).
+
+**K = 57 of N = 640** accepted with terms equal to pinned Lean's re-run node for node (L = 636);
+54 before the dsimp scan of pass 3, step 4. **0 accepted with a different term; 0 accepted where
+Lean's re-run fails.** 2 more were accepted with a statement LeanForth elaborates differently from
+Lean's (the dumped types differ: a numeral whose type the printed text does not fix), never
+counted.
+
+| | theorems |
+|---|---:|
+| N | 640 |
+| cannot be written as LeanForth text | 247 |
+| written | 393 |
+| K: accepted, term node for node Lean's | 57 |
+| U: not supported yet (error 99 at `by-simp`) | 320 |
+| refused before `by-simp` (the statement: errors 131 coercion 5, 117 instance of a function type 4, 139 2, 73, 126, 121 1 each) | 14 |
+| accepted, statement elaborated differently (not counted) | 2 |
+
+U by reason (the word that refused):
+
+| reason | theorems | group |
+|---|---:|---|
+| a bracket theorem with `<-` (Lean's auxiliary lemma, `mkAuxLemma`) | 145 | other (bracket) |
+| a rule whose statement is no Eq (a `_simp_N`-style helper, slice SL3d) | 47 | other |
+| unification (isDefEq) not supported | 32 | other |
+| a perm lemma (acLt), and 3 perm tests of compound terms | 24 | other |
+| a bracket definition or simproc (unfold) | 20 | unfold |
+| a simproc family, guard only | 20 | simproc family |
+| congruence (`congr.fs`: argument kinds 15, a refusal 1) | 16 | other |
+| a conditional rule (the discharger) | 6 | conditional rule |
+| matcher, recursor or projection (reduceStep) | 5 | matcher |
+| dsimp of a dependent argument | 2 | other |
+| a left-out helper reached in candidate order | 2 | left-out helper |
+| recorded keys not the statement's (no_index) | 1 | other |
+
+Why 247 cannot be written: universe parameters 161 (natural form has no universe words yet), a
+binder of a sort (`Prop`, `Type`) 39, numerals whose type only an ascription fixes 20, a `∀` or `→`
+in the statement 13 and in a binder 4, the bracket item `*` 4, Lean's harness errors 4, an
+unresolved item 1, a string literal 1.
+
+What this says for the next groups: the `<-` item on a theorem is the largest single blocker (Lean
+builds an auxiliary lemma at the call; LeanForth would declare it itself), then rules that need
+Lean's preprocessing into Eq helpers, then the defeq engine's own refusals. The left-out helpers
+the architect's plan feared (`Nat.succ_ne_self`'s `Eq Nat * *` keys) block 2 here: Init's export
+holds most of them; the simp slice of the unit tests lacks many more.

@@ -196,19 +196,49 @@ lf-tag-let lf-tag-let-nondep lf-tag-projection lf-tag-annotation lf-tag-lit 5 lf
 defer lf-simp-procs ( e post? -- e' h step )   ' lf-simp-no-procs is lf-simp-procs
 defer lf-simp-dprocs? ( e post? -- flag )   ' lf-simp-no-dprocs is lf-simp-dprocs?
 
-\ ---- The dsimp guard.
+\ ---- The dsimp scan (plan step 8, in place of pass 1's guard of one
+\ node): dsimpImpl (Main.lean:517) visits every node of an argument
+\ (transformWithCache: pre dpre, the parts, post dpost and dsimpReduce),
+\ so the argument is kept only when every node of it, the argument and
+\ each part of an application (a superset of the visits), would be given
+\ back: a sort; a constant that is no structure
+\ projection function, that the set does not unfold and that is no
+\ matcher or recursor (reduce's proj, unfold? and iota); a free variable
+\ that is no let; an application of such a head (a lambda's would
+\ beta-reduce); and no rfl theorem and no dsimproc of the set is a
+\ candidate at it. A numeral, Char or scientific literal (isOfNatNatLit
+\ .., doNotVisitOfNat) is checked as a node, its parts not visited; a
+\ raw literal anywhere else is folded by dsimpReduce (foldRawNatLit), a
+\ string literal has no key here (discr-keys.fs), and any other node (a
+\ binder, let, projection, annotation) would be visited: unsupported. The nodes to scan wait on the data stack under
+\ their count, at most sm-scan-most (more unsupported).
+64 constant sm-scan-most
 : sm-plain-const? ( c -- flag )
   dup sm-unfold? 0= swap lf-const-name lf-menv-find lf-must sm-struct-proj? 0= and ;
-: sm-stable-node? ( a -- flag )
-  dup lf-sort? if drop true exit then
-  dup lf-term-tag@ case lf-tag-constant of sm-plain-const? endof
-    lf-tag-fvar of lf-fvar-let? 0= endof nip false swap endcase ;
+: sm-iota-of? ( c -- flag ) lf-const-name lf-menv-find lf-must sm-decl-iota? ;
+: sm-head-ok? ( h -- flag )   \ a node's head: itself when no application
+  dup lf-term-tag@ case
+    lf-tag-constant of dup sm-plain-const? swap sm-iota-of? 0= and endof
+    lf-tag-fvar of lf-fvar-let? 0= endof   nip false swap endcase ;
+lf-tag-sort lf-tag-symbolic-sort 2 lf-tags constant sm-still-tags
+: sm-still? ( s -- flag ) lf-term-tag@ sm-still-tags lf-tag-in? ;
+: sm-shape-ok? ( s -- flag )
+  dup sm-still? if drop true else lf-meta-head sm-head-ok? then ;
 : sm-rfl-free? ( a -- flag )
   dup lf-simp-pre lf-simp-rfl-match? swap lf-simp-post lf-simp-rfl-match? or 0= ;
 : sm-dprocs? ( a -- flag ) dup false lf-simp-dprocs? swap true lf-simp-dprocs? or ;
-: sm-kept? ( a -- flag )
-  dup sm-stable-node? 0= if drop false exit then
+: sm-node-kept? ( s -- flag )
+  dup sm-shape-ok? 0= if drop false exit then
   dup sm-dprocs? if drop false else sm-rfl-free? then ;
+: sm-parts? ( s -- flag ) dup lf-term-app? swap sm-literal? 0= and ;
+: sm-parts ( c s -- f a c' ) dup lf-term-first@ swap lf-term-second@ rot 2 + ;
+\ One node off the list ( s1 .. sk k ): true when it is not kept or the
+\ list grew too long.
+: sm-scan-step ( s* c -- s* c' flag )
+  1- swap dup sm-node-kept? 0= if drop true exit then
+  dup sm-parts? if sm-parts else drop then dup sm-scan-most > ;
+: sm-kept? ( a -- flag )
+  1 begin dup while sm-scan-step if ndrop false exit then repeat drop true ;
 : sm-dsimp ( a -- a ) dup sm-kept? 0= if lf-unported then ;
 
 \ ---- simpAppUsingCongr (Types.lean:732): the head, then each argument.

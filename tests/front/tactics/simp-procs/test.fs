@@ -243,6 +243,23 @@ T{ x0 sm-kept? -> false }T
 ' ds-dprocs-run is lf-simp-dprocs?   ' pre-y is lf-simp-procs
 T{ x0 simp lf-simp-steps -> y0 lf-simp-none 1 }T
 ' ds-procs-run is lf-simp-procs
+\ The dsimp scan (pass 3): every node of an argument dsimp would visit.
+\ Kept: f (g x) (variables applied), a numeral (its raw literal not
+\ visited, doNotVisitOfNat), Nat; refused: 2 + 3 (Nat.reduceAdd, a
+\ dsimproc, at the top), f (2 + 3) (at a part), a raw literal (folded
+\ by dsimpReduce), a lambda, an application of a lambda (beta), f x
+\ with too many nodes to scan.
+: f(g(x)) ( -- e ) f0 g0 x0 lf-mk-app lf-mk-app ;
+create x-cell x0 ,
+: lam-x ( -- e ) x0 x-cell 1 lf-mk-lambda-fvars ;
+T{ f(g(x)) sm-kept? 7 lit# sm-kept? nat sm-kept? -> true true true }T
+T{ two+three sm-kept? f0 two+three lf-mk-app sm-kept? 7 raw sm-kept? -> false false false }T
+T{ lam-x sm-kept? lam-x x0 lf-mk-app sm-kept? -> false false }T
+\ A recursor's application (iota) and a string literal refused.
+: str-ab ( -- e ) s" ab" lf-str-new made drop ;
+T{ s" Nat.rec" 0 lf-mk-const1 x0 lf-mk-app sm-kept? str-ab sm-kept? -> false false }T
+: deep ( n -- e ) x0 swap 0 ?do f0 swap lf-mk-app loop ;
+T{ 30 deep sm-kept? 70 deep sm-kept? -> true false }T
 \ A set that is not the default one: no simprocs.
 lf-simp-set-new
 T{ two+three dup true lf-simp-procs passed? two+three true lf-simp-dprocs? -> true false }T
