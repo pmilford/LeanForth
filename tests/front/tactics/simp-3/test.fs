@@ -195,6 +195,12 @@ p0 dec-type s" ip" binder constant ip0
 : ite-p ( -- e ) s" ite" nat lf-level! lf-mk-const1 nat lf-mk-app p0 lf-mk-app ip0 lf-mk-app
   x0 lf-mk-app x0 lf-mk-app ;
 T{ with-self hpq0 add-hyp ite-p simp-outcome -> outcome-unsupported }T
+\ The @[congr] lemma comes first (congr, Main.lean:637), its instance
+\ synthesized (instDecidableEqNat x b): if x = a then x else x with h is
+\ proved by ite_congr, not by the library's ite.congr_simp.
+: ite-xa ( -- e ) s" ite" nat lf-level! lf-mk-const1 nat lf-mk-app x0 a0 lf-mk-eq lf-mk-app
+  j0 lf-mk-app x0 lf-mk-app x0 lf-mk-app ;
+T{ with-h ite-xa simp nip s" ite_congr" head? -> true }T
 \ forallTelescopeReducing of a hypothesis's type (sc-forall): outParam
 \ (∀ n, n + 0 = n) unfolds (reducible) to the ∀, whose binder is opened:
 \ the body n' + 0 = n', one local more, put back after.
