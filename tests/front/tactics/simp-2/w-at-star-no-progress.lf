@@ -1,0 +1,10 @@
+\ Lean: theorem w_at_star_no_progress (a b : Nat) (h : a = b) : b = a := by
+\         simp only [Nat.add_zero] at *
+\ Nothing changes, neither h nor the target: Lean's "no progress".
+theorem w_at_star_no_progress
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  b a =
+:= by
+  by-simp-only[ ' Nat.add_zero ] at[ * ]
+end w_at_star_no_progress

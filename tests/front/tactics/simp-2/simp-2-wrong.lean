@@ -22,3 +22,5 @@ theorem w_symm_ne (a b : Nat) (h : a ≠ b) : (a = b) = False := by
 theorem w_and_order (a b c d : Nat) (h : a = b ∧ a = c) (k : c = d) : a = d := by
   simp only [h]
   exact k
+theorem w_at_star_no_progress (a b : Nat) (h : a = b) : b = a := by
+  simp only [Nat.add_zero] at *

@@ -1,0 +1,60 @@
+\ by-simp-only[ ] at[ * ] (plan row FE9, simp slice SL1b of
+\ docs/design/TACTIC_SIMP.md): Lean's simp only at *, every hypothesis
+\ that is a proposition nothing else depends on (getNondepPropHyps), in
+\ the context's order, then the target. Lean twins in simp-2.lean.
+
+\ Lean: theorem simp_at_star (a b : Nat) (h : a + 0 = b) : a = b := by
+\         simp only [Nat.add_zero] at *
+\         exact h
+\ h becomes a = b by definition; the target is unchanged (no error: h
+\ changed).
+theorem simp_at_star
+  Nat explicit: a  Nat explicit: b
+  a 0 + b = explicit: h
+  a b =
+:= by
+  by-simp-only[ ' Nat.add_zero ] at[ * ]
+  ' h by-exact
+end simp_at_star
+
+\ Lean: theorem simp_at_star_all (a b c : Nat) (h : a = b) (k : a + 0 = c) : a + 0 = c := by
+\         simp only [h, Nat.add_zero] at *
+\         exact k
+\ h rewrites itself to True; k and the target both become b = c.
+theorem simp_at_star_all
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  a 0 + c = explicit: k
+  a 0 + c =
+:= by
+  by-simp-only[ ' h ' Nat.add_zero ] at[ * ]
+  ' k by-exact
+end simp_at_star_all
+
+\ Lean: theorem simp_at_star_false (a : Nat) (h : False) : a = 0 := by
+\         simp only [] at *
+\ h is False already: the goal is closed by False.elim.
+theorem simp_at_star_false
+  Nat explicit: a  False explicit: h
+  a 0 =
+:= by
+  by-simp-only[ ] at[ * ]
+end simp_at_star_false
+
+\ Lean: theorem simp_at_later (a b c : Nat) (h : (a + 0) * 2 = b) (j : (a + 0) * 2 = c) :
+\           a * 2 = c := by
+\         simp only [Nat.add_zero, h] at h j
+\         exact j
+\ The pass-1 review's case: h, a rule, is changed by definition at the
+\ first place (a * 2 = b, its free variable replaced until the term is
+\ instantiated); at the second place the rule h is a candidate again but
+\ no longer applies, as in Lean (a + 0 is already a, which h's a + 0 does
+\ not unify with at simp's transparency), so the term never names the
+\ replaced variable. Lean's own run leaves h unused (its linter says so).
+theorem simp_at_later
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a 0 + 2 * b = explicit: h  a 0 + 2 * c = explicit: j
+  a 2 * c =
+:= by
+  by-simp-only[ ' Nat.add_zero ' h ] at[ h j ]
+  ' j by-exact
+end simp_at_later

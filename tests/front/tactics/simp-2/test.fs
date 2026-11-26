@@ -10,8 +10,8 @@
 \    (asserted, the old one cleared), closed by False with and without a
 \    proof, True kept, several locations, the target after them, no
 \    progress (Lean's 500, once for all locations), Lean's 501 and 502;
-\    not supported (99): a let rule, at[ * ], a hypothesis something
-\    depends on;
+\    not supported (99): a let rule, a hypothesis something depends on;
+\    at[ * ] (SL1b) and lf-goal-nondep-prop-hyps;
 \ 2. interfaces: lf-meta-equal?'s answers (the same node, eqv terms with
 \    and without binders, different terms, a dead term), lf-local-refvar's
 \    and lf-view-refvar's refusals, replaceLocalDeclDefEq's two equal cases
@@ -158,6 +158,25 @@ T{ 0 ' p-forall heap-sweep swept? -> true }T
 ' noop sweep-slabs-xt !
 lf-simp-set-new
 
+\ ---- SL1b 4. getNondepPropHyps (meta-tactic/goal.fs): in a context of
+\ its own, a, b, h : a = b, k : h = h, h is used by k's type, so k alone;
+\ a target naming k, none. A let l : a = b := h and an implementation
+\ detail d : k = k added: l is no candidate (it has a value), nor d, whose
+\ use of k does not count (Lean skips details).
+0 lf-mctx-view!
+nat s" a" binder constant na   nat s" b" binder constant nb
+na nb lf-mk-eq s" h" binder constant nh   nh nh lf-mk-eq s" k" binder constant nk
+: goal2 ( -- g ) na nb lf-mk-eq 0 ctx lf-goal-new made ;
+: nondep1 ( goal -- n x ) lf-goal-nondep-prop-hyps dup run-count swap 0 run@ ;
+T{ goal2 nondep1 -> 1 nk }T
+T{ nk nk lf-mk-eq 0 ctx lf-goal-new made lf-goal-nondep-prop-hyps -> 0 }T
+na nb lf-mk-eq nh s" l" lfa-intern false lf-let-decl-new lf-mctx-view! drop
+: detail ( type c-addr u -- fvar )
+  lfa-intern swap lf-lctx-local made tuck swap lf-local-aux-decl lf-local-new made
+  lf-mctx-view swap lf-view-push made lf-mctx-view! ;
+nk nk lf-mk-eq s" d" detail drop
+T{ goal2 nondep1 -> 1 nk }T
+
 \ ---- 1. by-simp-only[ ] at[ ] through its text.
 T{ s" Nat explicit: a Nat explicit: b a 0 + b = explicit: h a b ="
    s" by-simp-only[ ' Nat.add_zero ] at[ h ] ' h by-exact" tactic-ran -> 0 }T
@@ -190,7 +209,7 @@ T{ s" Nat explicit: a Nat explicit: b a 0 + b = explicit: h a 0 + a 0 + ="
 T{ s" Nat explicit: a Nat explicit: b a b = explicit: h b a = explicit: k a b ="
    s" by-simp-only[ ' Nat.add_zero ] at[ h k ]" tactic-ran lf-tac-forget -> 500 }T
 \ Lean's 501 (a variable that is no proposition), 502 (a proposition with
-\ <-); a let rule and at[ * ] not supported yet (99); an unknown location
+\ <-); a let rule not supported yet (99); an unknown location
 \ is Lean's 455 (after the set).
 T{ s" Nat explicit: a a a =" s" by-simp-only[ ' a ]" tactic-ran lf-tac-forget -> 501 }T
 T{ s" Nat explicit: a Nat explicit: b a b ≤ explicit: h a b ≤"
@@ -198,7 +217,17 @@ T{ s" Nat explicit: a Nat explicit: b a b ≤ explicit: h a b ≤"
 T{ s" Nat explicit: a a a =" s" Nat Nat.zero by-let: x by-simp-only[ ' x ]" tactic-ran
    lf-tac-forget -> 99 }T
 T{ s" Nat explicit: a Nat explicit: b a 0 + b = explicit: h a b ="
-   s" by-simp-only[ ' Nat.add_zero ] at[ * ] ' h by-exact" tactic-ran lf-tac-forget -> 99 }T
+   s" by-simp-only[ ' Nat.add_zero ] at[ * ] ' h by-exact" tactic-ran -> 0 }T
+\ at[ * ] (SL1b): every hypothesis that is a proposition nothing else
+\ depends on, then the target; no progress anywhere is Lean's 500.
+T{ s" Nat explicit: a Nat explicit: b Nat explicit: c a b = explicit: h a 0 + c = explicit: k a 0 + c ="
+   s" by-simp-only[ ' h ' Nat.add_zero ] at[ * ] ' k by-exact" tactic-ran -> 0 }T
+T{ s" Nat explicit: a False explicit: h a 0 =" s" by-simp-only[ ] at[ * ]" tactic-ran -> 0 }T
+T{ s" Nat explicit: a Nat explicit: b a b = explicit: h b a ="
+   s" by-simp-only[ ' Nat.add_zero ] at[ * ]" tactic-ran lf-tac-forget -> 500 }T
+\ The pass-1 review's case: h, a rule, changed by definition first.
+T{ s" Nat explicit: a Nat explicit: b Nat explicit: c a 0 + 2 * b = explicit: h a 0 + 2 * c = explicit: j a 2 * c ="
+   s" by-simp-only[ ' Nat.add_zero ' h ] at[ h j ] ' j by-exact" tactic-ran -> 0 }T
 T{ s" Nat explicit: a a a =" s" by-simp-only[ ] at[ z ]" tactic-ran lf-tac-forget -> 455 }T
 
 \ ---- 3. Every local's record refused in turn (each text empties

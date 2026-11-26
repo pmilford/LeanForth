@@ -6,8 +6,11 @@
 \ and iff_self, 512, then each rule by elabSimpArgs, 336-370 and 268-300)
 \ and simpLocation (761-778): the hypotheses named, resolved in the main
 \ goal's context after the set (tactic-core.fs's lf-with-location; no
-\ at[ ] is the target alone; at[ * ] not supported yet, slice SL1b), then
-\ simpGoal once (simp/goal.fs's lf-goal-simp).
+\ at[ ] is the target alone), or for at[ * ] (Location.wildcard, slice
+\ SL1b) the target and every hypothesis of the main goal that is a
+\ proposition nothing else depends on (meta-tactic/goal.fs's
+\ lf-goal-nondep-prop-hyps), then simpGoal once (simp/goal.fs's
+\ lf-goal-simp).
 \ - A rule naming a constant whose type is a proposition is
 \   mkSimpTheoremFromConst's theorem (simp/theorems.fs's lf-simp-add-decl);
 \   one naming a hypothesis or a variable of proposition type h is
@@ -32,7 +35,8 @@
 \ constant's declaration, else lf-tac-elab-for-apply: an identifier with
 \ no argument inserted, so a ¬ hypothesis's type is not unfolded); isProp
 \ -> lf-meta-is-prop; mkSimpTheoremFromExpr -> lf-simp-add-term; getFVarIds ->
-\ lf-with-location; simpGoal -> lf-goal-simp.
+\ lf-with-location; getNondepPropHyps -> lf-goal-nondep-prop-hyps; simpGoal ->
+\ lf-goal-simp.
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own; simp's set (simp/theorems.fs) is emptied after
 \ each run.
@@ -74,10 +78,12 @@ s" simp" tac-k-simp-only lf-tactic-lean!
   dup lf-tac-args# 0 ?do dup i tso-rule loop drop ;
 
 \ ---- simpLocation: whether the target is a location, and the hypotheses
-\ named, in order (getFVarIds in the main goal's context, after the set).
+\ named, in order (getFVarIds in the main goal's context, after the set);
+\ at[ * ] the target and getNondepPropHyps of the main goal.
 : tso-loc-hyp ( target? fvars fvar -- target? fvars' ) run-push lf-tac-must ;
 : tso-loc-goal ( target? fvars -- true fvars ) nip true swap ;
-: tso-locs ( i -- target? fvars )
+: tso-locs ( goal i -- goal target? fvars )
+  dup lf-tac-loc-all? if drop true over lf-goal-nondep-prop-hyps exit then
   false swap 0 swap ['] tso-loc-hyp ['] tso-loc-goal lf-with-location ;
 
 \ ---- simpGoal: closed, or the new goal (no progress is its error 500).

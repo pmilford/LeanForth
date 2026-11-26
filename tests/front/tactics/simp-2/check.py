@@ -4,9 +4,10 @@ slice SL1a-2 of docs/design/TACTIC_SIMP.md, and plan row 9.4.8z2(e)'s two rule e
 src/front/tactics/simp-only.fs over src/front/simp/goal.fs. The harness and its usage are
 tests/front/tactics/tactic_check.py's, against simp's slice of Init
 (tests/front/simp-slice.ndjson and its format-4 elaboration data), with this slice's own Lean
-twins (simp-2.lean, simp-2-wrong.lean) and golden (simp-2.golden). UNSUPPORTED are the texts
-LeanForth answers 99 (not supported yet) for, which Lean accepts (simp-2.lean): at[ * ] (a
-hypothesis changed by defeq that another depends on, also 99, is test.fs's)."""
+twins (simp-2.lean, simp-2-wrong.lean) and golden (simp-2.golden); slice SL1b's at[ * ] and
+rules from hypotheses that are no equation too. UNSUPPORTED are the texts LeanForth answers 99
+(not supported yet) for, which Lean accepts (simp-2.lean): an And inside an And (a hypothesis
+changed by defeq that another depends on, also 99, is test.fs's)."""
 import pathlib
 import sys
 
@@ -21,6 +22,8 @@ FILES = [(D + "simp-at.lf", ["simp_at_defeq", "simp_at_proof", "simp_at_goal", "
                              "simp_at_mixed", "simp_at_false", "simp_at_false_defeq",
                              "simp_at_true", "simp_at_one_still",
                              "simp_at_goal_kept"]),
+         (D + "simp-star.lf", ["simp_at_star", "simp_at_star_all", "simp_at_star_false",
+                               "simp_at_later"]),
          (D + "simp-hyps.lf", ["simp_iff=propext", "simp_iff_symm=propext", "simp_not=propext",
                                "simp_ne=propext", "simp_ne_target=propext", "simp_and",
                                "simp_and_order"])]
@@ -33,6 +36,7 @@ NOTE_FALSE = ("\nNote: This simp theorem will rewrite `{}` to `False`, which sho
 WRONG = [(D + "w-at-self.lf", 96, "Type mismatch", MISMATCH),
          (D + "w-at-no-progress.lf", 500, "`simp` made no progress", ""),
          (D + "w-at-two-no-progress.lf", 500, "`simp` made no progress", ""),
+         (D + "w-at-star-no-progress.lf", 500, "`simp` made no progress", ""),
          (D + "w-arg-var.lf", 501,
           "Invalid argument: Variable `a` is not a proposition or let-declaration", ""),
          (D + "w-symm-prop.lf", 502,
@@ -42,7 +46,7 @@ WRONG = [(D + "w-at-self.lf", 96, "Type mismatch", MISMATCH),
          (D + "w-and-order.lf", 96, "Type mismatch",
           "  k\nhas type\n  c = d\nbut is expected to have type\n  b = d")]
 NOT_YET = "not supported yet: this case of the tactic"
-UNSUPPORTED = [(D + "u-at-star.lf", 99, NOT_YET), (D + "u-and-nested.lf", 99, NOT_YET)]
+UNSUPPORTED = [(D + "u-and-nested.lf", 99, NOT_YET)]
 
 if __name__ == "__main__":
     tactic_check.main("simp-2", FILES, WRONG, UNSUPPORTED, env=ENV, lean=D + "simp-2.lean",

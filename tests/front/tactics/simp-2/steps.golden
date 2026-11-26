@@ -26,6 +26,17 @@
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"simp_at_goal_kept","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
 {"goal_before":"a b : Nat\nh : a = b\nk : a + 0 = b\n⊢ a = b","goals_after":["a b : Nat\nh k : a = b\n⊢ a = b"],"parent":0,"source":"128:3","step":1,"tactic":"simp","word":"by-simp-only["}
 {"goal_before":"a b : Nat\nh k : a = b\n⊢ a = b","goals_after":[],"parent":0,"source":"129:7","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"simp_at_star","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a + 0 = b\n⊢ a = b","goals_after":["a b : Nat\nh : a = b\n⊢ a = b"],"parent":0,"source":"16:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"goal_before":"a b : Nat\nh : a = b\n⊢ a = b","goals_after":[],"parent":0,"source":"17:7","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"simp_at_star_all","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b c : Nat\nh : a = b\nk : a + 0 = c\n⊢ a + 0 = c","goals_after":["a b c : Nat\nh : True\nk : b = c\n⊢ b = c"],"parent":0,"source":"29:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"goal_before":"a b c : Nat\nh : True\nk : b = c\n⊢ b = c","goals_after":[],"parent":0,"source":"30:7","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"simp_at_star_false","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a : Nat\nh : False\n⊢ a = 0","goals_after":[],"parent":0,"source":"40:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"simp_at_later","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b c : Nat\nh : (a + 0) * 2 = b\nj : (a + 0) * 2 = c\n⊢ a * 2 = c","goals_after":["a b c : Nat\nh : a * 2 = b\nj : a * 2 = c\n⊢ a * 2 = c"],"parent":0,"source":"58:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"goal_before":"a b c : Nat\nh : a * 2 = b\nj : a * 2 = c\n⊢ a * 2 = c","goals_after":[],"parent":0,"source":"59:7","step":2,"tactic":"exact","word":"by-exact"}
 {"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_iff","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
 {"goal_before":"a b : Nat\nh : a ≤ b ↔ b ≤ a\nhq : b ≤ a\n⊢ a ≤ b","goals_after":["a b : Nat\nh : a ≤ b ↔ b ≤ a\nhq : b ≤ a\n⊢ b ≤ a"],"parent":0,"source":"16:3","step":1,"tactic":"simp","word":"by-simp-only["}
 {"goal_before":"a b : Nat\nh : a ≤ b ↔ b ≤ a\nhq : b ≤ a\n⊢ b ≤ a","goals_after":[],"parent":0,"source":"17:8","step":2,"tactic":"exact","word":"by-exact"}
