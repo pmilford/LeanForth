@@ -311,3 +311,37 @@ section 2's gain.
   after group 2, as the chase benchmark's col to raw step): 20-45 s. Sum 50-90.
 - Four threads: each one-thread figure times 182.1 / 656.5 (main's measured scaling; memory-bound parts
   may scale worse).
+
+## Corrections after the design review (2026-11-26 00:15, binding; they replace the text above where they differ)
+
+From the independent review, [2026-11-26-kernel-lookups.md](../development/design-reviews/2026-11-26-kernel-lookups.md)
+(verdict: rework, then approve).
+
+1. **The front memo as written is not built.** Its slots were keyed by node number; today's memo keys by the
+   node's identity, so that a number taken again by another node after a rollback is a miss. Any front table
+   keys by identity (or stores and checks it), protects older spilled entries from a failed stamped call's
+   cut, marks spills per slot, and uses a full-cell call serial. First the cheap exact step in
+   `src/lib/memo.fs`: the key's identity and hash carried from the lookup to the insert. Gain 5-20 s, not
+   25-40 (estimate).
+2. **Universe substitution**: recomputed from the profile (137 s inclusive): audit walk 27 s, graph check
+   11 s, sort 14.5 s, build 77 s (level work 22, binary search 12, conses 19, re-reads and glue 18). The
+   first step is the EXACT variant: the audit and today's fuel kept, the build done children-first over the
+   audit's set, no sort, no binary search, the doubled searches removed: about 20-25 s (estimate). One walk
+   (35-50 s) can change fuel and failure outcomes and is an owner question with a before/after table.
+3. **The decoded side array is not proposed as the first step.** Reads of ordinary store nodes cost about as
+   much as decoding input nodes (58 s against 57 s): the cost is the read layers, not the record format.
+   First a raw-read / validity-at-entry experiment on BOTH tiers; the side array (about 196 MB gross, about
+   25-30% above main's peak) is decided after it and is an owner gate.
+4. **Presence filters** set their bit on every store path and are cleared only when their cache is emptied
+   whole; **the cons front table** uses exactly the store's cons key and re-checks the horizon.
+5. A hook called through EXECUTE costs 0.6-1.6 ns more than a direct call (measured, gforth-fast): the shared
+   walker stands.
+6. **Estimates, recomputed** (one thread, 575.4 s base): group 1 saves 27-74 s, group 2 30-65 s, group 3
+   40-90 s (not verified): after all three about **345-480 s, 11-15 times Lean, likely about 13** (estimate).
+7. **Order**: (B) the exact substitution build with the memo insert step; (A) the read layers (validity at
+   entry, raw reads, a one-read word); (C) front tables and filters only where the experiments show the
+   probes go away. About 3 M tokens instead of 4.5 M.
+8. **Trusted code**: every front table, filter and side array is kernel code and gets planted faults (a
+   number reused after rollback, a spilled older entry cut, a store without its filter bit, a stale slot, a
+   wrapped serial). Memory is stated against main's peak.
+
