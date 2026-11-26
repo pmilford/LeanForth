@@ -64,6 +64,36 @@ recomputed from run 2; sections 3 to 7 and the counts are run 1's (and its count
 - **Per declaration**: the JSON report's new `measured.declarationMicroseconds` (this branch) from the
   profiled run, listed by `scripts/slowest-declarations.py`.
 
+## 0. The comparison, like with like (2026-11-25)
+
+The owner's rule (2026-11-25): **every speed report compares one thread with one thread and several threads
+with the same number of threads**, and gives the thread counts. All figures below are whole runs (wall
+time, reading the input included) of the same 59,349 declarations of `Init`, measured on this machine on
+2026-11-25 between 16:49 and 20:18, one run each; LeanForth on Gforth 1.0 `gforth-fast`, main 2eafd6c5
+(4 workers and 1) and aabc0318 (6 and 10; no kernel change between them). Commands: `leanchecker --fresh
+Init` and `leanchecker --from-export init.ndjson` (Lean 4.35.0), `nanoda_bin` 0.4.19 (bundled with the
+toolchain) on the same export with `num_threads` N, `bin/leanforth check --jobs N --no-manifest --resources
+--json init.ndjson`.
+
+| Threads | Lean's checker | nanoda | LeanForth | LeanForth / Lean | LeanForth / nanoda |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 31.0 s (`--fresh`, from the .olean files); 41.0 s (`--from-export`) | 30.7 s | 670.4 s (check phase 656.5 s) | 21.6 (16.4 against `--from-export`) | 21.8 |
+| 4 | no parallel checker | 9.7 s | 199.6 s (check phase 182.1 s) | – | 20.6 |
+| 6 | no parallel checker | 7.8 s | 153.5 s (check phase 134.6 s) | – | 19.8 |
+| 10 | no parallel checker | 6.5 s | 129.3 s (check phase 107.6 s) | – | 20.0 |
+
+- Lean's own checker (`leanchecker`) replays one environment on one thread; nanoda, an independent checker of
+  the same export format, is the several-thread comparison. When Lean's kernel checks in parallel it joins
+  the lower rows (PROJECT_PROGRESS.md, Later).
+- **The ratio "times Lean" elsewhere in this document divides by 38.4 s**, Lean's kernel time recorded on
+  2026-11-02 on a loaded machine (the same day nanoda took 44.3 s on one thread, against 30.7 s today).
+  Against today's 31.0 s, LeanForth's one-worker check is about **21 times** Lean, not 17; this morning's
+  952.7 s was about 31 times. The speed-ups of the day (952.7 s -> 656.5 s) do not depend on that divisor.
+- LeanForth speeds up 3.4 times on 4 workers, 4.4 on 6 and 5.2 on 10 (whole run); nanoda 3.2, 4.0 and 4.7:
+  the parallel part is in line, the gap is the one-thread speed.
+- Loads: the 4- and 1-worker LeanForth runs at load 1.9 -> 4.0 -> 1.0; the Lean, nanoda and 6- and 10-worker
+  runs at 2.1 -> 9.0 (their own threads), nothing else running.
+
 ## 1. Time by family, beside Lean and nanoda
 
 Shares of Init's samples in run 2, the rows exactly as `python3 scripts/profile-summary.py check.prof
