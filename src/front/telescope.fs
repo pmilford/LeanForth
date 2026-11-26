@@ -26,10 +26,6 @@
 \   lf-with-new-locals ( i*x xt -- j*x )  the same scope for the locals
 \       xt opens itself, one by one (lf-local-decl-new): the view and the
 \       local context put back on both paths
-\   lf-locals-mark ( -- view mark ), lf-locals-back ( view mark -- )  that
-\       scope held across steps that return in between: the view and the
-\       term mark taken, then put back with every local made since
-\       dropped (simp/main.fs's binder visits, inside lf-with-new-locals)
 \   lf-binder-local ( pi type -- fvar )  withLocalDecl's local of binder
 \       node pi: a new free variable of type, named and of the kind the
 \       node records (none: unsupported), pushed on the view, made current
@@ -133,12 +129,8 @@ require ./meta-must.fs
 : lf-with-local-decl ( i*x type name bi xt -- j*x ) ['] tl-opened tl-scoped ;
 : tl-kept-view ( i*x xt -- j*x ) lf-mctx-view lf-with-view ;
 : lf-with-new-locals ( i*x xt -- j*x ) ['] tl-kept-view tl-scoped ;
-\ The same scope held across steps that return in between (a frame
-\ machine's visits, simp/main.fs): the view and the mark on entry, then
-\ both put back, every local made since dropped.
-: lf-locals-mark ( -- view mark ) lf-mctx-view tl-mark ;
-: lf-locals-back ( view mark -- ) lf-lctx-drop lf-mctx-view! ;
-\ withLocalDecl's local of binder node pi, opened in such a scope.
+\ withLocalDecl's local of binder node pi, opened in a scope that
+\ mvars.fs's lf-locals-mark and lf-locals-back hold.
 : lf-binder-local ( pi type -- fvar )
   swap lf-binder-of 0= if lf-unported then lf-local-decl-new lf-mctx-view! ;
 

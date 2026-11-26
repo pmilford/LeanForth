@@ -97,7 +97,7 @@ end-structure
 : sr-arg ( x -- )
   dup sr-open? 0= if drop exit then
   dup lf-infer! dup sr-class? if 2dup sr-instance? if 2drop exit then then
-  nip lf-meta-is-prop lf-must if lf-unported then ;
+  nip lf-is-prop! if lf-unported then ;
 : lf-simp-synthesize ( addr n -- ) cells bounds ?do i @ sr-arg cell +loop ;
 : sr-synthesize ( -- ) sr-xs slab-data lf-simp-synthesize ;
 

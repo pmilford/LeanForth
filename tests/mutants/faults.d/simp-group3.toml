@@ -73,3 +73,11 @@ old = '''  dup lf-infer! dup sr-class? if 2dup sr-instance? if 2drop exit then t
 new = '''  dup lf-infer! dup sr-class? if 2drop exit then'''
 test = "$GFORTH tests/front/tactics/simp-3/test.fs"
 reason = "SL2: synthesizeArgs (Rewrite.lean:89) synthesizes an unassigned instance; left open, ite_congr's [Decidable c] stays a metavariable and the lemma answers none"
+
+[[fault]]
+id = "prop-domain-proof-taken"
+file = "src/front/simp/main.fs"
+old = '''  drop lf-simp-none? 0= if lf-unported then drop sm-act-e sm-pop sm-forall-open ;'''
+new = '''  drop 2drop sm-act-e sm-pop sm-forall-open ;'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "SL1b: simpForall (Main.lean:377) proves a ∀ whose domain is a proposition and has a proof by forall_prop_domain_congr, not ported; the proof dropped, the domain's rewrite is lost"

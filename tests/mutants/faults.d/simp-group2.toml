@@ -169,8 +169,8 @@ reason = "SL1b: mkSimpTheoremKeys (SimpTheorems.lean:398) opens the type's binde
 [[fault]]
 id = "rule-elaborated"
 file = "src/front/tactics/simp-only.fs"
-old = '''  lf-tac-elab-for-apply dup lf-infer! tso-prop? 0= if dup tso-not-prop then'''
-new = '''  -1 false lf-tac-elab-term dup lf-infer! tso-prop? 0= if dup tso-not-prop then'''
+old = '''  lf-tac-elab-for-apply dup lf-infer! lf-is-prop! 0= if dup tso-not-prop then'''
+new = '''  -1 false lf-tac-elab-term dup lf-infer! lf-is-prop! 0= if dup tso-not-prop then'''
 test = "$GFORTH tests/front/tactics/simp-2/test.fs"
 reason = "SL1b: a hypothesis rule is Term.resolveId?'s free variable (Elab/Tactic/Simp.lean); elaborated as an application, h : ¬ p's type is unfolded to a pi whose binder is unknown (136)"
 

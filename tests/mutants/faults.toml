@@ -15492,9 +15492,9 @@ reason = "FE1c review M1: instantiateMVars drops a full binder table and loses t
 
 [[fault]]
 id = "fe-defeq-lctx-kept"
-file = "src/front/defeq.fs"
-old = ''': de-restore ( view mark -- ) lf-lctx-drop lf-mctx-view! ;'''
-new = ''': de-restore ( view mark -- ) 2drop ;'''
+file = "src/front/mvars.fs"
+old = ''': lf-locals-back ( view mark -- ) lf-lctx-drop lf-mctx-view! ;'''
+new = ''': lf-locals-back ( view mark -- ) 2drop ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M2: binders leave their free variables in the local context"
 

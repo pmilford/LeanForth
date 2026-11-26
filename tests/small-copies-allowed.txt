@@ -13,5 +13,3 @@ src/front/rcases.fs:rcs-target@  the target of a pending run's first triple (nod
 src/front/elab-data.fs:ed-type@  the type field of a staged declaration, beside elab-decl-name its name field: two fields, not a copy
 src/core/terms.fs:lf-term-fns  the shared word the kernel's copies (lf-iota-peel, lf-quot-peel and the others) move to in plan row 9.4.8z2 (review B1 of 2026-11-25); src/kernel is not changed on branch simp-sl1a-1
 src/core/terms.fs:lf-term-arg  the shared word the kernel's lf-iota-arg, lf-ind-arg and the others move to in plan row 9.4.8z2 (review B1 of 2026-11-25)
-src/front/telescope.fs:lf-locals-back  the public face of defeq.fs's private de-restore (isDefEqBinding's scope); defeq.fs moves onto it in simp group 3's pass 2 (a planted fault quotes de-restore's line, so the move names it)
-src/front/simp/main.fs:sm-prop?  simp-only.fs's tso-prop? is the same throwing face of isProp; both move to one simp/types.fs word in simp group 3's pass 2 (a planted fault of simp-group2 quotes tso-prop?'s caller)

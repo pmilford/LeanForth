@@ -27,6 +27,7 @@
 \   lf-whnf! lf-whnf-r! lf-whnf-d! ( e -- e' )  whnf, whnfR, whnfD
 \   lf-infer! ( e -- type )           inferType
 \   lf-level! ( type -- level )       getLevel
+\   lf-is-prop! ( e -- flag )         isProp (fun-info.fs's lf-meta-is-prop)
 \   lf-defeq! ( t s -- flag )         isDefEq (the configuration in force)
 \   lf-eqv! ( a b -- flag )           Lean's == (term-eqv.fs's lf-meta-eqv)
 \   lf-defeq-approx! ( t s -- flag )  approxDefEq <| isDefEqGuarded
@@ -206,6 +207,7 @@ end-structure
 : lf-whnf-d! ( e -- e' ) ['] lf-whnf! lf-tr-default lf-meta-at ;
 : lf-infer! ( e -- type ) lf-infer lf-must ;
 : lf-level! ( type -- level ) lf-get-level lf-must ;
+: lf-is-prop! ( e -- flag ) lf-meta-is-prop lf-must ;
 : lf-defeq! ( t s -- flag ) lf-meta-defeq outcome-sane lf-must ;
 : lf-eqv! ( a b -- flag ) lf-meta-eqv lf-must ;
 : lf-defeq-approx! ( t s -- flag )

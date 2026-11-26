@@ -84,6 +84,15 @@ T{ with-self all-hp simp s" forall_congr" head? swap lf-term-second@ s" True" he
    -> true true }T
 p0 q0 lf-mk-eq s" hpq" binder constant hpq0
 T{ with-self hpq0 add-hyp all-hp simp-outcome -> outcome-unsupported }T
+\ The same refusal where the body alone would make no change: ∀ hp : p,
+\ P hp, P a predicate on p's proofs (its argument a proof, kind cast,
+\ never simplified). The refusal above is also reached by another way:
+\ hp = hp is @Eq p hp hp, whose automatic congruence rewrites p again
+\ and needs its theorem's proof; here only the domain's proof is
+\ refused (fault prop-domain-proof-taken).
+p0 prop lf-term-pi lf-made! s" P" binder constant pp0
+T{ with-self hpq0 add-hyp pp0 hp0 lf-mk-app hp-cell 1 lf-mk-forall-fvars simp-outcome
+   -> outcome-unsupported }T
 \ ∀ x, x = a with h: ∀ x, x = b by forall_congr; the arrow x = a -> p:
 \ x = b -> p by implies_congr, its domain alone rewritten.
 : all-x=a ( -- e ) x0 a0 lf-mk-eq x-cell 1 lf-mk-forall-fvars ;

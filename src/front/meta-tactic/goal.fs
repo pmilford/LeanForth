@@ -203,7 +203,7 @@ require ../telescope.fs
 : lf-local-detail-at? ( k -- flag ) lf-mctx-view swap lf-view-local lf-local-detail? ;
 \ getNondepPropHyps: local k a candidate (a proposition, no let, no
 \ detail); fvar c used by local k (no detail) or by the target.
-: mtg-prop? ( fvar -- flag ) lf-fvar-type lf-meta-is-prop lf-must ;
+: mtg-prop? ( fvar -- flag ) lf-fvar-type lf-is-prop! ;
 : mtg-candidate? ( k -- flag )
   dup lf-local-detail-at? if drop false exit then
   lf-mctx-fvar dup lf-fvar-let? if drop false exit then mtg-prop? ;

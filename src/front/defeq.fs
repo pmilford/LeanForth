@@ -361,9 +361,8 @@ defer de-top-x ( -- )     \ isDefEq: isExprDefEqAux under a checkpoint
   de-bind-push if de-bind-bodies else drop false then ;
 : de-pair-at ( -- addr ) de-x de-y 2* + 2 + de-cell ;
 : de-bind-n ( -- n ) de-x de-cells slab-since 2 - 2/ ;
-: de-restore ( view mark -- ) lf-lctx-drop lf-mctx-view! ;
 : de-bind-done ( r -- )
-  de-x de-cell 2@ de-restore de-cells-return ;
+  de-x de-cell 2@ lf-locals-back de-cells-return ;
 defer de-bind-dom ( -- )
 : de-bind-dom-k ( r -- )
   lf-lb-true = if de-y+ de-bind-dom else lf-lb-false de-bind-done then ;
@@ -959,9 +958,9 @@ defer de-delta-x ( -- )
   lf-lb-undef df df-result ! ;
 : de-start ( t s -- )
   de-frames slab-clear de-cells slab-clear 0 df df-m ! ['] de-top de-regs! de-config
-  lf-mctx-view df df-view0 ! de-term-mark df df-mark0 ! ;
+  lf-locals-mark df df-mark0 ! df df-view0 ! ;
 \ The local context as on entry, the entries made since dropped.
-: de-leave ( -- ) df df-view0 @ df df-mark0 @ de-restore ;
+: de-leave ( -- ) df df-view0 @ df df-mark0 @ lf-locals-back ;
 : de-answer ( -- flag outcome )
   df df-result @ dup lf-lb-undef =
   if drop false outcome-invalid exit then lf-lb-true = outcome-ok ;

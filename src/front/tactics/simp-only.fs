@@ -51,11 +51,10 @@ tac-shape-rules lf-tactic: by-simp-only[ constant tac-k-simp-only
 s" simp" tac-k-simp-only lf-tactic-lean!
 
 \ ---- The set: simpOnlyBuiltins, then each rule in order.
-: tso-prop? ( e -- flag ) lf-meta-is-prop lf-must ;
 : tso-builtin ( c-addr u -- ) lfa-intern lf-menv-find lf-must true lf-simp-add-decl ;
 : tso-decl ( symm? node -- )
   swap if lf-tac-unported then syn-a@ lfa-decl-name lf-menv-find lf-must
-  dup lf-menv-type tso-prop? 0= if lf-tac-unported then true lf-simp-add-decl ;
+  dup lf-menv-type lf-is-prop! 0= if lf-tac-unported then true lf-simp-add-decl ;
 \ A variable that is no proposition: a let (to unfold, slice SL3a), else
 \ Lean's error naming it (Elab/Tactic/Simp.lean:292).
 : tso-var-end. ( -- outcome )
@@ -66,7 +65,7 @@ s" simp" tac-k-simp-only lf-tactic-lean!
   ['] tso-var. lf-tac-inline lfa-e-simp-not-prop lf-tac-stop ;
 \ A hypothesis's or a variable's node elaborates to its free variable.
 : tso-hyp ( symm? node -- )
-  lf-tac-elab-for-apply dup lf-infer! tso-prop? 0= if dup tso-not-prop then
+  lf-tac-elab-for-apply dup lf-infer! lf-is-prop! 0= if dup tso-not-prop then
   swap lf-simp-add-term ;
 : tso-rule ( i k -- )
   2dup lf-tac-arg-symm? -rot lf-tac-arg dup syn-kind@ case

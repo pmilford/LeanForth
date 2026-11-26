@@ -86,7 +86,11 @@
 \   variable or an unassigned metavariable whose context holds it.
 \ Words: lf-mctx-reset, lf-mctx-depth, lf-mctx-level-depth, mctx-epoch@
 \ ( -- n );
-\ lf-mctx-view ( -- view ), lf-mctx-view! ( view -- );
+\ lf-mctx-view ( -- view ), lf-mctx-view! ( view -- ); lf-locals-mark
+\ ( -- view mark ), lf-locals-back ( view mark -- ): a scope of locals held
+\ across steps that return in between (defeq.fs's binders, simp/main.fs's
+\ binder visits): the view and the term mark (lf-lctx-drop's) taken, then
+\ both put back, every local made since dropped;
 \ lf-mctx-mark ( -- mark outcome ), lf-mctx-rollback ( mark -- outcome ),
 \ lf-mctx-rollback-to ( mark -- outcome ) (every newer scope too),
 \ lf-mctx-commit ( mark -- outcome ), lf-mctx-marks ( -- n ), lf-mctx-latest
@@ -235,6 +239,8 @@ end-structure
 \ this view, set the result, run, set the old view back.
 : lf-mctx-view ( -- view ) mctx mctx-view @ ;
 : lf-mctx-view! ( view -- ) mctx mctx-view ! ;
+: lf-locals-mark ( -- view mark ) lf-mctx-view lf-term-base lf-term-count @ + ;
+: lf-locals-back ( view mark -- ) lf-lctx-drop lf-mctx-view! ;
 \ Local k of the view in force, as a free variable.
 : lf-mctx-fvar ( k -- fvar ) lf-mctx-view swap lf-view-fvar ;
 : lf-mctx-reset ( -- )

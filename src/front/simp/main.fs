@@ -260,11 +260,10 @@ lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-str 4 lf-tags constant sm-pla
 : sm-arrow-dom ( p' hp frames -- ... )
   drop sm-fr! sm-act-e lf-term-second@ ['] sm-arrow-done sm-simp-call ;
 : sm-arrow ( e -- ... ) ['] sm-arrow-dom sm-domain ;
-: sm-prop? ( e -- flag ) lf-meta-is-prop lf-must ;
 : sm-pi ( e -- ... )   \ simpForall; no proposition: dsimp e
   dup lf-arrow? if sm-arrow exit then
-  dup sm-prop? 0= if sm-dsimp lf-simp-none sm-done exit then
-  dup lf-term-first@ sm-prop? if sm-prop-dom exit then sm-forall-open ;
+  dup lf-is-prop! 0= if sm-dsimp lf-simp-none sm-done exit then
+  dup lf-term-first@ lf-is-prop! if sm-prop-dom exit then sm-forall-open ;
 : sm-step ( e frames -- ... )
   drop dup lf-term-app? if sm-app exit then
   dup lf-term-lam? if sm-lam exit then
@@ -291,7 +290,7 @@ defer sm-loop-call ( e cont -- e frames xt )
 :noname ( e cont -- e frames xt ) ['] sm-loop sm-call ; is sm-loop-call
 : sm-proof? ( e -- flag )
   dup lf-meta-proof-quick lf-must dup lf-lb-undef =
-  if drop lf-infer! lf-meta-is-prop lf-must else nip lf-lb-true = then ;
+  if drop lf-infer! lf-is-prop! else nip lf-lb-true = then ;
 : sm-simp ( e frames -- ... )
   drop dup sm-proof? if lf-simp-none sm-done exit then ['] frame-return sm-loop-call ;
 :noname ( e cont -- e frames xt ) ['] sm-simp sm-call ; is sm-simp-call
