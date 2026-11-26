@@ -115,3 +115,48 @@ old = '''  dup >r lf-sought! r@ dup lf-sought@ hash-3 dup r> lf-sought-hashed ! 
 new = '''  dup >r lf-sought! r@ dup lf-sought@ hash-3 0 r> lf-sought-hashed ! ;'''
 test = "$GFORTH tests/core/terms.fs"
 reason = "a new node is entered with hash 0, not its fields': hash-consing loses it"
+
+# ---- P1: an unstamped call's entries in a scratch memo, keyed by the
+# call's number, emptied whole above lf-rmemo-scratch-most.
+
+[[fault]]
+id = "ks3-rmemo-calls-share-number"
+file = "src/kernel/replace-memo.fs"
+old = '''  1 over lf-rmemo-calls +! dup lf-rmemo-calls @ negate swap lf-rmemo-stamp ! ;'''
+new = '''  1 over lf-rmemo-calls +! -1 swap lf-rmemo-stamp ! ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "every unstamped call has the same number: one call finds another's results"
+quick = true
+
+[[fault]]
+id = "ks3-rmemo-scratch-never-emptied"
+file = "src/kernel/replace-memo.fs"
+old = '''  dup lf-rmemo-spent? if dup lf-rmemo-scratch memo-empty dup lf-rmemo-restart then drop ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "the scratch memo is never emptied: it grows with every unstamped call of a run"
+
+[[fault]]
+id = "ks3-rmemo-sweep-empties-table"
+file = "src/kernel/replace-memo.fs"
+old = '''  dup lf-rmemo-spent? if dup lf-rmemo-scratch memo-empty dup lf-rmemo-restart then drop ;'''
+new = '''  dup lf-rmemo-spent? if ['] memo-empty lf-rmemo-both else drop then ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "emptying the scratch memo empties the stamped table too: kept closings are lost"
+
+[[fault]]
+id = "ks3-rmemo-end-holds-nothing"
+file = "src/kernel/replace-memo.fs"
+old = '''  dup lf-rmemo-scratch? if nip lf-rmemo-held! exit then'''
+new = '''  dup lf-rmemo-scratch? if 2drop exit then'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "an unstamped call's end leaves its entries counted, so the nested pass empties the memo"
+
+[[fault]]
+id = "ks3-rmemo-unstamped-in-table"
+file = "src/kernel/replace-memo.fs"
+old = '''  dup lf-rmemo-scratch? if lf-rmemo-scratch else lf-rmemo-table then ;'''
+new = '''  lf-rmemo-table ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "unstamped entries go into the stamped table, never taken out"
+

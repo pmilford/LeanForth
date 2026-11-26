@@ -426,4 +426,33 @@ create t-rmemo /lf-rmemo allot  t-rmemo /lf-rmemo erase
 T{ 1 heap-refusals ! 7 8 t-rmemo lf-rmemo-kept t-rmemo lf-rmemo-count heap-refusals @ -> 0 0 }T
 T{ 7 8 t-rmemo lf-rmemo-kept t-rmemo lf-rmemo-count -> 1 }T
 t-rmemo lf-rmemo-release
+\ The scratch memo (group kernel-speed-3): an unstamped call's entries are
+\ found within the call and by no other call, whether it ended, failed or
+\ never ended (a THROW); a stamped call's stay for its stamp, an unstamped
+\ call in between finding none of them.
+create u-rmemo /lf-rmemo allot  u-rmemo /lf-rmemo erase
+: u-call ( -- ) 0 u-rmemo lf-rmemo-begin ;
+: u-keep ( offset -- ) n11 twice-0 rot u-rmemo lf-rmemo! ;
+: u-find ( offset -- flag ) twice-0 swap u-rmemo lf-rmemo@ dup if nip then ;
+: u-end ( outcome -- ) u-rmemo lf-rmemo-end ;
+T{ u-call 0 u-keep 0 u-find u-rmemo lf-rmemo-count u-rmemo lf-rmemo-stamp @ -> true 1 -1 }T
+T{ outcome-ok u-end u-rmemo lf-rmemo-count u-call 0 u-find -> 0 false }T
+T{ 0 u-keep outcome-invalid u-end u-call 0 u-find -> false }T
+T{ 0 u-keep u-rmemo lf-rmemo-count u-call 0 u-find u-rmemo lf-rmemo-count -> 1 false 0 }T
+T{ 7 u-rmemo lf-rmemo-begin 0 u-keep outcome-ok u-end u-call 0 u-find -> false }T
+T{ outcome-ok u-end 7 u-rmemo lf-rmemo-begin 0 u-find outcome-ok u-end -> true }T
+\ A call that keeps 600 entries grows the scratch memo while it runs and
+\ finds each; the next unstamped call begins by emptying it whole (more
+\ than lf-rmemo-scratch-most), its numbering begun again; the stamped
+\ entry stays.
+: u-many ( -- ) 600 0 do i u-keep loop ;
+: u-all? ( -- flag ) true 600 0 do i u-find and loop ;
+T{ u-call u-many u-all? u-rmemo lf-rmemo-unheld outcome-ok u-end -> true 600 }T
+T{ u-call u-rmemo lf-rmemo-scratch memo-count u-rmemo lf-rmemo-stamp @ 0 u-find -> 0 -1 false }T
+T{ outcome-ok u-end 7 u-rmemo lf-rmemo-begin 0 u-find outcome-ok u-end -> true }T
+\ Below the threshold the scratch memo is kept: two entries stay there,
+\ unreachable, after the next call begins.
+T{ u-call 0 u-keep 1 u-keep outcome-ok u-end u-call u-rmemo lf-rmemo-scratch memo-count -> 2 }T
+T{ u-rmemo lf-rmemo-empty u-rmemo lf-rmemo-count 7 u-rmemo lf-rmemo-begin 0 u-find -> 0 false }T
+u-rmemo lf-rmemo-release
 bye
