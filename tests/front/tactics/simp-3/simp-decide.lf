@@ -1,0 +1,13 @@
+\ Lean: theorem simp_decide (a b : Nat) (h : a = b) :
+\         decide (a = 0) = decide (b = 0) := by simp only [h]
+\ decide's Decidable instance is a subsingleton argument, so Lean
+\ rewrites a = 0 by its automatic congruence theorem, the library's
+\ realized Decidable.decide.congr_simp (format 4.1's realized records,
+\ plan FE9 slice SD-b), with the instance it then finds for b = 0
+\ (tests/front/tactics/simp-3/check.py: node for node with pinned Lean).
+theorem simp_decide
+  Nat explicit: a  Nat explicit: b  a b = explicit: h
+  a 0 = Decidable.decide b 0 = Decidable.decide =
+:= by
+  by-simp-only[ ' h ]
+end simp_decide

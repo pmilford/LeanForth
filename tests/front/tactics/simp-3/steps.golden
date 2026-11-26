@@ -24,3 +24,5 @@
 {"goal_before":"a b : Nat\nh : a = b\n⊢ @ite Nat (a = 0) (instDecidableEqNat a 0) 1 2 = @ite Nat (b = 0) (instDecidableEqNat b 0) 1 2","goals_after":[],"parent":0,"source":"16:3","step":1,"tactic":"simp","word":"by-simp-only["}
 {"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_ite_branch","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
 {"goal_before":"a b c : Nat\nh : a = b\n⊢ @ite Nat (c = 0) (instDecidableEqNat c 0) a 2 = @ite Nat (c = 0) (instDecidableEqNat c 0) b 2","goals_after":[],"parent":0,"source":"26:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_decide","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh : a = b\n⊢ Decidable.decide (a = 0) (instDecidableEqNat a 0) = Decidable.decide (b = 0) (instDecidableEqNat b 0)","goals_after":[],"parent":0,"source":"12:3","step":1,"tactic":"simp","word":"by-simp-only["}

@@ -27,9 +27,19 @@
 \   else tryAutoCongrTheorem?: an eq argument simplified, a fixed one
 \   dsimp'd (main.fs's guard), a cast or subsingleton instance kept;
 \   nothing changed, the application as it is; no proof and no cast, the
-\   head over the new arguments; else the automatic theorem's proof,
-\   not ported (unsupported: mkCongrSimpCore? and the library's
-\   .congr_simp constants, slice SD-b). Lean builds the theorem before
+\   head over the new arguments; else the automatic theorem's proof
+\   (Types.lean:868-905): the library's realized theorem f.congr_simp
+\   at f's levels (format 4.1's records, simp-data.fs's simp-realized;
+\   mkCongrSimpForConst?, used when its kinds are the computed ones),
+\   applied to each argument as its kind asks: fixed and cast the
+\   argument, eq the argument, its new value and its proof (Eq.refl
+\   when none), subsingletonInst the argument and the new instance (the
+\   old one when its type is the new class, else trySynthInstance's);
+\   the result the theorem's right side. Not supported yet: a head that
+\   is no constant or has no realized theorem (Lean's mkCongrSimpCore?,
+\   or the theorem realized in the user's file), kinds other than the
+\   theorem's, a cast argument (removeUnnecessaryCasts), an instance not
+\   found (Lean then takes congrArgs). Lean builds the theorem before
 \   the arguments are visited and, when it cannot, retries with cast and
 \   subsingleton kinds fixed; LeanForth assumes the first build
 \   succeeds (both kinds leave a proof or an instance as it is). Then
@@ -47,8 +57,11 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../../lib/lib.fs
 require ../../lib/slab.fs
 require ../../lib/context.fs
+require ../../lib/find.fs
 require ../../core/terms.fs
 require ../congr-thms.fs
+require ../synth.fs
+require ../app-builder.fs
 require ../simp-data.fs
 require ../telescope.fs
 require ./types.fs
@@ -86,9 +99,48 @@ end-structure
 : sc-fn-done ( f' hf frames -- ... )
   drop sc-fn-result sm-fr@ nip -rot lf-simp-trans sc-cut sm-pop sm-done ;
 : sc-visit-fn ( e1 h1 -- ... ) sm-fr! sc-e1 lf-meta-head ['] sc-fn-done sm-simp-call ;
+\ The automatic theorem's proof, its values pushed on sm-xs from base.
+: sc-v+ ( x -- ) sm-xs slab-push lf-must ;
+: sc-vals ( base -- addr n ) dup sm-xs slab-at swap sm-xs slab-since ;
+: sc-old ( i -- a ) >r sm-act-e sm-n r> lf-term-arg ;
+: sc-kind<> ( addr i -- addr flag ) 2dup cells + @ swap sc-kind <> ;
+: sc-kinds= ( addr n -- flag )
+  dup sm-n <> if 2drop false exit then
+  ['] sc-kind<> find-index dup if nip then 0= ;
+: sc-head ( -- f ) sm-act-e lf-meta-head ;
+\ mkCongrSimpForConst?: f.congr_simp, when the library realized it with
+\ the kinds computed.
+: sc-realized ( -- r )
+  sc-head dup lf-term-const? 0= if lf-unported then lf-const-name lf-menv-data-decl
+  0= if lf-unported then simp-realized lf-must 0= if lf-unported then ;
+: sc-thm-of ( r -- c )
+  dup simp-realized-kinds sc-kinds= 0= if lf-unported then simp-realized@
+  lf-menv-of-data lf-must lf-menv-name sc-head lf-const-levels lf-mk-const-id ;
+: sc-h' ( old h -- p ) dup lf-simp-none? if drop lf-mk-eq-refl else nip then ;
+: sc-eq-vals ( i -- )
+  dup sc-old dup sc-v+ swap sc-arg sca-r 2@ swap sc-v+ sc-h' sc-v+ ;
+\ subsingletonInst: the class the theorem's next binder asks for, the
+\ values so far in place.
+: sc-cls ( base type -- base type cls )
+  2dup swap sc-vals lf-meta-instantiate-forall lf-must lf-term-first@ ;
+: sc-new-inst ( old cls -- inst )
+  over lf-infer! over lf-defeq! if drop exit then
+  nip lf-try-synth lf-must lf-synth-some <> if lf-unported then ;
+: sc-sub-vals ( base type i -- base type )
+  sc-old dup sc-v+ >r sc-cls r> swap sc-new-inst sc-v+ ;
+: sc-arg-val ( base type i -- base type )
+  dup sc-kind case lf-ck-eq of sc-eq-vals endof   lf-ck-subsingleton of sc-sub-vals endof
+    swap sc-old sc-v+ endcase ;
+: sc-vals-all ( base type -- base type ) sm-n 0 ?do i sc-arg-val loop ;
+: sc-rhs ( base type -- e )
+  swap sc-vals lf-meta-instantiate-forall lf-must lf-simp-sides nip ;
+: sc-auto-proof ( -- e' h )
+  sm-xs slab-count dup sc-realized sc-thm-of tuck lf-infer! sc-vals-all sc-rhs
+  swap rot tuck sc-vals lf-mk-app-cells swap sm-xs slab-cut ;
 : sc-auto-finish ( -- ... )
   sc-simplified sc-flag? 0= if sm-act-e lf-simp-none sc-visit-fn exit then
-  sc-has-proof sc-flag? sc-has-cast sc-flag? or if lf-unported then
+  sc-has-cast sc-flag? if lf-unported then
+  sc-has-proof sc-flag? if sc-auto-proof sc-visit-fn exit then
   sc-head-over lf-simp-none sc-visit-fn ;
 defer sc-auto-args ( -- ... )
 : sc-eq-done ( a' h frames -- ... )
@@ -184,7 +236,7 @@ end-structure
 \ function's last tried, congrDefault).
 defer sc-try ( -- ... )
 : sc-fail ( -- ... ) sc-close 1 sc sc-c +! sc-try ;
-: sc-proof ( -- p ) sc sc-thm @ sc-mvars cells bounds ?do i @ lf-mk-app cell +loop ;
+: sc-proof ( -- p ) sc sc-thm @ sc-mvars lf-mk-app-cells ;
 : sc-result ( -- e' h ) sc-sides nip lf-instantiate! sc-proof lf-instantiate! ;
 : sc-closed? ( e' h -- flag ) lf-meta-has-assignable? swap lf-meta-has-assignable? or 0= ;
 : sc-answer ( -- e' h true | x x false )

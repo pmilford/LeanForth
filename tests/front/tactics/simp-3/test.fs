@@ -108,9 +108,9 @@ T{ with-self all-n simp-outcome -> outcome-unsupported }T
 \ ---- 1. The automatic congruence (tryAutoCongrTheorem?, simp/congr.fs):
 \ decide (x + 0 = x) i with Nat.add_zero alone: its eq argument changed
 \ by definition, its instance (a subsingleton argument) kept: decide
-\ (x = x) i, no proof. With h, decide (x = a) i' needs the automatic
-\ theorem's proof (Decidable.decide.congr_simp, not built yet):
-\ unsupported.
+\ (x = x) i, no proof. With h, decide (x = a) j is decide (x = b) with
+\ the instance trySynthInstance finds (instDecidableEqNat x b), by the
+\ library's realized Decidable.decide.congr_simp (format 4.1's data).
 : decide-of ( p inst -- e ) s" Decidable.decide" lf-mk-const0 rot lf-mk-app swap lf-mk-app ;
 : dec-type ( p -- t ) s" Decidable" lf-mk-const0 swap lf-mk-app ;
 x0 plus0 x0 lf-mk-eq constant x+0=x
@@ -119,7 +119,26 @@ x0 a0 lf-mk-eq dec-type s" j" binder constant j0
 : only-add0 ( -- ) lf-simp-set-new s" Nat.add_zero" decl true lf-simp-add-decl ;
 T{ only-add0 x+0=x i0 decide-of simp swap x0 x0 lf-mk-eq i0 decide-of lf-meta-eqv drop
    -> lf-simp-none true }T
-T{ with-h x0 a0 lf-mk-eq j0 decide-of simp-outcome -> outcome-unsupported }T
+T{ with-h x0 a0 lf-mk-eq j0 decide-of simp s" Decidable.decide.congr_simp" head?
+   swap lf-term-second@ s" instDecidableEqNat" head? -> true true }T
+\ The record's kinds other than the computed ones (Lean then builds the
+\ theorem itself, mkCongrSimpCore?, not ported): unsupported, the kind
+\ put back after. An eq argument without a proof is Eq.refl of itself.
+: dec-kinds ( -- addr )
+  s" Decidable.decide" lfa-intern lf-menv-data-decl drop simp-realized 2drop
+  simp-realized-kinds drop ;
+T{ dec-kinds dup @ 0 rot ! with-h x0 a0 lf-mk-eq j0 decide-of simp-outcome swap dec-kinds !
+   -> outcome-unsupported }T
+T{ x0 lf-simp-none sc-h' s" Eq.refl" head? x0 h0 sc-h' -> true h0 }T
+\ A cast argument (a proof whose type mentions a rewritten argument):
+\ @Fin.mk x (x + 0) h with h : x + 0 < x (kinds fixed, eq, cast), x + 0
+\ to x by definition, needs removeUnnecessaryCasts (not ported):
+\ unsupported.
+: lt ( a b -- e ) >r >r s" LT.lt" x+0=x lf-level! lf-mk-const1 nat lf-mk-app
+  s" instLTNat" lf-mk-const0 lf-mk-app r> lf-mk-app r> lf-mk-app ;
+x0 plus0 x0 lt s" hlt" binder constant hlt0
+: fin-mk ( -- e ) s" Fin.mk" lf-mk-const0 x0 lf-mk-app x0 plus0 lf-mk-app hlt0 lf-mk-app ;
+T{ with-rfl fin-mk simp-outcome -> outcome-unsupported }T
 \ visitFn: decide p j with the rule Decidable.decide = g2 (post): the
 \ arguments unchanged, the head rewritten with a proof, which Lean
 \ carries through each argument by Meta.mkCongrFun (its general build,
@@ -201,7 +220,8 @@ T{ s" Nat explicit: b Nat explicit: c Nat explicit: d c d = explicit: h Nat expl
 T{ s" Nat explicit: a Nat explicit: b Nat explicit: c a c = explicit: h2 a b = explicit: h c b ="
    s" ' h by-revert by-simp-only[ ' h2 ] by-intro: h ' h by-exact" tactic-ran -> 0 }T
 \ Through ite_congr (simp-congr.lf's twins): the condition, a branch; no
-\ progress (500); decide's automatic theorem not built yet (99).
+\ progress (500); decide's automatic theorem, the library's realized
+\ Decidable.decide.congr_simp (simp-decide.lf's twin).
 T{ s" Nat explicit: a Nat explicit: b a b = explicit: h a 0 = 1 2 ite b 0 = 1 2 ite ="
    s" by-simp-only[ ' h ]" tactic-ran -> 0 }T
 T{ s" Nat explicit: a Nat explicit: b Nat explicit: c a b = explicit: h c 0 = a 2 ite c 0 = b 2 ite ="
@@ -209,6 +229,6 @@ T{ s" Nat explicit: a Nat explicit: b Nat explicit: c a b = explicit: h c 0 = a 
 T{ s" Nat explicit: a Nat explicit: b Nat explicit: c a b = explicit: h c 0 = 1 2 ite c 0 = 1 3 ite ="
    s" by-simp-only[ ' h ]" tactic-ran lf-tac-forget -> 500 }T
 T{ s" Nat explicit: a Nat explicit: b a b = explicit: h a 0 = Decidable.decide b 0 = Decidable.decide ="
-   s" by-simp-only[ ' h ]" tactic-ran lf-tac-forget -> 99 }T
+   s" by-simp-only[ ' h ]" tactic-ran -> 0 }T
 .( simp-3 test.fs: all tests passed) cr
 bye

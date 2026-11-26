@@ -20,13 +20,14 @@ ENV = tactic_check.Env("tests/front/simp-slice.ndjson", "tests/front/simp-slice.
 FUNEXT = "=propext, Quot.sound"   # forall_congr's axioms
 FILES = [(D + "simp-binders.lf", ["simp_binder_arrow", "simp_binder_forall" + FUNEXT,
                                   "simp_binder_forall_hyp" + FUNEXT, "simp_binder_nested"]),
-         (D + "simp-congr.lf", ["simp_ite=propext", "simp_ite_branch=propext"])]   # ite_congr's
+         (D + "simp-congr.lf", ["simp_ite=propext", "simp_ite_branch=propext"]),   # ite_congr's
+         (D + "simp-decide.lf", ["simp_decide=propext"])]
 MISMATCH = "  Nat.add_zero a\nhas type\n  a + 0 = a\nbut is expected to have type\n  True"
 NO_PROGRESS = "`simp` made no progress"
 WRONG = [(D + "w-binder-skipped.lf", 96, "Type mismatch", MISMATCH),
          (D + "w-binder-no-progress.lf", 500, NO_PROGRESS, ""),
          (D + "w-ite-no-progress.lf", 500, NO_PROGRESS, "")]
-UNSUPPORTED = [(D + "u-decide.lf", 99, "not supported yet: this case of the tactic")]
+UNSUPPORTED = []
 
 if __name__ == "__main__":
     tactic_check.main("simp-3", FILES, WRONG, UNSUPPORTED, env=ENV, lean=D + "simp-3.lean",

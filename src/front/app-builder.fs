@@ -10,6 +10,8 @@
 \   lf-mk-const-id ( name l1..ln n -- e )  the same of a name ID
 \       (Expr.constLevels! is core/constant-term-boundary.fs's lf-const-levels)
 \   lf-mk-app ( f a -- e ), lf-mk-app-n ( f a1..an n -- e )  mkApp, mkAppN
+\   lf-mk-app-cells ( f addr n -- e )  mkAppN of the n arguments in cells
+\       at addr
 \   lf-mk-eq ( a b -- e )                 mkEq (40)
 \   lf-mk-not ( p -- e )                  mkNot (Expr.lean): Not p
 \   lf-mk-eq-refl ( a -- h )              mkEqRefl (65)
@@ -149,6 +151,7 @@ abl-most cells context-record: abl-cells
 : lf-mk-app ( f a -- e ) lf-term-app lf-made! ;
 : abl-fold ( f addr n -- e ) 0 ?do dup i cells + @ >r swap r> lf-mk-app swap loop drop ;
 : lf-mk-app-n ( f a1..an n -- e ) abl-stored abl-fold ;
+: lf-mk-app-cells ( f addr n -- e ) abl-fold ;
 : abl-app2 ( a b f -- e ) >r swap r> swap lf-mk-app swap lf-mk-app ;   \ mkApp2 f a b
 
 \ ---- Shapes and AppBuilder's helpers.

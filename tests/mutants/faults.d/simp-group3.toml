@@ -53,10 +53,10 @@ reason = "SL2: trySimpCongrTheorem? answers none when no hypothesis was modified
 [[fault]]
 id = "auto-proof-dropped"
 file = "src/front/simp/congr.fs"
-old = '''  sc-has-proof sc-flag? sc-has-cast sc-flag? or if lf-unported then'''
-new = '''  sc-has-cast sc-flag? if lf-unported then'''
+old = '''  sc-has-proof sc-flag? if sc-auto-proof sc-visit-fn exit then'''
+new = '''  sc-has-proof sc-flag? if sc-head-over lf-simp-none sc-visit-fn exit then'''
 test = "$GFORTH tests/front/tactics/simp-3/test.fs"
-reason = "SL2: tryAutoCongrTheorem? (Types.lean:870) builds the automatic theorem's proof when an argument has one; dropped, decide (x = a) i becomes decide (x = b) i with no proof"
+reason = "SL2: tryAutoCongrTheorem? (Types.lean:870) builds the automatic theorem's proof when an argument has one; dropped, decide (x = a) j becomes decide (x = b) j with no proof"
 
 [[fault]]
 id = "congr-lemmas-skipped"
@@ -81,3 +81,36 @@ old = '''  drop lf-simp-none? 0= if lf-unported then drop sm-act-e sm-pop sm-for
 new = '''  drop 2drop sm-act-e sm-pop sm-forall-open ;'''
 test = "$GFORTH tests/front/tactics/simp-3/test.fs"
 reason = "SL1b: simpForall (Main.lean:377) proves a ∀ whose domain is a proposition and has a proof by forall_prop_domain_congr, not ported; the proof dropped, the domain's rewrite is lost"
+
+# Pass 2, item D: the automatic theorem's proof from the library's realized f.congr_simp.
+[[fault]]
+id = "realized-kinds-ignored"
+file = "src/front/simp/congr.fs"
+old = '''  dup simp-realized-kinds sc-kinds= 0= if lf-unported then simp-realized@'''
+new = '''  simp-realized@'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "SL2: mkCongrSimp? (Types.lean:793) uses the global f.congr_simp only when its argument kinds are the computed ones, else mkCongrSimpCore?"
+
+[[fault]]
+id = "auto-instance-kept"
+file = "src/front/simp/congr.fs"
+old = '''  over lf-infer! over lf-defeq! if drop exit then'''
+new = '''  drop exit'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "SL2: tryAutoCongrTheorem? (Types.lean:880) takes the old instance only when its type is the new class, else trySynthInstance's"
+
+[[fault]]
+id = "auto-refl-missing"
+file = "src/front/simp/congr.fs"
+old = ''': sc-h' ( old h -- p ) dup lf-simp-none? if drop lf-mk-eq-refl else nip then ;'''
+new = ''': sc-h' ( old h -- p ) nip ;'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "SL2: an eq argument without a proof gives the theorem Eq.refl of itself (Result.getProof', Types.lean:893)"
+
+[[fault]]
+id = "auto-cast-taken"
+file = "src/front/simp/congr.fs"
+old = '''  sc-has-cast sc-flag? if lf-unported then'''
+new = ''''''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "SL2: a cast argument needs removeUnnecessaryCasts (Types.lean:900), not ported; taken, Pc (x + 0) rfl becomes Pc x rfl, ill-typed"
