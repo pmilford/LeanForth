@@ -34,9 +34,11 @@ Status (2026-11-13), in the stages of
   whose export gives others: **written** (the exporter, the reader and the
   front end's use, tested; three `Init` statements elaborated node for
   node as pinned Lean's); no review or done check yet.
-- `leanforth check` reads the data but no verdict uses it yet: the
-  instance table (FE1e3) and Meta's whnf are tested alone; the
-  elaborator (s1-elab) is not merged.
+- `leanforth check` reads the data, and the verdict of a LeanForth text
+  uses it: the elaborator and the tactics read the instances,
+  reducibility, eliminators and matchers; `by-simp-only[ ]` reads the
+  congruence lemmas and defeq tags (format 4) and the realized
+  congruence theorems (format 4.1).
 
 ## What it is and why
 
