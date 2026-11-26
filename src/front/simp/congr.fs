@@ -203,10 +203,15 @@ defer sc-next-hyp ( -- ... )
   sc sc-c @ sc sc-end @ < 0= if sc-pop sm-act-e sm-pop sc-default exit then
   sc-reset sc-open sc-telescope sc-shape sc-unifies? sc-alive sc-next-hyp ; is sc-try
 
-\ ---- congr (637), simp/main.fs's sm-congr once this file is loaded.
+\ ---- congr (637), simp/main.fs's sm-congr once this file is loaded:
+\ f's @[congr] lemmas, records c .. c+n-1 (n = 0: none, also for a
+\ constant the data does not hold, such as a text declaration).
+: sc-congr-run ( f -- c n )
+  dup lf-term-const? 0= if drop 0 0 exit then
+  lf-const-name lf-menv-data-decl if simp-congr-lemmas lf-must else 0 0 then ;
 : sc-lemmas ( e c n -- ... ) rot sm-push sc-push sc-try ;
 : sc-congr ( e -- ... )
-  dup lf-meta-head sm-congr-run ?dup if sc-lemmas else drop sc-default then ;
+  dup lf-meta-head sc-congr-run ?dup if sc-lemmas else drop sc-default then ;
 ' sc-congr is sm-congr
 
 base !   \ the BASE this file was loaded with

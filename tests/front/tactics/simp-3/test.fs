@@ -122,6 +122,26 @@ s" Decidable.decide" lf-mk-const0 g20 lf-mk-eq s" hd" binder constant hd0
 T{ with-self hd0 add-hyp s" Decidable.decide" lf-mk-const0 g-app simp-outcome
    -> outcome-unsupported }T
 
+\ ---- 1, 2. Congruence lemmas (simp/congr.fs). A constant the data does
+\ not hold has no lemma. ite p ip x x with p = q: ite_congr modifies the
+\ condition, but no instance of Decidable q is found (synthesizeArgs
+\ leaves it open), so the lemma answers none, and the automatic
+\ congruence needs its theorem's proof: unsupported.
+T{ s" zz.none" lfa-intern 0 lf-mk-const-id sc-congr-run -> 0 0 }T
+p0 dec-type s" ip" binder constant ip0
+: ite-p ( -- e ) s" ite" nat lf-level! lf-mk-const1 nat lf-mk-app p0 lf-mk-app ip0 lf-mk-app
+  x0 lf-mk-app x0 lf-mk-app ;
+T{ with-self hpq0 add-hyp ite-p simp-outcome -> outcome-unsupported }T
+\ forallTelescopeReducing of a hypothesis's type (sc-forall): outParam
+\ (∀ n, n + 0 = n) unfolds (reducible) to the ∀, whose binder is opened:
+\ the body n' + 0 = n', one local more, put back after.
+: add0-ty ( -- t ) s" Nat.add_zero" decl lf-menv-type ;
+: out-add0 ( -- t ) s" outParam" add0-ty lf-level! lf-mk-const1 add0-ty lf-mk-app ;
+: forall-body ( -- flag n )
+  lf-locals-mark sm-xs slab-clear out-add0 sc-forall lf-eq-app? sm-xs slab-count
+  2swap lf-locals-back sm-xs slab-clear ;
+T{ forall-body -> true 1 }T
+
 \ ---- 2. The scope: after a run below binders, and after a throw below
 \ one (a let variable in a lambda's body, reduceFVar's case not ported),
 \ the view and the local context are as they were.

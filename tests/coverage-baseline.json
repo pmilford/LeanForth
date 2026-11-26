@@ -491,12 +491,12 @@
   "src/front/simp/main.fs": {
    "blocks": 280,
    "never_run": 1,
-   "reason": "unreachable: new file (plan FE9, simp slice SL1a-1); main.fs:180 an argument past the function's parameters (sm-way, congrArgs' else): only a type argument with forward dependencies can make the result a function type, and the dsimp guard keeps such an argument only when it is a sort, a free variable (neither a function type) or a constant, and simp-slice declares no constant that unfolds to a function type"
+   "reason": "unreachable: new file (plan FE9, simp slice SL1a-1); main.fs:181 an argument past the function's parameters (sm-way, congrArgs' else): only a type argument with forward dependencies can make the result a function type, and the dsimp guard keeps such an argument only when it is a sort, a free variable (neither a function type) or a constant, and simp-slice declares no constant that unfolds to a function type"
   },
   "src/front/simp/rewrite.fs": {
    "blocks": 91,
    "never_run": 3,
-   "reason": "unreachable: new file (plan FE9, simp slice SL1a-1); rewrite.fs:92, rewrite.fs:100 a theorem's proof or result holding an assignable metavariable after synthesizeArgs (hasAssignableMVar): it needs a theorem argument the left side does not fix that is neither a proposition nor an instance, and no theorem of tests/front/simp-slice has one (every such argument there is a proposition or an instance; hypothesis rules have no arguments until SL1b); rewrite.fs:99 a theorem whose type holds binderNameHint: simp-slice does not declare binderNameHint"
+   "reason": "unreachable: new file (plan FE9, simp slice SL1a-1); rewrite.fs:108, rewrite.fs:116 a theorem's proof or result holding an assignable metavariable after synthesizeArgs (hasAssignableMVar): it needs a theorem argument the left side does not fix that is neither a proposition nor an instance synthesis finds, and no theorem of tests/front/simp-slice has one (every such argument there is a proposition or an instance found; hypothesis rules have no such argument); rewrite.fs:115 a theorem whose type holds binderNameHint: simp-slice does not declare binderNameHint"
   },
   "src/front/step-log.fs": {
    "blocks": 106,

@@ -61,8 +61,8 @@ reason = "SL2: tryAutoCongrTheorem? (Types.lean:870) builds the automatic theore
 [[fault]]
 id = "congr-lemmas-skipped"
 file = "src/front/simp/congr.fs"
-old = '''  dup lf-meta-head sm-congr-run ?dup if sc-lemmas else drop sc-default then ;'''
-new = '''  dup lf-meta-head sm-congr-run 2drop sc-default ;'''
+old = '''  dup lf-meta-head sc-congr-run ?dup if sc-lemmas else drop sc-default then ;'''
+new = '''  dup lf-meta-head sc-congr-run 2drop sc-default ;'''
 test = "$GFORTH tests/front/tactics/simp-3/test.fs"
 reason = "SL2: congr (Main.lean:637) tries a head's @[congr] lemmas before congrDefault; skipped, an ite's condition goes to the automatic congruence (another route than Lean's, here not supported)"
 

@@ -156,16 +156,6 @@ lf-tag-let lf-tag-let-nondep lf-tag-projection lf-tag-annotation lf-tag-lit 5 lf
   dup sm-of-nat? if drop true exit then
   dup sm-char? if drop true exit then sm-scientific? ;
 
-\ ---- congr (Main.lean:637) and congrDefault's mkCongrSimp? (Types.lean:773).
-\ f's @[congr] lemmas, records c .. c+n-1 (n = 0: none; no data: none).
-: sm-congr-run ( f -- c n )
-  dup lf-term-const? 0= if drop 0 0 exit then
-  lf-const-name lf-menv-data-decl if simp-congr-lemmas lf-must else 0 0 then ;
-: sm-congr-lemmas? ( f -- flag ) sm-congr-run nip 0<> ;
-: sm-congr-check ( e -- )
-  lf-meta-head dup sm-congr-lemmas? if lf-unported then
-  lf-congr-simp-kinds lf-must lf-congr-plain? 0= if lf-unported then ;
-
 \ ---- The dsimp guard.
 : sm-plain-const? ( c -- flag ) lf-const-name lf-menv-find lf-must sm-struct-proj? 0= ;
 : sm-stable-node? ( a -- flag )
@@ -206,9 +196,10 @@ defer sm-simp-arg ( a -- a frames xt )
 defer sm-simp-call ( e cont -- e frames xt )
 : sm-app-open ( e -- ... )
   dup sm-push dup lf-meta-args# sa sa-n ! lf-meta-head ['] sm-app-head sm-simp-call ;
-\ congr (Main.lean:637): simp/congr.fs's, else the refusals above.
+\ congr (Main.lean:637): simp/congr.fs's (simp/goal.fs loads it), else
+\ unsupported.
 defer sm-congr ( e -- ... )
-:noname ( e -- ... ) dup sm-congr-check sm-app-open ; is sm-congr
+' lf-unported is sm-congr
 : sm-app ( e -- ... ) dup sm-literal? if lf-simp-none sm-done exit then sm-congr ;
 lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-str 4 lf-tags constant sm-plain-tags
 : sm-fvar ( e -- e ) dup lf-fvar-let? if lf-unported then ;
