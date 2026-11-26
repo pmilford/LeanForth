@@ -1,0 +1,16 @@
+\ Not supported yet (Forth review of small-tactics-1, finding 1; plan FE3):
+\ an explicit parameter whose type is a class is a local instance too,
+\ named inferInstance or not (the macro's inferInstance is the constant):
+\ Lean's term uses the parameter; error 139 here.
+\ Lean: theorem u_ii_hygiene (a b : Nat) (inferInstance : Decidable (a = b)) (h : a = b) :
+\           a = b := by
+\         have d : Decidable (a = b) := by infer_instance
+\         exact h
+theorem u_ii_hygiene
+  Nat explicit: a  Nat explicit: b  a b = Decidable explicit: inferInstance  a b = explicit: h  a b =
+:= by
+  a b = Decidable by-have-by: d
+    by-infer-instance
+  by-end
+  ' h by-exact
+end u_ii_hygiene

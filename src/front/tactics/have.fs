@@ -75,13 +75,13 @@ s" have" tac-k-have-goal lf-tactic-lean!
 s" have" tac-k-have-by lf-tactic-lean!
 lf-mode-nested tac-k-have-by lf-tactic-mode!
 
-\ ---- The declaration: its name (_ not supported yet), type and value.
-: thv-name ( i k -- name ) lf-tac-arg dup 0= if lf-tac-unported then ;
+\ ---- The declaration: its name (_ not supported yet: lf-tac-name), type
+\ and value.
 \ A term elaborated: no metavariable left open (93); a name the context
 \ lacks (cleared) is refused as it is elaborated (elab-term.fs's et-var
 \ and et-hyp, 76; Lean's unknown identifier).
 \ Step i's name, its argument k, below i.
-: thv-named ( i goal k -- goal name i ) rot tuck swap thv-name swap ;
+: thv-named ( i goal k -- goal name i ) rot tuck swap lf-tac-name swap ;
 : thv-type ( i -- T ) 0 lf-tac-arg lf-tac-elab-type lf-open-mvar-free ;
 : thv-ensuring ( node T -- e ) lf-tac-elab-ensuring lf-open-mvar-free ;
 : thv-value ( i T -- e ) swap 1 lf-tac-arg swap thv-ensuring ;

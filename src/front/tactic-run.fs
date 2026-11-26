@@ -96,6 +96,8 @@
 \ lf-tac-bracketed ( i -- ) (a block over the main goal alone; no goal
 \ 90 at the step, or at a brace's }), lf-tac-save ( -- save outcome ),
 \ lf-tac-restore, lf-tac-commit ( save -- outcome ), lf-tac-try,
+\ lf-tac-without-modifying ( i*x xt -- j*x ) (withoutModifyingState: xt
+\ from a save put back however xt ends, its THROW passed on after),
 \ lf-tac-forget ( -- ), lf-open-parts ( -- n ), lf-open-parts. ( -- ),
 \ lf-front-close ( type value -- type' value' ) and lf-front-close-type
 \ ( type -- type' ) (a term proof's or an axiom's closing over the
@@ -205,6 +207,9 @@ begin-structure /tfr      \ an open block
   field: tfr-sorry        \ Lean's errToSorry inside it (slice 3)
   field: tfr-won          \ true once a pass ended well (by-any-goals)
 end-structure
+\ An iterate's passes left (tactics/iterate.fs), in the place field, which
+\ no iterate frame uses for a place.
+: tfr-passes ( frame -- addr ) tfr-at ;
 /tfr context-slab: trun-frames
 begin-structure /tsv      \ a saved state
   field: tsv-mark         \ the metavariable context's mark
@@ -890,6 +895,11 @@ lfr-states# 2* 0 xt-table: lfr-states
 : lfr-caught ( save code -- code )
   ?dup 0= if 0 lfr-kept exit then lfr-undone dup lf-author-throw <> if throw then ;
 : lf-tac-try ( xt -- code ) lf-tac-save lfr-must swap catch lfr-authored lfr-caught ;
+\ withoutModifyingState: xt run and the whole tactic state put back
+\ however it ends (a THROW thrown on after); a refused save or put-back
+\ is LeanForth's fault (lfr-must and lfr-sure, as lf-tac-try's).
+: lf-tac-without-modifying ( i*x xt -- j*x )
+  lf-tac-save lfr-must >r catch r> lf-tac-restore lfr-sure throw ;
 : lf-tac-forget ( -- ) lfa-error-reset ;
 \ Lean's errors, as try and observing? catch them (moved here from
 \ tactic-msg.fs for the loop below): an authoring error whose code is
@@ -1055,7 +1065,7 @@ defer lf-front-by-statement ( -- type )
 : lfr-unelaborated ( -- type ) lfa-e-elaborate lfa-fail ;
 ' lfr-unelaborated is lf-front-by-statement
 : lfr-assemble ( type goal -- type' value )
-  ['] lf-mk-lambda-fvars lfr-close >r ['] lf-mk-forall-fvars lfr-close r> ;
+  ['] lf-mk-lambda-fvars lfr-close swap ['] lf-mk-forall-fvars lfr-close swap ;
 \ For a term proof or an axiom (front/elab-decl.fs): the type and value,
 \ or the type alone, closed over the current view's binders in the same
 \ way.

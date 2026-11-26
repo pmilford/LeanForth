@@ -394,8 +394,8 @@ reason = "9.4.8l-I matchEq? (MatchUtil.lean:28) without matchHelper?'s whnf: an 
 [[fault]]
 id = "lib-local-decl-current"
 file = "src/front/telescope.fs"
-old = '''  2>r dup 2r> lf-local-new lf-must lf-mctx-view swap lf-view-push lf-must ;'''
-new = '''  2>r dup 2r> lf-local-new lf-must lf-mctx-view swap lf-view-push lf-must dup lf-mctx-view! ;'''
+old = '''  2>r dup 2r> tl-classed lf-mctx-view swap lf-view-push lf-must ;'''
+new = '''  2>r dup 2r> tl-classed lf-mctx-view swap lf-view-push lf-must dup lf-mctx-view! ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l-I lf-local-decl-new: the new view made current, so a caller's context changes behind it (withLocalDecl's scope then puts back the wrong one)"
 

@@ -7,7 +7,9 @@
 \ elaborated where it stands.
 \ - The header (elabHeaders): each parameter's type by elabType
 \   (elab-term.fs), a free variable for it whose local, named and of the
-\   kind its binder word wrote, is pushed on the current view; the
+\   kind its binder word wrote, a local instance when its type is a class
+\   (local-instances.fs: an instance problem of that class is then not
+\   supported yet, plan FE3), is pushed on the current view; the
 \   statement by elabType; synthesizeSyntheticMVarsNoPostponing (where
 \   default instances fire); instantiated. A statement left with a
 \   metavariable, term or level, is not supported yet (139: Lean's
@@ -80,6 +82,7 @@ require ./tactic-core.fs
 require ./elab-pending.fs
 require ./elab-app.fs
 require ./elab-term.fs
+require ./local-instances.fs
 
 begin-structure /edc
   field: edc-checks      \ #check lines run in this run
@@ -113,10 +116,14 @@ action-of lfa-run-fresh constant edc-run-before
 : edc-fail ( outcome -- ) lf-tac-elab-detail lf-elab-code swap lfa-fail-see ;
 : edc-must ( outcome -- ) dup ok? if drop else edc-fail then ;
 
-\ ---- The header: parameters and statement.
+\ ---- The header: parameters and statement. A parameter whose type is a
+\ class is a local instance (elabBinders' withLocalDecl: withNewFVar,
+\ local-instances.fs).
+: edc-new-local ( binder fvar -- local outcome )
+  swap dup lfa-binder-name @ swap lfa-binder-kind @ lf-local-new
+  ['] lf-local-classed ok-apply lf-elab-meta ;
 : edc-local ( binder fvar -- outcome )
-  swap dup lfa-binder-name @ swap lfa-binder-kind @ lf-local-new lf-elab-meta
-  ok-then? 0= if exit then lf-mctx-view swap lf-view-push lf-elab-meta
+  edc-new-local ok-then? 0= if exit then lf-mctx-view swap lf-view-push lf-elab-meta
   ok-then? if lf-mctx-view! outcome-ok then ;
 : edc-fvar ( binder type -- binder fvar outcome )
   lf-lctx-local lf-elab-meta ok-then? 0= if -1 swap exit then dup lf-elab-var+ ;

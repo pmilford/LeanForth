@@ -35,7 +35,8 @@
 \       whether argument k is a rule written right to left (<-, Lean's ←:
 \       rwRule's symm flag, withRWRulesSeq); lf-tac-arg-span ( i k -- n )
 \       a pattern item's span (pattern-syntax.fs), 0 for any other
-\       argument
+\       argument; lf-tac-name ( i k -- name ) argument k, a name, _ (0)
+\       not supported yet (99: Lean's parser wants an identifier there)
 \   lf-tac-row ( kind -- )  kind's run word on the step running
 \       (lf-tac-step): a tactic Lean writes as another one, run on the
 \       same step (lf-tac-eval)
@@ -274,6 +275,7 @@ end-structure
 : tcr-arg-index ( i k -- j ) swap lf-tactic-step tac-first @ + ;
 : tcr-arg ( i k -- x pos ) tcr-arg-index lf-tactic-arg ;
 : lf-tac-arg ( i k -- x ) tcr-arg drop ;
+: lf-tac-name ( i k -- name ) lf-tac-arg dup 0= if lf-tac-unported then ;
 : lf-tac-arg-at ( i k -- pos ) tcr-arg nip ;
 : lf-tac-arg-symm? ( i k -- flag ) tcr-arg-index lf-tactic-arg-symm? ;
 : lf-tac-arg-span ( i k -- n ) tcr-arg-index lf-tactic-arg-span ;

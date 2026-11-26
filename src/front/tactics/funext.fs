@@ -16,13 +16,14 @@
 \ by-funext) does each pass once per name: a goal that is no function
 \ equation is apply's error 380. Term patterns after funext (funext
 \ (a, b)) are not read: the list holds names only.
-\ Lean call list: apply funext -> lf-goal-apply-const in
-\ lf-lift-meta-tactic, lf-tac-with-synth (tactic-core.fs); intro ->
+\ Lean call list: apply funext -> lf-tac-apply-const (tactics/apply.fs)
+\ in lf-lift-meta-tactic; intro ->
 \ lf-tac-intro1; repeat -> lf-tac-try-lean; the names -> lf-tac-arg.
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own.
 
 require ../tactic-api.fs
+require ./apply.fs
 
 tac-shape-plain lf-tactic: by-funext constant tac-k-funext
 s" funext" tac-k-funext lf-tactic-lean!
@@ -30,8 +31,7 @@ tac-shape-binders+ lf-tactic: by-funext[ constant tac-k-funext-names
 s" funext" tac-k-funext-names lf-tactic-lean!
 
 \ ---- apply funext; intro NAME on step i's main goal (name 0: none).
-: tfx-apply ( goal -- goals ) s" funext" lf-goal-apply-const ;
-: tfx-tac ( goal -- goals ) ['] tfx-apply lf-tac-with-synth ;
+: tfx-tac ( goal -- goals ) s" funext" lf-tac-apply-const ;
 : tfx-pass ( name i -- ) dup ['] tfx-tac lf-lift-meta-tactic -1 swap lf-tac-intro1 ;
 
 \ ---- funext: the pass until it fails; funext x xs*: once per name.

@@ -423,6 +423,16 @@ T{ lf-tac-forget lf-author-code -> 0 }T
 T{ two-goals ' spoil-throw ' lf-tac-try catch nip -> -77 }T
 T{ state? lfr-saves -> false 0 mv-opaque 2 0 }T
 T{ ' spoil lf-tac-try state? -> 0 true tagged mv-natural 0 }T
+\ lf-tac-without-modifying (withoutModifyingState, rename's search): the
+\ state given back after a success and after a failure, whose THROW
+\ passes on; a put-back refused (a newer save left open) is
+\ lfr-state-lost, which no try catches; a save refused, below.
+T{ two-goals ' spoil lf-tac-without-modifying state? lfr-saves -> false 0 mv-opaque 2 0 }T
+T{ ' spoil-fail ' lf-tac-without-modifying catch nip lf-tac-forget state? lfr-saves
+   -> lf-author-throw false 0 mv-opaque 2 0 }T
+T{ ' spoil-throw ' lf-tac-without-modifying catch nip state? lfr-saves -> -77 false 0 mv-opaque 2 0 }T
+: save-only ( -- ) lf-tac-save 2drop ;
+T{ two-goals ' save-only ' lf-tac-without-modifying catch nip -> lfr-state-lost }T
 \ Nested: an inner failure undone, the outer success kept.
 : inner ( -- ) ['] spoil-fail lf-tac-try drop lf-tac-forget ;
 T{ two-goals ' inner lf-tac-try state? -> 0 false 0 mv-opaque 2 }T
@@ -543,6 +553,10 @@ T{ seed ' nested-fail lf-tac-try lf-tac-forget states kept# -> lf-author-throw 1
 : kept-most ( n -- ) ep-saved dup slab-free 2 cells -rot slab-init drop ;
 T{ two-goals seed 1 kept-most lf-tac-save nip lfr-saves lf-mctx-marks kept#
    -> outcome-full 0 0 0 }T
+\ lf-tac-without-modifying's save refused: the run's own error (88, the
+\ tactic store full), xt never run, nothing kept.
+T{ two-goals seed 1 kept-most ' change ' lf-tac-without-modifying catch nip lf-author-code
+   lf-tac-forget lfr-saves lf-mctx-marks states -> lf-author-throw 88 0 0 1 3 1 1 }T
 max-n 2 cells / kept-most
 \ Saves are last in, first out; another is refused, nothing changed.
 variable s1  variable s2

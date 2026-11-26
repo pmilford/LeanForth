@@ -48,8 +48,9 @@
 \ assign -> lf-mvar-assign; introNP -> lf-goal-intro-names;
 \ forallBoundedTelescope -> lf-with-local-decl and lf-meta-instantiate1;
 \ mkEq, mkEqRefl -> lf-mk-eq, lf-mk-eq-refl; mkForallFVars ->
-\ lf-mk-forall-fvars (telescope.fs); revert -> lf-goal-revert-kept;
-\ introNP of the reverted -> lf-goal-intro-kept.
+\ lf-mk-forall-fvars (telescope.fs); hyps.filterM -> run-filter
+\ (lib/runs.fs); revert -> lf-goal-revert-kept; introNP of the reverted
+\ -> lf-goal-intro-kept.
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: mgz-frames, mgq-frames and mgh-frames (a frame per call open,
 \ meta-must.fs's lf-with-record), in the checker context (ADR 0009); no
@@ -119,7 +120,8 @@ end-structure
 /mgq context-slab: mgq-frames
 : mgq ( -- frame ) mgq-frames slab-last ;
 : mgq-e ( -- e ) 0 mgz-arg drop lf-instantiate! ;
-\ (h : e = x) -> type, then closed over x (mkForallFVars #[x]).
+\ (h : e = x) -> type, then closed over x (mkForallFVars #[x]: the
+\ frame's mgq-x field is the one cell of free variables it reads).
 : mgq-arrow ( type -- t )
   mgq-e mgq mgq-x @ lf-mk-eq swap lf-term-pi lf-made! mgq mgq-h @ lf-binder-named ;
 : mgq-closed ( t0 x -- t )
@@ -158,8 +160,8 @@ end-structure
 : mgh-kab ( type e -- flag ) lf-meta-kabstract lf-must nip ;
 : mgh-holds? ( fvar -- flag )
   lf-fvar-type lf-instantiate! mgh-e ['] mgh-kab lf-tr-instances lf-meta-at ;
-: mgh-keep ( fvar -- ) dup mgh-holds? if mgh mgh-kept lf-run+! else drop then ;
-: mgh-filter ( hyps -- ) dup run-count 0 ?do dup i run@ mgh-keep loop drop ;
+\ hyps.filterM: those that hold e, in order (lib/runs.fs's run-filter).
+: mgh-filter ( hyps -- ) ['] mgh-holds? run-filter lf-must mgh mgh-kept ! ;
 : mgh-gen ( goal -- fvars goal' )
   mgh mgh-args @ mgh mgh-h @ ?dup if lf-goal-generalize-eq else lf-goal-generalize then ;
 : mgh-revert ( goal -- goal' ) mgh mgh-kept @ lf-goal-revert-kept mgh mgh-locals ! ;

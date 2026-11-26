@@ -967,6 +967,14 @@
   "shuffles": 1,
   "words": 6
  },
+ "src/front/tactics/done.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 1
+ },
  "src/front/tactics/exacts.fs": {
   "globals": 1,
   "long lines": 0,
@@ -991,6 +999,22 @@
   "shuffles": 0,
   "words": 9
  },
+ "src/front/tactics/funext.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 6
+ },
+ "src/front/tactics/generalize.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 4,
+  "shuffles": 1,
+  "words": 10
+ },
  "src/front/tactics/have.fs": {
   "globals": 4,
   "long lines": 0,
@@ -998,6 +1022,14 @@
   "rstack": 11,
   "shuffles": 3,
   "words": 28
+ },
+ "src/front/tactics/infer-instance.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 2
  },
  "src/front/tactics/intro.fs": {
   "globals": 1,
@@ -1094,6 +1126,14 @@
   "rstack": 0,
   "shuffles": 1,
   "words": 16
+ },
+ "src/front/tactics/skip.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 0,
+  "shuffles": 0,
+  "words": 1
  },
  "src/front/tactics/specialize.fs": {
   "globals": 1,

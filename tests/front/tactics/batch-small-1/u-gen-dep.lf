@@ -1,0 +1,14 @@
+\ Not supported yet (Forth review of small-tactics-1, finding 9): at[ hv v ]
+\ asks hv before v, on which it depends; revert-kept refuses an argument
+\ that depends on a later one (thrown invalid, the runner's 93, exit 2).
+\ Pinned Lean refuses it too: "failed to create binder due to failure
+\ when reverting variable dependencies".
+\ Lean: theorem u_gen_dep (a b : Nat) (v : Fin (a + b)) (hv : v = v) : a = a := by
+\         generalize a + b = x at hv v
+\         rfl
+theorem u_gen_dep
+  Nat explicit: a  Nat explicit: b  a b + Fin explicit: v  v v = explicit: hv  a a =
+:= by
+  a b + by-generalize: x at[ hv v ]
+  by-rfl
+end u_gen_dep

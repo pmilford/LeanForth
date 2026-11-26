@@ -2078,3 +2078,15 @@ prototypes. Do 2b."
 Under "The kernel is code like any other" (2026-11-19) and the owner's words of 2026-11-26 ("Do your items
 1-4 as proposed": item 3, the exact universe-substitution build), each change is timed on Init and lands only
 if Init's check phase improves (plan 9.4.8z11, branch `kernel-speed-4`; KERNEL_SPEED.md section 0).
+
+### Style-baseline entries for the tactic files of small tactics 1 (2026-11-26)
+
+The owner, 2026-11-26, on the Forth review of branch `small-tactics-1`
+([review](../development/forth-reviews/2026-11-26-small-tactics-1.md), its "Baseline entries" paragraph):
+"Make the style change. These globals are adding static fields/information that is reentrant I assume". Each
+"global" the style check counts in these files is a tactic's registration row (`lf-tactic:`), allotted when the
+file loads and sealed by the runner (`lfr-open`), never written during a run, so it is re-entrant, as the rows of
+the earlier tactic files are. `tests/forth-quality-baseline.json` gets new entries, set by hand in the fix round's
+commit, for the new files only, at exactly the counts the check reports: `src/front/tactics/done.fs` globals
+**1**, `funext.fs` **2**, `generalize.fs` **2**, `infer-instance.fs` **1**, `skip.fs` **1** (their other counts
+as the check measures them); no existing entry is raised.

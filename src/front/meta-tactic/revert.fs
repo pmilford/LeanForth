@@ -25,8 +25,9 @@
 \       (MetavarContext.lean): the locals asked, in the order asked, then
 \       every later local depending on one reverted, oldest first (a
 \       local asked that depends on one asked after it is thrown invalid,
-\       Lean's revertFailure: no caller asks so, subst asks a variable,
-\       then an equation over it); and kept, a run of the
+\       Lean's revertFailure: subst asks a variable, then an equation
+\       over it; generalize's at[ hv v ] asks so, and the runner answers
+\       93, not supported yet, where Lean refuses the text); and kept, a run of the
 \       reverted locals in that order (lctx-views.fs's records, which
 \       never change: each one's name, kind and inaccessible flag, for goal.fs's
 \       lf-goal-intro-kept to put back, as Lean's introNP keeps a
@@ -100,8 +101,10 @@ end-structure
 : mrv-in-view ( i -- )
   mrv-in@ lf-mctx-view swap lf-view-has? 0= if outcome-invalid lf-must then ;
 \ A local asked must not be one that a local asked before it depends on
-\ (collectForwardDeps' revertFailure check), thrown invalid: no tactic
-\ asks so (Lean's own error text: slice E4, docs/design/TACTIC_PATTERNS.md).
+\ (collectForwardDeps' revertFailure check), thrown invalid (generalize's
+\ at[ hv v ] reaches it: 93 at the step, where Lean refuses with "failed
+\ to create binder"; Lean's own error text: slice E4,
+\ docs/design/TACTIC_PATTERNS.md).
 : mrv-needed? ( fvar k -- fvar flag ) mrv-out@ over lf-local-depends-on? lf-must ;
 : mrv-ordered ( fvar -- fvar )
   mrv-out# ['] mrv-needed? any? if outcome-invalid lf-must then ;

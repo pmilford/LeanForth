@@ -35,18 +35,20 @@ s" generalize" tac-k-generalize-eq lf-tactic-lean!
 \ ---- Step i's names (each an identifier: _ not supported), its argument
 \ k with e elaborated, the hypotheses of its at[ ] (getFVarIds, in the
 \ order written: lf-with-location's walk; at[ * ] not supported).
-: tgz-name? ( i k -- ) lf-tac-arg 0= if lf-tac-unported then ;
-: tgz-names ( i -- ) dup lf-tac-args# 1 ?do dup i tgz-name? loop drop ;
+: tgz-names ( i -- ) dup lf-tac-args# 1 ?do dup i lf-tac-name drop loop drop ;
 : tgz-arg ( i k -- args ) over swap lf-tac-arg swap 0 lf-tac-elab-arg swap lf-run2 ;
-: tgz-hyps ( i -- hyps ) 0 swap ['] lf-run+ ['] noop lf-with-location ;
+\ The location's target (⊢) adds nothing: the goal is generalized anyway.
+: tgz-target ( hyps -- hyps ) ;
+: tgz-hyps ( i -- hyps ) 0 swap ['] lf-run+ ['] tgz-target lf-with-location ;
 
 \ ---- generalize [h :] e = x at hyps, in Lean's order: the names (its
-\ parser's), e, the names of at[ ], then generalizeHyp.
+\ parser's), e (argument k: x's place), the names of at[ ], then
+\ generalizeHyp with h (0: none, the plain form).
 : tgz-gen ( goal args h hyps -- goal' ) ['] lf-goal-generalize-hyp lf-tac-ported nip ;
-: tgz-tac ( i goal -- goal' )
-  swap dup tgz-names dup 1 tgz-arg swap tgz-hyps 0 swap tgz-gen ;
-: tgz-eq-tac ( i goal -- goal' )
-  swap dup tgz-names dup 2 tgz-arg over 1 lf-tac-arg rot tgz-hyps tgz-gen ;
+: tgz-with ( i goal k h -- goal' )
+  2>r swap dup tgz-names dup 2r> >r tgz-arg r> rot tgz-hyps tgz-gen ;
+: tgz-tac ( i goal -- goal' ) 1 0 tgz-with ;
+: tgz-eq-tac ( i goal -- goal' ) over 1 lf-tac-arg 2 swap tgz-with ;
 : tgz-run ( i -- ) dup ['] tgz-tac lf-lift-meta-tactic1 ;
 : tgz-eq-run ( i -- ) dup ['] tgz-eq-tac lf-lift-meta-tactic1 ;
 ' tgz-run tac-k-generalize lf-tactic-action!

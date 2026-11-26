@@ -18,8 +18,9 @@
 \ 5. resources: every heap allocation refused in turn, each library
 \    word called directly and each tactic through its text
 \    (tests/support/meta-sweeps.fs): the answer or full;
-\ 6. state: rename's search undone (its metavariables and assignments),
-\    a refused goal left unassigned; trivial's apply on the shared word.
+\ 6. state: rename's search undone (its metavariables and assignments)
+\    and one metavariable depth deeper (482 for k : a = ?w), a refused
+\    goal left unassigned; trivial's apply on the shared word.
 \ The terms are checked node for node with pinned Lean by check.py.
 \ Nothing here accepts a theorem: only the kernel's check does.
 require ../../../support/tester.fs
@@ -96,7 +97,7 @@ s" Nat.succ" lf-mk-const0 dup lf-mk-eq goal constant gf
 gf s" funext" lf-goal-apply-const constant fs
 T{ fs run-count fs 0 run@ lf-goal-type lf-term-pi? gf open? -> 1 true false }T
 \ No fit: Lean's 380; a name no declaration has: thrown invalid; assigned: invalid.
-T{ ttrue goal s" funext" ' lf-goal-apply-const code3 -> 380 }T
+T{ ttrue goal dup s" funext" ' lf-goal-apply-const code3 swap open? -> 380 true }T   \ left open
 T{ ttrue goal s" No.such" ' lf-goal-apply-const code3 -> thrown-invalid }T
 T{ ga s" And.intro" ' lf-goal-apply-const code3 -> thrown-invalid }T
 
@@ -165,6 +166,8 @@ T{ hs s" by-funext[ x ] by-funext[ y ]" tactic-ran s" by-funext[" token? -> 380 
 lf-tac-forget
 T{ hs s" by-funext[ ] by-rfl" tactic-ran s" ]" token? -> 460 true }T
 lf-tac-forget
+T{ hs s" by-funext[ x by-rfl" tactic-ran s" by-funext[" token? -> 458 true }T   \ never closed
+lf-tac-forget
 T{ s" ' Nat.add ' Nat.add =" s" by-funext[ x y ] by-rfl" tactic-ran -> 93 }T
 lf-tac-forget
 \ by-infer-instance: the instance, or 125, 110, 119.
@@ -231,6 +234,20 @@ T{ s" Nat explicit: a Nat explicit: b b a = explicit: k a b = explicit: h b a ="
 T{ s" Nat explicit: b b 2 = explicit: k b 2 ="
    s" by-probe-before _ 2 = by-rename: j by-probe-assigned ' j by-exact" tactic-ran
    assigned-made @ pending-after @ pending-before @ - -> 0 0 0 }T
+\ The search runs one metavariable depth deeper (withNewMCtxDepth): a
+\ hypothesis k : a = ?w, ?w the goal's own metavariable, does not fit
+\ a = a, as ?w may not be assigned there: 482, as pinned Lean's
+\ (Exists (Ne a) by constructor; intro k; rename a = a => j). The probe
+\ puts k in a new main goal (by-intro: through Ne is not supported yet).
+: with-k ( i goal -- goal' )
+  nip dup lf-goal-type swap lf-goal-view 0 lf-view-fvar
+  nat mv-natural lf-mvar-new made lf-mk-eq s" k" binder drop goal ;
+: k-goal ( i -- ) dup ['] with-k lf-lift-meta-tactic1 ;
+tac-shape-plain lf-tactic: by-probe-k constant tac-k-probe-k
+' k-goal tac-k-probe-k lf-tactic-action!
+T{ s" Nat explicit: a a a =" s" by-probe-k a a = by-rename: j" tactic-ran s" by-rename:" token?
+   -> 482 true }T
+lf-tac-forget
 
 \ ---- 5. Resources: each library word directly, every heap allocation
 \ refused in turn, in the same context; then each tactic through text.

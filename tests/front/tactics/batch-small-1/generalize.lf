@@ -69,6 +69,44 @@ theorem gz_at_skip
   by-rfl
 end gz_at_skip
 
+\ at[ h2 h1 ]: the hypotheses in the order written (review p04).
+\ Lean: theorem gz_at_two (a b c : Nat) (h1 : a + b = c) (h2 : c = a + b) : a + b = c := by
+\         generalize a + b = x at h2 h1
+\         exact h1
+theorem gz_at_two
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  a b + c = explicit: h1  c a b + = explicit: h2
+  a b + c =
+:= by
+  a b + by-generalize: x at[ h2 h1 ]
+  ' h1 by-exact
+end gz_at_two
+
+\ at[ v ]: hv depends on v and is reverted with it (review p05).
+\ Lean: theorem gz_at_dep (a b : Nat) (v : Fin (a + b)) (hv : v = v) : a = a := by
+\         generalize a + b = x at v
+\         rfl
+theorem gz_at_dep
+  Nat explicit: a  Nat explicit: b  a b + Fin explicit: v  v v = explicit: hv  a a =
+:= by
+  a b + by-generalize: x at[ v ]
+  by-rfl
+end gz_at_dep
+
+\ at[ h2 h1 ] of equal types, then rename: the newest after is h1, as
+\ Lean's order as written leaves it (review p53).
+\ Lean: theorem gz_at_order (a b c : Nat) (h1 : a + b = c) (h2 : a + b = c) : a + b = c := by
+\         generalize a + b = x at h2 h1
+\         rename _ = c => k
+\         exact k
+theorem gz_at_order
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  a b + c = explicit: h1  a b + c = explicit: h2
+  a b + c =
+:= by
+  a b + by-generalize: x at[ h2 h1 ]
+  _ c = by-rename: k
+  ' k by-exact
+end gz_at_order
+
 \ e nowhere in the goal: x is introduced all the same.
 \ Lean: theorem gz_absent (a b : Nat) (h : a = b) : a = b := by
 \         generalize a + b = x

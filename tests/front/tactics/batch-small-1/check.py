@@ -33,7 +33,8 @@ FILES = [(D + "funext.lf", ["fx_one" + FUNEXT, "fx_plain" + FUNEXT, "fx_none",
          (D + "infer.lf", ["ii_sub", "ii_have", "ii_and"]),
          (D + "rename.lf", ["rn_one", "rn_newest", "rn_hole", "rn_defeq"]),
          (D + "generalize.lf", ["gz_one", "gz_eq", "gz_eq_used", "gz_at", "gz_at_eq",
-                                "gz_at_skip", "gz_absent"]),
+                                "gz_at_skip", "gz_at_two", "gz_at_dep", "gz_at_order",
+                                "gz_absent"]),
          (D + "skip-done.lf", ["sk_one", "sk_after", "dn_try"])]
 
 WRONG = [(D + "w-done.lf", 89, "unsolved goals", "a b : Nat\nh : a = b\n⊢ a = b"),
@@ -45,7 +46,10 @@ OWN = [(D + "w-funext.lf", 380, "Tactic `apply` failed: could not unify the conc
 NOT_YET = "not supported yet"
 UNSUPPORTED = [(D + "u-gen-type.lf", 99, NOT_YET), (D + "u-gen-star.lf", 99, NOT_YET),
                (D + "u-gen-blank.lf", 99, NOT_YET), (D + "u-rename-blank.lf", 99, NOT_YET),
-               (D + "u-funext-add.lf", 93, NOT_YET), (D + "u-ii-left-out.lf", 119, NOT_YET)]
+               (D + "u-funext-add.lf", 93, NOT_YET), (D + "u-ii-left-out.lf", 119, NOT_YET),
+               (D + "u-ii-local.lf", 139, NOT_YET), (D + "u-ii-hygiene.lf", 139, NOT_YET),
+               (D + "u-ii-explicit.lf", 139, NOT_YET), (D + "u-ii-statement.lf", 139, NOT_YET),
+               (D + "u-gen-dep.lf", 93, NOT_YET)]
 
 if __name__ == "__main__":
     wrong = WRONG if "--lean" in sys.argv else WRONG + OWN

@@ -741,7 +741,7 @@ Errors named in the "Function" cells are codes of `src/author/errors.fs`.
 | `explicit: VAR-NAME` | `( v -- )`: the type of the new variable | one name | adds the **parameter** VAR-NAME of that type to the declaration being written: an entry in the declaration's binder list (name, kind explicit, type, position), and a word VAR-NAME in the locals that stands for the variable until the declaration ends (no word for `[anonymous]` or a number-like name). A user of the finished theorem supplies a value for it | Lean's `(name : T)`. `Nat explicit: n` reads "a parameter `n`, of type `Nat`". Errors 3 no type below, 2 no name, 65 too many binders. |
 | `implicit: VAR-NAME` | `( v -- )` | one name | the same entry and word, with kind implicit | Lean's `{name : T}`: Lean infers the argument from the other ones. |
 | `strict-implicit: VAR-NAME` | `( v -- )` | one name | as `implicit:`, kind strict implicit | Lean's `⦃name : T⦄`: inferred only once a later explicit argument is given. |
-| `instance: VAR-NAME` | `( v -- )` | one name | as `implicit:`, kind instance | Lean's `[name : T]`: found by instance search. |
+| `instance: VAR-NAME` | `( v -- )` | one name | as `implicit:`, kind instance | Lean's `[name : T]`: found by instance search. Inside the declaration a parameter whose type is a class, of any binder kind, is a local instance: an instance problem of that class there is not supported yet (139, plan FE3; [D.11](#d11-by-funext-by-infer-instance-by-rename-by-generalize-by-skip-by-done-by-iterate)). |
 | `:=` | `( s -- )`: the statement | reads nothing; acts once per declaration | takes the statement off the stack and stores it in the declaration (in natural form as syntax, in kernel form as the finished type); the binders open now become the declaration's parameters | Ends the statement and starts the proof ("is proved by"; in a `def`, "is defined as"). Errors 458 a list still open (at its word), 17 not allowed here (outside a declaration, in an axiom, or a second `:=`), 18 the statement is not exactly one expression or a value sits between binders. |
 | `end NAME` | `( -- )` | one name; inside a declaration it completes it, outside it leaves a namespace | completes the declaration: closes its binders around statement and proof, records its type and value, and makes the word NAME for later declarations; or leaves the namespaces | NAME must repeat the declaration's name (error 22) or name the namespaces to leave (22, 23). In natural form it runs the elaborator and the tactics (errors 19 `:=` missing, 20 proof not one expression, 21 binder still open, 82 block open, 86 value left over). |
 | `namespace NAME` | `( -- )` | one name, may be dotted | enters one [namespace](#namespace) per part | Between declarations only (error 24); `namespace A.B` enters `A`, then `A.B`; more than 16 namespaces entered and opened together is error 25. |
@@ -2006,12 +2006,12 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-rename: HYP-NAME` | `( T -- )` (top: T) | parsing: one name after it, on its line | read: a step holding T; HYP-NAME a hypothesis word. Run: the newest hypothesis whose type is definitionally T (T's holes filled by the search, which is then undone) renamed HYP-NAME in a new main goal (see [D.11](#d11-by-funext-by-infer-instance-by-rename-by-generalize-by-skip-by-done-by-iterate)) | Renames a hypothesis found by its type; none: 482; `_`: 99. | `rename T => HYP-NAME` |
 | `by-funext` | `( -- )` | ordinary | read: a step. Run: `apply funext`, then a hidden variable introduced, again until `apply funext` fails (that pass undone) | Turns a goal `f = g` between functions into `f x = g x`; on a goal that is no equation of functions nothing changes; a function of two arguments: 93 (not supported yet). | `funext` |
 | `by-funext[ NAME ... ]` | `( -- )` | parsing: names up to `]` as `by-intro[`, one at least (460) | read: a step; each name a hypothesis word (`_` a hidden one). Run: for each name, `apply funext`, then the name introduced | The same with the variables named; a goal that is no equation of functions: 380. | `funext x y` |
-| `by-infer-instance` | `( -- )` | ordinary | read: a step. Run: `by-exact` of `inferInstance`, its instance found by instance search | Closes a goal that is a class (`Decidable (a = b)`, `Subsingleton (Decidable p)`); none found: 125; the goal no class: 110; a search that meets an instance the export left out: 119 (not supported yet). | `infer_instance` |
+| `by-infer-instance` | `( -- )` | ordinary | read: a step. Run: `by-exact` of `inferInstance`, its instance found by instance search | Closes a goal that is a class (`Decidable (a = b)`, `Subsingleton (Decidable p)`); none found: 125; the goal no class: 110; a search that meets an instance the export left out: 119 (not supported yet); a class of which the context holds a local instance (a parameter or hypothesis of class type): 139 (not supported yet). | `infer_instance` |
 | `by-generalize: NAME` | `( e -- )` (top: e) | parsing: one name after it, on its line; a trailing `at[ h ... ]` may follow | read: a step holding e; NAME a hypothesis word. Run: e's occurrences in the goal, and in the hypotheses of `at[ ]` (taken out and put back), replaced by a new variable NAME | Abstracts e into a variable; a result that is not type correct, `at[ * ]` or `_`: 99 (not supported yet). | `generalize e = NAME`, `... at h` |
 | `by-generalize-eq: HYP-NAME NAME` | `( e -- )` (top: e) | parsing: two names after it, on its line; a trailing `at[ h ... ]` may follow | read: as `by-generalize:`, HYP-NAME a hypothesis word too. Run: as `by-generalize:`, then HYP-NAME : e = NAME | The same, keeping the equation; errors as `by-generalize:`. | `generalize HYP-NAME : e = NAME` |
 | `by-skip` | `( -- )` | ordinary | read: a step. Run: nothing | Does nothing, with goals or none. | `skip` |
 | `by-done` | `( -- )` | ordinary | read: a step. Run: no goal may be left | Checks the proof is finished at that point; goals left: 89 at `by-done` (inside `by-try` taken back). | `done` |
-| `by-iterate` | `( n -- )` (n a numeral) | ordinary; opens a block that `by-end` closes; names given inside it stay | read: a block step holding n. Run: the block's tactics n times over, each pass on the goals of its moment, no focus and no save (0: none at all) | Repeats a tactic block an exact number of times; a pass's error is that step's (90 no goal, 383, ...); n no numeral: 99. | `iterate n tacs` |
+| `by-iterate` | `( n -- )` (n a numeral) | ordinary; opens a block that `by-end` closes; names given inside it stay | read: a block step holding n. Run: the block's tactics n times over, each pass on the goals of its moment, no focus and no save (0: none at all) | Repeats a tactic block an exact number of times; a pass's error is that step's (90 no goal, 383, ...); n no numeral: 99; open iterates weighing more than 128 (each its count and 2: a count up to 126 alone): 99, as Lean's recursion depth runs out at 252; names inside are resolved when the text is read, so `0 by-iterate ' nonexistent by-exact by-end` is error 1 where Lean accepts it. | `iterate n tacs` |
 | `by-refine` | `( t -- )` (top: t) | ordinary | read: a step holding t. Run: elaborates t against the goal, assigns it, its `?_` and `?: NAME` new goals in its place, tagged as Lean's | Closes the goal with t up to its holes; a `_` left open: 461 (99 as an argument); an implicit argument left: 95; a mismatch: 96; a NAME taken: 139. | `refine t` |
 | `_` | `( -- t )` | ordinary (kernel form: 52) | read: a hole node | A hole unification fills (or a goal where the tactic allows one: `by-specialize`). | `_` |
 | `?_` | `( -- t )` | ordinary (kernel form: 52) | read: a synthetic hole node | A new goal of `by-refine`; elsewhere left open (461 in `by-exact`). | `?_` |
@@ -3007,22 +3007,52 @@ twins in `tests/front/tactics/batch-small-1b/`):
 | Lean | `iterate 2 constructor; exact h; exact h; exact k` |
 
 `iterate` with no count (repeat until a failure, through `try`) has no
-form.
+form. Lean's macro nests one expansion per pass, so pinned Lean refuses
+`iterate 252 skip` ("maximum recursion depth has been reached"; 251
+passes, and nested iterates reach the limit sooner: their counts may
+sum to 250 for two, 248 for three; 101 nested `iterate 1`). LeanForth
+gives each open `by-iterate` the weight of its count and 2 and answers
+99 (not supported yet) at the `by-iterate` that would make the open
+ones weigh more than 128: a count up to 126 alone, two nested whose
+counts sum to 124 at most.
 
 Not supported yet (exit 2, never accepted): `by-funext` on a function of
 two arguments (`Nat.add = Nat.add`, 93: the unifier does not settle
 `?β x =?= Nat → Nat` yet; LeanForth statements cannot write a function
 type, so the functions are the library's); `by-generalize:` whose result
-is not type correct (Lean's error too; 99), `at[ * ]` (99) and a goal
-where kabstract must compare `a + b` with another sum such as `b + a`
-(93, the unifier at instances transparency); `_` as a name of
-`by-rename:` or `by-generalize:` (99; Lean's parser refuses it); an
-instance search that meets an instance the export left out (119).
-Several arguments (`generalize e1 = x, e2 = y`) and term patterns after
-`funext` have no form. Messages: Lean prints `@funext` in apply's 380
-where LeanForth prints `funext`, `IntCast Nat` where LeanForth prints
-`@IntCast Nat` (125), and the goal's type under 110, which LeanForth
-leaves out.
+is not type correct (Lean's error too; 99), `at[ * ]` (99), `at[ ]`
+naming a hypothesis before one it depends on (`at[ hv v ]`, 93; Lean
+refuses it too: "failed to create binder") and a goal where kabstract
+must compare `a + b` with another sum (99: `b + a`, and nested sums such
+as `a + b + (a + b)` or `(a + b) + c`, which Lean accepts); `_` as a
+name of `by-rename:` or `by-generalize:` (99; Lean's parser refuses it);
+an instance search that meets an instance the export left out (119);
+and any instance search for a class of which the context holds a local
+instance (139, below). Several arguments (`generalize e1 = x, e2 = y`)
+and term patterns after `funext` have no form.
+
+Local instances: a parameter, or a hypothesis a tactic adds (`by-intro:`,
+`by-have-by:`, `by-obtain[`, `by-rintro[`, `by-generalize:`'s), whose type is a class
+(`Decidable p`, `DecidableEq Nat`, also written `explicit:`) is a local
+instance, as Lean's `withLocalDecl` makes it. Instance search from local
+instances is not ported yet (plan FE3): every instance problem of that
+class, in the statement or in a tactic, is error 139 (not supported yet,
+exit 2), where Lean would use the local instance (and, in
+`(d : Decidable True) : decide True = true := by rfl`, then refuse the
+proof). The check asks the class only: `(d : Decidable True)` stops a
+search for `Decidable (a = b)` too. Not supported yet either: a local
+whose type is a pi whose body is a definition, such as
+`(h : ∀ x, x ≠ b)` (Lean unfolds it under the binders to decide whether
+it is a class).
+
+Names are resolved when the text is read, so `0 by-iterate ' nonexistent
+by-exact by-end` is error 1 (exit 4) where Lean accepts it, as
+`iterate 0` expands to `skip`; `by-try` and the other blocks do the
+same. Messages: Lean prints `@funext` in apply's 380 where LeanForth
+prints `funext`, and `x.succ = x.succ` (field notation) where LeanForth
+prints `Nat.succ x = Nat.succ x`; `IntCast Nat` where LeanForth prints
+`@IntCast Nat` (125; likewise `HAdd Nat Nat Bool`), and the goal's type
+under 110, which LeanForth leaves out.
 
 ---
 

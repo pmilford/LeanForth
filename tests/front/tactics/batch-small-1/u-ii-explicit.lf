@@ -1,0 +1,14 @@
+\ Not supported yet (Forth review of small-tactics-1, finding 1; plan FE3):
+\ (d : Decidable True) is a local instance, so infer_instance would give
+\ Lean's inferInstance with d, not instDecidableTrue: error 139.
+\ Lean: theorem u_ii_explicit (d : Decidable True) : True = True := by
+\         have e : Decidable True := by infer_instance
+\         rfl
+theorem u_ii_explicit
+  True Decidable explicit: d  True True =
+:= by
+  True Decidable by-have-by: e
+    by-infer-instance
+  by-end
+  by-rfl
+end u_ii_explicit

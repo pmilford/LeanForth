@@ -4,8 +4,9 @@ by-end (src/front/tactics/iterate.fs, a block mode of the runner, tactic-run.fs)
 its usage are tests/front/tactics/tactic_check.py's, against decide's slice of Init
 (tests/front/decide-slice.ndjson), with this batch's own Lean twins (batch-small-1b.lean,
 batch-small-1b-wrong.lean) and golden (batch-small-1b.golden). Kept apart from batch-small-1
-so that each test.fs stays under 30 s. UNSUPPORTED is u-it-term.lf, a count that is no numeral,
-which Lean's parser refuses."""
+so that each test.fs stays under 30 s. UNSUPPORTED are u-it-term.lf, a count that is no numeral,
+which Lean's parser refuses, and u-it-deep.lf, a count past iterate's weight bound (tit-most),
+which Lean accepts up to 251."""
 import pathlib
 import sys
 
@@ -24,7 +25,8 @@ WRONG = [(D + "w-it-more.lf", 90, "No goals to be solved", ""),
           "\n" + GOAL_LEFT),
          (D + "w-it-short.lf", 89, "unsolved goals",
           "case right\na b : Nat\nh : a = b\nk : b = a\n⊢ b = a")]
-UNSUPPORTED = [(D + "u-it-term.lf", 99, "not supported yet")]
+UNSUPPORTED = [(D + "u-it-term.lf", 99, "not supported yet"),
+               (D + "u-it-deep.lf", 99, "not supported yet")]
 
 if __name__ == "__main__":
     tactic_check.main("batch-small-1b", FILES, WRONG, UNSUPPORTED, env=ENV,

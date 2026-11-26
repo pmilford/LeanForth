@@ -33,6 +33,7 @@
 \ 0009).
 
 require ../tactic-api.fs
+require ./apply.fs
 require ./assumption.fs
 require ./contradiction.fs
 require ./decide.fs
@@ -49,10 +50,9 @@ end-structure
 : ttr-room ( -- ) ttr ttr-depth @ ttr-most < 0= if lf-tac-unported then ;
 : ttr-deeper ( xt -- ) ttr-room 1 ttr ttr-depth +! catch -1 ttr ttr-depth +! throw ;
 
-\ ---- apply c (evalApply: the apply under withSynthesize).
-: ttr-apply-tac ( goal c-addr u -- goals ) ['] lf-goal-apply-const lf-tac-with-synth ;
-: ttr-and-tac ( goal -- goals ) s" And.intro" ttr-apply-tac ;
-: ttr-true-tac ( goal -- goals ) s" True.intro" ttr-apply-tac ;
+\ ---- apply c (evalApply: the apply under withSynthesize, apply.fs).
+: ttr-and-tac ( goal -- goals ) s" And.intro" lf-tac-apply-const ;
+: ttr-true-tac ( goal -- goals ) s" True.intro" lf-tac-apply-const ;
 : ttr-true ( -- ) lf-tac-step ['] ttr-true-tac lf-lift-meta-tactic ;
 
 \ ---- apply And.intro <;> trivial: trivial on each goal apply leaves.

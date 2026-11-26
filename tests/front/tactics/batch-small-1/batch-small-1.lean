@@ -56,6 +56,16 @@ theorem gz_at_eq (a b c : Nat) (h : a + b = c) : a + b = c := by
 theorem gz_at_skip (a b c : Nat) (h : c = c) : a + b = a + b := by
   generalize a + b = x at h
   rfl
+theorem gz_at_two (a b c : Nat) (h1 : a + b = c) (h2 : c = a + b) : a + b = c := by
+  generalize a + b = x at h2 h1
+  exact h1
+theorem gz_at_dep (a b : Nat) (v : Fin (a + b)) (hv : v = v) : a = a := by
+  generalize a + b = x at v
+  rfl
+theorem gz_at_order (a b c : Nat) (h1 : a + b = c) (h2 : a + b = c) : a + b = c := by
+  generalize a + b = x at h2 h1
+  rename _ = c => k
+  exact k
 theorem gz_absent (a b : Nat) (h : a = b) : a = b := by
   generalize a + b = x
   exact h
@@ -94,5 +104,6 @@ def dump (n : Name) : MetaM Unit := do
 #eval do
   for n in [``fx_one, ``fx_plain, ``fx_none, ``fx_blank, ``ii_sub, ``ii_have, ``ii_and,
             ``rn_one, ``rn_newest, ``rn_hole, ``rn_defeq, ``gz_one, ``gz_eq, ``gz_eq_used,
-            ``gz_at, ``gz_at_eq, ``gz_at_skip, ``gz_absent, ``sk_one, ``sk_after, ``dn_try] do
+            ``gz_at, ``gz_at_eq, ``gz_at_skip, ``gz_at_two, ``gz_at_dep, ``gz_at_order,
+            ``gz_absent, ``sk_one, ``sk_after, ``dn_try] do
     dump n

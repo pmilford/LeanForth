@@ -3,13 +3,15 @@
 \ authoring run, by the classes of docs/development/TEST_COVERAGE_REVIEW.md,
 \ through LeanForth text (tests/support/tactic-text.fs) and a probe tactic:
 \ 1. outcomes: accepted; 90, 383, 89 with their places; a count that is no
-\    numeral 99 (unsupported);
+\    numeral 99 (unsupported); the weight bound (tit-most, Lean's recursion
+\    depth): at it accepted, one past it 99, alone and nested;
 \ 2. malformed input: no count (86), an empty block (85), no by-end;
 \ 3. records: the shape, the mode, the row and Lean's name;
 \ 4. interfaces: the block's steps run exactly n times (none for 0),
 \    nested counts multiply, the passes on the main goal of their moment;
-\ 5. resources: step fuel at a count past it (91), every heap allocation
-\    refused in turn (tests/support/meta-sweeps.fs): the answer or full;
+\ 5. resources: a count past the bound (99, before the step fuel's 91),
+\    every heap allocation refused in turn (tests/support/meta-sweeps.fs):
+\    the answer or full;
 \ 6. state: names given inside the block stay after it.
 \ The terms are checked node for node with pinned Lean by check.py.
 \ Nothing here accepts a theorem: only the kernel's check does.
@@ -83,9 +85,21 @@ lf-tac-forget
 T{ hh s" 1 by-iterate a b = Decidable by-have-by: d by-infer-instance by-end by-end ' d by-clear ' h by-exact"
    tactic-ran -> 0 }T
 
-\ ---- 5. Resources: step fuel ends a count past it (91); heap refused in turn.
-T{ hh s" 100000000 by-iterate by-skip by-end ' h by-exact" tactic-ran -> 91 }T
+\ ---- 1, 5. The weight bound: each open iterate weighs its count and 2, at
+\ most tit-most (128) in all; past it 99 at the iterate that opens, before
+\ the step fuel (91) could end a huge count.
+T{ tit-most -> 128 }T
+T{ hh s" 126 by-iterate by-skip by-end ' h by-exact" tactic-ran -> 0 }T
+T{ hh s" 127 by-iterate by-skip by-end ' h by-exact" tactic-ran s" by-iterate" token? -> 99 true }T
 lf-tac-forget
+T{ hh s" 62 by-iterate 62 by-iterate by-skip by-end by-end ' h by-exact" tactic-ran -> 0 }T
+T{ hh s" 62 by-iterate 63 by-iterate by-skip by-end by-end ' h by-exact" tactic-ran -> 99 }T
+lf-tac-forget
+\ The weight is the open iterates': one closed before the next opens weighs nothing.
+T{ hh s" 126 by-iterate by-skip by-end 126 by-iterate by-skip by-end ' h by-exact" tactic-ran -> 0 }T
+T{ hh s" 100000000 by-iterate by-skip by-end ' h by-exact" tactic-ran -> 99 }T
+lf-tac-forget
+\ ---- 5. Resources: heap refused in turn.
 : frames-anew ( -- ) lfa-brackets sweep-slab-anew ;
 ' frames-anew sweep-slabs-xt !
 : p-two ( x -- code outcome )

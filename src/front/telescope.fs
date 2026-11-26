@@ -32,7 +32,14 @@
 \   lf-local-decl-new ( type name bi -- fvar view' )  mkFreshFVarId and
 \       LocalContext.mkLocalDecl: a new free variable of type and its local,
 \       named name, of kind bi, pushed on the current view (view' the
-\       result, not made current)
+\       result, not made current); the local a local instance when its
+\       type is a class (lf-local-classed below)
+\   lf-local-classed ( local -- local' outcome )  deferred: withNewFVar
+\       (Basic.lean:1819) and withNewLocalInstances (:1441), the local
+\       with its class when isClass? of its type finds one; every local
+\       this file pushes goes through it (withLocalDecl, withLetDecl, and
+\       introNImp's locals, Intro.lean:25 and :59). Until
+\       front/local-instances.fs sets it, the local as it is
 \   lf-forall-meta-telescope-reducing ( acc type d xt -- acc' body )
 \       forallMetaTelescopeReducing (Basic.lean:1751-1791, maxMVars?
 \       none, kind natural): a new metavariable per binder, synthetic for
@@ -114,9 +121,13 @@ require ./meta-must.fs
 : lf-binder-name ( pi -- name ) lf-binder-of if drop else 0 then ;
 
 \ ---- withLocalDecl.
-\ The local of fvar, named name, of kind flags, pushed on the current view.
+\ The local of fvar, named name, of kind flags, a local instance when its
+\ type is a class, pushed on the current view.
+defer lf-local-classed ( local -- local' outcome )
+' outcome-ok is lf-local-classed
+: tl-classed ( fvar name flags -- local ) lf-local-new lf-must lf-local-classed lf-must ;
 : tl-pushed ( fvar name flags -- fvar view' )
-  2>r dup 2r> lf-local-new lf-must lf-mctx-view swap lf-view-push lf-must ;
+  2>r dup 2r> tl-classed lf-mctx-view swap lf-view-push lf-must ;
 : lf-local-decl-new ( type name bi -- fvar view' )
   rot lf-lctx-local lf-must -rot tl-pushed ;
 \ mkLetDecl: a let variable, or with nondep a have (its value hidden).

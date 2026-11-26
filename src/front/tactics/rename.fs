@@ -14,7 +14,8 @@
 \ Lean's parser wants an identifier there).
 \ Lean call list: withMainContext, getMainGoal, replaceMainGoal [g] ->
 \ lf-lift-meta-tactic1 (tactic-core.fs); withoutModifyingState ->
-\ lf-tac-save, lf-tac-restore (tactic-run.fs); withNewMCtxDepth ->
+\ lf-tac-without-modifying (tactic-run.fs); h -> lf-tac-name
+\ (tactic-core.fs); withNewMCtxDepth ->
 \ lf-with-new-depth (meta-must.fs); withoutRecover -> lf-tac-no-recover;
 \ elabTerm stx none true -> lf-tac-elab-term; findDeclRevM? with
 \ isDefEq -> lf-local-index-with-type?; MVarId.rename -> lf-goal-rename.
@@ -37,12 +38,10 @@ s" rename" tac-k-rename lf-tactic-lean!
 : trn-deep ( node -- fvar ) ['] trn-find lf-with-new-depth ;
 : trn-quiet ( node -- fvar ) ['] trn-deep lf-tac-no-recover ;
 \ withoutModifyingState: the state put back after, whatever the search did.
-: trn-search ( node -- fvar )
-  lf-tac-save lf-tac-must >r ['] trn-quiet catch r> lf-tac-restore lf-tac-must throw ;
+: trn-search ( node -- fvar ) ['] trn-quiet lf-tac-without-modifying ;
 
 \ ---- MVarId.rename of the main goal.
-: trn-name ( i -- name ) 1 lf-tac-arg dup 0= if lf-tac-unported then ;
 : trn-tac ( i goal -- goal' )
-  over trn-name >r swap 0 lf-tac-arg trn-search r> lf-goal-rename lf-must ;
+  over 1 lf-tac-name >r swap 0 lf-tac-arg trn-search r> lf-goal-rename lf-must ;
 : trn-run ( i -- ) dup ['] trn-tac lf-lift-meta-tactic1 ;
 ' trn-run tac-k-rename lf-tactic-action!

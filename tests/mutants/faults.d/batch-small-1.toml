@@ -1,8 +1,11 @@
 # Planted faults of small tactics 1 (plan row TB2: meta-tactic/apply.fs's lf-goal-apply-const,
 # meta-tactic/generalize.fs's lf-goal-generalize-eq and lf-goal-generalize-hyp, and
-# tactics/funext.fs, infer-instance.fs, rename.fs, generalize.fs, done.fs), read with
-# faults.toml as one list (scripts/mutants.py). Each is caught by the test it names
-# (tests/front/tactics/batch-small-1/test.fs or check.py).
+# tactics/funext.fs, infer-instance.fs, rename.fs, generalize.fs, done.fs, iterate.fs), and
+# those of its Forth review's fix round (2026-11-26: local-instances.fs and the marks of
+# elab-decl.fs and telescope.fs, tactic-run.fs's lf-tac-without-modifying, iterate's bound),
+# read with faults.toml as one list (scripts/mutants.py). Each is caught by the test it names
+# (tests/front/tactics/batch-small-1/, batch-small-1b/ or local-instances/, test.fs or
+# check.py; tests/front/tactic-run.fs).
 
 [[fault]]
 id = "sm1-apply-const-no-levels"
@@ -71,10 +74,34 @@ reason = "small tactics 1: rename searches the oldest hypothesis first, where fi
 [[fault]]
 id = "sm1-rename-state-kept"
 file = "src/front/tactics/rename.fs"
-old = '''  lf-tac-save lf-tac-must >r ['] trn-quiet catch r> lf-tac-restore lf-tac-must throw ;'''
-new = '''  lf-tac-save lf-tac-must >r ['] trn-quiet catch r> lf-tac-commit lf-tac-must throw ;'''
+old = ''': trn-search ( node -- fvar ) ['] trn-quiet lf-tac-without-modifying ;'''
+new = ''': trn-search ( node -- fvar ) trn-quiet ;'''
 test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
 reason = "small tactics 1: rename keeps what its search did (the OfNat problem of _ = 2 its elaboration put off; the depth scope undoes the hole's assignment either way), where withoutModifyingState puts the state back (test.fs's by-probe-assigned: no pending problem added)"
+
+[[fault]]
+id = "sm1-without-modifying-kept"
+file = "src/front/tactic-run.fs"
+old = '''  lf-tac-save lfr-must >r catch r> lf-tac-restore lfr-sure throw ;'''
+new = '''  lf-tac-save lfr-must >r catch r> lf-tac-commit lfr-sure throw ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "small tactics 1 (review finding 3): withoutModifyingState keeps what xt did after a success, where Lean puts the state back (tactic-run.fs's spoil: g1 assigned, g2 tagged)"
+
+[[fault]]
+id = "sm1-without-modifying-unsure"
+file = "src/front/tactic-run.fs"
+old = '''  lf-tac-save lfr-must >r catch r> lf-tac-restore lfr-sure throw ;'''
+new = '''  lf-tac-save lfr-must >r catch r> lf-tac-restore drop throw ;'''
+test = "$GFORTH tests/front/tactic-run.fs"
+reason = "small tactics 1 (review finding 3): a put-back refused is dropped, so the run goes on from a state no save describes, where lfr-sure stops it with lfr-state-lost (tactic-run.fs's save-only)"
+
+[[fault]]
+id = "sm1-rename-no-new-depth"
+file = "src/front/tactics/rename.fs"
+old = ''': trn-deep ( node -- fvar ) ['] trn-find lf-with-new-depth ;'''
+new = ''': trn-deep ( node -- fvar ) trn-find ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1 (review fault F8): rename's search runs at the goal's own metavariable depth, so k : a = ?w fits a = a by assigning ?w, where withNewMCtxDepth keeps ?w and Lean answers 482 (test.fs's by-probe-k)"
 
 [[fault]]
 id = "sm1-rename-skipped"
@@ -111,8 +138,8 @@ reason = "small tactics 1 (template: tag lost): the equation form's new goal is 
 [[fault]]
 id = "sm1-generalize-hyp-no-filter"
 file = "src/front/meta-tactic/generalize.fs"
-old = ''': mgh-keep ( fvar -- ) dup mgh-holds? if mgh mgh-kept lf-run+! else drop then ;'''
-new = ''': mgh-keep ( fvar -- ) mgh mgh-kept lf-run+! ;'''
+old = ''': mgh-filter ( hyps -- ) ['] mgh-holds? run-filter lf-must mgh mgh-kept ! ;'''
+new = ''': mgh-filter ( hyps -- ) mgh mgh-kept ! ;'''
 test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
 reason = "small tactics 1: generalizeHyp reverts a hypothesis without e too, where Lean's filter keeps it in place (test.fs's hc at place 4)"
 
@@ -127,18 +154,36 @@ reason = "small tactics 1: generalizeHyp leaves the reverted hypotheses as binde
 [[fault]]
 id = "sm1-generalize-eq-as-plain"
 file = "src/front/tactics/generalize.fs"
-old = '''  swap dup tgz-names dup 2 tgz-arg over 1 lf-tac-arg rot tgz-hyps tgz-gen ;'''
-new = '''  swap dup tgz-names dup 2 tgz-arg 0 rot tgz-hyps tgz-gen ;'''
+old = ''': tgz-eq-tac ( i goal -- goal' ) over 1 lf-tac-arg 2 swap tgz-with ;'''
+new = ''': tgz-eq-tac ( i goal -- goal' ) 2 0 tgz-with ;'''
 test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
 reason = "small tactics 1: by-generalize-eq: makes no equation, so k names nothing (test.fs's by-rw[ ' k <- ], 0)"
 
 [[fault]]
 id = "sm1-generalize-at-ignored"
 file = "src/front/tactics/generalize.fs"
-old = ''': tgz-hyps ( i -- hyps ) 0 swap ['] lf-run+ ['] noop lf-with-location ;'''
+old = ''': tgz-hyps ( i -- hyps ) 0 swap ['] lf-run+ ['] tgz-target lf-with-location ;'''
 new = ''': tgz-hyps ( i -- hyps ) drop 0 ;'''
 test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
 reason = "small tactics 1: generalize e = x at h leaves h as it was (test.fs's at[ h ] ' h by-exact, 0; and at[ * ] answers no 99)"
+
+[[fault]]
+id = "sm1-generalize-at-reversed"
+file = "src/front/tactics/generalize.fs"
+old = ''': tgz-hyps ( i -- hyps ) 0 swap ['] lf-run+ ['] tgz-target lf-with-location ;'''
+new = ''': tgz-front ( run x -- run' ) lf-run1 swap run-cat lf-must ;
+: tgz-hyps ( i -- hyps ) 0 swap ['] tgz-front ['] tgz-target lf-with-location ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-small-1/check.py"
+reason = "small tactics 1 (review fault F3): the at[ ] hypotheses reverted in the reverse of the order written, where getFVarIds keeps it (check.py's gz_at_order: rename finds h2, the term differs from Lean's)"
+
+[[fault]]
+id = "sm1-generalize-at-first-only"
+file = "src/front/tactics/generalize.fs"
+old = ''': tgz-hyps ( i -- hyps ) 0 swap ['] lf-run+ ['] tgz-target lf-with-location ;'''
+new = ''': tgz-first ( run x -- run' ) over if drop else lf-run+ then ;
+: tgz-hyps ( i -- hyps ) 0 swap ['] tgz-first ['] tgz-target lf-with-location ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-small-1/check.py"
+reason = "small tactics 1 (review fault F9): only the first at[ ] name is generalized, where Lean takes each (check.py's gz_at_two: h1 keeps a + b, exit 4 where Lean accepts)"
 
 [[fault]]
 id = "sm1-done-never-fails"
@@ -159,16 +204,16 @@ reason = "small tactics 1: iterate n runs its block once, where the macro runs i
 [[fault]]
 id = "sm1-iterate-zero-runs"
 file = "src/front/tactics/iterate.fs"
-old = ''': tit-open ( frame -- ) dup tit-count 2dup swap tfr-at ! 0= if lfr-skip else drop then ;'''
-new = ''': tit-open ( frame -- ) dup tit-count swap tfr-at ! ;'''
+old = '''  tit-bounded dup tit-count 2dup swap tfr-passes ! 0= if lfr-skip else drop then ;'''
+new = '''  tit-bounded dup tit-count swap tfr-passes ! ;'''
 test = "$GFORTH tests/front/tactics/batch-small-1b/test.fs"
 reason = "small tactics 1: iterate 0 runs its block once, where iterate 0 is skip (test.fs's probe: 0 runs)"
 
 [[fault]]
 id = "sm1-iterate-count-off"
 file = "src/front/tactics/iterate.fs"
-old = ''': tit-left ( frame -- frame n ) dup tfr-at @ 1- 0 max 2dup swap tfr-at ! ;'''
-new = ''': tit-left ( frame -- frame n ) dup tfr-at @ 2 - 0 max 2dup swap tfr-at ! ;'''
+old = ''': tit-left ( frame -- frame n ) dup tfr-passes @ 1- 0 max 2dup swap tfr-passes ! ;'''
+new = ''': tit-left ( frame -- frame n ) dup tfr-passes @ 2 - 0 max 2dup swap tfr-passes ! ;'''
 test = "$GFORTH tests/front/tactics/batch-small-1b/test.fs"
 reason = "small tactics 1: iterate n counts two passes down at each end, running fewer than n (test.fs's probe: 3 runs)"
 
@@ -179,3 +224,51 @@ old = '''  dup syn-kind@ syn-k-num = if syn-a@ exit then drop lf-tac-unported ;'
 new = '''  syn-a@ ;'''
 test = "$GFORTH tests/front/tactics/batch-small-1b/test.fs"
 reason = "small tactics 1: iterate takes any value's field as its count, where Lean's parser wants a numeral (test.fs's a by-iterate: 99)"
+
+[[fault]]
+id = "sm1-iterate-unbounded"
+file = "src/front/tactics/iterate.fs"
+old = ''': tit-bounded ( frame -- frame ) dup tit-weights tit-most > if lf-tac-unported then ;'''
+new = ''': tit-bounded ( frame -- frame ) ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1b/test.fs"
+reason = "small tactics 1 (review finding 2): iterate takes any count, where Lean's macro runs out of recursion depth past 251 (test.fs's 127 by-iterate: 99)"
+
+[[fault]]
+id = "sm1-iterate-own-weight-only"
+file = "src/front/tactics/iterate.fs"
+old = ''': tit-weights ( frame -- w ) 0 lfr-depth 0 ?do over i tit-weight nip + loop nip ;'''
+new = ''': tit-weights ( frame -- w ) tit-count 2 + ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1b/test.fs"
+reason = "small tactics 1 (review finding 2): iterate weighs its own count alone, so nested iterates pass the bound that Lean's recursion depth sets on their sum (test.fs's 62 by-iterate 63 by-iterate: 99)"
+
+[[fault]]
+id = "sm1-local-instance-unmarked"
+file = "src/front/local-instances.fs"
+old = '''  if li-mark else outcome-ok then ;'''
+new = '''  if drop outcome-ok else outcome-ok then ;'''
+test = "$GFORTH tests/front/tactics/local-instances/test.fs"
+reason = "small tactics 1 (review finding 1): a local whose type is a class is no local instance, so an instance problem of its class takes a global instance where Lean's withNewFVar makes the local one (test.fs's Decidable instance: d, 139)"
+
+[[fault]]
+id = "sm1-local-instance-quick-only"
+file = "src/front/local-instances.fs"
+old = '''  2drop r> ['] li-expensive lf-with-reducible ;'''
+new = '''  2drop r> drop false outcome-ok ;'''
+test = "$GFORTH tests/front/tactics/local-instances/test.fs"
+reason = "small tactics 1 (review finding 1): isClass? stops at isClassQuick?, so DecidableEq Nat, which whnf makes a Decidable pi, is no class (test.fs's DecidableEq parameter, 139)"
+
+[[fault]]
+id = "sm1-local-instance-header-skipped"
+file = "src/front/elab-decl.fs"
+old = '''  ['] lf-local-classed ok-apply lf-elab-meta ;'''
+new = '''  lf-elab-meta ;'''
+test = "$GFORTH tests/front/tactics/local-instances/test.fs"
+reason = "small tactics 1 (review finding 1): a header's class-typed parameter is no local instance, where elabBinders' withLocalDecl makes it one (test.fs's q3 shape, the statement's decide: 139)"
+
+[[fault]]
+id = "sm1-local-instance-tactic-skipped"
+file = "src/front/telescope.fs"
+old = ''': tl-classed ( fvar name flags -- local ) lf-local-new lf-must lf-local-classed lf-must ;'''
+new = ''': tl-classed ( fvar name flags -- local ) lf-local-new lf-must ;'''
+test = "$GFORTH tests/front/tactics/local-instances/test.fs"
+reason = "small tactics 1 (review finding 1): a local the tactic library makes (a have's, intro's) is no local instance, where introNImp's withNewLocalInstances makes it one (test.fs's have and intro locals, 139)"

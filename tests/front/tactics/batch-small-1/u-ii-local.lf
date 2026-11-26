@@ -1,0 +1,15 @@
+\ Not supported yet (Forth review of small-tactics-1, finding 1; plan FE3):
+\ an instance problem of a class a local instance of the context has. d
+\ is one (withNewFVar), so infer_instance would be Lean's inferInstance
+\ with d, where a global instance would give another term: error 139.
+\ Lean: theorem u_ii_local (a b : Nat) [d : Decidable (a = b)] (h : a = b) : a = b := by
+\         have e : Decidable (a = b) := by infer_instance
+\         exact h
+theorem u_ii_local
+  Nat explicit: a  Nat explicit: b  a b = Decidable instance: d  a b = explicit: h  a b =
+:= by
+  a b = Decidable by-have-by: e
+    by-infer-instance
+  by-end
+  ' h by-exact
+end u_ii_local

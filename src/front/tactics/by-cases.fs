@@ -32,7 +32,7 @@ s" by_cases" tac-k-by-cases lf-tactic-lean!
 : tbs-prop ( p -- p )
   dup lf-meta-is-prop lf-tac-must 0= if lf-tac-unported then ;
 : tbs-args ( i goal -- goal name p inst )
-  swap dup 1 thv-name swap thv-untyped tbs-prop dup lf-decidable-instance ;
+  swap dup 1 lf-tac-name swap thv-untyped tbs-prop dup lf-decidable-instance ;
 : tbs-tac ( i goal -- goals ) tbs-args lf-goal-by-cases lf-goals2 ;
 : tbs-run ( i -- ) dup ['] tbs-tac lf-lift-meta-tactic ;
 ' tbs-run tac-k-by-cases lf-tactic-action!
