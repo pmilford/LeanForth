@@ -2072,3 +2072,9 @@ prototypes. Do 2b."
   as a later proposal.
 - Carried out on branch `kernel-speed-3` (plan 9.4.8z8, 2026-11-26: written and tested, not reviewed, not
   merged).
+
+### Each exact speed step is timed on Init before it lands (2026-11-26)
+
+Under "The kernel is code like any other" (2026-11-19) and the owner's words of 2026-11-26 ("Do your items
+1-4 as proposed": item 3, the exact universe-substitution build), each change is timed on Init and lands only
+if Init's check phase improves (plan 9.4.8z11, branch `kernel-speed-4`; KERNEL_SPEED.md section 0).

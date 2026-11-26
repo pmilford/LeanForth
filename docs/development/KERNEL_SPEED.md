@@ -132,6 +132,37 @@ absolute).
   and the outcome and fuel at a refused allocation may differ, including full against ok. Nothing differs when
   the heap grants every request.
 
+**Measured after group 4** (branch `kernel-speed-4`, base main b2ecdbc6, plan 9.4.8z11: item 3 of the owner's
+"Do your items 1-4 as proposed" of 2026-11-26, the exact steps of universe substitution's build, each timed on
+Init before it lands). Same command and export, gforth-fast, 2026-11-26 08:34-09:27, nothing else heavy
+running; every report identical to main's outside `measured`, `settings` and `run` (59,349 accepted, fuel
+654,719,715; the decide slice's 1,290 accepted, fuel 2,649,895). **Nothing was kept**: no step paid on Init,
+so the branch's code is main's and the final rows below are main's code measured again.
+
+| Step | Decide slice, check phase (3 runs) | Init, check phase, 1 thread (load) | Kept |
+| --- | ---: | ---: | --- |
+| S0: main b2ecdbc6 | 2.56, 2.59, 2.56 s | 631.2 s (0.35 -> 1.27) | – |
+| S1: each child's image found once (two binary searches per changed binary node, not four) | 2.60, 2.61, 3.20 s | 631.7 s (1.70 -> 1.60) | no: +0.5 s |
+| S1 and S2: the build's new images entered in the reached set by their place in the sorted list, one probe per child instead of a binary search; the sorted build order kept, so new terms are made in the same order | 2.56, 2.55, 2.59 s | 628.9 s (1.03 -> 1.14), 640.4 s (0.96 -> 1.03) | no: mean 634.6 s |
+| S3: the replace memo's insert given the lookup's identity and hash | – | – | not attempted |
+
+| Threads | Lean's checker | nanoda | LeanForth, branch (main's code) | LeanForth / Lean | LeanForth / nanoda |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 1 | 31.0 s | 30.7 s | 645.0 s (check phase 631.2 s), peak 645.9 MB | 20.8 | 21.0 |
+| 4 | no parallel checker | 9.7 s | 192.7 s (check phase 176.0 s), peak 965.0 MB | – | 19.9 |
+
+- Run-to-run noise is larger than the gains sought: the same code gave 625.8 s (02:50) and 631.2 s, S1 with S2
+  628.9 s and 640.4 s. The profile's 12 s of binary search (design review of KERNEL_LOOKUPS.md, finding 3) did
+  not show on Init when half of it was removed (S1) or all of it replaced by set probes (S2). The experiment's
+  unit test (the old build kept as a test-only reference, generated shared DAGs with level-closed parts,
+  hash-consing on and off, a 3,000-node term, every fuel limit from 1 up, a heap-refusal sweep: identical
+  outcome, result index, fuel left and store counts) passed; the code was reverted with it.
+- S3 was not attempted: carrying the key from `lf-rmemo@` to `lf-rmemo!` needs two more cells per rebuilt node
+  on the lean walk's frames (`open-walk.fs`), for a saving of the same kind (a hash of three cells and one
+  identity read per insert) that S1 and S2 showed not to carry from the profile to Init.
+- Left: one walk for universe substitution (about 35-50 s by the profile; it changes fuel and failure outcomes,
+  an owner question with a before/after table) and group (A), the read layers.
+
 ## 1. Time by family, beside Lean and nanoda
 
 Shares of Init's samples in run 2, the rows exactly as `python3 scripts/profile-summary.py check.prof
