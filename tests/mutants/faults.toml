@@ -15501,8 +15501,8 @@ reason = "FE1c review M2: binders leave their free variables in the local contex
 [[fault]]
 id = "fe-defeq-fun-info-lctx-kept"
 file = "src/front/fun-info.fs"
-old = ''': lf-meta-fun-info ( f n -- m outcome ) fi-mark >r fi-run r> lf-lctx-drop ;'''
-new = ''': lf-meta-fun-info ( f n -- m outcome ) fi-mark >r fi-run r> drop ;'''
+old = ''': lf-meta-fun-info ( f n -- m outcome ) lf-term-mark >r fi-run r> lf-lctx-drop ;'''
+new = ''': lf-meta-fun-info ( f n -- m outcome ) lf-term-mark >r fi-run r> drop ;'''
 test = "$GFORTH tests/front/defeq.fs"
 reason = "FE1c review M2: getFunInfo's telescope leaves its free variables in the local context"
 

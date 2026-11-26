@@ -114,7 +114,6 @@ require ./meta-must.fs
 : lf-binder-name ( pi -- name ) lf-binder-of if drop else 0 then ;
 
 \ ---- withLocalDecl.
-: tl-mark ( -- mark ) lf-term-base lf-term-count @ + ;   \ lf-lctx-drop's
 \ The local of fvar, named name, of kind flags, pushed on the current view.
 : tl-pushed ( fvar name flags -- fvar view' )
   2>r dup 2r> lf-local-new lf-must lf-mctx-view swap lf-view-push lf-must ;
@@ -125,7 +124,7 @@ require ./meta-must.fs
 : lf-let-decl-new ( type val name nondep -- fvar view' )
   swap >r tl-let-fvar r> lf-binder-default tl-pushed ;
 : tl-opened ( i*x type name bi xt -- j*x ) >r lf-local-decl-new r> swap lf-with-view ;
-: tl-scoped ( i*x xt -- j*x ) tl-mark >r catch r> lf-lctx-drop throw ;
+: tl-scoped ( i*x xt -- j*x ) lf-term-mark >r catch r> lf-lctx-drop throw ;
 : lf-with-local-decl ( i*x type name bi xt -- j*x ) ['] tl-opened tl-scoped ;
 : tl-kept-view ( i*x xt -- j*x ) lf-mctx-view lf-with-view ;
 : lf-with-new-locals ( i*x xt -- j*x ) ['] tl-kept-view tl-scoped ;

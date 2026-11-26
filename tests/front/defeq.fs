@@ -266,7 +266,7 @@ T{ hadd3 6 lf-meta-fun-info 0 lf-meta-param 3 lf-meta-param 5 lf-meta-param
 : ho-params ( h -- )
   fi-params slab-clear fu lf-binder-default 0 fi-push drop lf-binder-implicit 0 fi-push drop ;
 : ho-run ( -- outcome outcome outcome )
-  fi-mark >r lv1 1 s" Eq" cn nat>nat app fu app fu app lf-lctx-local made ho-params
+  lf-term-mark >r lv1 1 s" Eq" cn nat>nat app fu app fu app lf-lctx-local made ho-params
   0 fi-ho-free 1 fi-ho-free fi-props r> lf-lctx-drop ;
 T{ ho-run lf-lctx-count @ -> outcome-ok outcome-unsupported outcome-unsupported lctx0 }T
 \ isProofQuick through a head's arguments: Eq.refl's type ends in Prop,

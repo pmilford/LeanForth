@@ -239,7 +239,9 @@ end-structure
 \ this view, set the result, run, set the old view back.
 : lf-mctx-view ( -- view ) mctx mctx-view @ ;
 : lf-mctx-view! ( view -- ) mctx mctx-view ! ;
-: lf-locals-mark ( -- view mark ) lf-mctx-view lf-term-base lf-term-count @ + ;
+\ The mark lf-lctx-drop takes: the first term number not yet made.
+: lf-term-mark ( -- mark ) lf-term-base lf-term-count @ + ;
+: lf-locals-mark ( -- view mark ) lf-mctx-view lf-term-mark ;
 : lf-locals-back ( view mark -- ) lf-lctx-drop lf-mctx-view! ;
 \ Local k of the view in force, as a free variable.
 : lf-mctx-fvar ( k -- fvar ) lf-mctx-view swap lf-view-fvar ;
@@ -844,7 +846,7 @@ end-structure
 : mv-build ( node walk -- image )
   over lf-term-binary? if mv-pair-build else mv-leaf-kind then ;
 : mv-spine-block ( -- flag )
-  lf-term-base lf-term-count @ + 2* cells 1 max allocate
+  lf-term-mark 2* cells 1 max allocate
   if drop false exit then mctx mctx-spine ! true ;
 : mv-inst-run ( term -- term' outcome )
   mv-any-delay mctx mctx-delays !

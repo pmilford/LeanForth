@@ -370,9 +370,8 @@ defer de-bind-dom ( -- )
   de-y de-bind-n < 0= if de-t de-s ['] de-bind-done de-solve exit then
   de-pair-at dup @ lf-fvar-type swap cell+ @ ['] de-bind-dom-k de-solve ;
 is de-bind-dom
-: de-term-mark ( -- mark ) lf-term-base lf-term-count @ + ;
 : de-bind-save ( -- flag )
-  de-cells slab-count df df-x ! de-term-mark de-push 0= if false exit then
+  de-cells slab-count df df-x ! lf-term-mark de-push 0= if false exit then
   lf-mctx-view de-push ;
 : de-binding ( -- )
   de-bind-save 0= if exit then

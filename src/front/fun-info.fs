@@ -214,8 +214,7 @@ lf-tag-sort lf-tag-symbolic-sort lf-tag-fvar lf-tag-lit lf-tag-bvar 5 lf-tags
   fi-params slab-count swap ;
 : fi-run ( f n -- m outcome ) fi-params slab-clear over lf-infer ['] fi-kinds ok-apply3 ;
 \ The telescope's free variables (and inferType's) go again at the end.
-: fi-mark ( -- mark ) lf-term-base lf-term-count @ + ;
-: lf-meta-fun-info ( f n -- m outcome ) fi-mark >r fi-run r> lf-lctx-drop ;
+: lf-meta-fun-info ( f n -- m outcome ) lf-term-mark >r fi-run r> lf-lctx-drop ;
 
 \ ---- Dependency facts (FunInfo.lean:44-135, collectDeps and
 \ updateHasFwdDeps), recorded while the parameters are live: per
@@ -256,7 +255,7 @@ lf-tag-sort lf-tag-symbolic-sort lf-tag-fvar lf-tag-lit lf-tag-bvar 5 lf-tags
   dup ['] fi-dep-of ok-each dup ok? 0= if exit then drop
   dup fi-result! dup ok? if drop dup fi-fwd! outcome-ok then ;
 : lf-meta-fun-deps ( f n -- m outcome )
-  fi-mark fi-state fi-mark0 ! fi-run ['] fi-deps-run ok-and
+  lf-term-mark fi-state fi-mark0 ! fi-run ['] fi-deps-run ok-and
   fi-state fi-mark0 @ lf-lctx-drop ;
 : lf-param-back-deps ( i -- mask ) fi-deps slab-at @ ;
 : lf-param-head ( i -- name ) fi-deps slab-at cell+ @ ;
