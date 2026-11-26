@@ -2032,3 +2032,23 @@ Item 1 is carried out under items 1 and 2, with no new decision, on branch `kern
 
 The one slice of the design "Leaner reads of term nodes" ([KERNEL_TERM_READS.md](../design/KERNEL_TERM_READS.md), its binding changes after the [design review](../development/design-reviews/2026-11-25-kernel-term-reads.md)) is carried out as behaviour-preserving refactoring of core code under "The kernel is code like any other" (2026-11-19), with no new decision, on branch `kernel-reads-1` (plan
 9.4.8z3, 2026-11-25: written, tested and Forth-reviewed, not merged): no check moves, `src/lib/store.fs` is unchanged.
+
+### The proof layer's syntax stays (2026-11-25)
+
+The owner asked whether an example was Lean's notation or LeanForth's, and said: "The syntax of leanforth
+needs to be more reverse polish and consistent". The coordinator showed where the language is postfix (terms,
+propositions, a tactic with one argument: `a b ≤`, `' h by-exact`) and where it is not (lists and blocks:
+`by-simp-only[ ' h ' and_self ]`, `at[ h1 h2 ]`, `by-try ... by-end`, `T by-have-by: h ... by-end`), with two
+alternatives: lists built first, then the word (`[ ' h ' and_self ] by-simp-only`), and blocks as quotations
+before a combinator (`[: by-rfl ;] by-try`), with or without the old spellings as aliases. The owner,
+2026-11-25: "If I understand the questions. I think leave as is, perhaps comment on alternatives and why this
+version is chosen".
+
+- **Decision: no change.** Lists and blocks stay parsing words with a closer.
+- **Why this version** (the coordinator's reading, recorded at the owner's request): a proof reads line for
+  line beside its Lean text; parsing words are ordinary Forth; a forgotten closer is reported at its opener;
+  the reader builds a tree of steps and runs it later, so quotations add nothing; existing proofs and the
+  reference stay valid. The note for users is in LANGUAGE_REFERENCE.md, "Why the proof layer is not all
+  reverse Polish".
+- **In reports**: LeanForth text is shown as LeanForth (postfix); Lean's notation is labelled as Lean's.
+

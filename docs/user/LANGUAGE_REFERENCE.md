@@ -174,8 +174,20 @@ statement, then `:= by`, the tactics, and `end NAME`. Everything is postfix: the
 | not P | `a b = ¬` | `¬ a = b` |
 | P if and only if Q | `a b = b a = ↔` | `a = b ↔ b = a` |
 | there is an x equal to a | `' Eq a $ Exists` | `∃ x, a = x` |
+| a is at most b, as a hypothesis and as the statement | `a b ≤ explicit: h`, `a b ≤` | `(h : a ≤ b)`, `: a ≤ b` |
+| the statement True | `True` on the statement's line | `: True` |
 | a hypothesis of an empty or trivial type | `False explicit: h`, `True explicit: h`, `Empty explicit: x` | `(h : False)` |
 | an "and" hypothesis | `a b = b a = ∧ explicit: h` | `(h : a = b ∧ b = a)` |
+
+**Why the proof layer is not all reverse Polish** (owner, 2026-11-25;
+[OWNER_DECISIONS.md](../project/OWNER_DECISIONS.md), "The proof layer's syntax stays"). Terms and
+propositions are postfix (`a b ≤`, `a 1 + b 1 + =`), and so is a tactic with one argument (`' h by-exact`).
+Lists and blocks are parsing words that read ahead to their closer: `by-rw[ ' r1 ' r2 ]`,
+`by-simp-only[ ' h ]`, `at[ h1 h2 ]`, `by-try ... by-end`, `{ ... }`. The alternatives, a list built first
+(`[ ' r1 ' r2 ] by-rw`) and a block as a quotation before its word (`[: by-rfl ;] by-try`), were considered
+and not taken: a proof then reads line for line beside its Lean text (`rw [r1, r2]`), parsing words are
+ordinary Forth (`:`, `s"`, `if ... then`), the opener is known when a list starts so a forgotten closer is
+reported there, and the reader builds a tree of steps that runs later, so a quotation adds nothing.
 
 Three things that trip a first attempt. A tactic needs `:= by`; a bare `:=` before a tactic is error 81. A
 statement in this form cannot hold `→` or `∀` yet, so a goal to introduce is made by `by-revert[ h ]` first. When
@@ -2658,6 +2670,12 @@ and a name:
 
 Rules are separated by spaces, not commas: Lean's
 `simp only [h, ← k, Nat.add_zero]` is `by-simp-only[ ' h ' k <- ' Nat.add_zero ]`.
+For example, with `a b = explicit: h` and the statement `b 0 + a =`,
+`by-simp-only[ ' h <- ' Nat.add_zero ]` proves it (Lean:
+`simp only [← h, Nat.add_zero]` for `(h : a = b) : b + 0 = a`).
+
+Why the list comes after the word here, when terms are postfix: see
+"Why the proof layer is not all reverse Polish" below.
 
 | Form | Example |
 | --- | --- |
