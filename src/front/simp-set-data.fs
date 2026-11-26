@@ -43,7 +43,8 @@
 \ i: simp-lemma-proof ( i -- d ),
 \ simp-lemma-rfl? and simp-lemma-perm? ( i -- flag ); simp-lemma-count
 \ ( -- n ). A simproc p: simp-proc-keys ( p -- k n ), simp-proc-rank
-\ ( p -- rank ), simp-proc-dsimproc? ( p -- flag ), simp-proc-name ( p --
+\ ( p -- rank ), simp-proc-dsimproc? and simp-proc-post? ( p -- flag ),
+\ simp-proc-name ( p --
 \ c-addr u ) (valid until the next read), simp-proc-count ( -- n ).
 \ simp-unfold? ( d -- flag ): the set unfolds declaration d. Unchecked:
 \ numbers below their counts.
@@ -245,6 +246,7 @@ ssp-form ' ssp-clear s" simproc" elab-add-kind41 constant simp-proc-kind
 : simp-proc-keys ( p -- k n ) ssp ssp-value elab-value-keys ;
 : simp-proc-rank ( p -- rank ) ssp ssp-value elab-value-rank@ ;
 : simp-proc-dsimproc? ( p -- flag ) ssp ssp-dsimproc @ ;
+: simp-proc-post? ( p -- flag ) ssp ssp-post @ ;
 : simp-proc-count ( -- n ) ss-procs slab-count ;
 : simp-proc-name ( p -- c-addr u ) ssp ssp-name-at 2@ ss-names slab-at swap ;   \ ( u at )
 : simp-unfold? ( d -- flag ) ss-unfolds slab-data cells-has? ;

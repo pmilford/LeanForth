@@ -1,0 +1,34 @@
+\ by-simp with the default simprocs (simp group 4, pass 2): reduceIte,
+\ whose condition is simplified inside the walk (one that needs
+\ simplifying is tests/front/tactics/simp-procs/test.fs's: the slice
+\ lacks its Decidable instance), and Nat's literal arithmetic (its - and
+\ ^, whose instances the slice lacks, there too), each term
+\ node for node pinned Lean's (tests/front/tactics/simp-4/check.py; Lean
+\ twins in simp-4.lean).
+\ Lean: theorem simp_ite_true (a b : Nat) : (if True then a else b) = a := by simp
+\ reduceIte (pre): True stays True, so ite_eq_left_of_eq_true's proof is
+\ Eq.refl True; then eq_self.
+theorem simp_ite_true
+  Nat explicit: a  Nat explicit: b  True a b ite a =
+:= by
+  by-simp
+end simp_ite_true
+\ Lean: theorem simp_ite_false (a b : Nat) : (if False then a else b) = b := by simp
+theorem simp_ite_false
+  Nat explicit: a  Nat explicit: b  False a b ite b =
+:= by
+  by-simp
+end simp_ite_false
+\ Lean: theorem simp_add_lits : 2 + 3 = 5 := by simp
+theorem simp_add_lits
+  2 3 + 5 =
+:= by
+  by-simp
+end simp_add_lits
+\ Lean: theorem simp_mul_add : 7 * 6 + 2 = 44 := by simp
+\ Post order: 7 * 6 is 42 (Nat.reduceMul), then 42 + 2 is 44.
+theorem simp_mul_add
+  7 6 * 2 + 44 =
+:= by
+  by-simp
+end simp_mul_add

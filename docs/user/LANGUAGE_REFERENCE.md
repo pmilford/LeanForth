@@ -1997,7 +1997,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules (or terms), in order; closes it | Ends the list of `by-rw[`, `by-rewrite[`, `by-rwa[`, `by-simp-only[`, `by-exacts[` or `by-exists[`; with none open, error 83; with a `<<` open inside the list, 458 at `<<` (its `>>` is missing). | `]` |
 | `<-` | `( r -- )` (top: the rule just written) | ordinary; only inside `by-rw[`, `by-rewrite[`, `by-rwa[` or `by-simp-only[` (83 elsewhere), after a rule (86) | read: the values so far become the bracket's rules, the last one marked right to left | Rewrites with r from right to left. | `← r` |
 | `by-rwa[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, then `rfl` (reducible) or else `assumption` | Rewrites, then closes the goal; neither closes it: 381; `rfl` failing on a goal that is no `=` (a `≤`, a negation) falls to the hypothesis, as Lean's. With `at[ h ]`, rewrites h and closes the goal with it (456 when its type differs). | `rwa [` |
-| `by-simp` | `( -- )` | ordinary | read: a step. Run: simplifies the main goal's target with Lean's default simp set (format 4.1's data; see [D.12](#d12-by-simp-simp-with-the-default-set)) | Closes the goal when it becomes `True`; nothing changed: 500; a simproc that could fire, a lemma the export lacks, a side condition, a definition to unfold: 99. | `simp` |
+| `by-simp` | `( -- )` | ordinary | read: a step. Run: simplifies the main goal's target with Lean's default simp set (format 4.1's data; see [D.12](#d12-by-simp-simp-with-the-default-set)) | Closes the goal when it becomes `True`; nothing changed: 500; a simproc not ported yet that could fire, a lemma the export lacks, a side condition, a definition to unfold: 99. | `simp` |
 | `by-simp-only[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: a block step. Run: simplifies the main goal's target, or the hypotheses of a trailing `at[ ]` (`at[ * ]`: every hypothesis nothing depends on, and the target), with the rules, `eq_self` and `iff_self` (see [D.10](#d10-by-simp-only--simp-only)) | Rewrites the goal with the equations given (and those `↔`, `¬`, `≠`, `∧` and `∀` hypotheses give) until none applies; closes it when it becomes `True` (or a hypothesis `False`); nothing changed: 500; a variable that is no proposition: 501; `<-` on a rule to `True`: 502, to `False` (a `¬` or `≠`): 503; a case not ported yet: 99. | `simp only [` |
 | `at[ HYP-NAME ... ]` | `( -- )` | parsing: names up to `]`, over lines (458 at `at[` when a LeanForth word other than `_` and `*`, or the text's end, comes first); right after `by-rw[ ]`, `by-rewrite[ ]`, `by-rwa[ ]`, `by-change`, `by-symm`, `by-delta` (453 elsewhere) | read: the names (and `\|-` or `⊢` for the goal, or `*` alone) become the step's location | Runs the tactic at each hypothesis named, then at the goal when named (455 unknown name, reported at the tactic's word; `*`: 99; no name, `_`, `*` among names: 454). | `at h ⊢` |
 | `by-intro[ HYP-NAME ... ]` | `( -- )` | parsing: names up to `]`, over lines (458 at `by-intro[` when a LeanForth word other than `_` and `*`, or the text's end, comes first), `_` an inaccessible one, none allowed | read: a step; each name a hypothesis word. Run: `by-intro:`'s step for each name in turn; none: one inaccessible | Introduces the goal's first binders as the names; too many: 94; `rfl`: 99; `*`: 84. | `intro a b c` |
@@ -3102,11 +3102,47 @@ end simp_not_not
 Lean's term is the same node for node
 (`tests/front/tactics/simp-4/check.py`).
 
+**Simprocs.** Lean's built-in simplification procedures of the default
+set run where Lean runs them: the pre ones before a term's parts are
+visited, the post ones after the lemmas. These compute:
+- `reduceIte` and `reduceDIte`: `if c then t else e` (and its dependent
+  form) whose condition simplifies to `True` or `False` becomes that
+  branch, the condition simplified inside the same run (so
+  `if 2 + 3 = 5 then a else b` becomes `a`);
+- Nat's literal arithmetic: `+`, `*`, `-`, `/`, `%`, `^` (exponents up to
+  256, as Lean), `Nat.gcd`, `&&&`, `|||`, `^^^`, `<<<`, `>>>`,
+  `Nat.succ`, `==` and `!=` on numerals, and `<`, `>` decided (Lean's
+  `evalPropStep`).
+
+| Form | Example |
+|---|---|
+| Mathematics | $(\text{if True then } a \text{ else } b) = a$, $7 \cdot 6 + 2 = 44$ |
+| LeanForth | `Nat explicit: a  Nat explicit: b  True a b ite a =` and `7 6 * 2 + 44 =`, each proved by `by-simp` |
+| Lean | `theorem t (a b : Nat) : (if True then a else b) = a := by simp`, `theorem u : 7 * 6 + 2 = 44 := by simp` |
+
+```
+theorem simp_mul_add
+  7 6 * 2 + 44 =
+:= by
+  by-simp
+end simp_mul_add
+```
+
+`7 * 6` becomes `42` and `42 + 2` becomes `44` (`Nat.reduceMul`,
+`Nat.reduceAdd`), then `44 = 44` becomes `True` (`eq_self`); Lean's term is
+the same node for node (`tests/front/tactics/simp-4/simprocs.lf`).
+
 Not supported yet (error 99, exit 2), never another route than Lean's:
-- any step at which a simproc of the default set could fire (Lean's
-  built-in procedures such as `reduceCtorEq`, keyed on every `_ = _`, or
-  `Nat.reduceAdd`): simprocs are not ported yet, so `a = 0` inside a goal
-  answers 99 when no lemma rewrites it first;
+- a step at which a simproc whose computation is not ported yet could
+  fire: `reduceCtorEq` (`x + 1 = 0` would become `False`), Nat's
+  `reduceEqDiff` family (`x + 2 = 5`), `Nat.reduceDvd`, `Nat.reduceLog2`,
+  and the Int, Fin, Char, String, BitVec, fixed-width integer (`UInt8`
+  ... `ISize`), List and Array simprocs. Each answers 99 only where Lean's
+  procedure may change the term (for the number families: every operand
+  written as a literal); elsewhere (`a = 0`, `x + y` on Int) simp goes on
+  as Lean does;
+- a proof through extra arguments (`(if True then f else g) x`), which
+  needs `congrFun`'s general form;
 - a lemma the library's export lacks (a `_simp_N` helper, or a lemma of
   a module the export leaves out) reached in Lean's candidate order before
   the lemma that rewrites;

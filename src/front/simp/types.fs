@@ -33,6 +33,12 @@
 \ - lf-simp-sides ( type -- lhs rhs ): the sides of a theorem's type, an
 \   Eq; any other type unsupported (shouldPreprocess's helper theorems,
 \   slice SL3d).
+\ - Step (Types.lean:316), a simproc's answer ( e h step ): the result
+\   ( e h ) and lf-simp-done (pre: no subterm visited; post: the result),
+\   lf-simp-visit (pre: the result simplified again; post: as continue)
+\   or lf-simp-continue (pre: the result's subterms visited, then post;
+\   post: the result simplified again when it changed).
+\   lf-simp-pass ( e -- e h step ): Lean's .continue none, e itself.
 \ Every word throws as the builders do (meta-must.fs). Untrusted: the
 \ kernel checks every proof. State: the context record stc, the five
 \ cells of the lf-simp-congr call running.
@@ -47,6 +53,8 @@ require ../app-builder.fs
 
 -1 constant lf-simp-none
 : lf-simp-none? ( h -- flag ) lf-simp-none = ;
+0 constant lf-simp-done   1 constant lf-simp-visit   2 constant lf-simp-continue
+: lf-simp-pass ( e -- e h step ) lf-simp-none lf-simp-continue ;
 : lf-simp-sides ( type -- lhs rhs ) lf-eq? 0= if lf-unported then >r nip r> ;
 : lf-simp-proof ( e h -- p ) dup lf-simp-none? if drop lf-mk-eq-refl else nip then ;
 : st-hinted-refl ( src e -- p )

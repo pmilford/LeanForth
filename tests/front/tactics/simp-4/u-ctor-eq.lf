@@ -1,0 +1,9 @@
+\ Lean: theorem u_ctor_eq (a : Nat) : ¬(a + 1 = 0) := by simp
+\ Not supported yet (99): a + 1 is Nat.succ's offset and 0 Nat.zero, so
+\ reduceCtorEq, whose action is not ported, would give False: its guard
+\ answers unsupported.
+theorem u_ctor_eq
+  Nat explicit: a  a 1 + 0 = Not
+:= by
+  by-simp
+end u_ctor_eq

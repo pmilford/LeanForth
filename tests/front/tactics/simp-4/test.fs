@@ -165,30 +165,33 @@ false add0-perm !
 add0-proof @ constant add0-d   -1 add0-proof !   simp-thms slab-count constant thms0
 T{ add0-i lf-simp-data-entry ok? swap -1 = simp-thms slab-count thms0 = -> false true true }T
 add0-d add0-proof !
-\ The simprocs: x = x has a post one (reduceCtorEq, keyed on every Eq),
-\ none pre; a free variable none: their guard answers unsupported where
-\ one may fire, nothing for a set without simprocs.
+\ The simprocs: x = x has post candidates (reduceCtorEq, keyed on every
+\ Eq, and Nat's), none pre; a free variable none. Their guards answer
+\ continue for x = x (no side a constructor or an offset).
 : x=x ( -- e ) x0 x0 lf-mk-eq ;
+: cands# ( e post? -- n ) ds-cands >r ds-out slab-cut drop r> ;
 lf-simp-default
-T{ x=x true ds-any? x=x false ds-any? x0 true ds-any? -> true false false }T
-T{ x=x true ' ds-guard thrown2 -> outcome-unsupported }T
-\ The walk asks at the pre step: if True then x else x has reduceIte's
-\ pre candidate before ite_self could rewrite it at the post step.
+T{ x=x true cands# 0> x=x false cands# x0 true cands# -> true 0 0 }T
+T{ x=x dup true lf-simp-procs >r >r = r> r> -> true lf-simp-none lf-simp-continue }T
+\ The walk asks at the pre step: if True then x else x is x by reduceIte
+\ (True is True with no proof, so Eq.refl True), before ite_self could
+\ rewrite it at the post step.
 : ite-tt ( -- e )
   s" ite" nat lf-level! lf-mk-const1 nat lf-mk-app s" True" lf-mk-const0 lf-mk-app
   s" instDecidableTrue" lf-mk-const0 lf-mk-app x0 lf-mk-app x0 lf-mk-app ;
-T{ ite-tt ' simp thrown -> outcome-unsupported }T
+: ite-proof? ( h -- flag ) lf-meta-head s" ite_eq_left_of_eq_true" lf-meta-const-named? ;
+T{ ite-tt simp ite-proof? -> x0 true }T
 \ And at the post step: the default set's simprocs with no lemma at all
-\ (its trees emptied by hand), x = x has reduceCtorEq's post candidate.
+\ (its trees emptied by hand), x = x is left as it is (continue).
 : no-lemmas ( -- ) simp-pre-tree lf-rix-free simp-post-tree lf-rix-free
   0 simp-pre-tree lf-rix-kind! 0 simp-post-tree lf-rix-kind! ;
 lf-simp-default no-lemmas
-T{ x=x ' simp thrown -> outcome-unsupported }T
+T{ x=x simp swap x=x lf-meta-eqv drop -> lf-simp-none true }T
 \ A definition the set unfolds (Eq.ndrec): unsupported where reduceStep
 \ would unfold it; not with simp only's set.
 T{ s" Eq.ndrec" lf-mk-const0 sm-unfold? lf-simp-set-new s" Eq.ndrec" lf-mk-const0 sm-unfold?
    -> true false }T
-T{ with-add0 x=x true ' ds-guard thrown2 -> outcome-ok }T
+T{ with-add0 x=x true lf-simp-procs nip nip -> lf-simp-continue }T
 \ And in the walk: namedPattern Nat x x rfl, its head a definition the
 \ set unfolds, is refused at reduceStep.
 : named-x ( -- e )
@@ -210,8 +213,8 @@ T{ x+0 ' default-pass heap-sweep nip -> 0 }T
 \ (True; True ∧ True by and_self; a + 0 = a by Nat.add_zero and
 \ eq_self; False ∨ True by or_true), Lean's 500 (False), a goal left
 \ (¬True is False: the theorem's unsolved goal, 89), and not supported
-\ yet (99): a left-out lemma reached (True ∨ False), a simproc's
-\ candidate (a = 0 is reduceCtorEq's).
+\ yet (99): a left-out lemma reached (True ∨ False; a = 0, whose
+\ simprocs' guards answer continue, has one in candidate order).
 : ran ( c-addr u -- code ) s" by-simp" tactic-ran lf-tac-forget ;
 T{ s" True" ran s" True True ∧" ran s" Nat explicit: a a 0 + a =" ran s" False True ∨" ran
    -> 0 0 0 0 }T

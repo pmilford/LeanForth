@@ -160,8 +160,8 @@ reason = "a left-out lemma's keys may not name a constant the library lacks: the
 [[fault]]
 id = "simp-phase-swapped"
 file = "src/front/simp-set-data.fs"
-old = ''': ss-lemma-list ( post -- slab ) if ss-post else ss-pre then ;'''
-new = ''': ss-lemma-list ( post -- slab ) if ss-pre else ss-post then ;'''
+old = ''': ssl-phase ( value i -- outcome ) nip dup ssl ssl-post @ false ss-phase ;'''
+new = ''': ssl-phase ( value i -- outcome ) nip dup ssl ssl-post @ 0= false ss-phase ;'''
 test = "$GFORTH tests/front/simp-data.fs"
 reason = "post lemmas filed in the pre tree: simp would try them before visiting the subterms"
 
@@ -208,26 +208,26 @@ reason = "a bracket lemma claims its record before its root is built: or_self ge
 [[fault]]
 id = "simproc-skipped"
 file = "src/front/simp/default-set.fs"
-old = '''  lf-simp-default? 0= if 2drop exit then ds-any? if lf-unported then ;'''
-new = '''  2drop ;'''
-test = "$GFORTH tests/front/tactics/simp-4/test.fs"
-reason = "an unported simproc's match treated as continue: a = 0 and True iff a = 0 closes without reduceCtorEq's and Nat.reduceEqDiff's steps"
+old = '''  lf-simp-default? if ds-procs-of else drop lf-simp-pass then ;'''
+new = '''  drop lf-simp-pass ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "the default simprocs never asked: if True then x else y is not x by reduceIte"
 
 [[fault]]
 id = "pre-simprocs-unasked"
 file = "src/front/simp/main.fs"
-old = '''  sm-pre if sm-again else dup false lf-simp-procs lf-simp-none sm-pre-continue then ;'''
-new = '''  sm-pre if sm-again else lf-simp-none sm-pre-continue then ;'''
+old = '''  sm-pre if sm-again else sm-match-check false lf-simp-procs sm-pre-stepped then ;'''
+new = '''  sm-pre if sm-again else sm-match-check lf-simp-none sm-pre-continue then ;'''
 test = "$GFORTH tests/front/tactics/simp-4/test.fs"
 reason = "the pre simprocs never asked: if True then x else x is rewritten by ite_self at the post step, where Lean's reduceIte fires first"
 
 [[fault]]
 id = "post-simprocs-unasked"
 file = "src/front/simp/main.fs"
-old = '''  over lf-simp-post false lf-simp-rewrite? if sm-joined else over true lf-simp-procs then'''
-new = '''  over lf-simp-post false lf-simp-rewrite? if sm-joined then'''
-test = "$GFORTH tests/front/tactics/simp-4/test.fs"
-reason = "the post simprocs never asked: a goal whose a = 0 only simprocs could change is closed"
+old = '''  over true lf-simp-procs sm-post-stepped ;'''
+new = '''  sm-post-continue ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "the post simprocs never asked: 2 + 3 is left as it is, not 5 by Nat.reduceAdd"
 
 [[fault]]
 id = "unfold-head-ignored"
@@ -276,3 +276,123 @@ old = '''  cli-elab-simp-set cr ;'''
 new = '''  cr ;'''
 test = "GFORTH=$GFORTH python3 tests/front/test_simp_data.py"
 reason = "the check's elaboration-data line leaves out the default simp set's kinds"
+
+[[fault]]
+id = "ite-run-post"
+file = "src/front/simp/simprocs/core.fs"
+old = '''' spc-reduce-ite 0 5 true false lf-simproc: ite reduceIte'''
+new = '''' spc-reduce-ite 0 5 false false lf-simproc: ite reduceIte'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "reduceIte's port registered as a post simproc: the data's pre record does not fit it, so if True then x else y is unsupported"
+
+[[fault]]
+id = "reduce-ite-false-branch"
+file = "src/front/simp/simprocs/core.fs"
+old = ''': spc-branch ( e i -- a ) 1 and 3 + spc-arg ;'''
+new = ''': spc-branch ( e i -- a ) drop 3 spc-arg ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "a False condition takes the then branch: if False then x else y gives x"
+
+[[fault]]
+id = "lit-guard-any"
+file = "src/front/simp/simprocs.fs"
+old = '''  dup lf-term-tag@ sp-lit-tags lf-tag-in? if drop true else sp-lit-head? then ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "every operand read as a literal's form: Int.reduceAdd's guard refuses x + 3, which Lean leaves (continue)"
+
+[[fault]]
+id = "ctor-eq-same-ctor"
+file = "src/front/simp/simprocs.fs"
+old = '''  2dup <> over sp-unknown = or >r 0<> swap 0<> and r> and ;'''
+new = '''  0<> swap 0<> and ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "reduceCtorEq's guard refuses two sides of the same constructor (x + 1 = y + 1), where Lean continues"
+
+[[fault]]
+id = "diff-guard-one-side"
+file = "src/front/simp/simprocs.fs"
+old = '''  drop dup lf-meta-args2 sp-offset? swap sp-offset? and if lf-unported then lf-simp-pass ;'''
+new = '''  drop dup lf-meta-args2 sp-offset? swap sp-offset? or if lf-unported then lf-simp-pass ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "the Diff guard refuses x = 3, one side no offset, where Lean's NatOffset.fromExpr? gives none (continue)"
+
+[[fault]]
+id = "simproc-kind-unchecked"
+file = "src/front/simp/simprocs.fs"
+old = ''': sp-kind? ( p entry -- flag ) sp-data sp-dsimp @ swap simp-proc-dsimproc? = ;'''
+new = ''': sp-kind? ( p entry -- flag ) 2drop true ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "a record marked a simproc served by a dsimproc's port: data of another Lean is not refused"
+
+[[fault]]
+id = "simproc-head-unchecked"
+file = "src/front/simp/simprocs.fs"
+old = '''  2dup sp-shaped? 0= if drop lf-simp-pass exit then'''
+new = '''  2dup sp-shaped? drop'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "a port run on a term of another head: Nat.reduceGT decides 2 < 3 (an LT.lt), where Lean's isAppOfArity GT.gt answers continue"
+
+[[fault]]
+id = "ds-out-not-cut"
+file = "src/front/simp/default-set.fs"
+old = '''  >r over lf-simp-pass r> ['] ds-cand? any? drop >r 2swap ds-out slab-cut drop r> ;'''
+new = '''  >r over lf-simp-pass r> ['] ds-cand? any? drop >r 2swap 2drop drop r> ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "a query's candidates left on ds-out: the slab grows with every step"
+
+[[fault]]
+id = "ds-pair-from-zero"
+file = "src/front/simp/default-set.fs"
+old = ''': ds-pair ( base k -- p extra ) 2* + ds-out slab-at 2@ swap ;'''
+new = ''': ds-pair ( base k -- p extra ) 2* nip ds-out slab-at 2@ swap ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "a query reads its candidates from cell 0, a running query's below it: 2 + 3 tries reduceIte's port, left there, instead of Nat.reduceAdd"
+
+[[fault]]
+id = "ds-cands-base-zero"
+file = "src/front/simp/default-set.fs"
+old = '''  over ds-out slab-count >r swap ds-procs ['] ds-query lf-with-simp-index'''
+new = '''  over 0 >r swap ds-procs ['] ds-query lf-with-simp-index'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "a query takes every candidate on ds-out as its own and cuts the running query's away"
+
+[[fault]]
+id = "nat-pow-threshold"
+file = "src/front/simp/simprocs/nat.fs"
+old = ''': sn-small? ( lit -- flag ) rn-threshold lf-lit-u> 0= ;'''
+new = ''': sn-small? ( lit -- flag ) drop true ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "2 ^ 300 computed past exponentiation.threshold, where Lean's checkExponent answers continue (the fold refuses it: unsupported)"
+
+[[fault]]
+id = "nat-bne-not-negated"
+file = "src/front/simp/simprocs/nat.fs"
+old = ''': sn-bne ( e i -- e' h step ) sn-bin dup lf-simp-done = if 2drop sn-not sn-done then ;'''
+new = ''': sn-bne ( e i -- e' h step ) sn-bin ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "2 != 3 given BEq's answer, Bool.false"
+
+[[fault]]
+id = "eval-prop-swapped"
+file = "src/front/simp/simprocs.fs"
+old = '''  if s" eq_true_of_decide" else s" eq_false_of_decide" then ;'''
+new = '''  if s" eq_false_of_decide" else s" eq_true_of_decide" then ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "evalPropStep's True proved by eq_false_of_decide"
+
+[[fault]]
+id = "post-done-resimplified"
+file = "src/front/simp/main.fs"
+old = '''  lf-simp-done = if sm-joined sm-finish else sm-joined sm-post-continue then ;'''
+new = '''  drop sm-joined sm-post-continue ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "a post simproc's done simplified again: 2 + 3 takes a fifth step on 5"
+
+[[fault]]
+id = "pre-visit-not-resimplified"
+file = "src/front/simp/main.fs"
+old = '''  lf-simp-visit = if sm-again else sm-pre-continue then ;'''
+new = '''  drop sm-pre-continue ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "a pre simproc's visit taken as continue: reduceIte's x is not simplified again (its step count differs)"

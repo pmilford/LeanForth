@@ -17,18 +17,22 @@
 \   the simp_set record) is unsupported (a throw).
 \ - The default simprocs, an index per phase over the data's simproc
 \   entries, queried by getMatchWithExtra at simp's index configuration
-\   (Simproc.lean:230, simprocCore): until the simprocs are ported (group
-\   4, pass 2), any candidate of a term at its pre or post step, or of a
-\   node the dsimp guard would keep, answers unsupported (simp/main.fs's
-\   hook lf-simp-procs), never "continue": a simproc that would fire is
-\   never skipped. A set that is not the default one has no simprocs.
+\   (Simproc.lean:230, simprocCore): simp/main.fs's hook lf-simp-procs
+\   ( e post? -- e' h step ) tries e's candidates in the index's order
+\   (simp/simprocs.fs's lf-simproc-try: a port found by the record's
+\   name, or its family's guard, which answers unsupported where Lean's
+\   simproc may fire), the first step other than continue answering;
+\   lf-simp-dprocs? ( e post? -- flag ), the dsimp guard's, is any
+\   dsimproc candidate (dsimp is not ported). A set that is not the
+\   default one has no simprocs.
 \ A lemma the library lacks (simp_left_out) answers unsupported when the
 \ rewrite reaches it in candidate order, and each data lemma's keys are
 \ recomputed when it is first tried (theorems.fs's lf-simp-thm-usable).
 \ Throws as meta-must.fs's words do. Untrusted: a lemma only proposes a
 \ rewrite the kernel checks. State: the context records ds-proc-pre and
 \ ds-proc-post (the simproc indexes, made anew by each lf-simp-default)
-\ and the slab ds-out (a query's candidates).
+\ and the slab ds-out (the queries' candidates, each query's above the
+\ one it runs inside; emptied by each lf-simp-default).
 \ Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
@@ -40,6 +44,9 @@ require ../simp-set-data.fs
 require ../meta-config.fs
 require ./theorems.fs
 require ./main.fs
+require ./simprocs.fs
+require ./simprocs/core.fs
+require ./simprocs/nat.fs
 
 \ ---- The kinds' values: an index's list of the data (simp-set-data.fs's
 \ simp-value), a tree's lemmas or a phase's simprocs.
@@ -66,16 +73,33 @@ require ./main.fs
   ds-proc-kind ds-proc-pre lf-rix-kind! ds-proc-kind ds-proc-post lf-rix-kind! ;
 
 : lf-simp-default ( -- )
-  simp-default? 0= if lf-unported then
+  simp-default? 0= if lf-unported then ds-out slab-clear
   lf-simp-set-new ds-kind ds-kind lf-simp-set-data! ds-procs-new ;
 
-\ ---- The guard: a simproc candidate of e in its phase, unsupported.
+\ ---- simprocCore (Simproc.lean:230; simprocArrayCore, 300, of the one
+\ set): e's candidates in its phase, getMatchWithExtra's (p, extra)
+\ pairs above base in ds-out, read by index (a port's nested walk asks
+\ again above them), each tried (simprocs.fs's lf-simproc-try) until
+\ one answers other than continue; ds-out cut back to base after.
 : ds-procs ( post? -- rix ) if ds-proc-post else ds-proc-pre then ;
 : ds-query ( e rix -- ) ds-out lf-rix-match lf-must ;
-: ds-any? ( e post? -- flag )
-  ds-out slab-clear ds-procs ['] ds-query lf-with-simp-index ds-out slab-count 0> ;
-: ds-guard ( e post? -- )
-  lf-simp-default? 0= if 2drop exit then ds-any? if lf-unported then ;
-' ds-guard is lf-simp-procs
+: ds-cands ( e post? -- e base n )
+  over ds-out slab-count >r swap ds-procs ['] ds-query lf-with-simp-index
+  r> dup ds-out slab-since 2/ ;
+: ds-pair ( base k -- p extra ) 2* + ds-out slab-at 2@ swap ;
+: ds-cand? ( e base e0 h0 step0 k -- e base e' h step flag )
+  >r 2drop drop 2dup r> ds-pair lf-simproc-try dup lf-simp-continue <> ;
+: ds-first ( e base n -- e' h step )
+  >r over lf-simp-pass r> ['] ds-cand? any? drop >r 2swap ds-out slab-cut drop r> ;
+: ds-procs-of ( e post? -- e' h step ) ds-cands ds-first ;
+: ds-procs-run ( e post? -- e' h step )
+  lf-simp-default? if ds-procs-of else drop lf-simp-pass then ;
+' ds-procs-run is lf-simp-procs
+\ dsimp's question (the dsimp guard, simp/main.fs): a dsimproc candidate.
+: ds-dsimproc? ( e base k -- e base flag ) over swap ds-pair drop simp-proc-dsimproc? ;
+: ds-dprocs? ( e post? -- flag )
+  ds-cands ['] ds-dsimproc? any? -rot ds-out slab-cut drop ;
+: ds-dprocs-run ( e post? -- flag ) lf-simp-default? if ds-dprocs? else 2drop false then ;
+' ds-dprocs-run is lf-simp-dprocs?
 
 base !   \ the BASE this file was loaded with

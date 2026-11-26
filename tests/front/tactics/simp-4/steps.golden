@@ -10,3 +10,11 @@
 {"goal_before":"a : Nat\n⊢ ¬¬a = a","goals_after":[],"parent":0,"source":"36:3","step":1,"tactic":"simp","word":"by-simp"}
 {"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_mul_one","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
 {"goal_before":"a : Nat\n⊢ a * 1 + 0 = a","goals_after":[],"parent":0,"source":"42:3","step":1,"tactic":"simp","word":"by-simp"}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_ite_true","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\n⊢ @ite Nat True instDecidableTrue a b = a","goals_after":[],"parent":0,"source":"14:3","step":1,"tactic":"simp","word":"by-simp"}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_ite_false","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\n⊢ @ite Nat False instDecidableFalse a b = b","goals_after":[],"parent":0,"source":"20:3","step":1,"tactic":"simp","word":"by-simp"}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_add_lits","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 2 + 3 = 5","goals_after":[],"parent":0,"source":"26:3","step":1,"tactic":"simp","word":"by-simp"}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_mul_add","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"⊢ 7 * 6 + 2 = 44","goals_after":[],"parent":0,"source":"33:3","step":1,"tactic":"simp","word":"by-simp"}

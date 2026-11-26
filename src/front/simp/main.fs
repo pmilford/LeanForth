@@ -2,9 +2,8 @@
 \ slice SL1a-1 of docs/design/TACTIC_SIMP.md): Lean 4.35.0's simpImpl,
 \ simpLoop, simpStep, congr, congrDefault and simpAppUsingCongr
 \ (src/lean/Lean/Meta/Tactic/Simp/Main.lean:531-720, Types.lean:732-765)
-\ with simp only's methods (Rewrite.lean:536-547: rewritePre, then the
-\ simpMatch refusals; rewritePost; no simproc, no decide, no ground), and
-\ simpTargetCore (Main.lean:781, Types.lean:1008).
+\ with Lean's default methods (Rewrite.lean:536-547, below; the simprocs
+\ through a hook), and simpTargetCore (Main.lean:781, Types.lean:1008).
 \ - lf-simp ( e max -- e' h ): Simp.main of e with simp/theorems.fs's set
 \   and maxSteps max (lf-simp-max-steps, Lean's default 100000), at
 \   reducible transparency with the elaborator's flags (withSimpContext,
@@ -41,10 +40,14 @@
 \ structure's projection function, a recursor, a quotient's, a matcher
 \ or an auxiliary definition is (iota and unfold?, which simpMatch shares).
 \ A head the set unfolds (theorems.fs's lf-simp-unfold?: unfold?) is
-\ unsupported. The set's simprocs: the hook lf-simp-procs ( e post? -- ),
-\ asked at the pre step after rewritePre and at the post step after
-\ rewritePost fail, and by the dsimp guard; none (2drop) until
-\ simp/default-set.fs plugs its guard.
+\ unsupported. Lean's methods (Rewrite.lean:536-546, mkMethods 652):
+\ pre is rewritePre, simpMatch (unsupported where a matcher or recursor
+\ head may reduce), then the pre simprocs; post is rewritePost, then the
+\ post simprocs; simpGround, simpArith and simpUsingDecide are off by
+\ default (Simp.Config), so not asked. The simprocs are the hook
+\ lf-simp-procs ( e post? -- e' h step ), simp/types.fs's Step, done,
+\ visit or continue as simpLoop reads them (Main.lean:691-712);
+\ simp/default-set.fs plugs it, none (continue) for simp only's set.
 \ simpStep: an application by congr; a constant by reduce; a sort or
 \ literal as it is; a metavariable instantiated; a free variable as it is
 \ (a let one unsupported: reduceFVar's implementation-detail rule); a
@@ -62,7 +65,8 @@
 \ The dsimp guard: dsimp (SL1b) is not ported, so an argument it would
 \ visit is kept only when dsimp would give it back: a sort, a constant
 \ that is no structure projection function, or a free variable that is
-\ no let, at which no rfl theorem of the set is a candidate; anything
+\ no let, at which no rfl theorem and no dsimproc of the set is a
+\ candidate (lf-simp-dprocs?); anything
 \ else unsupported. isProof terms are not visited (simpImpl). Depth:
 \ Lean's maxRecDepth counts from where the tactic runs, which LeanForth
 \ does not know, so more than sm-depth-max visits in progress is
@@ -181,12 +185,16 @@ lf-tag-let lf-tag-let-nondep lf-tag-projection lf-tag-annotation lf-tag-lit 5 lf
   dup sm-of-nat? if drop true exit then
   dup sm-char? if drop true exit then sm-scientific? ;
 
-\ ---- The set's simprocs (Lean's userPreSimprocs, userPostSimprocs and
-\ their dsimprocs in dsimp): lf-simp-procs ( e post? -- ), plugged by
-\ simp/default-set.fs (unsupported where one may fire); none for a set
-\ without simprocs (simp only).
-defer lf-simp-procs ( e post? -- )
-' 2drop is lf-simp-procs
+\ ---- The set's simprocs: lf-simp-procs ( e post? -- e' h step ), Lean's
+\ userPreSimprocs and userPostSimprocs (Simproc.lean:325-331), and
+\ lf-simp-dprocs? ( e post? -- flag ), whether dsimp would ask a
+\ dsimproc (userPreDSimprocs, userPostDSimprocs: dsimp is not ported, so
+\ the guard below refuses it); plugged by simp/default-set.fs, none for
+\ a set without simprocs (simp only): continue none.
+defer lf-simp-procs ( e post? -- e' h step )
+:noname ( e post? -- e h step ) drop lf-simp-pass ; is lf-simp-procs
+defer lf-simp-dprocs? ( e post? -- flag )
+:noname ( e post? -- flag ) 2drop false ; is lf-simp-dprocs?
 
 \ ---- The dsimp guard.
 : sm-plain-const? ( c -- flag )
@@ -197,9 +205,10 @@ defer lf-simp-procs ( e post? -- )
     lf-tag-fvar of lf-fvar-let? 0= endof nip false swap endcase ;
 : sm-rfl-free? ( a -- flag )
   dup lf-simp-pre lf-simp-rfl-match? swap lf-simp-post lf-simp-rfl-match? or 0= ;
+: sm-dprocs? ( a -- flag ) dup false lf-simp-dprocs? swap true lf-simp-dprocs? or ;
 : sm-kept? ( a -- flag )
   dup sm-stable-node? 0= if drop false exit then
-  dup false lf-simp-procs dup true lf-simp-procs sm-rfl-free? ;
+  dup sm-dprocs? if drop false else sm-rfl-free? then ;
 : sm-dsimp ( a -- a ) dup sm-kept? 0= if lf-unported then ;
 
 \ ---- simpAppUsingCongr (Types.lean:732): the head, then each argument.
@@ -310,9 +319,14 @@ defer sm-loop-call ( e cont -- e frames xt )
 : sm-post-continue ( e3 h3 -- ... )
   over sm-act-e lf-eqv! if sm-finish else sm-again then ;
 : sm-joined ( e2 h2 e3 h3 -- e3 h ) 2>r nip 2r> lf-simp-trans ;
-: sm-post ( e2 h2 -- ... )   \ rewritePost, then the post simprocs
-  over lf-simp-post false lf-simp-rewrite? if sm-joined else over true lf-simp-procs then
-  sm-post-continue ;
+\ visitPost (Main.lean:703): a done step cached as it is, any other
+\ simplified again when it changed (visitPostContinue).
+: sm-post-stepped ( e2 h2 e3 h3 step -- ... )
+  lf-simp-done = if sm-joined sm-finish else sm-joined sm-post-continue then ;
+\ postDefault (Rewrite.lean:542): rewritePost, then the post simprocs.
+: sm-post ( e2 h2 -- ... )
+  over lf-simp-post false lf-simp-rewrite? if sm-joined sm-post-continue exit then
+  over true lf-simp-procs sm-post-stepped ;
 : sm-stepped ( e2 h2 frames -- ... ) sm-joined-h sm-post ;
 : sm-step-call ( e -- e frames xt ) ['] sm-stepped ['] sm-step sm-call ;
 : sm-pre-continue ( e1 h1 -- ... )
@@ -320,11 +334,20 @@ defer sm-loop-call ( e cont -- e frames xt )
   if drop sm-step-call else nip ['] sm-trans-cache sm-loop-call then ;
 : sm-pre ( e -- e1 h1 true | e false )
   dup lf-simp-pre false lf-simp-rewrite? if rot drop true else false then ;
-\ pre: rewritePre, simpMatch (a matcher refused by reduceStep's check),
-\ then the pre simprocs.
+\ simpMatch (Rewrite.lean:376): an application whose head reduceRecMatcher?
+\ or a matcher's equations may reduce is unsupported, before a pre
+\ simproc runs (reduceStep's check refuses it again).
+: sm-match-check ( e -- e )
+  dup dup lf-term-app? swap sm-head-decl if sm-iota-check else drop then ;
+\ The pre simprocs' step (simpLoop, Main.lean:691): done cached as it is,
+\ visit simplified again, continue on to reduceStep.
+: sm-pre-stepped ( e1 h1 step -- ... )
+  dup lf-simp-done = if drop sm-finish exit then
+  lf-simp-visit = if sm-again else sm-pre-continue then ;
+\ preDefault (Rewrite.lean:536): rewritePre, simpMatch, the pre simprocs.
 : sm-loop ( e frames -- ... )
   drop sm-cached if sm-done exit then sm-count dup sm-push
-  sm-pre if sm-again else dup false lf-simp-procs lf-simp-none sm-pre-continue then ;
+  sm-pre if sm-again else sm-match-check false lf-simp-procs sm-pre-stepped then ;
 :noname ( e cont -- e frames xt ) ['] sm-loop sm-call ; is sm-loop-call
 : sm-proof? ( e -- flag )
   dup lf-meta-proof-quick lf-must dup lf-lb-undef =

@@ -10,8 +10,11 @@
 \   simp set from format 4.1's records. Closed when the target becomes
 \   True; else the new goal in the main goal's place, and Lean's error
 \   500 "`simp` made no progress" when it is the one it was.
-\ - Not supported yet (99): the simprocs (any candidate of a step answers
-\   unsupported), the discharger (a conditional lemma), a lemma the
+\ - The default simprocs (simp/simprocs.fs): reduceIte and reduceDIte,
+\   Nat's literal arithmetic and predicates computed (pass 2); every other
+\   one answers unsupported where Lean's may fire (its guard).
+\ - Not supported yet (99): a simproc that is only guarded and may fire,
+\   the discharger (a conditional lemma), a lemma the
 \   library lacks reached in candidate order, a lemma whose recorded keys
 \   are not its statement's (no_index), a definition the set unfolds,
 \   data without the default set, and every refusal of simp/main.fs,

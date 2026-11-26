@@ -14,6 +14,11 @@ theorem simp_add_zero (a : Nat) : a + 0 = a := by simp
 theorem simp_or_true : False ∨ True := by simp
 theorem simp_not_not (a : Nat) : ¬¬(a = a) := by simp
 theorem simp_mul_one (a : Nat) : a * 1 + 0 = a := by simp
+-- Pass 2: the default simprocs (tests/front/tactics/simp-4/simprocs.lf).
+theorem simp_ite_true (a b : Nat) : (if True then a else b) = a := by simp
+theorem simp_ite_false (a b : Nat) : (if False then a else b) = b := by simp
+theorem simp_add_lits : 2 + 3 = 5 := by simp
+theorem simp_mul_add : 7 * 6 + 2 = 44 := by simp
 
 def pl (l : Level) : String := match l.toNat with
   | some n => toString n
@@ -39,5 +44,6 @@ def dump (n : Name) : MetaM Unit := do
 
 #eval do
   for n in [``simp_true, ``simp_true_and, ``simp_add_zero, ``simp_or_true, ``simp_not_not,
-      ``simp_mul_one] do
+      ``simp_mul_one, ``simp_ite_true, ``simp_ite_false, ``simp_add_lits,
+      ``simp_mul_add] do
     dump n

@@ -1,0 +1,8 @@
+\ Lean: theorem w_ite_other : if False then True else False := by simp
+\ Refused as Lean refuses it (error 89): reduceIte takes the else
+\ branch, and False is left.
+theorem w_ite_other
+  False True False ite
+:= by
+  by-simp
+end w_ite_other

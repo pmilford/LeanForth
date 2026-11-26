@@ -1,6 +1,7 @@
 \ Lean: theorem u_simproc (a : Nat) : (a = 0 ∧ True) ↔ a = 0 := by simp
-\ Not supported yet (99): no lemma rewrites a = 0, and reduceCtorEq and
-\ Nat.reduceEqDiff, keyed on it, are not ported (simp group 4, pass 2).
+\ Not supported yet (99): reduceCtorEq's and Nat.reduceEqDiff's guards
+\ answer continue for a = 0 (pass 2), but a lemma the slice lacks comes
+\ first in its candidates.
 theorem u_simproc
   Nat explicit: a  a 0 = True ∧ a 0 = ↔
 := by

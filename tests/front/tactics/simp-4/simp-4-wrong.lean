@@ -4,3 +4,4 @@
 set_option linter.unusedVariables false
 
 theorem w_no_progress : False := by simp
+theorem w_ite_other : if False then True else False := by simp

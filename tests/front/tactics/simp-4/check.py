@@ -18,10 +18,14 @@ ENV = tactic_check.Env("tests/front/simp-slice.ndjson", "tests/front/simp-slice.
                        "simp-dump")
 FILES = [(D + "simp-4.lf", ["simp_true", "simp_true_and=propext", "simp_add_zero=propext",
                             "simp_or_true=propext", "simp_not_not=propext",
-                            "simp_mul_one=propext"])]
-WRONG = [(D + "w-no-progress.lf", 500, "`simp` made no progress", "")]
+                            "simp_mul_one=propext"]),
+         (D + "simprocs.lf", ["simp_ite_true=propext", "simp_ite_false=propext",
+                               "simp_add_lits=propext", "simp_mul_add=propext"])]
+WRONG = [(D + "w-no-progress.lf", 500, "`simp` made no progress", ""),
+         (D + "w-ite-other.lf", 89, "unsolved goals", "⊢ False")]
 NOT_YET = "not supported yet: this case of the tactic"
-UNSUPPORTED = [(D + "u-left-out.lf", 99, NOT_YET), (D + "u-simproc.lf", 99, NOT_YET)]
+UNSUPPORTED = [(D + "u-left-out.lf", 99, NOT_YET), (D + "u-simproc.lf", 99, NOT_YET),
+               (D + "u-ctor-eq.lf", 99, NOT_YET)]
 
 if __name__ == "__main__":
     tactic_check.main("simp-4", FILES, WRONG, UNSUPPORTED, env=ENV, lean=D + "simp-4.lean",

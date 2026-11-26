@@ -13,7 +13,9 @@
 \ - lf-meta-mk-offset ( e k -- e' outcome ): mkOffset: e for k = 0, the
 \   literal k when e's value is 0, else e + k (mkNatAdd: HAdd.hAdd.{0,0,0}
 \   Nat Nat Nat (instHAdd.{0} Nat instAddNat) e k); a literal k is
-\   OfNat.ofNat.{0} Nat k (instOfNatNat k) (lf-meta-nat-lit, mkNatLit).
+\   OfNat.ofNat.{0} Nat k (instOfNatNat k) (lf-meta-nat-lit ( u -- term
+\   outcome ), mkNatLit; lf-meta-nat-of-lit ( lit -- term outcome ) the
+\   same of a raw literal leaf, a value of any size).
 \ - lf-meta-nat ( -- term outcome ): the constant Nat.
 \ - lf-meta-ctor-if-lit ( e -- e' outcome ): toCtorIfLit (WHNF.lean:23)
 \   for a natural literal: 0 is Nat.zero, v > 0 Nat.succ of the raw
@@ -110,10 +112,10 @@ end-structure
 : no-ofnat ( -- f outcome ) s" OfNat.ofNat" 1 no-const no-app-nat ;
 : no-inst-lit ( lit -- t outcome )
   s" instOfNatNat" 0 no-const ok-then? if swap outcome-ok no-app else nip no-result then ;
-: lf-meta-nat-lit ( u -- term outcome )
-  no-lit ok-then? 0= if no-result exit then
+: lf-meta-nat-of-lit ( lit -- term outcome )
   no-ofnat ok-then? 0= if nip no-result exit then
   over outcome-ok no-app ok-then? 0= if nip no-result exit then swap no-inst-lit no-app ;
+: lf-meta-nat-lit ( u -- term outcome ) no-lit ['] lf-meta-nat-of-lit ok-apply ;
 : no-inst-hadd ( -- t outcome )
   s" instHAdd" 1 no-const no-app-nat ok-then? 0= if no-result exit then
   s" instAddNat" 0 no-const no-app ;
