@@ -25,7 +25,9 @@
 \ runs the top frame's next child step, or ends the block: Lean's done
 \ (no unsolved goal, else error 89 at the block's place, => for an
 \ alternative or case, by for the proof) and the goals outside it put
-\ back (closeUsingOrAdmit; LeanForth never admits, ADR 0021 D3). Each
+\ back (closeUsingOrAdmit; LeanForth never admits, ADR 0021 D3). How
+\ deep blocks nest is bounded by Lean's recursion depth: past it, 99
+\ (lf-tac-depth-most, lf-mode-weight! ( xt mode -- ); "Blocks"). Each
 \ step spends one unit of the run's own fuel (lf-tactic-fuel!; Lean
 \ counts heartbeats instead, so where its limit and this one differ is
 \ a listed difference, none known) and one of the declaration's budget
@@ -508,11 +510,15 @@ defer lf-tac-lean-detail ( term code -- outcome )
 \ the block below's unless a flag sets it, true for the first; frame
 \ fields are outside a save, as Lean's loop variables. A kind's mode is
 \ its row's (lf-tactic-mode! ( mode kind -- )), lf-mode-done by default.
+\ A mode also has a weight ( frame -- w ), its block's share of Lean's
+\ recursion depth (lfr-weighed, below): 4 unless lf-mode-weight! ( xt
+\ mode -- ) sets another while the modules load.
 begin-structure /tmode
   field: mode-open        \ ( frame -- )
   field: mode-end         \ ( frame -- )
   field: mode-fail        \ ( frame -- ), or 0
   field: mode-flags
+  field: mode-weight      \ ( frame -- w )
 end-structure
 1 constant lfr-admits
 2 constant lfr-no-recover
@@ -520,8 +526,10 @@ end-structure
 32 constant lfr-whole-logs    \ (8 and 16: lfr-saving, lfr-last-bare)
 : lfr-mode-fields ( open end fail flags addr -- addr )
   tuck mode-flags ! tuck mode-fail ! tuck mode-end ! tuck mode-open ! ;
+: lfr-block-weight ( frame -- w ) drop 4 ;
 : lf-block-mode ( open-xt end-xt fail-xt|0 flags -- mode )
-  align here /tmode allot lfr-mode-fields ;
+  align here /tmode allot lfr-mode-fields ['] lfr-block-weight over mode-weight ! ;
+: lf-mode-weight! ( xt mode -- ) lfr-open mode-weight ! ;
 : lfr-mode-flag? ( mode bit -- flag ) swap mode-flags @ and 0<> ;
 \ The modes: done (Lean's focusAndDone in closeUsingOrAdmit: the kind's
 \ own end, no goal left, 89 at the block's place, the goals outside it
@@ -567,6 +575,9 @@ end-structure
   constant lf-mode-nested
 ' drop ' lfr-focus-end 0 0 lf-block-mode constant lf-mode-focus
 lf-mode-nested tac-k-by lf-tactic-mode!
+\ (A nested block's weight: the proof's by, step 0, 4; a have-by's body 8.)
+: lfr-nested-weight ( frame -- w ) tfr-step @ if 8 else 4 then ;
+' lfr-nested-weight lf-mode-nested lf-mode-weight!
 : lfr-depth ( -- n ) trun-frames slab-count ;
 : lfr-frame ( k -- addr ) trun-frames slab-at ;
 : lfr-top ( -- addr ) trun-frames slab-last ;
@@ -603,8 +614,29 @@ lf-mode-nested tac-k-by lf-tactic-mode!
   trun trun-entry @ over tfr-log ! tuck tfr-rest ! over 1+ over tfr-next !
   tuck tfr-step ! ;
 : lfr-opened ( addr -- ) dup tfr-mode @ mode-open @ execute ;
+\ Lean's recursion depth (maxRecDepth, 512 levels; past it pinned Lean
+\ refuses with "maximum recursion depth has been reached"), checked at
+\ every block's open, before its mode's open: the open blocks weigh their
+\ modes' shares in units of two levels, and a block that would make them
+\ weigh more than lf-tac-depth-most (240: 480 levels, 32 left for the
+\ steps inside) is not supported yet (99) at its step, its frame taken off
+\ and the goals put back as before it (lfr-unopen), as any unsupported
+\ step leaves them. Each share is at least what one nesting level costs
+\ pinned Lean 4.35.0 in its costliest one-line spelling (measured
+\ 2026-11-26, tests/front/tactics/rec-depth/): the proof's by 4 (Lean
+\ about 7 levels), a have-by's body 8 (15.6), iterate n n + 2 (2n + 3),
+\ repeat 5 (9.3), first's alternatives 0 (first itself 4: 6.1), any other
+\ block 4 (try 7.2, case 7.1, focus, any_goals and all_goals 6.1, a
+\ bullet 6.3, <;> 7.4, braces 1.3). Being unsupported a little before
+\ Lean's limit is kept; accepting past it never is.
+240 constant lf-tac-depth-most
+: lfr-weight ( frame -- w ) dup tfr-mode @ mode-weight @ execute ;
+: lfr-weights ( -- w ) 0 lfr-depth 0 ?do i lfr-frame lfr-weight + loop ;
+: lfr-deep? ( -- flag ) lfr-weights lf-tac-depth-most > ;
+: lfr-unopen ( addr -- ) tfr-rest @ trun-frames slab-drop lf-tac-unfocus ;
+: lfr-weighed ( addr -- addr ) lfr-deep? if dup lfr-unopen lf-tac-unported then ;
 \ Step i's block in a mode of the caller's (by-first's alternatives).
-: lfr-block-as ( i rest mode -- ) lfr-push lfr-frame! lfr-opened ;
+: lfr-block-as ( i rest mode -- ) lfr-push lfr-frame! lfr-weighed lfr-opened ;
 : lf-tac-block ( i rest -- ) over lfr-mode-of lfr-block-as ;
 \ Step i's block over the main goal alone (Lean's focus: none is 90,
 \ before the block opens, Basic.lean:333 and :354).
@@ -965,6 +997,10 @@ lfr-states# 2* 0 xt-table: lfr-states
 : lfr-alt-won ( frame -- ) drop lfr-under lfr-keep lfr-under lfr-skip ;
 ' drop ' lfr-alt-won 0 lfr-no-recover lf-block-mode constant lf-mode-tried
 ' drop ' lfr-alt-won 0 0 lf-block-mode constant lf-mode-last
+\ (An alternative weighs nothing: first's own weight is its nesting level.)
+: lfr-no-weight ( frame -- w ) drop 0 ;
+' lfr-no-weight lf-mode-tried lf-mode-weight!
+' lfr-no-weight lf-mode-last lf-mode-weight!
 : lfr-alt-mode ( -- mode ) lfr-top lfr-saved? if lf-mode-tried else lf-mode-last then ;
 : lf-tac-alternative ( j -- ) 0 lfr-alt-mode lfr-block-as ;
 \ repeat (evalRepeat, Elab/Tactic/Repeat.lean:17-26): withoutRecover;
@@ -974,6 +1010,8 @@ lfr-states# 2* 0 xt-table: lfr-states
 : lfr-repeat-end ( frame -- ) dup lfr-saved? if dup lfr-keep lf-tac-again else drop then ;
 ' drop ' lfr-repeat-end ' lfr-skip lfr-no-recover lfr-saving or lf-block-mode
   constant lf-mode-repeat
+: lfr-repeat-weight ( frame -- w ) drop 5 ;   \ a loop: the same at every pass
+' lfr-repeat-weight lf-mode-repeat lf-mode-weight!
 \ any_goals (evalAnyGoals, BuiltinTactic.lean:256-270): a per-goal block
 \ whose pass is kept when it ends (the goal's goals) and put back when it
 \ fails (the goal kept); recover inherited; with no pass that ended

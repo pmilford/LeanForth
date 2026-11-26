@@ -2011,7 +2011,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-generalize-eq: HYP-NAME NAME` | `( e -- )` (top: e) | parsing: two names after it, on its line; a trailing `at[ h ... ]` may follow | read: as `by-generalize:`, HYP-NAME a hypothesis word too. Run: as `by-generalize:`, then HYP-NAME : e = NAME | The same, keeping the equation; errors as `by-generalize:`. | `generalize HYP-NAME : e = NAME` |
 | `by-skip` | `( -- )` | ordinary | read: a step. Run: nothing | Does nothing, with goals or none. | `skip` |
 | `by-done` | `( -- )` | ordinary | read: a step. Run: no goal may be left | Checks the proof is finished at that point; goals left: 89 at `by-done` (inside `by-try` taken back). | `done` |
-| `by-iterate` | `( n -- )` (n a numeral) | ordinary; opens a block that `by-end` closes; names given inside it stay | read: a block step holding n. Run: the block's tactics n times over, each pass on the goals of its moment, no focus and no save (0: none at all) | Repeats a tactic block an exact number of times; a pass's error is that step's (90 no goal, 383, ...); n no numeral: 99; open iterates weighing more than 128 (each its count and 2: a count up to 126 alone): 99, as Lean's recursion depth runs out at 252; names inside are resolved when the text is read, so `0 by-iterate ' nonexistent by-exact by-end` is error 1 where Lean accepts it. | `iterate n tacs` |
+| `by-iterate` | `( n -- )` (n a numeral) | ordinary; opens a block that `by-end` closes; names given inside it stay | read: a block step holding n. Run: the block's tactics n times over, each pass on the goals of its moment, no focus and no save (0: none at all) | Repeats a tactic block an exact number of times; a pass's error is that step's (90 no goal, 383, ...); n no numeral: 99; open blocks weighing more than 240 (an iterate its count and 2, the proof's `by` 4: a count up to 234 alone; [D.2](#d2-by-by-end-and-the-block-words)): 99, as Lean's recursion depth runs out at 252; names inside are resolved when the text is read, so `0 by-iterate ' nonexistent by-exact by-end` is error 1 where Lean accepts it. | `iterate n tacs` |
 | `by-refine` | `( t -- )` (top: t) | ordinary | read: a step holding t. Run: elaborates t against the goal, assigns it, its `?_` and `?: NAME` new goals in its place, tagged as Lean's | Closes the goal with t up to its holes; a `_` left open: 461 (99 as an argument); an implicit argument left: 95; a mismatch: 96; a NAME taken: 139. | `refine t` |
 | `_` | `( -- t )` | ordinary (kernel form: 52) | read: a hole node | A hole unification fills (or a goal where the tactic allows one: `by-specialize`). | `_` |
 | `?_` | `( -- t )` | ordinary (kernel form: 52) | read: a synthetic hole node | A new goal of `by-refine`; elsewhere left open (461 in `by-exact`). | `?_` |
@@ -2053,7 +2053,19 @@ value, no binder opened since, not already seen; error 69 elsewhere) and, in
 natural form, opens the first block, the proof (`lft-w-by`,
 `tactic-syntax.fs:300`). At `end NAME` every block must be closed (82), and
 no value may be left (86). `by-induction-with` opens a block of alternatives;
-`by-end` closes it. Blocks nest. Mistakes in a shape each stop at their word
+`by-end` closes it. Blocks nest, as deep as Lean's recursion depth allows
+(maxRecDepth, 512 levels): each open block weighs its share, in units of
+two levels (the proof's `by` 4, a `by-have-by:` body 8, `n by-iterate` n + 2,
+`by-repeat` 5, `by-first`'s alternatives 0, any other block 4), and the
+block whose open would make the open blocks weigh more than 240 is not
+supported yet (99, exit 2, never accepted). Each share is at least what one
+level of the block costs pinned Lean 4.35.0 in its costliest one-line
+spelling, so LeanForth stops at or before the depth where Lean fails with
+"maximum recursion depth has been reached", a little before it as a rule:
+59 nested `by-try` (Lean 72 `try (...)`), 29 nested `by-have-by:` (Lean 32),
+27 `by-try` around `126 by-iterate` (Lean 35); the table of measures is in
+`tests/front/tactics/rec-depth/test.fs`, the twins beside it.
+Mistakes in a shape each stop at their word
 with a code, listed in the
 [programming reference](../programming/LEANFORTH_WORDS.md#errors). A tactic
 word outside a tactic proof is 81. An empty proof is read; it stops when run
@@ -3011,10 +3023,12 @@ form. Lean's macro nests one expansion per pass, so pinned Lean refuses
 `iterate 252 skip` ("maximum recursion depth has been reached"; 251
 passes, and nested iterates reach the limit sooner: their counts may
 sum to 250 for two, 248 for three; 101 nested `iterate 1`). LeanForth
-gives each open `by-iterate` the weight of its count and 2 and answers
-99 (not supported yet) at the `by-iterate` that would make the open
-ones weigh more than 128: a count up to 126 alone, two nested whose
-counts sum to 124 at most.
+gives each open `by-iterate` the weight of its count and 2 in the bound
+every open block shares ([D.2](#d2-by-by-end-and-the-block-words)) and
+answers 99 (not supported yet) at the block that would make the open
+ones weigh more than 240: a count up to 234 alone, two nested whose
+counts sum to 232 at most, and fewer with blocks around or inside
+(27 `by-try` around `126 by-iterate`, or inside it).
 
 Not supported yet (exit 2, never accepted): `by-funext` on a function of
 two arguments (`Nat.add = Nat.add`, 93: the unifier does not settle

@@ -204,8 +204,8 @@ reason = "small tactics 1: iterate n runs its block once, where the macro runs i
 [[fault]]
 id = "sm1-iterate-zero-runs"
 file = "src/front/tactics/iterate.fs"
-old = '''  tit-bounded dup tit-count 2dup swap tfr-passes ! 0= if lfr-skip else drop then ;'''
-new = '''  tit-bounded dup tit-count swap tfr-passes ! ;'''
+old = '''  dup tit-count 2dup swap tfr-passes ! 0= if lfr-skip else drop then ;'''
+new = '''  dup tit-count swap tfr-passes ! ;'''
 test = "$GFORTH tests/front/tactics/batch-small-1b/test.fs"
 reason = "small tactics 1: iterate 0 runs its block once, where iterate 0 is skip (test.fs's probe: 0 runs)"
 
@@ -220,26 +220,26 @@ reason = "small tactics 1: iterate n counts two passes down at each end, running
 [[fault]]
 id = "sm1-iterate-any-count"
 file = "src/front/tactics/iterate.fs"
-old = '''  dup syn-kind@ syn-k-num = if syn-a@ exit then drop lf-tac-unported ;'''
-new = '''  syn-a@ ;'''
+old = '''  dup syn-kind@ syn-k-num = if syn-a@ true else drop false then ;'''
+new = '''  syn-a@ true ;'''
 test = "$GFORTH tests/front/tactics/batch-small-1b/test.fs"
 reason = "small tactics 1: iterate takes any value's field as its count, where Lean's parser wants a numeral (test.fs's a by-iterate: 99)"
 
 [[fault]]
 id = "sm1-iterate-unbounded"
 file = "src/front/tactics/iterate.fs"
-old = ''': tit-bounded ( frame -- frame ) dup tit-weights tit-most > if lf-tac-unported then ;'''
-new = ''': tit-bounded ( frame -- frame ) ;'''
+old = '''' tit-weight tit-mode lf-mode-weight!'''
+new = '''\ the weight left unset'''
 test = "$GFORTH tests/front/tactics/batch-small-1b/test.fs"
-reason = "small tactics 1 (review finding 2): iterate takes any count, where Lean's macro runs out of recursion depth past 251 (test.fs's 127 by-iterate: 99)"
+reason = "small tactics 1 (review finding 2 and its re-check, finding 1): iterate weighs 4 whatever its count, where Lean's macro runs out of recursion depth past 251 (test.fs's 235 by-iterate: 99)"
 
 [[fault]]
 id = "sm1-iterate-own-weight-only"
-file = "src/front/tactics/iterate.fs"
-old = ''': tit-weights ( frame -- w ) 0 lfr-depth 0 ?do over i tit-weight nip + loop nip ;'''
-new = ''': tit-weights ( frame -- w ) tit-count 2 + ;'''
+file = "src/front/tactic-run.fs"
+old = ''': lfr-weights ( -- w ) 0 lfr-depth 0 ?do i lfr-frame lfr-weight + loop ;'''
+new = ''': lfr-weights ( -- w ) lfr-top lfr-weight ;'''
 test = "$GFORTH tests/front/tactics/batch-small-1b/test.fs"
-reason = "small tactics 1 (review finding 2): iterate weighs its own count alone, so nested iterates pass the bound that Lean's recursion depth sets on their sum (test.fs's 62 by-iterate 63 by-iterate: 99)"
+reason = "small tactics 1 (review finding 2 and its re-check, finding 1): the newest block weighs alone, so nested iterates pass the bound that Lean's recursion depth sets on their sum (test.fs's 116 by-iterate 117 by-iterate: 99)"
 
 [[fault]]
 id = "sm1-local-instance-unmarked"
@@ -272,3 +272,70 @@ old = ''': tl-classed ( fvar name flags -- local ) lf-local-new lf-must lf-local
 new = ''': tl-classed ( fvar name flags -- local ) lf-local-new lf-must ;'''
 test = "$GFORTH tests/front/tactics/local-instances/test.fs"
 reason = "small tactics 1 (review finding 1): a local the tactic library makes (a have's, intro's) is no local instance, where introNImp's withNewLocalInstances makes it one (test.fs's have and intro locals, 139)"
+
+# The runner's bound on Lean's recursion depth (re-check of the Forth review, finding 1:
+# tactic-run.fs's lf-tac-depth-most and the modes' weights), caught by
+# tests/front/tactics/rec-depth/test.fs.
+[[fault]]
+id = "sm1-depth-weight-ignored"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-weight ( frame -- w ) dup tfr-mode @ mode-weight @ execute ;'''
+new = ''': lfr-weight ( frame -- w ) drop 4 ;'''
+test = "$GFORTH tests/front/tactics/rec-depth/test.fs"
+reason = "re-check finding 1: every open block weighs 4 whatever its mode, so a have-by body or an iterate passes the depth where pinned Lean fails (test.fs's 30 nested have-by: 99, Lean refuses 34)"
+
+[[fault]]
+id = "sm1-depth-check-skipped"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-block-as ( i rest mode -- ) lfr-push lfr-frame! lfr-weighed lfr-opened ;'''
+new = ''': lfr-block-as ( i rest mode -- ) lfr-push lfr-frame! lfr-opened ;'''
+test = "$GFORTH tests/front/tactics/rec-depth/test.fs"
+reason = "re-check finding 1: no block checks the bound when it opens, so nesting is accepted where pinned Lean refuses with maximum recursion depth (test.fs's 28 try around iterate 126: 99)"
+
+[[fault]]
+id = "sm1-depth-have-by-light"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-nested-weight ( frame -- w ) tfr-step @ if 8 else 4 then ;'''
+new = ''': lfr-nested-weight ( frame -- w ) drop 4 ;'''
+test = "$GFORTH tests/front/tactics/rec-depth/test.fs"
+reason = "re-check finding 1: a have-by body weighs 4, where one nesting level costs pinned Lean up to 15.6 levels (test.fs's 30 nested have-by: 99)"
+
+[[fault]]
+id = "sm1-depth-repeat-light"
+file = "src/front/tactic-run.fs"
+old = '''' lfr-repeat-weight lf-mode-repeat lf-mode-weight!'''
+new = '''\ the weight left unset'''
+test = "$GFORTH tests/front/tactics/rec-depth/test.fs"
+reason = "re-check finding 1: repeat weighs 4, where one nesting level costs pinned Lean up to 9.3 levels (test.fs's 22 nested repeat around iterate 126: 99)"
+
+[[fault]]
+id = "sm1-depth-alternative-weighed"
+file = "src/front/tactic-run.fs"
+old = '''' lfr-no-weight lf-mode-last lf-mode-weight!'''
+new = '''\ the weight left unset'''
+test = "$GFORTH tests/front/tactics/rec-depth/test.fs"
+reason = "re-check finding 1: first's last alternative weighs 4 on top of first's own, so first is unsupported at half the depth (test.fs's 27 nested first around iterate 126: accepted)"
+
+[[fault]]
+id = "sm1-depth-refused-frame-kept"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-weighed ( addr -- addr ) lfr-deep? if dup lfr-unopen lf-tac-unported then ;'''
+new = ''': lfr-weighed ( addr -- addr ) lfr-deep? if lf-tac-unported then ;'''
+test = "$GFORTH tests/front/tactics/rec-depth/test.fs"
+reason = "re-check finding 1: a refused block's frame stays on the stack and its goals focused, unlike any unsupported step (test.fs's refused focus: 60 frames and both goals)"
+
+[[fault]]
+id = "sm1-depth-refused-goals-kept"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-unopen ( addr -- ) tfr-rest @ trun-frames slab-drop lf-tac-unfocus ;'''
+new = ''': lfr-unopen ( addr -- ) drop trun-frames slab-drop ;'''
+test = "$GFORTH tests/front/tactics/rec-depth/test.fs"
+reason = "re-check finding 1: a refused focus leaves its first goal alone, the others lost from the list (test.fs's refused focus: both goals)"
+
+[[fault]]
+id = "sm1-depth-bound-off-by-one"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-deep? ( -- flag ) lfr-weights lf-tac-depth-most > ;'''
+new = ''': lfr-deep? ( -- flag ) lfr-weights lf-tac-depth-most 1- > ;'''
+test = "$GFORTH tests/front/tactics/rec-depth/test.fs"
+reason = "re-check finding 1: blocks that weigh the bound exactly are refused (test.fs's 27 try around iterate 126, 240: accepted)"

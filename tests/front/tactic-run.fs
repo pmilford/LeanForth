@@ -352,12 +352,20 @@ T{ token s" =>" compare detail s\" p : Prop\n⊢ p" compare -> 0 0 }T
 \ After the block, no goal for the next step: 90.
 T{ s" by-case: zero => by-sorry by-end by-sorry end t" proof nrun err
    -> outcome-invalid 90 1 76 }T
-\ 1,000 nested blocks, one a line: frames on the heap, no host recursion.
+\ 1,000 nested blocks, one a line: frames on the heap, no host recursion,
+\ in a test mode that weighs nothing (Lean's recursion depth, the runner's
+\ bound, refuses them from the 60th: 99, the proof's by and 59 blocks
+\ open; tests/front/tactics/rec-depth/).
 text0 s\" theorem t Nat explicit: n 0 n + n =\n:= by\n" text+
 : cases ( n -- ) 0 ?do s\" by-case: a =>\n" text+ loop ;
 : ends ( n -- ) 0 ?do s\" by-end\n" text+ loop ;
 1000 cases s\" by-sorry\n" text+ 1000 ends s" end t" text+
+tac-k-case lfr-row trow-mode @ constant case-mode
+' drop ' lfr-done-end 0 lfr-admits lf-block-mode constant light-mode
+' lfr-no-weight light-mode lf-mode-weight!   light-mode tac-k-case lf-tactic-mode!
 T{ text$ nrun lf-tactic-count -> outcome-ok 1002 }T
+case-mode tac-k-case lf-tactic-mode!
+T{ text$ nrun lf-author-code lfr-depth -> outcome-unsupported 99 60 }T   lfa-error-reset
 ' tcs-w-case tac-k-case lf-tactic-action!
 rfl-action tac-k-rfl lf-tactic-action!
 

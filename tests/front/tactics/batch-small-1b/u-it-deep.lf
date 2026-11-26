@@ -1,13 +1,15 @@
-\ Not supported (Forth review of small-tactics-1, finding 2): an iterate
-\ whose weight (its count and 2) passes tit-most (128): 99 at by-iterate.
-\ Pinned Lean accepts counts up to 251 here (252: "maximum recursion
-\ depth has been reached"; src/front/tactics/iterate.fs has the measures).
+\ Not supported (Forth review of small-tactics-1, finding 2, and its
+\ re-check, finding 1): an iterate whose weight (its count and 2) with the
+\ proof's by (4) passes the runner's bound on Lean's recursion depth
+\ (tactic-run.fs's lf-tac-depth-most, 240): 99 at by-iterate. Pinned Lean
+\ accepts counts up to 251 here (252: "maximum recursion depth has been
+\ reached"; src/front/tactics/iterate.fs has the measures).
 \ Lean: theorem u_it_deep (a b : Nat) (h : a = b) : a = b := by
-\         iterate 200 skip
+\         iterate 235 skip
 \         exact h
 theorem u_it_deep
   Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
 := by
-  200 by-iterate by-skip by-end
+  235 by-iterate by-skip by-end
   ' h by-exact
 end u_it_deep

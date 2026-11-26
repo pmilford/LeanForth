@@ -5,8 +5,8 @@ its usage are tests/front/tactics/tactic_check.py's, against decide's slice of I
 (tests/front/decide-slice.ndjson), with this batch's own Lean twins (batch-small-1b.lean,
 batch-small-1b-wrong.lean) and golden (batch-small-1b.golden). Kept apart from batch-small-1
 so that each test.fs stays under 30 s. UNSUPPORTED are u-it-term.lf, a count that is no numeral,
-which Lean's parser refuses, and u-it-deep.lf, a count past iterate's weight bound (tit-most),
-which Lean accepts up to 251."""
+which Lean's parser refuses, and u-it-deep.lf, a count past the runner's bound on Lean's
+recursion depth (tactic-run.fs's lf-tac-depth-most: 235 here), which Lean accepts up to 251."""
 import pathlib
 import sys
 

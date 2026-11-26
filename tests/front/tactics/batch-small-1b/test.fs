@@ -3,8 +3,9 @@
 \ authoring run, by the classes of docs/development/TEST_COVERAGE_REVIEW.md,
 \ through LeanForth text (tests/support/tactic-text.fs) and a probe tactic:
 \ 1. outcomes: accepted; 90, 383, 89 with their places; a count that is no
-\    numeral 99 (unsupported); the weight bound (tit-most, Lean's recursion
-\    depth): at it accepted, one past it 99, alone and nested;
+\    numeral 99 (unsupported); the weight (the runner's bound,
+\    lf-tac-depth-most, Lean's recursion depth): at it accepted, one past
+\    it 99, alone and nested;
 \ 2. malformed input: no count (86), an empty block (85), no by-end;
 \ 3. records: the shape, the mode, the row and Lean's name;
 \ 4. interfaces: the block's steps run exactly n times (none for 0),
@@ -51,6 +52,7 @@ T{ tac-k-iterate shape3 -> 1 0 tac-block }T
 T{ tac-k-iterate lfr-row trow-mode @ tac-k-iterate lfr-row trow-run @ -> tit-mode ' lf-tac-all }T
 T{ tit-mode mode-open @ tit-mode mode-end @ tit-mode mode-fail @ tit-mode mode-flags @
    -> ' tit-open ' tit-end 0 0 }T
+T{ tit-mode mode-weight @ -> ' tit-weight }T
 T{ tac-k-iterate lf-tac-lean s" iterate" compare -> 0 }T
 
 \ ---- 4. Interfaces: exactly n passes; 0 none; nested counts multiply.
@@ -85,18 +87,20 @@ lf-tac-forget
 T{ hh s" 1 by-iterate a b = Decidable by-have-by: d by-infer-instance by-end by-end ' d by-clear ' h by-exact"
    tactic-ran -> 0 }T
 
-\ ---- 1, 5. The weight bound: each open iterate weighs its count and 2, at
-\ most tit-most (128) in all; past it 99 at the iterate that opens, before
-\ the step fuel (91) could end a huge count.
-T{ tit-most -> 128 }T
-T{ hh s" 126 by-iterate by-skip by-end ' h by-exact" tactic-ran -> 0 }T
-T{ hh s" 127 by-iterate by-skip by-end ' h by-exact" tactic-ran s" by-iterate" token? -> 99 true }T
+\ ---- 1, 5. The weight: each open iterate weighs its count and 2 in the
+\ runner's bound over every open block (tactic-run.fs's lf-tac-depth-most,
+\ 240, the proof's by weighing 4); past it 99 at the iterate that opens,
+\ before the step fuel (91) could end a huge count. Pinned Lean accepts
+\ up to 251 alone. The other blocks' weights: tests/front/tactics/rec-depth/.
+T{ lf-tac-depth-most -> 240 }T
+T{ hh s" 234 by-iterate by-skip by-end ' h by-exact" tactic-ran -> 0 }T
+T{ hh s" 235 by-iterate by-skip by-end ' h by-exact" tactic-ran s" by-iterate" token? -> 99 true }T
 lf-tac-forget
-T{ hh s" 62 by-iterate 62 by-iterate by-skip by-end by-end ' h by-exact" tactic-ran -> 0 }T
-T{ hh s" 62 by-iterate 63 by-iterate by-skip by-end by-end ' h by-exact" tactic-ran -> 99 }T
+T{ hh s" 116 by-iterate 116 by-iterate by-skip by-end by-end ' h by-exact" tactic-ran -> 0 }T
+T{ hh s" 116 by-iterate 117 by-iterate by-skip by-end by-end ' h by-exact" tactic-ran -> 99 }T
 lf-tac-forget
-\ The weight is the open iterates': one closed before the next opens weighs nothing.
-T{ hh s" 126 by-iterate by-skip by-end 126 by-iterate by-skip by-end ' h by-exact" tactic-ran -> 0 }T
+\ The weight is the open blocks': one closed before the next opens weighs nothing.
+T{ hh s" 234 by-iterate by-skip by-end 234 by-iterate by-skip by-end ' h by-exact" tactic-ran -> 0 }T
 T{ hh s" 100000000 by-iterate by-skip by-end ' h by-exact" tactic-ran -> 99 }T
 lf-tac-forget
 \ ---- 5. Resources: heap refused in turn.
