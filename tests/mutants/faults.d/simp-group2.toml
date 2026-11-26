@@ -1,0 +1,93 @@
+# Planted faults of the second simp group (plan row FE9, docs/design/TACTIC_SIMP.md): slice
+# SL1a-2 (simp/goal.fs's simpGoal, assert.fs's replaceLocalDeclDefEq and assertHypotheses,
+# lctx-views.fs's lf-local-refvar, term-eqv.fs's lf-meta-equal?) and plan row 9.4.8z2(e)'s
+# rule errors (tactics/simp-only.fs); read with faults.toml as one list (scripts/mutants.py).
+# Each is caught by tests/front/tactics/simp-2/test.fs.
+
+[[fault]]
+id = "at-erases-bracket-h"
+file = "src/front/simp/goal.fs"
+old = '''  dup sg sg-fvar ! lf-fvar-type lf-instantiate! dup sg sg-max @ lf-simp'''
+new = '''  dup sg sg-fvar ! lf-simp-set-new lf-fvar-type lf-instantiate! dup sg sg-max @ lf-simp'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1a-2: eraseTheorem (.fvar h) taken to erase the bracket rules too (origin .stx), so simp only [h] at h leaves h, where Lean rewrites it to True"
+
+[[fault]]
+id = "false-hyp-kept"
+file = "src/front/simp/goal.fs"
+old = '''  over >r sg-fvar@ sg-mp r> dup sg-false? if drop sg-close true exit then sg-kept false ;'''
+new = '''  over >r sg-fvar@ sg-mp r> dup sg-false? 0 and if drop sg-close true exit then sg-kept false ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1a-2: applySimpResult's mayCloseGoal ignored, so a hypothesis simplified to False is asserted and the goal left open"
+
+[[fault]]
+id = "progress-unchecked"
+file = "src/front/simp/goal.fs"
+old = '''  dup sg sg-orig @ = if lfa-e-simp-progress lf-tac-stop then ;'''
+new = '''  dup sg sg-orig @ = drop ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1a-2: failIfUnchanged skipped, so simp at h with nothing to rewrite succeeds where Lean says no progress"
+
+[[fault]]
+id = "defeq-fresh-fvar-left"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  mat-free mat-retyped-view mat-like dup mat-aux mat-delayed ;'''
+new = '''  mat-free mat-retyped-view mat-like dup mat mat-goal @ swap lf-mvar-assign lf-must ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1a-2: route 1 without the delayed assignment, so the term holds the fresh free variable where Lean's holds the hypothesis"
+
+[[fault]]
+id = "defeq-dependents-taken"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  mat-free mat-retyped-view mat-like dup mat-aux mat-delayed ;'''
+new = '''  mat-retyped-view mat-like dup mat-aux mat-delayed ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1a-2: a hypothesis another local depends on retyped by route 1, leaving that local's type naming a free variable the new context lacks"
+
+[[fault]]
+id = "defeq-equal-raw"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  lf-instantiate! dup mat mat-type ! swap lf-instantiate! mat-equal-to? ;'''
+new = '''  2drop false ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1a-2: replaceLocalDeclDefEq's second Expr.equal (after instantiateMVars) skipped, so an unchanged hypothesis makes a new goal and Lean's no progress is missed"
+
+[[fault]]
+id = "assert-hyps-first-first"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  0 over mat-hyps# 1- do i mat-assert-at -1 +loop ;'''
+new = '''  dup mat-hyps# 0 ?do i mat-assert-at loop ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1a-2: assertHypotheses' binders built first to last, so the second hypothesis's type is the first binder and introNP names them crosswise"
+
+[[fault]]
+id = "refvar-keeps-fvar"
+file = "src/front/lctx-views.fs"
+old = '''  swap lv-copy ok-then? if tuck lv-loc loc-fvar ! outcome-ok else nip no-result then ;'''
+new = '''  swap lv-copy ok-then? if nip outcome-ok else nip no-result then ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1a-2: lf-local-refvar's copy keeps the old free variable, so the new context still gives the hypothesis its old type"
+
+[[fault]]
+id = "equal-binders-taken"
+file = "src/front/term-eqv.fs"
+old = '''  if eq-both-unnamed else 2drop false outcome-ok then ;'''
+new = '''  if 2drop true outcome-ok else 2drop false outcome-ok then ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1a-2: Expr.equal answered by Expr.eqv for terms with binders, whose names Lean compares and LeanForth does not yet"
+
+[[fault]]
+id = "let-rule-is-error"
+file = "src/front/tactics/simp-only.fs"
+old = '''  dup lf-fvar-let? if lf-tac-unported then'''
+new = '''  dup lf-fvar-let? drop'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "9.4.8z2(e): a let variable as a rule (Lean unfolds it, slice SL3a) given Lean's error for a variable that is no proposition"
+
+[[fault]]
+id = "symm-true-ignored"
+file = "src/front/tactics/simp-only.fs"
+old = '''  swap if tso-symm-true then drop lf-mk-eq-true ;'''
+new = '''  swap drop drop lf-mk-eq-true ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "9.4.8z2(e): <- on a proposition ignored, so h is used as p = True where Lean refuses the rule"
