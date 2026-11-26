@@ -191,10 +191,10 @@ lf-tag-let lf-tag-let-nondep lf-tag-projection lf-tag-annotation lf-tag-lit 5 lf
 \ dsimproc (userPreDSimprocs, userPostDSimprocs: dsimp is not ported, so
 \ the guard below refuses it); plugged by simp/default-set.fs, none for
 \ a set without simprocs (simp only): continue none.
-defer lf-simp-procs ( e post? -- e' h step )
-:noname ( e post? -- e h step ) drop lf-simp-pass ; is lf-simp-procs
-defer lf-simp-dprocs? ( e post? -- flag )
-:noname ( e post? -- flag ) 2drop false ; is lf-simp-dprocs?
+: lf-simp-no-procs ( e post? -- e h step ) drop lf-simp-pass ;
+: lf-simp-no-dprocs ( e post? -- flag ) 2drop false ;
+defer lf-simp-procs ( e post? -- e' h step )   ' lf-simp-no-procs is lf-simp-procs
+defer lf-simp-dprocs? ( e post? -- flag )   ' lf-simp-no-dprocs is lf-simp-dprocs?
 
 \ ---- The dsimp guard.
 : sm-plain-const? ( c -- flag )

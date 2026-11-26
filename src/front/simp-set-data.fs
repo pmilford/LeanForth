@@ -199,15 +199,16 @@ ssu-form ' ssu-clear s" simp_unfold" elab-add-kind41 constant simp-unfold-kind
 \ before _@, a macro's hygienic suffix) or a number part; the whole name's
 \ form checked first (elab-name-shape). The record read is the newest.
 : ssn-rec ( -- addr ) ss-procs slab-last ;
+\ A part's text, after a dot when a part came before, in one claim.
+: ssn-sep ( -- n ) ssn-rec ssp-name-u @ 0<> 1 and ;
+: ssn-put ( c-addr u addr -- ) ssn-sep if [char] . over c! char+ then swap move ;
 : ssn-move ( c-addr u i -- outcome )
-  ss-names slab-at swap dup ssn-rec ssp-name-u +! move outcome-ok ;
+  ss-names slab-at over ssn-sep + >r ssn-put r> ssn-rec ssp-name-u +! outcome-ok ;
 : ssn-bytes ( c-addr u -- outcome )
-  dup ss-names slab-claim elab-roomed ok-then? if ssn-move else nip nip then ;
-: ssn-dot ( -- outcome ) ssn-rec ssp-name-u @ if s" ." ssn-bytes else outcome-ok then ;
+  dup ssn-sep + ss-names slab-claim elab-roomed ok-then? if ssn-move else nip nip then ;
 : ssn-end ( -- outcome ) true ssn-rec ssp-scoped ! outcome-ok ;
 : ssn-text ( c-addr u -- outcome )
-  2dup s" _@" compare 0= if 2drop ssn-end exit then
-  ssn-dot ok-then? if ssn-bytes else nip nip then ;
+  2dup s" _@" compare 0= if 2drop ssn-end else ssn-bytes then ;
 : ssn-part ( item -- outcome )
   ssn-rec ssp-scoped @ if drop outcome-ok exit then
   elab-string if ssn-text else ssn-end then ;

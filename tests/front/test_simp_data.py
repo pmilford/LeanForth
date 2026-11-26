@@ -229,6 +229,8 @@ CASES = {
                        "invalid", 11, 12),
     "proc-name": (set41(S_PROC, S_PROC.replace('["Char","isValue"]', '[]')), "invalid", 12, 10),
     "proc-keys-cut": (set41(S_PROC, S_PROC.replace(',"star"', '')), "invalid", 12, 30),
+    "proc-name-num": (set41(S_PROC, S_PROC.replace('["Char","isValue"]', '["Char",7,"isValue"]')),
+                      "ok", 0, 0),
     "v4-lemma": (assemble(GOOD + [S_ADD0]), "invalid", 6, 11),
     "set41-uncounted": (assemble(SET41, "4.1", drop="simp_lemma"), "invalid", 1, 10),
     "set-name-text": (set41(S_SET, S_SET.replace('"name":["simp"]', '"name":"simp"')),

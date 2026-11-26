@@ -93,13 +93,14 @@ require ./simprocs/nat.fs
   >r over lf-simp-pass r> ['] ds-cand? any? drop >r 2swap ds-out slab-cut drop r> ;
 : ds-procs-of ( e post? -- e' h step ) ds-cands ds-first ;
 : ds-procs-run ( e post? -- e' h step )
-  lf-simp-default? if ds-procs-of else drop lf-simp-pass then ;
+  lf-simp-default? if ds-procs-of else lf-simp-no-procs then ;
 ' ds-procs-run is lf-simp-procs
 \ dsimp's question (the dsimp guard, simp/main.fs): a dsimproc candidate.
 : ds-dsimproc? ( e base k -- e base flag ) over swap ds-pair drop simp-proc-dsimproc? ;
 : ds-dprocs? ( e post? -- flag )
   ds-cands ['] ds-dsimproc? any? -rot ds-out slab-cut drop ;
-: ds-dprocs-run ( e post? -- flag ) lf-simp-default? if ds-dprocs? else 2drop false then ;
+: ds-dprocs-run ( e post? -- flag )
+  lf-simp-default? if ds-dprocs? else lf-simp-no-dprocs then ;
 ' ds-dprocs-run is lf-simp-dprocs?
 
 base !   \ the BASE this file was loaded with

@@ -208,7 +208,7 @@ reason = "a bracket lemma claims its record before its root is built: or_self ge
 [[fault]]
 id = "simproc-skipped"
 file = "src/front/simp/default-set.fs"
-old = '''  lf-simp-default? if ds-procs-of else drop lf-simp-pass then ;'''
+old = '''  lf-simp-default? if ds-procs-of else lf-simp-no-procs then ;'''
 new = '''  drop lf-simp-pass ;'''
 test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
 reason = "the default simprocs never asked: if True then x else y is not x by reduceIte"
@@ -264,8 +264,8 @@ reason = "the record's last part is never stepped: a construction's last front b
 [[fault]]
 id = "simproc-name-scopes-kept"
 file = "src/front/simp-set-data.fs"
-old = '''  2dup s" _@" compare 0= if 2drop ssn-end exit then'''
-new = '''  2dup s" _@" compare 0= if 2drop outcome-ok exit then'''
+old = '''  2dup s" _@" compare 0= if 2drop ssn-end else ssn-bytes then ;'''
+new = '''  2dup s" _@" compare 0= if 2drop outcome-ok else ssn-bytes then ;'''
 test = "$GFORTH tests/front/simp-data.fs"
 reason = "a macro-made simproc's hygienic suffix kept in its name: UInt8.reduceEq is not found by its port's name"
 
@@ -296,8 +296,8 @@ reason = "a False condition takes the then branch: if False then x else y gives 
 [[fault]]
 id = "lit-guard-any"
 file = "src/front/simp/simprocs.fs"
-old = '''  dup lf-term-tag@ sp-lit-tags lf-tag-in? if drop true else sp-lit-head? then ;'''
-new = '''  drop true ;'''
+old = ''': sp-may-lit? ( a -- flag ) dup lf-term-tag@ sp-lit-tags lf-tag-in? swap sp-lit-head? or ;'''
+new = ''': sp-may-lit? ( a -- flag ) drop true ;'''
 test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
 reason = "every operand read as a literal's form: Int.reduceAdd's guard refuses x + 3, which Lean leaves (continue)"
 

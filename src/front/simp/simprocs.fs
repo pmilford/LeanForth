@@ -81,10 +81,8 @@ texts+ String.mk Nat.zero Nat.succ
 texts-end constant sp-lit-heads
 lf-tag-lit lf-tag-str lf-tag-mvar lf-tag-annotation 4 lf-tags constant sp-lit-tags
 : sp-lit-head? ( a -- flag )
-  lf-meta-head dup lf-mvar? if drop true exit then
-  ['] lf-meta-const-named? sp-lit-heads texts-find 0<> ;
-: sp-may-lit? ( a -- flag )
-  dup lf-term-tag@ sp-lit-tags lf-tag-in? if drop true else sp-lit-head? then ;
+  lf-meta-head dup lf-mvar? swap ['] lf-meta-const-named? sp-lit-heads texts-find 0<> or ;
+: sp-may-lit? ( a -- flag ) dup lf-term-tag@ sp-lit-tags lf-tag-in? swap sp-lit-head? or ;
 
 \ ---- The literal families' guard: argument i of e, of the m whose
 \ binder kinds getFunInfoNArgs gives (fun-info.fs), checked when it is
@@ -154,9 +152,10 @@ texts-end constant sp-lit-families
 : sp-named-ctor ( name -- c )
   dup lf-nat-succ-name? if drop sp-succ exit then
   dup lf-nat-zero-name? if drop sp-zero then ;
+\ (A term's constants are declared: lf-menv-find refuses any other.)
 : sp-ctor-name ( name -- c )
-  dup lf-menv-find? 0= if drop 0 exit then
-  lf-menv-kind lf-kind-constructor = if sp-named-ctor else drop 0 then ;
+  dup lf-menv-find lf-must lf-menv-kind lf-kind-constructor =
+  if sp-named-ctor else drop 0 then ;
 : sp-head-ctor ( a -- c )
   dup lf-lit-leaf? if sp-nat-ctor exit then
   dup lf-meta-head-name if sp-ctor-name ?dup if nip exit then then

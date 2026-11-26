@@ -197,6 +197,8 @@ T{ fixture left-name set-refused -> outcome-invalid 10 10 0 }T
 T{ fixture unfold-unknown set-refused -> outcome-invalid 11 12 0 }T
 T{ fixture proc-name set-refused -> outcome-invalid 12 10 0 }T
 T{ fixture proc-keys-cut set-refused ss-names slab-count -> outcome-invalid 12 30 0 0 }T
+\ A name with a number part: its text ends there (Char.7.isValue is Char).
+T{ fixture proc-name-num set-refused 0 simp-proc-name s" Char" compare -> outcome-ok 0 0 4 0 }T
 T{ fixture v4-lemma set-refused -> outcome-invalid 6 11 0 }T
 T{ fixture set41-uncounted set-refused -> outcome-invalid 1 10 0 }T
 T{ fixture set-name-text set-refused -> outcome-invalid 8 52 0 }T
@@ -225,7 +227,8 @@ T{ 0 ' read-good heap-sweep swap 0> -> 0 true }T
 : set-anew ( -- )
   anew ss-lemmas sweep-slab-anew ss-lefts sweep-slab-anew ss-procs sweep-slab-anew
   ss-unfolds sweep-slab-anew ss-sets sweep-slab-anew ss-pre sweep-slab-anew
-  ss-post sweep-slab-anew ss-proc-pre sweep-slab-anew ss-proc-post sweep-slab-anew ;
+  ss-post sweep-slab-anew ss-proc-pre sweep-slab-anew ss-proc-post sweep-slab-anew
+  ss-names sweep-slab-anew ;
 ' set-anew sweep-slabs-xt !
 : read-set ( e -- x outcome ) drop s" tests/front/simp-data/set41.elab.ndjson" fx set-kept swap ;
 T{ 0 ' read-set heap-sweep swap 0> -> 0 true }T

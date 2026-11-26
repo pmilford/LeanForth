@@ -5,7 +5,7 @@
 \ beq 7, ble 8, land 9, lor 10, xor 11, shiftLeft 12, shiftRight 13).
 \ Each operand is read by fromExpr? (getNatValue?, LitValues.lean:37: a
 \ raw literal, or OfNat.ofNat T n _ with whnfD T an application of Nat
-\ and n a raw literal; an annotation unsupported, mdata not ported);
+\ and n a raw literal);
 \ an operand with no value: continue.
 \ - reduceUnary (28): Nat.reduceSucc, n + 1; done, no proof (a dsimproc).
 \ - reduceBin (33): reduceAdd, reduceMul, reduceSub, reduceDiv,
@@ -33,10 +33,10 @@ require ../../nat-offset.fs
 require ../types.fs
 require ../simprocs.fs
 
-\ ---- getNatValue?.
-: sn-raw ( a -- lit true | false )
-  dup lf-term-tag@ lf-tag-annotation = if lf-unported then
-  dup lf-lit-leaf? if true else drop false then ;
+\ ---- getNatValue?. An annotated operand (consumeMData) never reaches a
+\ post port: the walk refuses it at its own reduceStep first (main.fs's
+\ sm-odd-tags), before its parent's post step.
+: sn-raw ( a -- lit true | false ) dup lf-lit-leaf? if true else drop false then ;
 : sn-nat-type? ( t -- flag ) lf-whnf-d! lf-meta-head s" Nat" lf-meta-const-named? ;
 : sn-of-nat ( a -- lit true | false )
   dup 0 3 lf-meta-nth-arg sn-nat-type?

@@ -66,6 +66,7 @@ s" Decidable" lf-mk-const0 p0 lf-mk-app s" hp" binder constant hp0
 : proc ( c-addr u -- p )   \ the slice's simproc record of a name
   simp-proc-count 0 do 2dup i simp-proc-name compare 0= if 2drop i unloop exit then loop
   2drop -1 ;
+: c0 ( c-addr u -- e ) lf-mk-const0 ;
 : cands# ( e post? -- n ) ds-cands >r ds-out slab-cut drop r> ;
 lf-simp-default
 
@@ -100,6 +101,9 @@ T{ 2<3 dup s" Nat.reduceGT" proc 0 lf-simproc-try passed? -> true }T
 : folded ( e -- u ) true stepped lf-simp-done <> abort" not done" drop lit-value ;
 T{ two+three folded 7 lit# 6 lit# *n folded 2 raw 3 raw +n folded -> 5 42 5 }T
 T{ x0 3 lit# +n dup true stepped passed? -> true }T
+\ An operand with no value: the second (2 + x), an OfNat of another type.
+: of-bool ( -- e ) s" OfNat.ofNat" 0 1 lf-mk-const s" Bool" c0 lf-mk-app 2 raw lf-mk-app x0 lf-mk-app ;
+T{ 2 lit# x0 +n dup true stepped passed? of-bool 3 lit# +n dup true stepped passed? -> true true }T
 \ Each operation of the table (Nat.lean:63-104), through its port (the
 \ instance argument, which the ports do not read, Nat itself here).
 : done-value ( e' h step -- u ) lf-simp-done <> abort" not done" drop lit-value ;
@@ -118,6 +122,20 @@ T{ 2 10 s" HPow.hPow" nat-bin s" Nat.reducePow" tried-on -> 1024 }T
 \ An exponent above exponentiation.threshold (256): continue, as
 \ checkExponent answers.
 T{ 2 300 s" HPow.hPow" nat-bin dup s" Nat.reducePow" proc 0 lf-simproc-try passed? -> true }T
+: pow-x ( -- e ) s" HPow.hPow" nat3 nat lf-mk-app x0 2 lit# 2 lf-mk-app-n ;
+T{ pow-x dup s" Nat.reducePow" proc 0 lf-simproc-try passed? -> true }T
+\ reduceLT and reduceGT: no value continue; on numerals evalPropStep:
+\ True or False, done, by eq_true_of_decide or eq_false_of_decide.
+: gt-like ( a b -- e ) s" GT.gt" lt-like ;
+: lt-tried ( e c-addr u -- outcome ) proc 0 tried ;
+T{ x0 3 lit# s" LT.lt" lt-like s" Nat.reduceLT" lt-tried x0 3 lit# gt-like s" Nat.reduceGT" lt-tried
+   -> outcome-ok outcome-ok }T
+: lt-decided ( e c-addr u -- e' flag )
+  proc 0 lf-simproc-try lf-simp-done = swap s" eq_true_of_decide" head? and ;
+T{ 2<3 s" Nat.reduceLT" lt-decided swap s" True" head? -> true true }T
+T{ 3 lit# 2 lit# gt-like s" Nat.reduceGT" lt-decided swap s" True" head? -> true true }T
+T{ 3 lit# 2 lit# s" LT.lt" lt-like s" Nat.reduceLT" proc 0 lf-simproc-try drop
+   s" eq_false_of_decide" head? swap s" False" head? -> true true }T
 : gcd ( u1 u2 -- e ) lit# swap lit# swap s" Nat.gcd" lf-mk-const0 -rot 2 lf-mk-app-n ;
 T{ 12 18 gcd s" Nat.reduceGcd" tried-on -> 6 }T
 : succ ( u -- e ) lit# s" Nat.succ" lf-mk-const0 swap lf-mk-app ;
@@ -181,10 +199,17 @@ T{ x0 1 lit# +n 3 lit# diff x0 3 lit# diff x0 y0 +n 3 lit# diff 2 lit# 3 lit# di
 T{ x0 1 lit# +n 0 raw ctor x0 0 lit# ctor x0 1 lit# +n y0 1 lit# +n ctor 0 raw 0 raw ctor
    -> outcome-unsupported outcome-ok outcome-ok outcome-ok }T
 T{ 2 lit# 3 lit# ctor 1 raw 0 raw ctor -> outcome-unsupported outcome-unsupported }T
+\ A constructor at the head: Nat.zero beside an offset (unsupported),
+\ Nat.succ itself on both sides, Bool's two constructors (unsupported).
+T{ s" Nat.zero" c0 x0 1 lit# +n ctor s" Nat.succ" c0 dup ctor s" Bool.true" c0 s" Bool.false" c0 ctor
+   -> outcome-unsupported outcome-ok outcome-unsupported }T
 \ The literal families' guard: every explicit operand a literal's form
 \ unsupported; one that is none continue.
 : int-add ( a b -- outcome ) +n s" Int.reduceAdd" proc 0 tried ;
 T{ 2 lit# 3 lit# int-add x0 3 lit# int-add -> outcome-unsupported outcome-ok }T
+T{ 2 raw 3 raw int-add -> outcome-unsupported }T
+\ An argument beyond its head's parameters (x applied to y): checked.
+T{ x0 y0 lf-mk-app dup sp-lit-guard passed? -> true }T
 \ Others, unsupported wherever their keys match.
 T{ x0 x0 lf-mk-eq s" Char.Nat.reduceEqDigitChar" proc 0 tried
    x0 s" Char.Nat.reduceEqDigitChar" proc 0 tried -> outcome-unsupported outcome-ok }T
@@ -207,6 +232,21 @@ ds-out slab-clear
 T{ two+three true cands# x0 true cands# -> 1 0 }T
 \ dsimp's question: a dsimproc candidate (none of a variable's).
 T{ x0 false lf-simp-dprocs? x0 true lf-simp-dprocs? -> false false }T
+T{ two+three true lf-simp-dprocs? 2<3 true lf-simp-dprocs? -> true false }T
+\ The dsimp guard refuses a node a dsimproc could change (a stand-in
+\ hook answering yes), and a pre simproc's done is cached as it is (a
+\ stand-in answering y for every term at its pre step).
+: yes ( e post? -- flag ) 2drop true ;
+: pre-y ( e post? -- e' h step ) if lf-simp-pass else drop y0 lf-simp-none lf-simp-done then ;
+' yes is lf-simp-dprocs?
+T{ x0 sm-kept? -> false }T
+' ds-dprocs-run is lf-simp-dprocs?   ' pre-y is lf-simp-procs
+T{ x0 simp lf-simp-steps -> y0 lf-simp-none 1 }T
+' ds-procs-run is lf-simp-procs
+\ A set that is not the default one: no simprocs.
+lf-simp-set-new
+T{ two+three dup true lf-simp-procs passed? two+three true lf-simp-dprocs? -> true false }T
+lf-simp-default
 
 \ ---- 4. Every heap allocation of a run with simprocs refused in turn:
 \ full or the answer (if 2 + 3 = 5 then x else y is x).
