@@ -193,6 +193,7 @@ tests/core/compact-bench.fs        manual  report-only benchmark
 tests/lib/bignum-bench.fs          manual  report-only benchmark
 tests/lib/lib-bench.fs             manual  report-only benchmark of every library (make lib-bench)
 tests/lib/bignum_bench.py          manual  report-only benchmark against Python
+tests/front/simp_init_summary.py   manual  the simp-init measurement's summary (docs/development/measurements/simp-init-2026-11-26)
 tests/lib/sha256-bench.fs          manual  report-only benchmark
 tests/lib/task-bench.fs            manual  report-only benchmark
 tests/front/check_binder_kinds.py  manual  make reference-binder-kinds, a measurement on all of Init

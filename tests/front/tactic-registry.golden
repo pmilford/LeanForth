@@ -356,6 +356,7 @@ reserved by-revert[ word
 reserved by-right word
 reserved by-rwa[ word
 reserved by-simp-only[ word
+reserved by-simp word
 reserved by-skip word
 reserved by-specialize word
 reserved by-subst word
@@ -432,10 +433,11 @@ kind 66 by-revert[ 0 revert run
 kind 67 by-right 0 right run
 kind 68 by-rwa[ 0 rwa run
 kind 69 by-simp-only[ 0 simp run
-kind 70 by-skip 0 skip run
-kind 71 by-specialize 0 specialize run
-kind 72 by-subst 0 subst run
-kind 73 by-subst[ 0 subst run
-kind 74 by-subst-vars 0 subst_vars run
-kind 75 by-swap 0 swap run
-kind 76 by-symm 0 symm run
+kind 70 by-simp 0 simp run
+kind 71 by-skip 0 skip run
+kind 72 by-specialize 0 specialize run
+kind 73 by-subst 0 subst run
+kind 74 by-subst[ 0 subst run
+kind 75 by-subst-vars 0 subst_vars run
+kind 76 by-swap 0 swap run
+kind 77 by-symm 0 symm run
