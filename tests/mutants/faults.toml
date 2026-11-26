@@ -7907,7 +7907,7 @@ file = "src/kernel/replace-memo.fs"
 old = '''  tuck lf-rmemo-keeps? if drop else lf-rmemo-drop then ;'''
 new = '''  2drop ;'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
-reason = "EX: every pass after the first shares one number, so a pass with y gets the results of an earlier pass with x"
+reason = "EX: a stamped call that fails keeps its results, so a later call of its stamp finds them (an unstamped call keeps none since kernel-speed-3)"
 
 [[fault]]
 id = "ex-range-one-short"

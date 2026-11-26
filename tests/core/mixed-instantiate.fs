@@ -455,6 +455,10 @@ T{ 0 u-keep outcome-invalid u-end u-call 0 u-find -> false }T
 T{ 0 u-keep u-rmemo lf-rmemo-count u-call 0 u-find u-rmemo lf-rmemo-count -> 1 false 0 }T
 T{ 7 u-rmemo lf-rmemo-begin 0 u-keep outcome-ok u-end u-call 0 u-find -> false }T
 T{ outcome-ok u-end 7 u-rmemo lf-rmemo-begin 0 u-find outcome-ok u-end -> true }T
+\ A stamped call that fails has its entries taken out: the next call of
+\ its stamp finds the earlier entry, not the failed call's.
+T{ 7 u-rmemo lf-rmemo-begin 5 u-keep outcome-invalid u-end -> }T
+T{ 7 u-rmemo lf-rmemo-begin 5 u-find 0 u-find outcome-ok u-end -> false true }T
 \ A call that keeps 600 entries grows the scratch memo while it runs and
 \ finds each; the next unstamped call begins by emptying it whole (more
 \ than lf-rmemo-scratch-most), its numbering begun again; the stamped
@@ -504,6 +508,9 @@ T{ lam-ab 100 walk-with tf frame-context @ -> lam-ab outcome-ok 0 }T
 T{ 4 log@ 7 log@ 10 log@ 13 log@ -> 0 1 1 1 }T
 \ A failure deep inside gives the cells and the context back.
 T{ lam-ab 2 walk-with tf frame-used @ tf frame-context @ -> -1 outcome-exhausted 0 0 }T
+\ A node to rebuild whose room the heap refuses is full, nothing kept.
+T{ tf frame-free 1 heap-refusals ! ab tf lf-walk-into heap-refusals @ tf frame-used @
+   -> -1 outcome-full tf true 0 0 }T
 \ The real steps at the binder limit: a lambda over a live free variable
 \ (no data word decides it) at context max-n is full before any child is
 \ charged, recorded as a full binder context.
@@ -526,6 +533,11 @@ T{ plain-sort 0 lf-term-bvar drop lf-term-app drop 1 inst nip -> outcome-invalid
 0 lf-term-bvar drop 77 lf-term-bvar drop lf-term-app drop constant fresh-app
 T{ fresh-app 1+ lf-term-count @ lf-term-base + = -> true }T
 T{ -1 lf-term-count +! fresh-app 1 inst 1 lf-term-count +! -> -1 outcome-invalid }T
+\ A binary node whose child is not below it (a record changed in place)
+\ is refused before any child is visited.
+: first-field ( node -- addr ) lf-term-slot 1 u32s + ;
+T{ fresh-app first-field u32@ fresh-app fresh-app first-field u32! fresh-app 1 inst
+   rot fresh-app first-field u32! -> -1 outcome-invalid }T
 \ A closed root comes back for its one unit; with none left it is
 \ exhausted, as the frame machine's admission refuses.
 1 1 lf-term-app drop constant closed-11
