@@ -1106,7 +1106,7 @@
   "tokens": 6
  },
  "8c62bb325216": {
-  "copies": 7,
+  "copies": 8,
   "kind": "shape",
   "members": [
    "src/core/levels.fs:lf-level-child-params?",
@@ -1115,9 +1115,10 @@
    "src/front/mvars.fs:mvl-value-of",
    "src/front/mvars.fs:mvl-open?",
    "src/kernel/environment.fs:lf-env-valid?",
+   "src/kernel/mixed-open.fs:lf-open-quick?",
    "src/present/print-forth.fs:lf-pf-declarable?"
   ],
-  "reason": "false positive: the guarded test `dup a? if b else drop false then` of two different words each time (as group 0268), seven members in five files; a word taking two xts would be no shorter (cleanup-families-2)",
+  "reason": "false positive: the guarded test `dup a? if b else drop false then` of two different words each time (as group 0268), eight members in six files; a word taking two xts would be no shorter (cleanup-families-2; lf-open-quick? in the form the kernel-speed-3 Forth review's finding 8 wrote)",
   "tokens": 8
  },
  "8cf291e5b543": {
