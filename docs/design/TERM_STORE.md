@@ -329,3 +329,39 @@ conses, one rebuild of 327,767 visits.
   (`lf-term-identity` 2.91%) by half: 10 s; together 30-50 s with the overlap of slice 1 removed.
 - Slice 5: the reads family's exclusive share after slices 1-4 (estimate about 25% of 450 s), halved
   for its instruction part as in the chase benchmark's col -> raw step: 30-60 s.
+
+## Corrections after the design review (2026-11-25 22:16, binding; they replace the text above where they differ)
+
+From the independent review, [2026-11-25-term-store.md](../development/design-reviews/2026-11-25-term-store.md)
+(verdict: rework the measurement and the decision rule before the walker slice; the table work may go ahead).
+
+1. **The cost of one instantiation visit, by layer** (from the profile of main, 250 s of the pass over about
+   327 M visits, about 765 ns a visit; this replaces section 1's split): hash-consing of rebuilt nodes 186 ns;
+   replace-memo lookups and inserts 178 ns; the memo's end, its entries deleted one by one, 82 ns; reads and
+   dispatch 111 ns; frames 66 ns; validity 51 ns; the closed test 46 ns; other pass setup 44 ns; outcome
+   plumbing 2 ns. **The hash tables are 58% of a visit, the frame machinery 9%.** The pass makes no audits.
+2. **The floor benchmark did not do the same work** (no memo, almost no new nodes, no input-tier reads). A
+   fair floor for one visit in pure Forth is about 130-230 ns (estimate), not 16-24 ns.
+3. **Work Lean does not do** also includes hash-consing (Lean's `mk_app` allocates and probes no table;
+   `lf-term-cons` is about 80 s of Init) and the memo's per-entry deletion (about 20 s; Lean throws its cache
+   away whole). The audit's removable part is at most about 8 s; the audit stays.
+4. **"The same nodes as Lean" is approximate**: LeanForth descends into closed nodes that hold a free
+   variable, for its liveness check (3-4% more visits); Lean consults its cache more often than LeanForth.
+   The free-variable rule stays.
+5. **Native primitives and macros are trusted kernel code**: a false hit in the cons probe or the memo probe
+   gives a different term, and the fuel step decides exhaustion. The sentence "none decides verdicts" is
+   withdrawn. Native code keeps the owner's gate, and needs a C compiler where libcc is used.
+6. **The walker slice's conditions for identical fuel**: the second child is charged only after the first
+   child's subtree returns; the binder check stays before any child is charged; every per-leaf fail-closed
+   test stays (unknown tag, well-formed bound variable, live free variable); the room numbers of a "full"
+   diagnostic change once and are declared and tested; depth stays bounded by the heap frame stack.
+7. **The decision rule** uses separate numbers, not one ns-per-visit figure: walk ns per visit without cons
+   and memo, ns per cons, ns per memo operation, and hash probes per unit of fuel (2.4 on the decide slice
+   today). Reachable ratios, until a prototype shows more (estimates): plain colon words 8-12 times Lean,
+   with macros 6-9, with native primitives 4-6. All five slices end near 450-500 s (13-16 times Lean).
+8. **Order and grouping**: first a throwaway prototype of instantiation in a scratch copy, never merged
+   (lean walker; the memo cut as one reset with a stored hash; the leaf entry by a dense array), measured on
+   the decide slice and one profiled run of Init; then two groups instead of five: the table work (slices 1
+   and 4 with the memo cut), and the walker with universe substitution on it (slices 2 and 3). Slice 5 is
+   dropped as a slice.
+
