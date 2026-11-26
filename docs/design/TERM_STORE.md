@@ -400,11 +400,18 @@ third, P2, was landed, measured on Init and dropped; P4 was left out.
   and that dense array (about 49 MB, 7.6% of main's peak) is past the 5% the owner allowed for P4. The leaf
   lookup that refuses a leaf without an entry is unchanged.
 
-**The declared exception.** A closed root and a kept child take no frame room, and a rebuilt node takes two
-cells where a frame visit took up to eleven: the room numbers (cells in use, capacity) in a "full" diagnostic
-of a frame stack the heap refused, and the step at which such a refusal lands, may differ; when a refusal lands
-at another step, the fuel left at that failure may differ with it. Nothing else differs: fuel, verdicts,
-diagnostics and JSON are identical whenever the heap grants what is asked. Tests changed for it, in
+**The declared exception: heap refusals.** A closed root and a kept child take no frame room, a rebuilt node
+takes two cells where a frame visit took up to eleven, a closed root pushes no scratch mark, and P1 makes two
+memos per replace-memo record where main made one. So any heap refusal -- of the frames' stack, of either
+replace memo (all four records: `mixed-open.fs`'s, for instantiation and abstract; shift's; `lf-minst`'s;
+the nested inductive check's), of the scratch-mark stack -- may land at another step, and the outcome and the fuel left at a
+refused allocation may differ, including full against ok, or exhausted (a refused memo making a DAG's walk
+exponential) against ok; the room numbers (cells in use, capacity) of a "full" diagnostic may differ too. The
+Forth review's refusal sweep (2026-11-26: four terms, five modes, refusals 1 to 11) found 25 of 55 points per
+term different, every one under a refusal. Nothing differs when the heap grants every request: fuel, verdicts,
+diagnostics and JSON are then identical (the review's differential runs, every fuel limit from 1, both
+engines). A refusal of one of the two memos remakes that memo alone at the next call, so the table keeps its
+stamped entries as main's single memo did (the fix round). Tests changed for it, in
 `tests/core/mixed-instantiate.fs`: "a growth the heap refuses is full" now expects the closed chain
 `deep 1 rev` to come back ok for its one unit (999 fuel left, the refusal unused), and adds an open chain that
 is still full under the refusal, and walked on one unit a node without it. No other existing expectation

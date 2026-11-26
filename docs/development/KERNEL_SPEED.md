@@ -121,6 +121,10 @@ absolute).
   root's frame (`frame-call`, after `frame-admit`'s soundness, fuel and room tests, charging the root's unit)
   is what makes the record busy, which `lf-open-ready` reads against re-entry; `frame-start` sets the binder
   depth the walk changes; the scratch mark is the rollback of a failed walk's nodes.
+- One exception is declared ([TERM_STORE.md](../design/TERM_STORE.md) "As landed (group kernel-speed-3)"):
+  any heap refusal (the frames' stack, either replace memo, the scratch-mark stack) may land at another step,
+  and the outcome and fuel at a refused allocation may differ, including full against ok. Nothing differs when
+  the heap grants every request.
 
 ## 1. Time by family, beside Lean and nanoda
 
