@@ -1997,7 +1997,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules (or terms), in order; closes it | Ends the list of `by-rw[`, `by-rewrite[`, `by-rwa[`, `by-simp-only[`, `by-exacts[` or `by-exists[`; with none open, error 83; with a `<<` open inside the list, 458 at `<<` (its `>>` is missing). | `]` |
 | `<-` | `( r -- )` (top: the rule just written) | ordinary; only inside `by-rw[`, `by-rewrite[`, `by-rwa[` or `by-simp-only[` (83 elsewhere), after a rule (86) | read: the values so far become the bracket's rules, the last one marked right to left | Rewrites with r from right to left. | `← r` |
 | `by-rwa[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, then `rfl` (reducible) or else `assumption` | Rewrites, then closes the goal; neither closes it: 381; `rfl` failing on a goal that is no `=` (a `≤`, a negation) falls to the hypothesis, as Lean's. With `at[ h ]`, rewrites h and closes the goal with it (456 when its type differs). | `rwa [` |
-| `by-simp-only[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: a block step. Run: simplifies the main goal's target, or the hypotheses of a trailing `at[ ]`, with the rules, `eq_self` and `iff_self` (see [D.10](#d10-by-simp-only--simp-only)) | Rewrites the goal with the equations given until none applies; closes it when it becomes `True` (or a hypothesis `False`); nothing changed: 500; a variable that is no proposition: 501; `<-` on one that is no equation: 502; a case not ported yet: 99. | `simp only [` |
+| `by-simp-only[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: a block step. Run: simplifies the main goal's target, or the hypotheses of a trailing `at[ ]` (`at[ * ]`: every hypothesis nothing depends on, and the target), with the rules, `eq_self` and `iff_self` (see [D.10](#d10-by-simp-only--simp-only)) | Rewrites the goal with the equations given (and those `↔`, `¬`, `≠`, `∧` and `∀` hypotheses give) until none applies; closes it when it becomes `True` (or a hypothesis `False`); nothing changed: 500; a variable that is no proposition: 501; `<-` on a rule to `True`: 502, to `False` (a `¬` or `≠`): 503; a case not ported yet: 99. | `simp only [` |
 | `at[ HYP-NAME ... ]` | `( -- )` | parsing: names up to `]`, over lines (458 at `at[` when a LeanForth word other than `_` and `*`, or the text's end, comes first); right after `by-rw[ ]`, `by-rewrite[ ]`, `by-rwa[ ]`, `by-change`, `by-symm`, `by-delta` (453 elsewhere) | read: the names (and `\|-` or `⊢` for the goal, or `*` alone) become the step's location | Runs the tactic at each hypothesis named, then at the goal when named (455 unknown name, reported at the tactic's word; `*`: 99; no name, `_`, `*` among names: 454). | `at h ⊢` |
 | `by-intro[ HYP-NAME ... ]` | `( -- )` | parsing: names up to `]`, over lines (458 at `by-intro[` when a LeanForth word other than `_` and `*`, or the text's end, comes first), `_` an inaccessible one, none allowed | read: a step; each name a hypothesis word. Run: `by-intro:`'s step for each name in turn; none: one inaccessible | Introduces the goal's first binders as the names; too many: 94; `rfl`: 99; `*`: 84. | `intro a b c` |
 | `by-revert[ HYP-NAME ... ]` | `( -- )` | parsing: names of hypotheses up to `]`, over lines (458 at `by-revert[` when a LeanForth word other than `_` and `*`, or the text's end, comes first; 459 for `_` or `*`; 460 for none) | read: a step. Run: the main goal's locals so named reverted at once, with those depending on them | Puts the hypotheses back into the goal in the context's order; unknown name: 455 (at `by-revert[`; Lean reports it at the name); a constant: 99. | `revert h k` |
@@ -2645,7 +2645,7 @@ pattern's walk (no test meets a pending problem there).
 
 `by-simp-only[ r1 ... rn ]` is Lean's `simp only [r1, ..., rn]`
 (`src/front/tactics/simp-only.fs` over `src/front/simp/`, plan row FE9,
-slices SL1a-1 and SL1a-2 of `docs/design/TACTIC_SIMP.md`). It rewrites the
+slices SL1a-1, SL1a-2 and part of SL1b of `docs/design/TACTIC_SIMP.md`). It rewrites the
 main goal's target (or, with `at[ ]` below, hypotheses) with the equations
 given, everywhere and again and again, until
 none applies, the way Lean's simplifier does: the same rules in the same
@@ -2663,10 +2663,16 @@ and a name:
   equation (`n + 0 = n`), used left to right;
 - `' h`: a hypothesis of the goal, named in the statement or introduced
   by a tactic (`by-intro:`, `by-have:`). An equation `h : a = b` rewrites
-  `a` to `b`; any other proposition `h : p` (such as `a ≤ b`) rewrites `p`
-  to `True` (Lean's `eq_true h`);
+  `a` to `b`; an `↔`, `h : p ↔ q`, rewrites `p` to `q` (Lean's
+  `propext h`); a negation `h : ¬ p` rewrites `p` to `False` (Lean's
+  `eq_false h`), and so does `h : a ≠ b`, which is `¬ (a = b)`, for
+  `a = b`; a conjunction `h : p ∧ q` gives a rule for each part (`h.1`,
+  then `h.2`, each again by these cases); a `∀`, `h : ∀ x, f x = g x`,
+  rewrites every `f t` to `g t` (Lean's `fun x => h x`, applied to `t`);
+  any other proposition `h : p` (such as `a ≤ b`) rewrites `p` to `True`
+  (Lean's `eq_true h`) (slice SL1b, `src/front/simp/preprocess.fs`);
 - `' h <-`: the equation `h : a = b` right to left (Lean's `← h`), so
-  `b` is rewritten to `a` (by `Eq.symm h`);
+  `b` is rewritten to `a` (by `Eq.symm h`); the same for an `↔`;
 - nothing at all: `by-simp-only[ ]` uses only `eq_self` and `iff_self`.
 
 Rules are separated by spaces, not commas: Lean's
@@ -2735,6 +2741,36 @@ at[ h ]` with `h : a = b` makes `h : True` (Lean does the same). "No
 progress" (error 500) is given only when nothing changed at any of the
 places.
 
+**Every hypothesis: `at[ * ]`** (Lean's `simp only [..] at *`, slice
+SL1b): the target and every hypothesis that is a proposition, is no
+`let` and that no other hypothesis or the target mentions (Lean's
+`getNondepPropHyps`), the hypotheses in the order of the context, then
+the target. "No progress" is again error 500, given only when nothing
+changed anywhere.
+
+| Form | Example |
+| --- | --- |
+| mathematics | if $a = b$ and $a + 0 = c$ then $a + 0 = c$, simplified everywhere to $b = c$ |
+| LeanForth | `a b = explicit: h`, `a 0 + c = explicit: k` and `a 0 + c =`, proved by `by-simp-only[ ' h ' Nat.add_zero ] at[ * ]` then `' k by-exact` |
+| Lean | `theorem simp_at_star_all (a b c : Nat) (h : a = b) (k : a + 0 = c) : a + 0 = c := by simp only [h, Nat.add_zero] at *; exact k` |
+
+`h` rewrites itself to `True`; `k` and the target both become `b = c`
+(`tests/front/tactics/simp-2/simp-star.lf`).
+
+**Hypotheses that are no equation** (`simp-hyps.lf`, each term equal to
+pinned Lean's):
+
+| Form | Example |
+| --- | --- |
+| mathematics | if $a \le b \iff b \le a$ and $b \le a$, then $a \le b$ |
+| LeanForth | `a b ≤ b a ≤ ↔ explicit: h` and `b a ≤ explicit: hq`, the goal `a b ≤`, proved by `by-simp-only[ ' h ]` then `' hq by-exact` |
+| Lean | `theorem simp_iff (a b : Nat) (h : a ≤ b ↔ b ≤ a) (hq : b ≤ a) : a ≤ b := by simp only [h]; exact hq` |
+
+With `h : ¬ a ≤ b` (LeanForth `a b ≤ ¬ explicit: h`) and `k : a ≤ b`,
+`by-simp-only[ ' h ] at[ k ]` turns `k` into `False` and closes the goal
+(Lean: `simp only [h] at k`); with `h : a ≤ b ∧ b ≤ a` (`a b ≤ b a ≤ ∧`),
+`by-simp-only[ ' h ]` proves `b a ≤` by `h.2` alone, as Lean's term.
+
 | Form | Example |
 | --- | --- |
 | mathematics | if $a + 0 = b$ then $a = b$ |
@@ -2785,17 +2821,23 @@ refuses (plan 9.4.8z2): a variable that is no proposition, `' a` with
 proposition or let-declaration"; and `<-` on a hypothesis that is no
 equation, `' h <-` with `h : a ≤ b`, error 502 "Invalid `←` modifier:
 Cannot be applied to a rule that rewrites to `True`", with Lean's note
-naming `a ≤ b`.
+naming `a ≤ b`; and `<-` on a negation (or a `≠`), error 503 "Invalid
+`←` modifier: Cannot be applied to simp theorems of the form `¬ P`",
+with Lean's note that the rule would rewrite `a ≤ b` to `False`.
 
 **Not supported yet** (exit 2, error 99 at `by-simp-only[`; Lean accepts
 each):
 
-- `at[ * ]` (every hypothesis), and a hypothesis changed by definition
-  that another hypothesis or the target depends on;
+- a hypothesis changed by definition that another hypothesis or the
+  target depends on;
 - a let variable as a rule (Lean unfolds it);
 - a library theorem written with `<-` (Lean makes an auxiliary lemma);
-- a hypothesis that is an `↔`, a `¬`, a `≠`, an `∧`, an implication or
-  a `∀` statement (Lean turns each into other rules);
+- a hypothesis that is an `∧` inside an `∧` (`h.2.2`: its type is a
+  nested inference, plan FE1c), the negation of an equation to `true` or
+  `false` (Lean's `Bool.of_not_eq_true`), and an implication used as a
+  rule (`h : c → a = b`: proving `c` needs simp's discharger, slice SL2);
+  a `∀` hypothesis is a rule, but no LeanForth statement can hold one yet
+  (it is unit-tested);
 - a rule whose two sides are the same term or may swap (`h : True`, used
   as `True = True`, or `Nat.add_comm`: Lean's permutation rules);
 - a definition to unfold (`' Nat.add`), a term in `<< >>`, a theorem

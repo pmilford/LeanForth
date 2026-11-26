@@ -1,7 +1,7 @@
 -- Pinned Lean twins of tests/front/tactics/simp-2/*.lf (plan row FE9, simp slice SL1a-2:
 -- simp only at hypotheses): tactic_check.py --lean writes simp-2.golden from this file's
--- terms, which LeanForth's must equal node for node. u_and_nested is the text LeanForth
--- answers 99 (not supported yet) for; Lean accepts it. (A hypothesis changed by defeq that
+-- terms, which LeanForth's must equal node for node. The u_ theorems are the texts LeanForth
+-- answers 99 (not supported yet) for; Lean accepts them. (A hypothesis changed by defeq that
 -- another depends on, also 99, is unit-tested: LeanForth's text cannot state `h = h`.)
 import Lean
 open Lean Meta Elab Tactic
@@ -67,6 +67,16 @@ theorem simp_and_order (a b c d : Nat) (h : a = b ∧ a = c) (k : b = d) : a = d
   exact k
 theorem u_and_nested (a b c : Nat) (h : a ≤ b ∧ b ≤ c ∧ c = a) : c ≤ b := by
   simp only [h]
+theorem u_binder_arrow (a b c : Nat) (h2 : a = c) (h : a = b) : c = b := by
+  revert h
+  simp only [h2]
+  intro h
+  exact h
+theorem u_binder_forall (a : Nat) : a + 0 = a := by
+  revert a
+  simp only [Nat.add_zero]
+  intro a
+  exact True.intro
 
 def pl (l : Level) : String := match l.toNat with
   | some n => toString n
@@ -95,5 +105,5 @@ def dump (n : Name) : MetaM Unit := do
       ``simp_at_false, ``simp_at_false_defeq, ``simp_at_true, ``simp_at_one_still,
       ``simp_at_goal_kept, ``simp_at_star, ``simp_at_star_all, ``simp_at_star_false,
       ``simp_at_later, ``simp_iff, ``simp_iff_symm, ``simp_not, ``simp_ne,
-      ``simp_ne_target, ``simp_and, ``simp_and_order, ``u_and_nested] do
+      ``simp_ne_target, ``simp_and, ``simp_and_order, ``u_and_nested, ``u_binder_arrow, ``u_binder_forall] do
     dump n
