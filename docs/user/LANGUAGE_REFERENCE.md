@@ -3054,10 +3054,13 @@ class, in the statement or in a tactic, is error 139 (not supported yet,
 exit 2), where Lean would use the local instance (and, in
 `(d : Decidable True) : decide True = true := by rfl`, then refuse the
 proof). The check asks the class only: `(d : Decidable True)` stops a
-search for `Decidable (a = b)` too. Not supported yet either: a local
-whose type is a pi whose body is a definition, such as
+search for `Decidable (a = b)` too. Not supported yet either (error 93,
+exit 2): a local whose type is a pi whose body is a definition, such as
 `(h : ∀ x, x ≠ b)` (Lean unfolds it under the binders to decide whether
-it is a class).
+it is a class), most often reached by `by-have` of a library lemma whose
+statement is one, such as `' Nat.succ_ne_zero by-have` (`∀ n, n + 1 ≠ 0`),
+which Lean accepts (plan row 9.4.8z12 (e) ports whnf under the binders).
+An implementation-detail local is never a local instance, as in Lean.
 
 Names are resolved when the text is read, so `0 by-iterate ' nonexistent
 by-exact by-end` is error 1 (exit 4) where Lean accepts it, as

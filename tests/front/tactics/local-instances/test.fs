@@ -73,6 +73,10 @@ T{ ld lf-local-classed made dup ld <> swap s" Decidable" class-named? ld lf-loca
    -> true true 0 }T
 s" DecidableEq" nat 1 lf-mk-app-m local-of constant lq
 T{ lq lf-local-classed made s" Decidable" class-named? -> true }T
+\ An implementation detail of a class's type is kept as it is (Lean's
+\ withNewLocalInstances skips it: isImplementationDetail).
+ttrue dec lf-lctx-local made 0 lf-local-impl-detail lf-local-new made constant li-detail
+T{ li-detail lf-local-classed made li-detail = li-detail lf-local-class -> true 0 }T
 fa fb ne local-of constant ln
 T{ ln lf-local-classed made ln = ln lf-local-class -> true 0 }T
 T{ fx fb ne fx all-x local-of lf-local-classed nip -> outcome-unsupported }T

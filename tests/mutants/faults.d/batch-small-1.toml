@@ -289,6 +289,14 @@ new = '''  dup >r swap >r tl-let-fvar r> lf-binder-default r> if tl-pushed else 
 test = "$GFORTH tests/front/tactics/local-instances/test.fs"
 reason = "re-check finding 2 (its F3, the dependent let alone): a let's local is pushed unmarked, so by-let:'s class-typed local is no local instance where Lean's mkLetDecl makes one (test.fs's by-let: e: 139)"
 
+[[fault]]
+id = "sm1-local-instance-detail-classed"
+file = "src/front/local-instances.fs"
+old = '''  dup lf-local-detail? if outcome-ok else li-typed then ;'''
+new = '''  li-typed ;'''
+test = "$GFORTH tests/front/tactics/local-instances/test.fs"
+reason = "re-check finding 4: an implementation-detail local of a class's type is made a local instance, where withNewLocalInstances skips it (test.fs's detail local kept as it is)"
+
 # The runner's bound on Lean's recursion depth (re-check of the Forth review, finding 1:
 # tactic-run.fs's lf-tac-depth-most and the modes' weights), caught by
 # tests/front/tactics/rec-depth/test.fs.

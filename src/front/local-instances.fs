@@ -57,9 +57,13 @@ require ./instances.fs
 : li-named ( d -- name outcome ) lf-menv-name outcome-ok ;
 : li-name ( class -- name outcome ) lf-menv-of-data ['] li-named ok-apply ;
 : li-mark ( local class -- local' outcome ) li-name ['] lf-local-instance ok-apply2 ;
-: li-classed ( local -- local' outcome )
+: li-typed ( local -- local' outcome )
   dup lf-local-fvar lf-fvar-type lf-class-whnf? ok-then? 0= if exit then
   if li-mark else outcome-ok then ;
+\ (An implementation detail is never one: withNewLocalInstances skips
+\ it, isImplementationDetail, Meta/Basic.lean:1417-1422.)
+: li-classed ( local -- local' outcome )
+  dup lf-local-detail? if outcome-ok else li-typed then ;
 ' li-classed is lf-local-classed
 
 base !   \ the BASE this file was loaded with
