@@ -13,9 +13,12 @@ Lean, has written RAW for the modules of the Lean export EXPORT (made by
 scripts/export.sh, so with its manifest beside it). It writes OUTPUT, the
 elaboration data LeanForth reads (`leanforth check --elab-data OUTPUT`;
 src/front/elab-data.fs and, for format 4, src/front/simp-data.fs), format
-version 4 with --format 4 (RAW then written with export_elab.lean --simp:
-also the @[congr] lemmas and the defeq tags simp reads, docs/design/
-SIMP_DATA.md section 3, slice SD-a of docs/design/TACTIC_SIMP.md), else
+version 4 with --format 4 (RAW then holding scripts/export_simp.lean's
+records under a header with "simp": true, as scripts/export-elab.sh joins
+them: also the @[congr] lemmas and the defeq tags simp reads, docs/design/
+SIMP_DATA.md section 3, slice SD-a of docs/design/TACTIC_SIMP.md), format
+version "4.1" with --format 4.1 (also the congruence theorems Lean realized
+in the library, slice SD-b), else
 format version 3, or 3.1 when a smart-unfolding
 body holds metadata LeanForth does not carry (Lean's save_info and
 noImplicitLambda annotations, Mathlib's TermCongr hole: each written as
@@ -28,7 +31,8 @@ in docs/programming/ELABORATION_DATA.md and schemas/elab-data-3.schema.json:
             SHA-256 of every line after this one, each with its line feed
   then      one record per line, sorted by kind (class, instance,
             instance_left_out, default_instance, reducibility, eliminator,
-            tag, matcher, projection, sunfold, binder_kinds, congr) and
+            tag, matcher, projection, sunfold, binder_kinds, congr,
+            realized) and
             then by text, the congr records by their function's name and
             then their rank, so that each function's lemmas are a run of
             lines in the order simp tries them
@@ -60,7 +64,13 @@ as it is, so the same input always gives the same bytes. A congruence
 lemma is kept when the export has its function and the lemma; an export
 that has the function but not the lemma is refused (simp would otherwise
 take another route than Lean's, docs/design/TACTIC_SIMP.md section 4:
-add the lemma to the slice's roots). It runs at export
+add the lemma to the slice's roots). A realized congruence theorem
+NAME.congr_simp is kept when the export has it and NAME, else left out (Init's
+export lacks 20 of Init's 256, of private functions it has): LeanForth then
+answers unsupported where simp would need the theorem, as it does for a
+function without one (Lean would make it in the user's file), never another
+route; a slice's roots name the theorems its tests reach.
+It runs at export
 time, on the developer's machine: nothing on a LeanForth user's path needs it.
 """
 import argparse
@@ -76,15 +86,18 @@ import sys
 FORMAT = "leanforth-elab-data"
 VERSION = 3
 FORMAT_SIMP = 4   # --format 4: also the congr records and the defeq tags
+FORMAT_REALIZED = "4.1"   # --format 4.1: also the realized records (a text, as 3.1)
 LEAN_VERSION = "4.35.0"
 LEAN_GITHASH = "eb6cafb7290e8bd5f2937522d8d804f58f02bafc"
 # The kinds of records, in the order of the file; sunfold (smart-unfolding
 # bodies, plan S2) is written from format 3 on, every one of the modules.
 KINDS = ("class", "instance", "instance_left_out", "default_instance", "reducibility",
-         "eliminator", "tag", "matcher", "projection", "sunfold", "binder_kinds", "congr")
+         "eliminator", "tag", "matcher", "projection", "sunfold", "binder_kinds", "congr",
+         "realized")
 RAW_KINDS = ("class", "instance", "default_instance", "reducibility", "eliminator", "tag",
-             "matcher", "projection", "sunfold", "binder_kinds", "congr")
-SIMP_KINDS = ("congr",)     # format 4's kinds
+             "matcher", "projection", "sunfold", "binder_kinds", "congr", "realized")
+SIMP_KINDS = ("congr", "realized")   # format 4's kinds, and 4.1's
+REALIZED_SUFFIX = "congr_simp"       # Lean's congrSimpSuffix (Meta/CongrTheorems.lean:399)
 SIMP_TAGS = ("defeq",)      # format 4's tags
 DEFEQ_TAG = '"tag":"defeq"'
 STATUSES = ("reducible", "irreducible", "implicit_reducible", "instance_reducible")
@@ -113,7 +126,8 @@ NAMES = {"class": {"name": "type"},
          "projection": {"name": "not-type", "ctor": "ctor"},
          "sunfold": {"name": "def"},
          "binder_kinds": {"name": None},
-         "congr": {"name": "thm", "fun": None}}
+         "congr": {"name": "thm", "fun": None},
+         "realized": {"name": "thm", "fun": None}}
 MEMBERS = {"class": {"name", "out_params", "out_level_params"},
            "instance": {"name", "class", "priority", "synth_order", "keys", "rank"},
            "instance_left_out": {"name", "keys", "priority", "rank", "reason"},
@@ -126,7 +140,8 @@ MEMBERS = {"class": {"name", "out_params", "out_level_params"},
            "projection": {"name", "ctor", "num_params", "idx", "from_class"},
            "sunfold": {"name", "level_params", "levels", "nodes", "value", "rec_arg"},
            "binder_kinds": {"name", "kinds"},
-           "congr": {"name", "fun", "hyps", "priority", "rank"}}
+           "congr": {"name", "fun", "hyps", "priority", "rank"},
+           "realized": {"name", "fun", "kind", "arg_kinds"}}
 KINDS_TEXT = re.compile("[0-3]+")   # one binder's kind, then its domain's binders'
 ALT_MEMBERS = {"num_fields", "num_overlaps", "has_unit_thunk"}
 RAW_MEMBERS = dict(MEMBERS, instance=MEMBERS["instance"] | {"erased"})
@@ -479,6 +494,8 @@ def check_shape(kind, body, members=MEMBERS):
     if kind == "congr" and not (naturals(body["hyps"])
                                 and all(a < b for a, b in zip(body["hyps"], body["hyps"][1:]))):
         raise ElabError("congr: hyps is not a list of increasing natural numbers")
+    if kind == "realized":
+        check_realized(body)
     if kind == "binder_kinds" and not (
             isinstance(body["kinds"], list) and body["kinds"]
             and all(isinstance(t, str) and KINDS_TEXT.fullmatch(t) for t in body["kinds"])):
@@ -490,6 +507,17 @@ def check_shape(kind, body, members=MEMBERS):
             raise ElabError("eliminator: types is not a list")
         for name in body["types"]:
             name_of(name)
+
+
+def check_realized(body):
+    """Fail unless a realized record is NAME.congr_simp of its function NAME,
+    with argument kinds 0-3 (fixed, eq, cast, subsingletonInst)."""
+    if body["kind"] != REALIZED_SUFFIX:
+        raise ElabError(f"realized: unknown kind {text(body['kind'])}")
+    if list(name_of(body["name"])) != list(name_of(body["fun"])) + [REALIZED_SUFFIX]:
+        raise ElabError(f"realized: {text(body['name'])} is not {text(body['fun'])}'s congr_simp")
+    if not (naturals(body["arg_kinds"]) and all(k <= 3 for k in body["arg_kinds"])):
+        raise ElabError("realized: arg_kinds is not a list of the numbers 0-3")
 
 
 def wanted(kind, body):
@@ -577,8 +605,15 @@ def congr_kept(body, decls):
     return kept("congr", body, decls)
 
 
+def realized_kept(body, decls):
+    """Whether a realized record is kept: its function and theorem both in
+    the export (ElabError when one is of the wrong kind)."""
+    return kept("realized", body, decls)
+
+
 def simp_record(kind, body):
-    """Whether a raw record is one of format 4's (a congr record, a defeq tag)."""
+    """Whether a raw record is one of format 4's (a congr or realized record,
+    a defeq tag)."""
     return kind in SIMP_KINDS or (kind == "tag" and body["tag"] in SIMP_TAGS)
 
 
@@ -593,8 +628,8 @@ def read_raw(path, simp=False):
         raise ElabError(f"RAW was written by another Lean: {text(head.get('lean'))}")
     if head.get("simp", False) is not simp:
         raise ElabError("RAW was written " + ("without" if simp else "with")
-                        + " export_elab.lean --simp: run the finisher with --format "
-                        + ("3" if simp else "4"))
+                        + " export_simp.lean's records: run the finisher with --format "
+                        + ("3" if simp else "4 or 4.1"))
     records = []
     for line in lines[1:-1]:
         record = json.loads(line)
@@ -604,7 +639,8 @@ def read_raw(path, simp=False):
         kind, body = next(iter(record.items()))
         check_shape(kind, body, RAW_MEMBERS)
         if simp_record(kind, body) and not simp:
-            raise ElabError(f"a format-4 record in RAW without --simp: {line[:80]!r}")
+            raise ElabError(f"a format-4 record in RAW without export_simp.lean's header: "
+                            f"{line[:80]!r}")
         records.append((kind, body))
     check_ranks(records)
     return head["modules"], records
@@ -638,9 +674,10 @@ def order(kind, body):
 
 def finish(raw, export, form=VERSION):
     """The text of the elaboration data of format form (3: 3, 3.1 or 3.2
-    by what it holds; 4), the records left out of each kind and the
-    smart-unfolding bodies kept that name what the export lacks."""
-    modules, records = read_raw(raw, form == FORMAT_SIMP)
+    by what it holds; 4; 4.1), the records left out of each kind and the
+    smart-unfolding bodies kept that name what the export lacks. Format 4
+    writes no realized record (each counted as left out)."""
+    modules, records = read_raw(raw, form in (FORMAT_SIMP, FORMAT_REALIZED))
     decls, digest, pis = export_decls(export)
     if manifest_sha(export) != digest:
         raise ElabError(f"{export} differs from its manifest's SHA-256")
@@ -651,6 +688,9 @@ def finish(raw, export, form=VERSION):
             keep += [r for r in [tree_record(body, decls)] if r is not None]
         elif kind == "congr":
             keep += [(kind, body)] if congr_kept(body, decls) else []
+        elif kind == "realized":
+            wrote = form == FORMAT_REALIZED and realized_kept(body, decls)
+            keep += [(kind, body)] if wrote else []
         elif kind == "binder_kinds" and kept(kind, body, decls):
             differs = binder_record(body, pis)
             keep += [(kind, body)] if differs else []
@@ -666,13 +706,16 @@ def finish(raw, export, form=VERSION):
     body = "".join(line + "\n" for _, _, line in lines)
     counts = {k: sum(1 for x, _ in keep if x == k) for k in KINDS}
     version = FORMAT_INERT if INERT_NODE in body else VERSION
-    if form == FORMAT_SIMP:
-        version = FORMAT_SIMP        # every kind counted
+    if form == FORMAT_REALIZED:
+        version = FORMAT_REALIZED    # every kind counted
+    elif form == FORMAT_SIMP:
+        version = FORMAT_SIMP        # every kind but realized counted
+        del counts["realized"]
     elif counts["binder_kinds"]:
         version = FORMAT_KINDS
-        del counts["congr"]
+        del counts["congr"], counts["realized"]
     else:
-        del counts["binder_kinds"], counts["congr"]   # format 3 and 3.1 have neither
+        del counts["binder_kinds"], counts["congr"], counts["realized"]   # 3 and 3.1 have none
     head = {"elab_data": {"export_sha256": digest, "format": FORMAT, "format_version": version,
                           "lean_githash": LEAN_GITHASH, "lean_version": LEAN_VERSION,
                           "modules": modules, "records": counts,
@@ -703,11 +746,13 @@ def main(argv=None):
     parser.add_argument("output", type=Path)
     parser.add_argument("--bind", action="store_true",
                         help="also name the data's records SHA-256 in EXPORT's manifest")
-    parser.add_argument("--format", type=int, choices=(VERSION, FORMAT_SIMP), default=VERSION,
-                        help="4: also the congr records and defeq tags (RAW from --simp)")
+    parser.add_argument("--format", choices=("3", "4", FORMAT_REALIZED), default="3",
+                        help="4: also the congr records and defeq tags; 4.1: also the realized "
+                        "records (RAW with export_simp.lean's records)")
     args = parser.parse_args(argv)
+    form = FORMAT_REALIZED if args.format == FORMAT_REALIZED else int(args.format)
     try:
-        data, left_out_counts, foreign, same = finish(args.raw, args.export, args.format)
+        data, left_out_counts, foreign, same = finish(args.raw, args.export, form)
     except (ElabError, OSError, ValueError, KeyError, TypeError) as error:
         print(f"export_elab.py: {error}", file=sys.stderr)
         return 1
@@ -716,14 +761,14 @@ def main(argv=None):
         bind(args.export, data)
     head = json.loads(data.split("\n", 1)[0])["elab_data"]
     counts, version = head["records"], head["format_version"]
-    kinds = KINDS if version == FORMAT_SIMP else KINDS[:-1]
+    kinds = {FORMAT_REALIZED: KINDS, FORMAT_SIMP: KINDS[:-1]}.get(version, KINDS[:-2])
     print(f"{args.output}: " + ", ".join(f"{counts.get(k, 0)} {k}" for k in kinds)
           + "; left out (not declarations of the export): "
           + ", ".join(f"{left_out_counts[k]} {k}" for k in RAW_KINDS if k in kinds)
           + f"; {foreign} sunfold bodies naming what the export lacks"
           + f"; {data.count(INERT_NODE)} inert markers (format {version})"
           + f"; {same} binder_kinds as the export's, left out"
-          + (f"; {data.count(DEFEQ_TAG)} defeq tags" if version == FORMAT_SIMP else ""))
+          + (f"; {data.count(DEFEQ_TAG)} defeq tags" if form != VERSION else ""))
     return 0
 
 

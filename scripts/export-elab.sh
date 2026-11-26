@@ -6,7 +6,11 @@
 # declarations and writes the file `leanforth check --elab-data` reads
 # (format 3 or 3.1: every smart-unfolding body, the match_pattern tag; with
 # ELAB_FORMAT=4, format 4: also the @[congr] lemmas and defeq tags simp reads,
-# docs/design/SIMP_DATA.md section 3, slice SD-a of docs/design/TACTIC_SIMP.md).
+# docs/design/SIMP_DATA.md section 3, slice SD-a of docs/design/TACTIC_SIMP.md;
+# with ELAB_FORMAT=4.1, format 4.1: also the congruence theorems Lean
+# realized in the library, slice SD-b). The simp records are
+# scripts/export_simp.lean's, whose output joins export_elab.lean's under
+# its header (which says "simp": true) before the finisher reads both.
 # A development tool, run when a library is exported, like scripts/export.sh
 # (owner decision of 2026-11-12, "Front-end syntax", answer 8); a user who
 # only checks LeanForth text needs no Lean.
@@ -22,7 +26,7 @@
 #              the project's .tools toolchain)
 #   LEAN_PATH  where Lean finds the modules' .olean files, as for
 #              scripts/export.sh (Init needs none)
-#   ELAB_FORMAT  3 (the default) or 4
+#   ELAB_FORMAT  3 (the default), 4 or 4.1
 set -eu
 
 here=$(cd "$(dirname "$0")/.." && pwd)
@@ -36,8 +40,8 @@ export_file=$2
 shift 2
 case ${ELAB_FORMAT:-3} in
   3) simp= ;;
-  4) simp=--simp ;;
-  *) printf 'ELAB_FORMAT is 3 or 4, not %s\n' "$ELAB_FORMAT" >&2; exit 2 ;;
+  4|4.1) simp=yes ;;
+  *) printf 'ELAB_FORMAT is 3, 4 or 4.1, not %s\n' "$ELAB_FORMAT" >&2; exit 2 ;;
 esac
 
 # Never run an elan proxy, nor anything not known to be a toolchain's Lean
@@ -56,8 +60,22 @@ fi
 toolchain=$("$lean" --print-prefix)
 
 raw=$(mktemp)
-trap 'rm -f "$raw"' EXIT   # only this script's own temporary file
+simp_raw=$(mktemp)
+joined=$(mktemp)
+trap 'rm -f "$raw" "$simp_raw" "$joined"' EXIT   # only this script's own temporary files
 PATH="$toolchain/bin:$PATH" "$lean" -DwarningAsError=true --run \
-  "$here/scripts/export_elab.lean" $simp "$@" >"$raw"
+  "$here/scripts/export_elab.lean" "$@" >"$raw"
+if [ -n "$simp" ]; then
+  PATH="$toolchain/bin:$PATH" "$lean" -DwarningAsError=true --run \
+    "$here/scripts/export_simp.lean" "$@" >"$simp_raw"
+  # Both programs ran on the same modules with the same Lean: the simp
+  # header is the plain one with "simp": true last (Lean sorts the keys).
+  if [ "$(head -n 1 "$raw" | sed 's/}$/,"simp":true}/')" != "$(head -n 1 "$simp_raw")" ]; then
+    printf 'export_elab.lean and export_simp.lean disagree on Lean or the modules\n' >&2
+    exit 1
+  fi
+  { head -n 1 "$simp_raw"; tail -n +2 "$raw"; tail -n +2 "$simp_raw"; } >"$joined"
+  cp "$joined" "$raw"
+fi
 python3 "$here/scripts/export_elab.py" "$raw" "$export_file" "$output" --bind \
   --format "${ELAB_FORMAT:-3}"

@@ -4,9 +4,10 @@ FE1e1; ADR 0021 D10; docs/programming/ELABORATION_DATA.md). A development
 tool, run with pinned Lean 4.35.0 when a library is exported (owner
 decision of 2026-11-12, "Front-end syntax", answer 8); scripts/export-elab.sh
 runs it and scripts/export_elab.py turns its output into the file LeanForth
-reads (format version 3, or 4 with --simp).
+reads (format version 3; with scripts/export_simp.lean's records, which
+scripts/export-elab.sh adds for ELAB_FORMAT=4 or 4.1, format 4 or 4.1).
 
-Usage: lean --run scripts/export_elab.lean [--simp] MODULE...
+Usage: lean --run scripts/export_elab.lean MODULE...
 
 It imports the modules and writes, on standard output, one JSON object per
 line: first {"lean": {"githash": ..., "version": ...}, "modules": [...]}
@@ -42,10 +43,7 @@ holds them after the import (global entries; nothing scoped is active):
                     aux_recursor (isAuxRecursor), no_confusion
                     (isNoConfusion), cases_on, rec_on, brec_on (Lean's
                     isCasesOnRecursor, isRecOnRecursor, isBRecOnRecursor),
-                    match_pattern (hasMatchPatternAttribute); with
-                    --simp also defeq (defeqAttr, Lean/DefEqAttrib.lean:111:
-                    a theorem Lean holds to be proved by rfl, which simp's
-                    rfl flag and dsimp read, SimpTheorems.lean:212)
+                    match_pattern (hasMatchPatternAttribute)
   matcher           a matcher (Meta.getMatcherInfoCore?): numbers of
                     parameters and discriminants, the elimination
                     universe's position or null, each alternative's
@@ -71,15 +69,10 @@ holds them after the import (global entries; nothing scoped is active):
                     implicit, 2 strictImplicit, 3 instImplicit) and then
                     the kinds of its domain's leading Pi binders; the
                     finisher keeps those that differ from the export's
-  congr             with --simp: every @[congr] lemma (congrExtension,
-                    Meta/Tactic/Simp/SimpCongrTheorems.lean:49): its name,
-                    the function it is for, its hypotheses' positions among
-                    its binders, its priority and its rank, its place in its
-                    function's list (highest priority first, the newest
-                    first among equal ones, :39-47: the order simp tries)
 
-With --simp the first line also holds "simp": true (docs/design/SIMP_DATA.md
-section 3; docs/design/TACTIC_SIMP.md, slice SD-a).
+The simp data's records (the defeq tag, @[congr] lemmas, realized
+congruence theorems: docs/design/SIMP_DATA.md section 3) are
+scripts/export_simp.lean's (plan task SD-b.6).
 
 A name is a JSON array of its parts, strings and natural numbers, root
 first (`Nat.add` is ["Nat","add"]). A key is "star", "other", "arrow",
@@ -221,14 +214,13 @@ def classRecords (env : Environment) : Array Json := Id.run do
 
 /-- The tags of a declaration that the application elaborator and Meta's
 whnf read. -/
-def tagsOf (simp : Bool) (env : Environment) (name : Name) : List String :=
+def tagsOf (env : Environment) (name : Name) : List String :=
   [("elab_as_elim", Elab.Term.elabAsElim.hasTag env name),
    ("elab_without_expected_type", Elab.Term.elabWithoutExpectedTypeAttr.hasTag env name),
    ("aux_recursor", isAuxRecursor env name), ("no_confusion", isNoConfusion env name),
    ("cases_on", isCasesOnRecursor env name), ("rec_on", isRecOnRecursor env name),
    ("brec_on", isBRecOnRecursor env name),
-   ("match_pattern", hasMatchPatternAttribute env name),
-   ("defeq", simp && defeqAttr.hasTag env name)].filterMap fun (t, b) =>
+   ("match_pattern", hasMatchPatternAttribute env name)].filterMap fun (t, b) =>
     if b then some t else none
 
 def optJson : Option Nat → Json
@@ -250,10 +242,10 @@ def projectionJson (name : Name) (p : ProjectionFunctionInfo) : Json :=
      ("idx", toJson p.i), ("from_class", toJson p.fromClass)]
 
 /-- Every constant's tags, matcher information and projection information. -/
-def constantRecords (simp : Bool) (env : Environment) : Array Json := Id.run do
+def constantRecords (env : Environment) : Array Json := Id.run do
   let mut out := #[]
   for (name, _) in env.constants.toList do
-    for tag in tagsOf simp env name do
+    for tag in tagsOf env name do
       out := out.push <| record "tag" [("name", nameJson name), ("tag", Json.str tag)]
     if let some m := Meta.getMatcherInfoCore? env name then
       out := out.push (matcherJson name m)
@@ -408,34 +400,16 @@ def binderKindRecords (env : Environment) : Array Json := Id.run do
       out := out.push (record "binder_kinds" [("name", nameJson name), ("kinds", Json.arr texts)])
   return out
 
-/-- The `@[congr]` lemmas, each with its rank: its place in its function's
-list, highest priority first and the newest first among equal ones
-(SimpCongrTheorems.lean:39-47), the order simp tries them in. -/
-def congrRecords (env : Environment) : MetaM (Array Json) := do
-  let mut out := #[]
-  for (fn, list) in (congrExtension.getState env).lemmas.toList do
-    let ts := list.toArray
-    for h : rank in [0:ts.size] do
-      let t := ts[rank]
-      unless t.funName == fn do throwError "congr lemma {t.theoremName}: under another function"
-      out := out.push <| record "congr"
-        [("name", nameJson t.theoremName), ("fun", nameJson fn), ("hyps", toJson t.hypothesesPos),
-         ("priority", toJson t.priority), ("rank", toJson rank)]
-  return out
-
-def allRecords (simp : Bool) : MetaM (Array Json) := do
+def allRecords : MetaM (Array Json) := do
   let env ← getEnv
   let insts ← instanceRecords
   return insts ++ defaultInstanceRecords env ++ reducibilityRecords env
-    ++ eliminatorRecords env ++ classRecords env ++ constantRecords simp env
+    ++ eliminatorRecords env ++ classRecords env ++ constantRecords env
     ++ (← sunfoldRecords env) ++ binderKindRecords env
-    ++ (← if simp then congrRecords env else pure #[])
 
 def main (args : List String) : IO UInt32 := do
-  let simp := args.head? == some "--simp"
-  let args := if simp then args.tail else args
   if args.isEmpty then
-    IO.eprintln "usage: lean --run scripts/export_elab.lean [--simp] MODULE..."
+    IO.eprintln "usage: lean --run scripts/export_elab.lean MODULE..."
     return 2
   let modules := args.toArray.map String.toName
   initSearchPath (← findSysroot)
@@ -445,13 +419,12 @@ def main (args : List String) : IO UInt32 := do
   let env ← importModules (modules.map fun m => { module := m }) {} (loadExts := true)
   let ctx : Core.Context := { fileName := "<export_elab>", fileMap := default,
                               maxHeartbeats := 0 }
-  let (records, _, _) ← ((allRecords simp).toIO ctx { env })
+  let (records, _, _) ← (allRecords.toIO ctx { env })
   let out ← IO.getStdout
   out.putStrLn <| Json.compress <| Json.mkObj <|
     [("lean", Json.mkObj [("githash", Json.str Lean.githash),
                           ("version", Json.str Lean.versionString)]),
      ("modules", Json.arr (modules.map fun m => Json.str m.toString))]
-    ++ (if simp then [("simp", Json.bool true)] else [])
   for r in records do
     out.putStrLn r.compress
   return 0

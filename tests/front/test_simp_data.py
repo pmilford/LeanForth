@@ -66,6 +66,14 @@ C_SUB = congr(["HSub", "hSub"], ["Nat", "succ_sub_succ_eq_sub"], [], 0)
 # and priority cases file it at rank 1, where the run's checks, made before the head, see it.
 X_ITE1 = congr(["ite"], ["ite_eq_left"], [2], 1, 500)
 T_ADD = defeq(["Nat", "add_zero"])
+
+
+def realized(fun, kinds, kind="congr_simp", name=None):
+    return text({"realized": {"arg_kinds": kinds, "fun": fun, "kind": kind,
+                              "name": name or fun + ["congr_simp"]}})
+
+
+R_DECIDE = realized(["Decidable", "decide"], [1, 3])
 GOOD = [C_DITE, C_ITE, C_SUB, T_ADD]
 
 
@@ -185,11 +193,22 @@ def writer_cases(work):
         fail(f"the finisher's format 4: {status} {said} {lines[-4:]}")
     bad = {"a function without its lemma": ([congr(["ite"], ["List", "filterMap_congr"], [0], 0)],
                                             4, RAW_HEAD, "but not its congruence lemma"),
-           "simp RAW, format 3": ([C_ITE], 3, RAW_HEAD, "written with export_elab.lean --simp"),
+           "simp RAW, format 3": ([C_ITE], 3, RAW_HEAD, "written with export_simp.lean's"),
            "plain RAW, format 4": ([C_ITE], 4, RAW_HEAD.replace(',"simp":true', ""),
-                                   "written without export_elab.lean --simp"),
+                                   "written without export_simp.lean's"),
+           "plain RAW, format 4.1": ([C_ITE], "4.1", RAW_HEAD.replace(',"simp":true', ""),
+                                     "written without export_simp.lean's"),
            "a defeq tag without --simp": ([T_ADD], 3, RAW_HEAD.replace(',"simp":true', ""),
-                                          "a format-4 record in RAW without --simp"),
+                                          "a format-4 record in RAW without export_simp"),
+           "a realized record of another name": (
+               [realized(["ite"], [1], name=["Decidable", "decide", "congr_simp"])], "4.1",
+               RAW_HEAD, "is not [\"ite\"]'s congr_simp"),
+           "a realized record of another kind": (
+               [realized(["Decidable", "decide"], [1, 3], kind="simp_helper")], "4.1", RAW_HEAD,
+               "realized: unknown kind"),
+           "an argument kind beyond 3": ([realized(["Decidable", "decide"], [1, 4])], "4.1",
+                                         RAW_HEAD, "arg_kinds is not a list of the numbers 0-3"),
+
            "a rank gap": ([X_ITE1], 4, RAW_HEAD, "congruence lemmas of [\"ite\"] are not 0, 1, 2"),
            "hypotheses down": ([C_DITE.replace("[9,10,11]", "[10,9]")], 4, RAW_HEAD,
                                "not a list of increasing"),
@@ -199,6 +218,20 @@ def writer_cases(work):
         status, said, _ = finish(work, lines, form, head)
         if status != 1 or why not in said:
             fail(f"the finisher on {name}: {status} {said}")
+    # Format 4.1 (slice SD-b): a realized record kept when the export has the theorem and
+    # its function, left out without the theorem (Init's export lacks 20 of 256); format 4
+    # writes none (each counted as left out), byte for byte as before.
+    gone = realized(["Nat", "add"], [1, 1])
+    raw = [C_ITE, gone, R_DECIDE, T_ADD]
+    status, said, out = finish(work, raw, "4.1")
+    lines = out.read_text().split("\n") if status == 0 else []
+    if status or json.loads(lines[0])["elab_data"]["format_version"] != "4.1" \
+            or lines[-4:-1] != [T_ADD, C_ITE, R_DECIDE] or "1 realized;" not in said \
+            or ", 1 realized; 0 sunfold" not in said:
+        fail(f"the finisher's format 4.1: {status} {said} {lines[-4:]}")
+    status, said, out = finish(work, raw, 4)
+    if status or '"realized"' in out.read_text() or ", 1 congr;" not in said:
+        fail(f"the finisher's format 4 with realized records: {status} {said}")
 
 
 def check(env, data):
@@ -239,7 +272,7 @@ def main(argv):
         (work / "slice.ndjson.manifest.json").write_text(json.dumps(manifest, indent=2))
         writer_cases(work)
         check_cases(work)
-    print(f"simp data (format 4): all tests passed ({len(CASES)} fixtures, 8 finisher runs, "
+    print(f"simp data (format 4): all tests passed ({len(CASES)} fixtures, 14 finisher runs, "
           "6 checks)")
 
 
