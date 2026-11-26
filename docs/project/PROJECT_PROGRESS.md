@@ -29,6 +29,7 @@ status changes when this date is older than them. Stages are those of the
 [done checker](../development/DONE_CHECKER.md).
 
 **Now**
+- 2026-11-26, 02:52: plan row FE9's simp group 2 is **done** on main 60c294eb (done check [2026-11-26-simp-group-2-done.md](../development/done-checks/2026-11-26-simp-group-2-done.md)): `by-simp-only[ ... ] at[ h ]`, `at[ h |- ]`, `at[ * ]`, and rules from `↔`, `¬`, `≠` and `∧` hypotheses: the checker's own 9 theorems accepted, 4 wrong ones refused, as pinned Lean. Simp group 3 (binders in the goal, `if` through congruence lemmas, elaboration data format 4.1) is written, tested and Forth-reviewed on its branch, not merged.
 - 2026-11-26: the kernel speed work's third group (plan 9.4.8z8, the prototype's changes the owner approved on
   2026-11-25) is **written, tested and Forth-reviewed on its branch `kernel-speed-3`
   ([review](../development/forth-reviews/2026-11-26-kernel-speed-3.md): no difference in verdict or fuel when

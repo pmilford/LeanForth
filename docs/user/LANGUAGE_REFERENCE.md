@@ -171,7 +171,7 @@ statement, then `:= by`, the tactics, and `end NAME`. Everything is postfix: the
 | A and (B and C), Lean's `A ∧ B ∧ C` | `A B C ∧ ∧` | `A ∧ B ∧ C` |
 | (A and B) and C | `A B ∧ C ∧` | `(A ∧ B) ∧ C` |
 | P or Q | `a b = b a = ∨` | `a = b ∨ b = a` |
-| not P | `a b = ¬` | `¬ a = b` |
+| not P; a is not b | `a b = ¬` | `¬ a = b`; `a ≠ b` |
 | P if and only if Q | `a b = b a = ↔` | `a = b ↔ b = a` |
 | there is an x equal to a | `' Eq a $ Exists` | `∃ x, a = x` |
 | a is at most b, as a hypothesis and as the statement | `a b ≤ explicit: h`, `a b ≤` | `(h : a ≤ b)`, `: a ≤ b` |
