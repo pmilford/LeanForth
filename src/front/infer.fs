@@ -267,8 +267,9 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
 \ with a new free variable of its domain (lambdaTelescope; the local
 \ context keeps them, as it only grows while a declaration is
 \ elaborated), the body's type inferred, then closed again into pis over
-\ the variables, each with its lambda's name and kind. A type holding a
-\ metavariable (Lean's elimMVarDeps) answers unsupported.
+\ the variables, each with its lambda's name and kind. The type and each
+\ domain are instantiated first (mkBinding's instantiateMVars); one that
+\ still holds a metavariable (Lean's elimMVarDeps) answers unsupported.
 1 cells context-slab: if-xs     \ the telescope's free variables, first first
 1 cells context-slab: if-lams   \ and the lambdas they opened
 : if-x ( i -- fvar ) if-xs slab-at @ ;
@@ -283,6 +284,7 @@ lf-tag-fvar lf-tag-mvar lf-tag-symbolic-sort lf-tag-lam 4 lf-tags constant if-in
   if-xs slab-clear if-lams slab-clear
   begin dup if-lam? while if-open ok-then? 0= if no-result exit then repeat outcome-ok ;
 : if-abstract ( term n -- term' outcome )
+  swap lf-instantiate-mvars ok-then? 0= if nip no-result exit then swap
   over if-holes? if 2drop -1 outcome-unsupported exit then
   if-xs-at swap lf-meta-abstract ;
 : if-pi-named ( i pi -- pi outcome ) swap if-lams slab-at @ lf-meta-named ;

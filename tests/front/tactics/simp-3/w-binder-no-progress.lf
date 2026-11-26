@@ -1,0 +1,11 @@
+\ Lean: theorem w_binder_no_progress (b c d : Nat) (h : c = d) (a : Nat) : a + 1 = b := by
+\         revert a; simp only [h]
+\ Refused as Lean refuses it (error 500): nothing below the binder of
+\ ∀ a, a + 1 = b is rewritten.
+theorem w_binder_no_progress
+  Nat explicit: b  Nat explicit: c  Nat explicit: d  c d = explicit: h  Nat explicit: a
+  a 1 + b =
+:= by
+  ' a by-revert
+  by-simp-only[ ' h ]
+end w_binder_no_progress

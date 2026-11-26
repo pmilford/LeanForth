@@ -161,9 +161,10 @@ T{ s" Nat.add.match_1" nat lf-level! lf-mk-const1 nat motive1 lf-term-lam lf-mad
 : zero-level ( -- l ) p0 lf-level! ;
 T{ s" Prod.fst" zero-level zero-level 2 lf-mk-const nat lf-mk-app nat lf-mk-app unsupported?
    -> true }T
-\ Leaves: a sort and a proof kept; a pi and a let variable refused.
+\ Leaves: a sort and a proof kept; a let variable refused. An arrow of
+\ types is simpArrow's (simp group 3): both sides kept, the arrow itself.
 T{ nat lf-infer! kept? h1 simp -> true lf-simp-none h1 lf-simp-none }T
-T{ nat>nat unsupported? -> true }T
+T{ nat>nat simp -> nat>nat lf-simp-none }T
 : let-binder ( type value c-addr u -- fvar )
   lfa-intern -rot lf-lctx-let made tuck swap 0 lf-local-new made
   lf-mctx-view swap lf-view-push made lf-mctx-view! ;

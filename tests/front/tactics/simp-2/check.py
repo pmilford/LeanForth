@@ -6,9 +6,9 @@ tests/front/tactics/tactic_check.py's, against simp's slice of Init
 (tests/front/simp-slice.ndjson and its format-4 elaboration data), with this slice's own Lean
 twins (simp-2.lean, simp-2-wrong.lean) and golden (simp-2.golden); slice SL1b's at[ * ] and
 rules from hypotheses that are no equation too. UNSUPPORTED are the texts LeanForth answers 99
-(not supported yet) for, which Lean accepts (simp-2.lean): an And inside an And, a target with
-an arrow or a ∀ (a hypothesis changed by defeq that another depends on, also 99, is
-test.fs's)."""
+(not supported yet) for, which Lean accepts (simp-2.lean): an And inside an And (a hypothesis
+changed by defeq that another depends on, also 99, is test.fs's; targets with an arrow or a ∀,
+once 99 here, are simp-3's accepted twins)."""
 import pathlib
 import sys
 
@@ -49,8 +49,7 @@ WRONG = [(D + "w-at-self.lf", 96, "Type mismatch", MISMATCH),
          (D + "w-and-order.lf", 96, "Type mismatch",
           "  k\nhas type\n  c = d\nbut is expected to have type\n  b = d")]
 NOT_YET = "not supported yet: this case of the tactic"
-UNSUPPORTED = [(D + "u-and-nested.lf", 99, NOT_YET), (D + "u-binder-arrow.lf", 99, NOT_YET),
-               (D + "u-binder-forall.lf", 99, NOT_YET)]
+UNSUPPORTED = [(D + "u-and-nested.lf", 99, NOT_YET)]
 
 if __name__ == "__main__":
     tactic_check.main("simp-2", FILES, WRONG, UNSUPPORTED, env=ENV, lean=D + "simp-2.lean",

@@ -1,0 +1,43 @@
+# Planted faults of simp group 3 (plan row FE9, docs/design/TACTIC_SIMP.md slices SL1b and
+# SL2): src/front/simp/main.fs's binder visits and infer.fs's instantiation before a lambda's
+# type is closed, read with faults.toml as one list. Each must be caught by the test named.
+
+[[fault]]
+id = "forall-as-arrow"
+file = "src/front/simp/main.fs"
+old = '''  dup lf-arrow? if sm-arrow exit then'''
+new = '''  true if sm-arrow exit then'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "SL1b: simpForall (Main.lean:367) takes simpArrow only for a pi whose body has no loose bound variable; a dependent ∀ simplified as an arrow visits a body with a loose variable"
+
+[[fault]]
+id = "funext-skipped"
+file = "src/front/simp/main.fs"
+old = '''  drop dup lf-simp-none? 0= if sm-funexts then'''
+new = '''  drop dup lf-simp-none? 0= if then'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "SL1b: Result.addLambdas (Types.lean:942) wraps the body's proof in funext per variable; kept as it is, fun x => x = a gives a proof of the body's equation"
+
+[[fault]]
+id = "imp-domain-proof-dropped"
+file = "src/front/simp/main.fs"
+old = ''': sm-imp-none? ( hq -- flag ) lf-simp-none? sm-fr@ nip lf-simp-none? and ;'''
+new = ''': sm-imp-none? ( hq -- flag ) lf-simp-none? ;'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "SL1b: mkImpCongr (Types.lean:616) builds implies_congr when either side has a proof; only the body asked, a rewritten domain is taken as a change by definition"
+
+[[fault]]
+id = "forall-congr-dropped"
+file = "src/front/simp/main.fs"
+old = '''  dup lf-simp-none? 0= if sm-xs-n drop s" forall_congr" sm-under then sm-binder-done ;'''
+new = '''  dup lf-simp-none? 0= if then sm-binder-done ;'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "SL1b: simpForall (Main.lean:410) proves the ∀ by forall_congr over the body's proof; without it the body's proof stands for the ∀'s equation"
+
+[[fault]]
+id = "infer-mvars-kept"
+file = "src/front/infer.fs"
+old = '''  swap lf-instantiate-mvars ok-then? 0= if nip no-result exit then swap'''
+new = ''''''
+test = "$GFORTH tests/front/infer.fs"
+reason = "simp group 3: mkBinding instantiates the type before elimMVarDeps; an assigned metavariable left in a lambda's type is refused, so forall_congr's mkAppM (fun x => eq_self x) answers unsupported"

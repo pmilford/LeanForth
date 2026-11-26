@@ -85,9 +85,8 @@ begin-structure /spp  field: spp-inv  field: spp-n  end-structure
   spp-inv? if dup ['] spp-true. lfa-e-simp-symm-true spp-refuse then drop lf-mk-eq-true ;
 
 \ ---- The inner nodes: a pi's binder opened, an And's two projections.
-: spp-binder ( pi -- name kind ) lf-binder-of 0= if lf-unported then ;
 : spp-open ( e pi -- )
-  dup lf-term-first@ swap spp-binder lf-local-decl-new lf-mctx-view!
+  dup lf-term-first@ lf-binder-local
   dup spp-xs slab-push lf-must lf-mk-app spp-n@ 1+ spp-push ;
 : spp-proj ( e name i -- ) lf-proj-of lf-must spp-n@ spp-push ;
 : spp-split ( e t -- )   \ h.2 below h.1, so h.1 is walked first

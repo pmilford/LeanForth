@@ -44,6 +44,8 @@ nat nat>nat lf-lctx-let made constant ftype
 nat mv-natural lf-mvar-new made constant ?t
 0 ?t ftype lf-mvar-assign made drop
 nat ?t lf-lctx-local made constant fh
+lv1 sort mv-natural lf-mvar-new made constant ?ty
+nat ?ty lf-lctx-local made constant fu
 
 \ ---- Lambdas: the body's type closed over the binders.
 T{ nat 0 bv lam nat>nat infer= -> true outcome-ok }T
@@ -55,10 +57,13 @@ T{ nat ?n lam nat>nat infer= -> true outcome-ok }T
 \ A later binder's domain over an earlier one: fun a (h : a = a) => h.
 T{ nat 0 bv 0 bv eq 0 bv lam lam
    nat 0 bv 0 bv eq 1 bv 1 bv eq lf-term-pi must lf-term-pi must infer= -> true outcome-ok }T
-\ A lambda's type with a metavariable, a body of no inferable kind, a
-\ body that is no function applied: unsupported, unsupported, invalid.
-T{ nat fh lam lf-infer nat nat fk 0 bv let lam lf-infer
+\ A lambda's type with a metavariable left once instantiated, a body of
+\ no inferable kind, a body that is no function applied: unsupported,
+\ unsupported, invalid. An assigned one is instantiated first
+\ (mkBinding's instantiateMVars): fun _ => fh is Nat -> ftype.
+T{ nat fu lam lf-infer nat nat fk 0 bv let lam lf-infer
    -> -1 outcome-unsupported -1 outcome-unsupported }T
+T{ nat fh lam nat ftype lf-term-pi must infer= -> true outcome-ok }T
 T{ nat fs 0 bv app lam lf-infer -> -1 outcome-invalid }T
 
 \ A constant whose universe arguments differ: each parameter gets its own

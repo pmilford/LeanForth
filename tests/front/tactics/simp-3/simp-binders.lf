@@ -1,0 +1,60 @@
+\ by-simp-only[ ] below binders (plan row FE9, simp group 3: slice
+\ SL1b's simpArrow and simpForall of docs/design/TACTIC_SIMP.md); each
+\ theorem's term equals pinned Lean's node for node (simp-3.lean,
+\ tests/front/tactics/simp-3/check.py). A goal with a binder is made by
+\ by-revert, as LeanForth's statements cannot write -> or ∀ yet.
+
+\ Lean: theorem simp_binder_arrow (a b c : Nat) (h2 : a = c) (h : a = b) : c = b := by
+\         revert h; simp only [h2]; intro h; exact h
+\ The arrow a = b -> c = b: its domain rewritten by h2 (implies_congr).
+theorem simp_binder_arrow
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a c = explicit: h2  a b = explicit: h
+  c b =
+:= by
+  ' h by-revert
+  by-simp-only[ ' h2 ]
+  by-intro: h
+  ' h by-exact
+end simp_binder_arrow
+
+\ Lean: theorem simp_binder_forall (a : Nat) : a + 0 = a := by
+\         revert a; simp only [Nat.add_zero]; intro a; exact True.intro
+\ ∀ a, a + 0 = a becomes ∀ a, True under the binder (forall_congr).
+theorem simp_binder_forall
+  Nat explicit: a
+  a 0 + a =
+:= by
+  ' a by-revert
+  by-simp-only[ ' Nat.add_zero ]
+  by-intro: a
+  ' True.intro by-exact
+end simp_binder_forall
+
+\ Lean: theorem simp_binder_forall_hyp (c d : Nat) (h : c = d) (a : Nat) : a + c = a + d := by
+\         revert a; simp only [h]; intro a; exact True.intro
+theorem simp_binder_forall_hyp
+  Nat explicit: c  Nat explicit: d  c d = explicit: h  Nat explicit: a
+  a c + a d + =
+:= by
+  ' a by-revert
+  by-simp-only[ ' h ]
+  by-intro: a
+  ' True.intro by-exact
+end simp_binder_forall_hyp
+
+\ Lean: theorem simp_binder_nested (b a : Nat) (h : a + 0 = b) : a = b := by
+\         revert h; revert a; simp only [Nat.add_zero]; intro a; intro h; exact h
+\ ∀ a, a + 0 = b -> a = b: an arrow under a ∀, changed by definition
+\ alone (no proof: the goal is replaced by its new statement).
+theorem simp_binder_nested
+  Nat explicit: b  Nat explicit: a  a 0 + b = explicit: h
+  a b =
+:= by
+  ' h by-revert
+  ' a by-revert
+  by-simp-only[ ' Nat.add_zero ]
+  by-intro: a
+  by-intro: h
+  ' h by-exact
+end simp_binder_nested

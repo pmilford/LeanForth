@@ -1,0 +1,13 @@
+\ Lean: theorem w_binder_skipped (a : Nat) : a + 0 = a := by
+\         revert a; simp only [Nat.add_zero]; intro a; exact Nat.add_zero a
+\ Refused as Lean refuses it (error 96, Type mismatch): simp went below
+\ the binder, so the goal after intro is True, not a + 0 = a.
+theorem w_binder_skipped
+  Nat explicit: a
+  a 0 + a =
+:= by
+  ' a by-revert
+  by-simp-only[ ' Nat.add_zero ]
+  by-intro: a
+  a Nat.add_zero by-exact
+end w_binder_skipped
