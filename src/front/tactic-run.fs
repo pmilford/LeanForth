@@ -613,7 +613,9 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 : lfr-frame! ( i rest addr -- addr )
   trun trun-entry @ over tfr-log ! tuck tfr-rest ! over 1+ over tfr-next !
   tuck tfr-step ! ;
-: lfr-opened ( addr -- ) dup tfr-mode @ mode-open @ execute ;
+\ The word in field (a /tmode field's xt) of the frame's mode, run on it.
+: lfr-mode-do ( i*x frame field -- j*x ) over tfr-mode @ swap execute @ execute ;
+: lfr-opened ( addr -- ) ['] mode-open lfr-mode-do ;
 \ Lean's recursion depth (maxRecDepth, 512 levels; past it pinned Lean
 \ refuses with "maximum recursion depth has been reached"), checked at
 \ every block's open, before its mode's open: the open blocks weigh their
@@ -630,7 +632,7 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 \ bullet 6.3, <;> 7.4, braces 1.3). Being unsupported a little before
 \ Lean's limit is kept; accepting past it never is.
 240 constant lf-tac-depth-most
-: lfr-weight ( frame -- w ) dup tfr-mode @ mode-weight @ execute ;
+: lfr-weight ( frame -- w ) ['] mode-weight lfr-mode-do ;
 : lfr-weights ( -- w ) 0 lfr-depth 0 ?do i lfr-frame lfr-weight + loop ;
 : lfr-deep? ( -- flag ) lfr-weights lf-tac-depth-most > ;
 : lfr-unopen ( addr -- ) tfr-rest @ trun-frames slab-drop lf-tac-unfocus ;

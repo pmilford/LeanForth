@@ -303,7 +303,7 @@ reason = "re-check finding 4: an implementation-detail local of a class's type i
 [[fault]]
 id = "sm1-depth-weight-ignored"
 file = "src/front/tactic-run.fs"
-old = ''': lfr-weight ( frame -- w ) dup tfr-mode @ mode-weight @ execute ;'''
+old = ''': lfr-weight ( frame -- w ) ['] mode-weight lfr-mode-do ;'''
 new = ''': lfr-weight ( frame -- w ) drop 4 ;'''
 test = "$GFORTH tests/front/tactics/rec-depth/test.fs"
 reason = "re-check finding 1: every open block weighs 4 whatever its mode, so a have-by body or an iterate passes the depth where pinned Lean fails (test.fs's 30 nested have-by: 99, Lean refuses 34)"
