@@ -573,6 +573,7 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 448 | invalid | Tactic `delta` failed: did not delta reduce |
 | 385 | invalid | Tactic `left` failed: target is not an inductive datatype |
 | 386 | invalid | Tactic `left` failed: left tactic works for inductive types with exactly 2 constructors |
+| 482 | invalid | Failed to find a hypothesis with type |
 | 387 | invalid | Tactic `right` failed: target is not an inductive datatype |
 | 388 | invalid | Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors |
 | 456 | invalid | Type mismatch: The rewritten hypothesis |
