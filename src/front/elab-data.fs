@@ -393,8 +393,9 @@ create ed-added  /ed-added allot  ed-added /ed-added erase
 : ed-v41-kind? ( x i -- x flag ) elab-kinds + ed-kind-data ed-kind-v41 @ ;
 : ed-added-v4# ( -- n )
   0 ed-added# ['] ed-v41-kind? find-index 0= if ed-added# then ;
-\ The added kinds the file's format reads.
-: ed-added-read# ( -- n ) ed-v41? if ed-added# else ed-added-v4# then ;
+\ The added kinds the file's format reads: all of them in 4.1, else
+\ those of format 4 (the difference added under 4.1's flag).
+: ed-added-read# ( -- n ) ed-added-v4# ed-added# over - ed-v41? and + ;
 
 : ed-view ( -- view ) elab elab-json ;
 : ed-stage ( -- stage ) elab elab-stage @ ;

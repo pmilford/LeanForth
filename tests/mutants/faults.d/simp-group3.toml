@@ -100,14 +100,6 @@ test = "$GFORTH tests/front/tactics/simp-3/test.fs"
 reason = "SL2: tryAutoCongrTheorem? (Types.lean:880) takes the old instance only when its type is the new class, else trySynthInstance's"
 
 [[fault]]
-id = "auto-refl-missing"
-file = "src/front/simp/congr.fs"
-old = ''': sc-h' ( old h -- p ) dup lf-simp-none? if drop lf-mk-eq-refl else nip then ;'''
-new = ''': sc-h' ( old h -- p ) nip ;'''
-test = "$GFORTH tests/front/tactics/simp-3/test.fs"
-reason = "SL2: an eq argument without a proof gives the theorem Eq.refl of itself (Result.getProof', Types.lean:893)"
-
-[[fault]]
 id = "auto-cast-taken"
 file = "src/front/simp/congr.fs"
 old = '''  sc-has-cast sc-flag? if lf-unported then'''

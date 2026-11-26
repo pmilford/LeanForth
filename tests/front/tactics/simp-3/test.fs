@@ -130,7 +130,7 @@ T{ with-h x0 a0 lf-mk-eq j0 decide-of simp s" Decidable.decide.congr_simp" head?
   simp-realized-kinds drop ;
 T{ dec-kinds dup @ 0 rot ! with-h x0 a0 lf-mk-eq j0 decide-of simp-outcome swap dec-kinds !
    -> outcome-unsupported }T
-T{ x0 lf-simp-none sc-h' s" Eq.refl" head? x0 h0 sc-h' -> true h0 }T
+T{ x0 lf-simp-none lf-simp-proof s" Eq.refl" head? x0 h0 lf-simp-proof -> true h0 }T
 \ The words alone, on an activation of their own: the old instance kept
 \ when its type is the new class; kinds of another number differ; the
 \ realized theorem of a head that is no constant, a constant the data

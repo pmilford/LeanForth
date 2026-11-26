@@ -106,10 +106,12 @@ end-structure
   if elab-e-congr-twice elab-refuse else outcome-ok then ;
 : sd-lemma ( index -- d outcome )
   elab-decl dup ok? if drop kind-thm elab-of-kind then dup ok? if drop sd-new-lemma then ;
-: sdc-name! ( value c -- outcome )
-  sdc swap c" name" elab-member sd-lemma ['] sdc-decl elab-put ;
-: sdc-fun! ( value c -- outcome )
-  sdc swap c" fun" elab-member elab-decl ['] sdc-fun elab-put ;
+\ A record's lemma, at its field xt: a theorem named once.
+: sd-name! ( addr value xt -- outcome ) >r c" name" elab-member sd-lemma r> elab-put ;
+: sdc-name! ( value c -- outcome ) sdc swap ['] sdc-decl sd-name! ;
+\ A record's function, at its field xt: a declaration.
+: sd-fun! ( addr value xt -- outcome ) >r c" fun" elab-member elab-decl r> elab-put ;
+: sdc-fun! ( value c -- outcome ) sdc swap ['] sdc-fun sd-fun! ;
 : sdc-priority! ( value c -- outcome )
   sdc swap c" priority" elab-member elab-u32 ['] sdc-priority elab-put ;
 : sdc-hyps! ( value c -- outcome ) sdc sdc-hyps swap c" hyps" elab-member elab-numbers ;
@@ -185,10 +187,8 @@ begin-structure /simp-real
 end-structure
 /simp-real context-slab: simp-reals
 : sdr ( r -- addr ) simp-reals slab-at ;
-: sdr-name! ( value r -- outcome )
-  sdr swap c" name" elab-member sd-lemma ['] sdr-decl elab-put ;
-: sdr-fun! ( value r -- outcome )
-  sdr swap c" fun" elab-member elab-decl ['] sdr-fun elab-put ;
+: sdr-name! ( value r -- outcome ) sdr swap ['] sdr-decl sd-name! ;
+: sdr-fun! ( value r -- outcome ) sdr swap ['] sdr-fun sd-fun! ;
 : sdr-kind ( value r -- outcome )
   drop c" kind" elab-member s" congr_simp" elab-text= 0= if elab-malformed exit then
   outcome-ok ;

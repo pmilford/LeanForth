@@ -116,9 +116,8 @@ end-structure
 : sc-thm-of ( r -- c )
   dup simp-realized-kinds sc-kinds= 0= if lf-unported then simp-realized@
   lf-menv-of-data lf-must lf-menv-name sc-head lf-const-levels lf-mk-const-id ;
-: sc-h' ( old h -- p ) dup lf-simp-none? if drop lf-mk-eq-refl else nip then ;
 : sc-eq-vals ( i -- )
-  dup sc-old dup sc-v+ swap sc-arg sca-r 2@ swap sc-v+ sc-h' sc-v+ ;
+  dup sc-old dup sc-v+ swap sc-arg sca-r 2@ swap sc-v+ lf-simp-proof sc-v+ ;
 \ subsingletonInst: the class the theorem's next binder asks for, the
 \ values so far in place.
 : sc-cls ( base type -- base type cls )
