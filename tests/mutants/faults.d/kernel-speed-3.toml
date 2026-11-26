@@ -155,8 +155,101 @@ reason = "an unstamped call's end leaves its entries counted, so the nested pass
 [[fault]]
 id = "ks3-rmemo-unstamped-in-table"
 file = "src/kernel/replace-memo.fs"
-old = '''  dup lf-rmemo-scratch? if lf-rmemo-scratch else lf-rmemo-table then ;'''
-new = '''  lf-rmemo-table ;'''
+old = ''': lf-rmemo-in ( memo -- memo' ) dup lf-rmemo-scratch? 0 lf-rmemo-scratch and + ;'''
+new = ''': lf-rmemo-in ( memo -- memo' ) lf-rmemo-table ;'''
 test = "$GFORTH tests/core/mixed-instantiate.fs"
 reason = "unstamped entries go into the stamped table, never taken out"
 
+# ---- P3: the lean walk of instantiation and the closed root.
+
+[[fault]]
+id = "ks3-walk-second-charged-early"
+file = "src/kernel/open-walk.fs"
+old = '''  2dup frame-save lf-walk-first over frame-save swap lf-term-first@ swap false ;'''
+new = '''  2dup frame-save lf-walk-first over frame-save dup lf-walk-fuel? drop swap lf-term-first@ swap false ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "a node's second child is charged before its first child's subtree is walked"
+quick = true
+
+[[fault]]
+id = "ks3-walk-kept-uncharged"
+file = "src/kernel/open-walk.fs"
+old = '''  dup lf-walk-fuel? 0= if nip outcome-exhausted lf-walk-failed exit then lf-walk-seen ;'''
+new = '''  lf-walk-seen ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "a child's visit, kept or rebuilt, costs no fuel: fuel numbers fall"
+quick = true
+
+[[fault]]
+id = "ks3-walk-second-at-root-depth"
+file = "src/kernel/open-walk.fs"
+old = '''  tuck frame-save 1 over frame-pick lf-walk-deeper lf-term-second@ swap false ;'''
+new = '''  tuck frame-save 1 over frame-pick lf-term-second@ swap false ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "a lambda's body is walked at the lambda's own binder depth"
+
+[[fault]]
+id = "ks3-walk-failure-keeps-cells"
+file = "src/kernel/open-walk.fs"
+old = '''  over ok? if exit then begin dup lf-walk-base? 0= while lf-walk-pop repeat ;'''
+new = '''  ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "a failure leaves the walk's cells and binder depth on the frames"
+
+[[fault]]
+id = "ks3-walk-binder-after-child"
+file = "src/kernel/mixed-open.fs"
+old = '''  2dup lf-rebuild-stuck? if 2drop lf-rebuild-deep true exit then drop false ;'''
+new = '''  drop false ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "a lambda at the binder limit is entered: its first child charged before the limit is met"
+quick = true
+
+[[fault]]
+id = "ks3-walk-reads-unreadable"
+file = "src/kernel/mixed-open.fs"
+old = '''  2dup lf-open-readable? 0= if lf-rebuild-bad true exit then'''
+new = '''  2dup 2drop'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "the lean walk reads a node past the pass's mark or not live"
+
+[[fault]]
+id = "ks3-walk-bvar-unchecked"
+file = "src/kernel/mixed-open.fs"
+old = '''  over lf-open-bvar? 0= if lf-rebuild-bad exit then'''
+new = '''  '''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "a bound variable that is no well-formed leaf is instantiated"
+
+[[fault]]
+id = "ks3-walk-unknown-tag-kept"
+file = "src/kernel/mixed-open.fs"
+old = '''    >r lf-rebuild-bad r> endcase ;'''
+new = '''    >r lf-rebuild-keep r> endcase ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "a leaf of a tag the pass does not know is kept"
+
+[[fault]]
+id = "ks3-closed-root-free"
+file = "src/kernel/mixed-open.fs"
+old = '''  -1 lf-open-fuel +! outcome-ok'''
+new = '''  outcome-ok'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "a closed root comes back without its unit of fuel"
+quick = true
+
+[[fault]]
+id = "ks3-closed-root-without-fuel"
+file = "src/kernel/mixed-open.fs"
+old = '''  lf-open-frames dup frame-sound? swap frame-fuel @ 0> and and ;'''
+new = '''  lf-open-frames frame-sound? and ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "a closed root comes back with no fuel left, where the visit's admission is exhausted"
+
+[[fault]]
+id = "ks3-closed-root-free-variable"
+file = "src/kernel/mixed-open.fs"
+old = '''  lf-open-data@ if dup lf-data-loose 0= swap lf-data-fvar? 0= and else false then ;'''
+new = '''  lf-open-data@ if lf-data-loose 0= else false then ;'''
+test = "$GFORTH tests/core/mixed-instantiate.fs"
+reason = "a root holding a free variable is given back unvisited: a dead one is never met"

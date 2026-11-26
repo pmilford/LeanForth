@@ -94,6 +94,7 @@ require ../core/local-context.fs
 require ../core/tagged-sort-boundary.fs
 require ../core/terms.fs
 require ./mixed-rebuild.fs
+require ./open-walk.fs
 require ./replace-memo.fs
 
 0 constant lf-open-mode-instantiate
@@ -250,9 +251,28 @@ defer lf-open-unchanged? ( node frames -- flag )
 : lf-open-visit ( node frames -- ... frames next )
   2dup lf-open-readable? lf-rebuild-tag
   dup lf-term-binary-tag? if drop lf-open-pair else over >r lf-open-leaf r> 0 then ;
+\ The same tests in the same order for the lean walk of instantiate,
+\ instantiate_rev and the scope mode (open-walk.fs, group kernel-speed-3):
+\ a result, or false for a binary node to rebuild; the join is
+\ lf-open-update. Abstract keeps the visits above.
+: lf-open-pair? ( x frames -- r outcome true | x false )
+  2dup lf-open-skip? if drop outcome-ok true exit then
+  2dup lf-open-known? if nip nip outcome-ok true exit then
+  over lf-open-children? 0= if lf-rebuild-bad true exit then
+  2dup lf-rebuild-stuck? if 2drop lf-rebuild-deep true exit then drop false ;
+: lf-open-look ( x frames -- r outcome true | x false )
+  2dup lf-open-readable? 0= if lf-rebuild-bad true exit then
+  over lf-term-tag@ dup lf-term-binary-tag? if drop lf-open-pair? exit then
+  lf-open-leaf true ;
+' lf-open-look is lf-walk-look
+' lf-open-update is lf-walk-join
+\ The frames' visitor: abstract visits every node on the frames; the
+\ other modes walk the root's subtree leanly within the root's visit.
+: lf-open-enter ( node frames -- ... frames next )
+  dup lf-open-abstract? if lf-open-visit exit then lf-walk-node 0 ;
 \ The frames and their visitor, set up once in every context; their stack
 \ is freed with the context.
-: lf-open-setup ( -- ) ['] lf-open-visit lf-open-frames frame-init ;
+: lf-open-setup ( -- ) ['] lf-open-enter lf-open-frames frame-init ;
 ' lf-open-setup context-setup
 : lf-open-release ( -- ) lf-open-frames frame-free ;
 ' lf-open-release context-teardown
@@ -299,10 +319,35 @@ defer lf-open-unchanged? ( node frames -- flag )
   lf-open-job lf-open-mode lf-open-mode-scope = if lf-open-scope-stamp else 0 then ;
 : lf-open-begin ( -- ) lf-open-stamp lf-open-memo lf-rmemo-begin ;
 : lf-open-end ( node' outcome -- node' outcome ) dup lf-open-memo lf-rmemo-end ;
-: lf-open-run ( node subst n mode -- node' outcome )
-  lf-open-ready dup ok? 0= if nip no-result exit then drop
+: lf-open-walked ( node -- node' outcome )
   lf-open-marked dup ok? 0= if nip no-result exit then drop
   lf-open-begin 0 lf-open-frames lf-rebuild-run nip lf-open-explain lf-open-end ;
+\ A closed root (group kernel-speed-3): a binary node of an instantiation
+\ whose data word shows no loose bound variable and no free variable, as
+\ lf-open-skip? keeps it at offset 0, is given back for its one unit once
+\ the checks its visit would make hold -- the stores' counts (the marks'
+\ refusal), the frames sound, fuel left, a readable binary node -- without
+\ a mark or a frame; the scope mode's memo call made as the pass would
+\ make it (lf-rmemo-begin may empty a crowded memo). Its data word is read
+\ first: an input node's straight from its tier record, which is always
+\ there (a binary record is a valid node), a store node's through the
+\ checked lf-term-data@.
+: lf-open-data@ ( node -- data true | false )
+  dup lf-term-input? if lf-term-data-word true exit then lf-term-data@ ;
+: lf-open-closed? ( node -- flag )
+  lf-open-job lf-open-abstract? if drop false exit then
+  lf-open-data@ if dup lf-data-loose 0= swap lf-data-fvar? 0= and else false then ;
+: lf-open-root? ( node -- flag )
+  lf-term-tag@ lf-term-binary-tag? lf-scratch-counts? and
+  lf-open-frames dup frame-sound? swap frame-fuel @ 0> and and ;
+: lf-open-quick? ( node -- flag )
+  dup lf-open-closed? dup if drop lf-open-root? else nip then ;
+: lf-open-quick ( node -- node outcome )
+  -1 lf-open-fuel +! outcome-ok
+  lf-open-stamp ?dup if lf-open-memo lf-rmemo-begin lf-open-end then ;
+: lf-open-run ( node subst n mode -- node' outcome )
+  lf-open-ready dup ok? 0= if nip no-result exit then drop
+  dup lf-open-quick? if lf-open-quick else lf-open-walked then ;
 : lf-open-pass ( node subst n mode -- node' outcome )
   over 0= if 2drop drop outcome-ok else lf-open-run then ;
 \ instantiate: node with s(k) for its loose bound variable k.

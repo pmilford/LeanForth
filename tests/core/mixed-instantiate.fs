@@ -333,7 +333,21 @@ T{ before-deep lf-scratch-mark -> outcome-ok }T
 T{ deep 1 rev nip -> outcome-ok }T
 T{ before-deep lf-scratch-rollback -> outcome-ok }T
 lf-open-frames frame-free  1 heap-refusals !
-T{ deep 1 rev -> -1 outcome-full }T
+\ Declared change (group kernel-speed-3, TERM_STORE.md "As landed"): a
+\ closed root takes no frame room, so the closed chain comes back, still
+\ for its one unit, the heap's refusal unused; an open chain needs room
+\ and is full.
+T{ deep 1 rev nip lf-open-fuel @ heap-refusals @ -> outcome-ok 999 1 }T
+0 heap-refusals !
+: deep-open ( -- node ) lf-walk-room 2 + lf-term-bvar drop
+  lf-walk-room 0 do 1 swap lf-term-lam 0= abort" deep" loop ;
+deep-open constant open-chain
+lf-open-frames frame-free  1 heap-refusals !
+T{ open-chain 1 rev -> -1 outcome-full }T
+0 heap-refusals !
+\ The open chain walked leanly: one unit a node, as the frame machine
+\ charged; the walk's room is two cells a rebuilt node.
+T{ open-chain 1 rev nip lf-open-fuel @ -> outcome-ok 1000 lf-walk-room 2* 1+ - }T
 \ mk_pi: fun over x : Sort and y : x of y is (x : Sort) -> (y : x) -> y,
 \ in de Bruijn form Pi Sort (Pi #0 #0), the domain x abstracted over x.
 open-setup
@@ -455,4 +469,67 @@ T{ outcome-ok u-end 7 u-rmemo lf-rmemo-begin 0 u-find outcome-ok u-end -> true }
 T{ u-call 0 u-keep 1 u-keep outcome-ok u-end u-call u-rmemo lf-rmemo-scratch memo-count -> 2 }T
 T{ u-rmemo lf-rmemo-empty u-rmemo lf-rmemo-count 7 u-rmemo lf-rmemo-begin 0 u-find -> 0 false }T
 u-rmemo lf-rmemo-release
+
+\ ---------------------------------------------------------------------------
+\ The lean walk (kernel/open-walk.fs, group kernel-speed-3), with steps
+\ that log each visit's fuel, context and node: the frame machine's order
+\ and charges -- the root's unit spent by its own visit, each child's at
+\ the start of its visit, a kept leaf's too, the second child only after
+\ the first's subtree, one binder deeper under a lambda; a join logs -1.
+create walk-log 64 cells allot  variable walk-n
+: log, ( x -- ) walk-log walk-n @ cells + ! 1 walk-n +! ;
+: log@ ( i -- x ) cells walk-log + @ ;
+: stub-look ( x frames -- r outcome true | x false )
+  dup frame-fuel @ log, frame-context @ log, dup log,
+  dup lf-term-tag@ lf-term-binary-tag? if false else outcome-ok true then ;
+: stub-join ( r1 node r2 -- result outcome ) drop nip -1 log, outcome-ok ;
+' noop frames: tf
+: stubbed ( x frames -- r outcome frames )
+  ['] lf-walk-look defer@ >r ['] lf-walk-join defer@ >r
+  ['] stub-look is lf-walk-look ['] stub-join is lf-walk-join
+  0 walk-n ! lf-walk-node r> is lf-walk-join r> is lf-walk-look ;
+: walk-with ( x fuel -- r outcome ) tf frame-fuel ! tf stubbed drop ;
+2 3 lf-term-app drop constant ab
+ab 2 lf-term-app drop constant ab-c
+T{ ab-c 100 walk-with walk-n @ tf frame-used @ -> ab-c outcome-ok 17 0 }T
+T{ 0 log@ 2 log@ 3 log@ 5 log@ 6 log@ 8 log@ 9 log@ 11 log@ 12 log@ 13 log@ 15 log@ 16 log@
+   -> 100 ab-c 99 ab 98 2 97 3 -1 96 2 -1 }T
+\ Fuel runs out at the second child: the kept leaf's visit took the last
+\ unit; the walk's cells are given back.
+T{ ab-c 3 walk-with tf frame-used @ tf frame-fuel @ walk-n @ -> -1 outcome-exhausted 0 0 13 }T
+\ Under a lambda the second child is one binder deeper, and the context
+\ is back after it.
+1 ab lf-term-lam drop constant lam-ab
+T{ lam-ab 100 walk-with tf frame-context @ -> lam-ab outcome-ok 0 }T
+T{ 4 log@ 7 log@ 10 log@ 13 log@ -> 0 1 1 1 }T
+\ A failure deep inside gives the cells and the context back.
+T{ lam-ab 2 walk-with tf frame-used @ tf frame-context @ -> -1 outcome-exhausted 0 0 }T
+\ The real steps at the binder limit: a lambda over a live free variable
+\ (no data word decides it) at context max-n is full before any child is
+\ charged, recorded as a full binder context.
+open-setup
+1 x lf-term-lam drop constant lam-x
+T{ subst 1 lf-open-mode-rev lf-open-ready lf-open-marked -> outcome-ok outcome-ok }T
+max-n lf-open-frames frame-context !  100 lf-open-fuel !
+T{ lf-diag-clear lam-x lf-open-frames lf-walk-node drop lf-open-fuel @ lf-diag@ nip
+   -> -1 outcome-full 100 max-n max-n lf-diag-binders-full }T
+lf-open-reset
+\ Each leaf's fail-closed test stays in the walk: a node the pass may not
+\ read and a free variable no longer live are tested above (before-gone);
+\ a bound variable that is no well-formed leaf, inside a term, is invalid.
+lf-tag-bvar 0 1 lf-term-add drop constant bad-bvar
+T{ 1 bad-bvar lf-term-app drop 1 inst nip -> outcome-invalid }T
+\ A leaf of a tag the pass does not know (a plain Sort) inside an open
+\ term is invalid, and so is a root past the store's count (not read).
+0 lf-term-sort drop constant plain-sort
+T{ plain-sort 0 lf-term-bvar drop lf-term-app drop 1 inst nip -> outcome-invalid }T
+0 lf-term-bvar drop 77 lf-term-bvar drop lf-term-app drop constant fresh-app
+T{ fresh-app 1+ lf-term-count @ lf-term-base + = -> true }T
+T{ -1 lf-term-count +! fresh-app 1 inst 1 lf-term-count +! -> -1 outcome-invalid }T
+\ A closed root comes back for its one unit; with none left it is
+\ exhausted, as the frame machine's admission refuses.
+1 1 lf-term-app drop constant closed-11
+T{ closed-11 lf-open-closed? 5 lf-open-fuel ! closed-11 subst 1 lf-instantiate-rev lf-open-fuel @
+   -> true closed-11 outcome-ok 4 }T
+T{ 0 lf-open-fuel ! closed-11 subst 1 lf-instantiate-rev lf-open-fuel @ -> -1 outcome-exhausted 0 }T
 bye

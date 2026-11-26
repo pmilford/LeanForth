@@ -141,8 +141,10 @@ end-structure
 : lf-rmemo-key! ( node offset memo -- flag )
   >r swap lf-term-identity 0= if drop r> drop false exit then
   r@ lf-rmemo-key ! r> lf-rmemo-place true ;
-: lf-rmemo-in ( memo -- memo' )
-  dup lf-rmemo-scratch? if lf-rmemo-scratch else lf-rmemo-table then ;
+\ The memo a call's entries are in: the scratch memo for an unstamped
+\ call, else the table, the record's first field.
+0 lf-rmemo-table 0<> [if] .( replace-memo.fs: the table comes first) cr abort [then]
+: lf-rmemo-in ( memo -- memo' ) dup lf-rmemo-scratch? 0 lf-rmemo-scratch and + ;
 : lf-rmemo-entry ( memo -- key memo' ) dup lf-rmemo-key swap lf-rmemo-in ;
 : lf-rmemo@ ( node offset memo -- result true | false )
   dup >r lf-rmemo-key! 0= if r> drop false exit then

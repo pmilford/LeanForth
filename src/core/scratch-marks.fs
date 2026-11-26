@@ -86,6 +86,10 @@ end-structure
   over swap lf-scratch-pair store-mark-valid? ;
 : lf-scratch-valid? ( scratch -- flag )
   lf-scratch-families ['] lf-scratch-valid-at? all? nip ;
+\ Whether every family's count is valid, so that a mark taken now is
+\ (lf-scratch-mark's refusal), without taking one.
+: lf-scratch-count-at? ( x k -- x flag ) lf-scratch-store store-count-valid? ;
+: lf-scratch-counts? ( -- flag ) 0 lf-scratch-families ['] lf-scratch-count-at? all? nip ;
 \ The term count marked: the terms below it are older than the mark.
 : lf-scratch-terms ( scratch -- n ) 0 lf-scratch-part lf-term-mark-end ;
 

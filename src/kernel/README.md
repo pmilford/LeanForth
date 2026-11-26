@@ -95,7 +95,11 @@ Amendment 3): a node whose data word shows it unchanged is kept unvisited,
 and each result is kept per node and offset for the call in the replace
 memo (`replace-memo.fs`); a closing with the scope's free variables keeps
 its results for the job, and inference keys an inferred type by the node
-closed with its scope, as Lean keys the opened term.
+closed with its scope, as Lean keys the opened term. Instantiation walks
+leanly (`open-walk.fs`, group kernel-speed-3): only a node to rebuild takes
+room on the frames, a kept child is charged inline, and a closed root is
+given back for its one unit; an unstamped call's memo entries are thrown
+away whole (`replace-memo.fs`'s scratch memo).
 
 Rules a new kernel module must keep:
 
