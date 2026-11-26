@@ -212,6 +212,10 @@ T{ s" And" top elab-induction elab-eliminator-for s" And" top elab-cases elab-el
    -> 2 true false }T
 T{ 3 elab-eliminator-types nip 3 elab-eliminator-types drop 1 cells + @ -> 2 s" Nat" top }T
 T{ s" Eq" top elab-induction elab-eliminator-for -> false }T
+\ An eliminator, or an instance value, entered again is found (the tables'
+\ stored hashes, lib/htab.fs) and refused: errors 18 and 31.
+T{ 0 ed-elim-insert elab-error-code 0 ed-place elab-error-code
+   -> outcome-invalid 18 outcome-invalid 31 }T
 \ The fixture's BitVec.instAdd (left out 20) has a projection of BitVec,
 \ which the slice lacks: a foreign key of Key.arity 1 whose text is 2, the
 \ field 0 and BitVec's name; BitVec.instOfNat (44) has the constant

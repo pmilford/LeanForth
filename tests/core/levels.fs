@@ -98,6 +98,9 @@ T{ 0 0 lf-level-imax -> false }T
 T{ lf-level-count @ -> lf-level-capacity 1+ }T
 lf-level-reset
 T{ lf-level-count @ lf-level-table htab-count -> 1 1 }T
+\ The zero level is entered once: entering it again finds it (and its
+\ slot keeps the hash of its fields, lib/htab.fs's stored hash).
+T{ lf-level-enter-zero lf-level-table htab-count lf-level-table htab-sound? -> 1 true }T
 T{ 0 lf-level-read -> lf-level-tag-zero 0 0 true }T
 T{ 1 lf-level-read -> false }T
 
