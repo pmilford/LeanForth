@@ -92,7 +92,7 @@ T{ 5 0 m memo@ 6 0 m memo@ 6 1 m memo@ 7 0 m memo@ -> 10 true 20 true 20 true fa
 T{ 11 5 7 m memo! m memo-count 5 0 m memo@ -> outcome-ok 2 11 true }T
 T{ -1 -1 0 m memo! 0 0 0 m memo! -1 0 m memo@ 0 0 m memo@ -> outcome-ok outcome-ok -1 true 0 true }T
 \ 16 slots of 32 bits and 16 entries of two cells.
-T{ m memo-bytes -> 16 /htab-slot * 32 cells + }T
+T{ m memo-bytes -> 16 u32s 32 cells + }T
 T{ blocks -> 2 }T
 m memo-free
 
@@ -202,7 +202,7 @@ p memo-free
 T{ 20 puts c memo-bytes c memo-clear c memo-bytes = c memo-count 5 0 c memo@ -> true 0 false }T
 T{ 20 puts c memo-bytes c memo-empty c memo-bytes = c memo-count blocks -> true 0 2 }T
 T{ 2000 puts c memo-count blocks -> 2000 2 }T
-T{ c memo-empty c memo-count c memo-bytes c memo-live? blocks -> 0 16 /htab-slot * true 1 }T
+T{ c memo-empty c memo-count c memo-bytes c memo-live? blocks -> 0 16 u32s true 1 }T
 T{ 0 admits !  3 put admits @ 3 0 c memo@ -> outcome-ok 1 1003 true }T
 \ The heap refuses the new table: the memo is no longer live, holds nothing.
 T{ 2000 puts 1 heap-refusals ! c memo-empty c dead? blocks -> false 0 0 0 }T

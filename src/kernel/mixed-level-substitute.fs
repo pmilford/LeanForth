@@ -140,7 +140,7 @@ create lf-mls-set-hooks /htab-hooks allot
 \ set's empty slot that the find gave (the list's growth leaves the set
 \ alone).
 : lf-mls-enter ( slot n outcome -- outcome )
-  dup ok? if drop swap lf-mls-set htab-enter outcome-ok else nip nip then ;
+  dup ok? if drop swap lf-mls-set htab-put outcome-ok else nip nip then ;
 : lf-mls-mark ( index -- outcome )
   lf-mls-set htab-ready ok? 0= if drop lf-mls-set-full exit then
   dup lf-mls-find if 2drop outcome-ok exit then

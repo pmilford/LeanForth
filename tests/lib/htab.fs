@@ -15,37 +15,22 @@ variable #values
 : value@ ( n -- x ) cells values + @ ;
 : value-add ( x -- n ) #values @ tuck cells values + ! 1 #values +! ;
 : spread-rehash ( n htab -- h ) drop value@ hash-fmix ;
-\ same counts how often a find asks it.
-variable sames
-: same-value ( n key htab -- flag ) 1 sames +! drop swap value@ = ;
+: same-value ( n key htab -- flag ) drop swap value@ = ;
 \ Every entry hashes to slot 5 (mod the size): one run holds them all.
 : one-rehash ( n htab -- h ) 2drop 5 ;
-\ Every entry starts at slot 0 of 16, each with a hash of its own: 16x.
-: run-rehash ( n htab -- h ) drop value@ 16 * ;
-\ A hash with a bit above the low 32 set (on a 64-bit host).
-$10000 dup * constant high-bit
-: high-rehash ( n htab -- h ) drop value@ hash-fmix high-bit or ;
 create spread-hooks /htab-hooks allot
 create one-hooks /htab-hooks allot
-create run-hooks /htab-hooks allot
-create high-hooks /htab-hooks allot
 ' spread-rehash ' same-value spread-hooks htab-hooks!
 ' one-rehash ' same-value one-hooks htab-hooks!
-' run-rehash ' same-value run-hooks htab-hooks!
-' high-rehash ' same-value high-hooks htab-hooks!
 create t /htab allot
 
-\ Find, put, key-find again. A key's hash is the one its hooks give its
-\ entry.
+\ Find, put, key-find again.
 variable hooks-in-use
-: key-hash ( x -- h )
-  hooks-in-use @ case one-hooks of drop 5 endof  run-hooks of 16 * endof
-    high-hooks of hash-fmix high-bit or endof  >r hash-fmix r> endcase ;
+: key-hash ( x -- h ) hooks-in-use @ one-hooks = if drop 5 else hash-fmix then ;
 : key-find ( x -- n true | i false ) dup key-hash t htab-find ;
-\ Insert x unless present, with its hash: its entry number.
-: key-put ( x i -- n ) over key-hash >r swap value-add tuck swap r> t htab-put ;
+\ Insert x unless present: its entry number.
 : key-add ( x -- n )
-  t htab-ready ok? 0= abort" key-add: full" dup key-find if nip else key-put then ;
+  t htab-ready ok? 0= abort" key-add: full" dup key-find if nip else swap value-add tuck swap t htab-put then ;
 : start ( log2 hooks -- outcome ) dup hooks-in-use ! 0 #values ! t htab-init ;
 T{ 2 spread-hooks start t htab-count t htab-slots -> outcome-ok 0 4 }T
 T{ 42 key-find nip -> false }T
@@ -59,14 +44,6 @@ T{ 44 key-add t htab-slots 45 key-add t htab-slots t htab-count -> 2 4 3 8 4 }T
 T{ t htab-base t htab-block @ = -> true }T
 T{ 42 key-find 45 key-find -> 0 true 3 true }T
 T{ t htab-stats nip nip -> 1 }T
-\ Each slot holds its entry's hash (low 32 bits), moved with it by the
-\ growth, which asks no hook (htab-sound? does, as a check); a slot is
-\ /htab-slot (8) bytes.
-: slot-hash ( x -- h32 ) key-hash u32-mask and ;
-: stored-hash ( x -- h32 )
-  dup key-find drop swap key-hash t htab-seek drop t htab-slot htab-hash@ ;
-T{ 42 slot-hash 42 stored-hash = 45 slot-hash 45 stored-hash = t htab-sound? -> true true true }T
-T{ /htab-slot t htab-bytes -> 8 64 }T
 
 \ The limit: at most 2^3 slots, so 6 entries fit and the 7th is full.
 T{ 3 t htab-limit 46 key-add 47 key-add t htab-ready -> 4 5 outcome-full }T
@@ -89,23 +66,23 @@ T{ 0 t htab@ 4 t htab@ -> 12 0 }T
 : key-remove ( x -- outcome ) dup key-find 0= abort" key-remove: absent" swap key-hash t htab-remove ;
 T{ 103 key-remove 0 3 all-found? 4 12 all-found? 103 key-find nip t htab-count -> outcome-ok true true false 11 }T
 T{ 100 key-remove 111 key-remove 106 key-remove t htab-count -> outcome-ok outcome-ok outcome-ok 8 }T
-T{ 1 3 all-found? 4 6 all-found? 7 11 all-found? t htab-sound? -> true true true true }T
+T{ 1 3 all-found? 4 6 all-found? 7 11 all-found? -> true true true }T
 \ An absent entry is refused.
 T{ 0 5 t htab-remove 99 5 t htab-remove t htab-count -> outcome-invalid outcome-invalid 8 }T
 T{ 101 key-find drop 5 t ' htab-holds? rs-checked 0 5 t htab-holds? -> true false }T
 \ Spreading: 8 entries need 16 slots at most half full; presizing grows.
 T{ t htab-spread t htab-slots 6 t htab-presize t htab-slots 3 t htab-presize t htab-slots -> outcome-ok 16 outcome-ok 64 outcome-ok 64 }T
-T{ 1 3 all-found? 7 11 all-found? t htab-sound? -> true true true }T
-T{ t htab-spread t htab-slots t htab-sound? -> outcome-ok 16 true }T
+T{ 1 3 all-found? 7 11 all-found? -> true true }T
+T{ t htab-spread t htab-slots -> outcome-ok 16 }T
 \ A live table; one with a broken size field or no block is not.
 T{ t htab-live? t htab-mask @ 1 t htab-mask ! t htab-live? swap t htab-mask ! -> true false }T
 \ A frozen table finds, writing nothing (its record and slots keep every
 \ byte), and refuses every change.
 create before /htab 64 u32s + allot
-: snapshot ( addr -- ) t over /htab move /htab + t htab-block @ swap t htab-bytes move ;
+: snapshot ( addr -- ) t over /htab move /htab + t htab-block @ swap 16 u32s move ;
 : unchanged? ( -- flag )
   here snapshot before /htab here /htab compare 0=
-  before /htab + t htab-bytes here /htab + t htab-bytes compare 0= and ;
+  before /htab + 16 u32s here /htab + 16 u32s compare 0= and ;
 T{ t htab-freeze t htab-frozen? before snapshot -> true }T
 T{ 1 3 all-found? 7 11 all-found? 200 key-find nip unchanged? -> true true false true }T
 T{ t htab-ready 101 key-find drop 5 t htab-remove 8 t htab-presize t htab-spread -> 1 1 1 0 }T
@@ -128,39 +105,6 @@ T{ t htab-small? 0 remade ! t ' remake htab-renew remade @ t htab-live? -> false
 T{ t ' htab-small? rs-checked -> true }T
 t htab-free
 
-\ Stored hashes decide which entries same is asked about: only those whose
-\ stored hash is the one sought. Values 1 .. 4 start at slot 0 of 16 with
-\ hashes 16 .. 64: one run of four slots, four hashes.
-: compared ( -- n ) t htab-stats drop nip ;
-: asked ( x -- n flag ) 0 sames ! key-find nip sames @ swap ;
-: met ( x -- n flag slots ) compared >r asked compared r> - ;
-T{ 4 run-hooks start 1 key-add 2 key-add 3 key-add 4 key-add -> outcome-ok 0 1 2 3 }T
-T{ 0 t htab@ 3 t htab@ 4 t htab@ t htab-sound? -> 1 4 0 true }T
-\ A missing key meets all four and asks same of none; a present one is
-\ asked about once; each occupied slot met is counted, as before.
-T{ 5 met 3 met -> 0 false 4 1 true 3 }T
-T{ 4 asked 1 asked -> 1 true 1 true }T
-\ Algorithm R moves each entry's hash with it: removing 1 shifts 2 .. 4
-\ back, and each is still found by its own hash.
-T{ 1 key-remove 2 asked 3 asked 4 asked t htab-sound? -> outcome-ok 1 true 1 true 1 true true }T
-T{ 0 t htab-slot htab-hash@ 2 t htab-slot htab-hash@ 3 t htab@ -> 32 64 0 }T
-\ Growth moves them too: 16 slots doubled to 32 keep every hash.
-T{ 5 t htab-presize 2 asked 4 asked t htab-sound? -> outcome-ok 1 true 1 true true }T
-t htab-free
-\ A slot keeps the hash's low 32 bits; a find masks the hash it is given.
-T{ 2 high-hooks start 7 key-add 8 key-add 9 key-add 7 key-find -> outcome-ok 0 1 2 0 true }T
-T{ 9 slot-hash 9 stored-hash = t htab-sound? 9 asked -> true true 1 true }T
-t htab-free
-\ htab-enter asks rehash for the hash: the same slot, the same stored hash.
-: key-enter ( x -- n ) dup key-find abort" key-enter: present" swap value-add tuck swap t htab-enter ;
-T{ 2 spread-hooks start 50 key-enter 51 key-enter 50 key-find 51 key-find -> outcome-ok 0 1 0 true 1 true }T
-T{ 50 slot-hash 50 stored-hash = t htab-sound? -> true true }T
-\ htab-sound? fails on a wrong count, or a stored hash that is not rehash's.
-: hash-at ( x -- addr ) dup key-find drop swap key-hash t htab-seek drop t htab-slot 1 u32s + ;
-T{ 1 t htab-entries +! t htab-sound? -1 t htab-entries +! t htab-sound? -> false true }T
-T{ 50 hash-at dup u32@ 1+ swap u32! t htab-sound? 50 key-find nip -> false false }T
-t htab-free
-
 \ A randomized model: inserts and removals of keys 0 .. 63, compared with a
 \ table of which keys are present and their entries.
 create present 64 cells allot
@@ -176,7 +120,7 @@ variable model-seed   variable model-bad
 : model-count ( -- n ) 0 64 0 do i present@ 0< 0= if 1+ then loop ;
 : model-check ( -- )
   64 0 do i key-find if i present@ <> if model-bad! then else drop i present@ 0< 0= if model-bad! then then loop
-  t htab-count model-count <> t htab-sound? 0= or if model-bad! then ;
+  t htab-count model-count <> if model-bad! then ;
 : model-step ( -- ) 64 model-rnd 3 model-rnd if model-key-add else model-key-remove then model-check ;
 : model-run ( seed log2 hooks steps -- bad )
   >r start drop model-seed ! 0 model-bad ! present 64 cells -1 fill

@@ -4071,8 +4071,8 @@ quick = true
 [[fault]]
 id = "htab-frozen-counts"
 file = "src/lib/htab.fs"
-old = ''': htab-tick ( addr htab -- ) htab-frozen? if drop else 1 swap +! then ;'''
-new = ''': htab-tick ( addr htab -- ) drop 1 swap +! ;'''
+old = ''': htab-tally ( n addr htab -- ) htab-frozen? if 2drop else +! then ;'''
+new = ''': htab-tally ( n addr htab -- ) drop +! ;'''
 test = "$GFORTH tests/lib/htab.fs"
 reason = "a find writes its statistics into a frozen table, so workers sharing a sealed input race on it"
 
@@ -7689,7 +7689,7 @@ reason = "S0/S3: any entry the probe meets is read as the term sought, so reache
 [[fault]]
 id = "s0-mls-listed-twice"
 file = "src/kernel/mixed-level-substitute.fs"
-old = '''  dup ok? if drop swap lf-mls-set htab-enter outcome-ok else nip nip then ;'''
+old = '''  dup ok? if drop swap lf-mls-set htab-put outcome-ok else nip nip then ;'''
 new = '''  dup ok? if drop 2drop outcome-ok else nip nip then ;'''
 test = "$GFORTH tests/core/mixed-level-substitute.fs"
 reason = "S0/S3: a listed term is never entered in the set, so a term is listed once per occurrence"
@@ -8898,8 +8898,8 @@ reason = "S5: instantiation and opening count input nodes as newer than their pa
 [[fault]]
 id = "s5-input-stamp-lost"
 file = "src/core/generation-handles.fs"
-old = '''  swap lf-term-leaf-stamp over lf-stamp-level ! ;'''
-new = '''  swap drop 0 over lf-stamp-level ! ;'''
+old = '''  lf-term-leaf-stamp r@ lf-stamp-level ! r> ;'''
+new = '''  drop 0 r@ lf-stamp-level ! r> ;'''
 test = "$GFORTH tests/core/check-declaration-ndjson.fs"
 reason = "S5: an input Sort or constant loses its level's or reference's stamp, so every audit refuses it"
 
@@ -11366,8 +11366,8 @@ reason = "a declaration's reducibility given twice is read, the two statuses mix
 [[fault]]
 id = "fe-elab-eliminator-twice"
 file = "src/front/elab-data.fs"
-old = '''  if ed-twice else ed-table htab-enter outcome-ok then ;'''
-new = '''  if 2drop outcome-ok else ed-table htab-enter outcome-ok then ;'''
+old = '''  if ed-twice else ed-table htab-put outcome-ok then ;'''
+new = '''  if 2drop outcome-ok else ed-table htab-put outcome-ok then ;'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "two eliminators of one kind for the same types are read, the second never found"
 
@@ -11557,8 +11557,8 @@ quick = true
 [[fault]]
 id = "fe-ed2-rank-twice"
 file = "src/front/elab-data.fs"
-old = '''  if 2drop ed-e-rank ed-bad else ed-ranks htab-enter outcome-ok then ;'''
-new = '''  if 2drop outcome-ok else ed-ranks htab-enter outcome-ok then ;'''
+old = '''  if 2drop ed-e-rank ed-bad else ed-ranks htab-put outcome-ok then ;'''
+new = '''  if 2drop outcome-ok else ed-ranks htab-put outcome-ok then ;'''
 test = "python3 tests/front/test_elab_data.py"
 reason = "two values of one root key with one rank are read, their order ambiguous (error 31 never given)"
 
@@ -11943,8 +11943,8 @@ reason = "FRI B2: a level or term found whose second field differs counts as equ
 [[fault]]
 id = "fri-b2-sought-hash-key"
 file = "src/core/terms.fs"
-old = '''  dup >r lf-sought! r@ dup lf-sought@ hash-3 dup r> lf-sought-hashed ! ;'''
-new = '''  dup >r lf-sought! r@ dup lf-sought@ drop 0 hash-3 dup r> lf-sought-hashed ! ;'''
+old = '''  dup >r lf-sought! r@ dup lf-sought@ hash-3 r> drop ;'''
+new = '''  dup >r lf-sought! r@ dup lf-sought@ drop 0 hash-3 r> drop ;'''
 test = "$GFORTH tests/core/terms.fs"
 reason = "FRI B2: a record is sought under a hash without its second field, so an equal record entered under the full hash is not found"
 
@@ -18627,8 +18627,8 @@ reason = "the admit hook is never asked: a refused entry (a check's memory limit
 [[fault]]
 id = "lib-memo-value-not-zeroed"
 file = "src/lib/memo.fs"
-old = '''  >r tuck swap r@ memo-index dup r@ memo-blank tuck r@ memo-key!'''
-new = '''  >r tuck swap r@ memo-index tuck r@ memo-key!'''
+old = '''  >r tuck swap r@ memo-table htab-put dup r@ memo-blank tuck r@ memo-key!'''
+new = '''  >r tuck swap r@ memo-table htab-put tuck r@ memo-key!'''
 test = "$GFORTH tests/lib/memo.fs"
 reason = "a new entry's value cells keep what a cut entry left there"
 

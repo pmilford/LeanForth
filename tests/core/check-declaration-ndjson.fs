@@ -284,18 +284,6 @@ T{ 5 0 1 15 lf-term-input-leaf 15 lf-term-read -> outcome-ok lf-tag-constant 5 0
 T{ 5 0 1 15 lf-term-input-leaf 0 0 1 27 lf-term-input-leaf 0 0 1 9999 lf-term-input-leaf
    0 0 1 14 lf-term-input-leaf
    -> outcome-invalid outcome-invalid outcome-invalid outcome-invalid }T
-\ Under a horizon at 15, leaf 15 is not found by its fields: another leaf
-\ given the same fields gets its entry by node, while the fields' table
-\ (its find by stored hash, lib/htab.fs) keeps the first.
-: other-leaf ( -- node )
-  -1 lf-term-base 0 ?do i 15 <> i lf-tin-leaf-node? and
-    if i lf-tin-tag@ lf-tag-constant = if drop i leave then then loop ;
-T{ 15 lf-term-horizon! 5 0 1 other-leaf lf-term-input-leaf lf-term-unbounded
-   lf-tag-constant 5 0 lf-tin-leaf-find other-leaf lf-term-valid?
-   -> outcome-ok 15 true true }T
-\ An entry entered by node again is found there and not entered twice.
-: nodes# ( -- n ) lf-term-view lf-tview-nodes htab-count ;
-T{ nodes# 0 lf-tleaf-by-node nodes# 15 lf-tin-leaf# -> 2 2 0 true }T
 T{ lf-term-detach lf-term-viewed? 15 lf-term-valid? -> outcome-ok false false }T
 unstage
 \ A let read in place (step S5, parts 4-5): withLet's value, expression

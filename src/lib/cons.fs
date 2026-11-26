@@ -124,9 +124,6 @@ begin-structure /cons
   aligned 2 cells +field cons-key   \ the candidate's text, address and length
   field: cons-key-base        \ where that text lies in cons-bytes, or -1
   field: cons-under-finds     \ statistics: finds this set made in its under set
-lf-lib-private set-current
-  field: cons-hashed          \ the candidate's hash, kept by cons-find
-lf-lib set-current
 end-structure
 
 \ Numbers so far, and the set that holds number n: the under set below the
@@ -149,10 +146,10 @@ lf-lib set-current
 \ Address units allocated, and in use, by the set's slabs and table.
 : cons-allocated ( cons -- u )
   dup cons-records slab-bytes over cons-bytes slab-bytes +
-  swap cons-table htab-bytes + ;
+  swap cons-table htab-slots u32s + ;
 : cons-used ( cons -- u )
   dup cons-records slab-used-bytes over cons-bytes slab-used-bytes +
-  swap cons-table htab-bytes + ;
+  swap cons-table htab-slots u32s + ;
 lf-lib-private set-current
 
 \ The class's hooks, for the set's own records. A span of 0 counts as 1,
@@ -239,18 +236,15 @@ lf-lib set-current
 \ Find the candidate whose hash is h: under? says it may be in the under
 \ set, which is searched first, read-only (a sealed set's table is frozen,
 \ so the find writes nothing there). A record's number and true, or the
-\ empty slot of the own table where it belongs and false; the hash is kept
-\ with the candidate, for cons-commit. cons-room first.
+\ empty slot of the own table where it belongs and false. cons-room first.
 : cons-find ( h under? cons -- n true | i false )
-  swap if 2dup cons-under-find if nip nip true exit then then
-  2dup cons-hashed ! tuck cons-table htab-find ;
+  swap if 2dup cons-under-find if nip nip true exit then then tuck cons-table htab-find ;
 \ Unchecked, after cons-room and a find that gave false: keep u bytes of
 \ text at addr as the own set's, giving their offset.
 : cons-text, ( addr u cons -- offset )
   cons-bytes >r r@ slab-count -rot tuck r@ slab-top swap move r> slab-commit ;
 \ After cons-room and a find that gave slot i: keep the candidate of units
-\ record units as a new record and enter it at slot i, with the hash its
-\ find kept (the candidate's text may not be in place yet): its number and ok,
+\ record units as a new record and enter it at slot i: its number and ok,
 \ or -1 and full, with nothing kept, when the class's limit of numbers
 \ would be passed. A text the record refers to is kept after it, with
 \ cons-text, (whose room cons-room made).
@@ -262,8 +256,8 @@ lf-lib-private set-current
 lf-lib set-current
 : cons-commit ( units i cons -- n outcome )
   >r over r@ cons-past? if 2drop r> drop outcome-full no-result exit then
-  r@ cons-numbers tuck swap r@ dup cons-hashed @ swap cons-table htab-put
-  swap r> cons-records slab-commit outcome-ok ;
+  r@ cons-numbers tuck swap r@ cons-table htab-put swap r> cons-records slab-commit
+  outcome-ok ;
 
 \ Loading a set from a file (a snapshot): its records, written by the
 \ caller in order into the free space of the records slab after

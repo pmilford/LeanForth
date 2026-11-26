@@ -217,7 +217,7 @@ create lf-pair-hooks /htab-hooks allot
 : lf-pairs# ( -- n ) lf-pair-state lf-pairs-count @ ;
 \ Keep (node depth) at the empty slot i a find gave, if the slab can grow.
 : lf-pairs-put ( node depth i -- )
-  >r lf-pairs# lf-pair-entry 2! lf-pairs# r> lf-pair-table htab-enter
+  >r lf-pairs# lf-pair-entry 2! lf-pairs# r> lf-pair-table htab-put
   1 lf-pair-state lf-pairs-count +! ;
 : lf-pairs-keep ( node depth i -- )
   lf-pairs# 1+ lf-pair-entries slab-hold ok? if lf-pairs-put else drop 2drop then ;

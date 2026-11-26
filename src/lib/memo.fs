@@ -70,7 +70,7 @@
 \ moves while modules load), which owns its heap blocks (the table and
 \ the entries) until memo-free. One memo is single-threaded; separate memos
 \ are independent. Requires portability.fs, bounds.fs, outcome.fs,
-\ hash32.fs, slab.fs, htab.fs and module.fs; helpers are private
+\ u32.fs, hash32.fs, slab.fs, htab.fs and module.fs; helpers are private
 \ in lf-lib-private (ADR 0010). Loads in decimal whatever BASE is, then
 \ restores it.
 
@@ -78,6 +78,7 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ./portability.fs
 require ./bounds.fs
 require ./outcome.fs
+require ./u32.fs
 require ./hash32.fs
 require ./slab.fs
 require ./htab.fs
@@ -95,7 +96,6 @@ lf-lib-private set-current
   field: memo-check             \ xt ( a-addr -- flag ): a found value holds; or 0
   field: memo-admit             \ xt ( memo -- flag ): an entry may be added; or 0
   2 cells +field memo-probe     \ the key of memo-at and memo-claim while they run
-  field: memo-probe-hash        \ the hash of the key memo-look looked up last
 end-structure
 4 constant memo-first-log2      \ a new table's slots: 16
 lf-lib set-current
@@ -145,16 +145,14 @@ lf-lib set-current
 : memo-count ( memo -- n ) dup memo-live? if memo-entries slab-count else drop 0 then ;
 : memo-bytes ( memo -- u )
   dup memo-live? 0= if drop 0 exit then
-  dup memo-table htab-bytes swap memo-entries slab-bytes + ;
+  dup memo-table htab-slots u32s swap memo-entries slab-bytes + ;
 \ The hooks (see the header); 0 for none.
 : memo-check! ( xt memo -- ) memo-check ! ;
 : memo-admit! ( xt memo -- ) memo-admit ! ;
 lf-lib-private set-current
 
-\ ---- Finding: entry n, or the empty slot i where key belongs; the key's
-\ hash is kept for memo-index, which a missing key's entry takes next.
-: memo-look ( key memo -- n true | i false )
-  2dup memo-hash 2dup swap memo-probe-hash ! swap memo-table htab-find ;
+\ ---- Finding: entry n, or the empty slot i where key belongs.
+: memo-look ( key memo -- n true | i false ) 2dup memo-hash swap memo-table htab-find ;
 : memo-valid? ( a-addr memo -- flag ) memo-check @ ?dup if execute else drop true then ;
 : memo-found ( n memo -- a-addr | 0 )
   tuck memo-value-at tuck swap memo-valid? 0= if drop 0 then ;
@@ -171,11 +169,8 @@ lf-lib-private set-current
 : memo-admitted? ( memo -- flag ) dup memo-admit @ ?dup if execute else drop true then ;
 : memo-key! ( key n memo -- ) tuck memo-entry swap memo-kcells @ cells move ;
 : memo-blank ( n memo -- ) tuck memo-value-at swap memo-vcells @ cells erase ;
-\ Entry n into slot i with the hash memo-look kept (memo-place looks
-\ the key up just before).
-: memo-index ( n i memo -- ) dup memo-probe-hash @ swap memo-table htab-put ;
 : memo-enter ( key i n memo -- a-addr )
-  >r tuck swap r@ memo-index dup r@ memo-blank tuck r@ memo-key!
+  >r tuck swap r@ memo-table htab-put dup r@ memo-blank tuck r@ memo-key!
   r> memo-value-at ;
 : memo-add ( key i memo -- a-addr outcome )
   dup memo-admitted? 0= if drop 2drop 0 outcome-full exit then

@@ -234,7 +234,7 @@ T{ 99999 s" x" check name-find-str nat 7 check name-find-num -> false 4 true }T
 \ tier leave every byte of its record and of its tables' slots as it was,
 \ and are counted in the scratch tier.
 lf-lib-private order+
-: slots ( cons -- addr u ) cons-table dup htab-block @ swap htab-bytes ;
+: slots ( cons -- addr u ) cons-table dup htab-block @ swap htab-slots u32s ;
 create input-copy /tier allot
 create names-copy 65536 allot   create exprs-copy 65536 allot
 T{ input tier-names slots nip 65536 <= input tier-exprs slots nip 65536 <= -> true true }T

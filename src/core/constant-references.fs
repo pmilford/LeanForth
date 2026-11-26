@@ -346,7 +346,7 @@ create lf-cref-hooks /htab-hooks allot
 \ one, or 0).
 : lf-cref-keep ( index identity i mark -- index identity true | false )
   3 pick lf-cref-shadow! 0= if 2drop drop lf-cref-refused exit then
-  >r over r> lf-cref-table htab-enter true ;
+  >r over r> lf-cref-table htab-put true ;
 : lf-cref-made-at ( name generation addr count i mark -- index identity true | false )
   2>r lf-cref-store if 2r> lf-cref-keep else 2r> 2drop false then ;
 : lf-cref-shadow ( name generation addr count i original -- index identity true | false )

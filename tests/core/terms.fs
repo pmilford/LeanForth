@@ -245,12 +245,6 @@ T{ 3 lf-term-bvar 3 lf-term-bvar lf-term-table htab-count -> 0 true 0 true 1 }T
 : apps-apart? ( -- flag )
   true 26 1 do 1 i lf-term-app drop i 25 + = and loop ;
 T{ bvars-apart? apps-apart? bvars-apart? apps-apart? lf-term-count @ -> true true true true 51 }T
-\ Every slot holds its node's hash (lib/htab.fs keeps it, kernel-speed-3):
-\ the one the find started at, the hash of the node's fields, through the
-\ table's growth from 16 slots to 128 and a rollback's removals.
-T{ lf-term-table htab-sound? lf-term-table htab-slots -> true 128 }T
-T{ hc-mark lf-terms store-mark 1 26 lf-term-app 1 27 lf-term-app -> outcome-ok 51 true 52 true }T
-T{ hc-mark lf-term-rollback lf-term-table htab-sound? lf-term-table htab-count -> outcome-ok true 51 }T
 lf-term-reset
 
 \ The capacity is a setting of the context (plan task 3.3.1; ADR 0016
