@@ -1,0 +1,10 @@
+\ Lean: theorem w_symm_not (a b : Nat) (h : ¬ a ≤ b) : (a ≤ b) = False := by
+\         simp only [← h]
+\ h would rewrite a ≤ b to False: Lean refuses the ← (its first error).
+theorem w_symm_not
+  Nat explicit: a  Nat explicit: b
+  a b ≤ ¬ explicit: h
+  a b ≤ False =
+:= by
+  by-simp-only[ ' h <- ]
+end w_symm_not

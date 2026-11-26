@@ -1,0 +1,10 @@
+\ Lean: theorem w_symm_ne (a b : Nat) (h : a ≠ b) : (a = b) = False := by
+\         simp only [← h]
+\ a ≠ b is ¬ (a = b) once unfolded: the same refusal, its note naming a = b.
+theorem w_symm_ne
+  Nat explicit: a  Nat explicit: b
+  a b ≠ explicit: h
+  a b = False =
+:= by
+  by-simp-only[ ' h <- ]
+end w_symm_ne

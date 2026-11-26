@@ -1,0 +1,12 @@
+\ Lean: theorem w_and_order (a b c d : Nat) (h : a = b ∧ a = c) (k : c = d) : a = d := by
+\         simp only [h]
+\         exact k
+\ h.1 is tried first, so the goal becomes b = d, which k does not prove.
+theorem w_and_order
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  Nat explicit: d
+  a b = a c = ∧ explicit: h  c d = explicit: k
+  a d =
+:= by
+  by-simp-only[ ' h ]
+  ' k by-exact
+end w_and_order

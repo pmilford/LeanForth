@@ -153,19 +153,19 @@ reason = "SL1a: a Sort in its symbolic form (the elaborator's) is no plain leaf 
 
 [[fault]]
 id = "symm-ignored"
-file = "src/front/tactics/simp-only.fs"
-old = '''  over tso-type lf-eq-app? if if lf-mk-eq-symm then else tso-prop then ;'''
-new = '''  over tso-type lf-eq-app? if drop else tso-prop then ;'''
+file = "src/front/simp/preprocess.fs"
+old = ''': spp-eq ( e -- p ) spp-inv? if lf-mk-eq-symm then ;'''
+new = ''': spp-eq ( e -- p ) ;'''
 test = "$GFORTH tests/front/tactics/simp-1/test.fs"
 reason = "SL1a-2: preprocess (SimpTheorems.lean:338) with inv makes Eq.symm h; ignored, ' h <- rewrites left to right"
 
 [[fault]]
 id = "prop-shapes-taken"
-file = "src/front/tactics/simp-only.fs"
-old = '''  over tso-type dup tso-shaped? if lf-tac-unported then'''
-new = '''  over tso-type dup tso-shaped? drop'''
-test = "$GFORTH tests/front/tactics/simp-1/test.fs"
-reason = "SL1a-2: preprocess (SimpTheorems.lean:344-380) turns an Iff, Ne, Not, And or pi hypothesis into other theorems; taken as p = True, h : True ∧ True is a rule no Lean run has"
+file = "src/front/simp/preprocess.fs"
+old = '''  dup spp-and? if spp-split false exit then spp-leaf-of true ;'''
+new = '''  spp-leaf-of true ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1b (was SL1a-2's refusal): preprocess (SimpTheorems.lean:380) splits an And hypothesis into h.1 and h.2; taken as (p ∧ q) = True, h : a ≤ b ∧ b ≤ a no longer rewrites b ≤ a"
 
 # The review of 2026-11-25 (docs/development/forth-reviews/2026-11-25-simp-sl1a-1.md):
 # evalNat's operands (M1), visitPostContinue (M2), the proof check, and

@@ -250,8 +250,11 @@ s" Std.le_refl._simp_1" set-of
 : n<=n ( -- e ) s" LE.le" zero-level lf-mk-const1 nat lf-mk-app s" instLENat" lf-mk-const0
   lf-mk-app n0 lf-mk-app n0 lf-mk-app ;
 T{ n<=n unsupported? -> true }T
-\ preprocess's shapes left to SL1b: a pi; p is none.
-T{ nat>nat tso-shaped? p0 tso-shaped? -> true false }T
+\ preprocess's shapes (simp/preprocess.fs, SL1b): And, Iff and Not by
+\ their heads and arity; p (a variable) is none of them.
+T{ p0 p0 s" And" lf-mk-const0 -rot 2 lf-mk-app-n spp-and? p0 spp-and? -> true false }T
+T{ p0 p0 s" Iff" lf-mk-const0 -rot 2 lf-mk-app-n spp-iff? p0 lf-mk-not spp-not? -> true true }T
+T{ p0 spp-iff? p0 spp-not? -> false false }T
 \ isClass?: Nat is no class, Decidable p is one (synth-class-quick).
 T{ nat sr-class? s" Decidable" lf-mk-const0 p0 lf-mk-app sr-class? -> false true }T
 \ The dsimp guard's question: an rfl theorem among the candidates.
@@ -301,16 +304,15 @@ lf-tac-forget
 \ Not supported yet (99): a definition to unfold, a term. A variable that
 \ is no proposition is Lean's 501 (tests/front/tactics/simp-2/ has at[ ]).
 : ran99 ( c-addr u c-addr' u' -- flag ) tactic-ran 99 = lf-tac-forget ;
-: ran-unsupported ( c-addr u c-addr' u' -- flag )
-  tactic-ran lf-author-outcome outcome-unsupported = lf-tac-forget ;
 T{ s" Nat explicit: a a 0 Nat.add a =" s" by-simp-only[ ' Nat.add ]" ran99 -> true }T
 T{ s" Nat explicit: a a a =" s" by-simp-only[ ' a ]" tactic-ran lf-tac-forget -> 501 }T
 T{ abc s" by-simp-only[ << ' h >> ] ' k by-exact" ran99 -> true }T
 \ preprocess: h : b = a with <- is Eq.symm h (a = c becomes b = c, which
 \ k closes); h : a <= b is eq_true h
 \ (with and_self: closed); h : True (True = True, a perm theorem), a
-\ constant with <-, a Not, And or Iff hypothesis answer 99; a
-\ proposition with <- is Lean's 502.
+\ constant with <-, an And or Iff of True and True (perm theorems again)
+\ answer 99; a proposition with <- is Lean's 502; a Not hypothesis is a
+\ rule since SL1b (simp/preprocess.fs; True closed as ever).
 T{ s" Nat explicit: a Nat explicit: b Nat explicit: c b a = explicit: h b c = explicit: k a c ="
    s" by-simp-only[ ' h <- ] ' k by-exact" tactic-ran -> 0 }T
 T{ s" Nat explicit: a Nat explicit: b a b ≤ explicit: h a b ≤ a b ≤ ∧"
@@ -318,8 +320,7 @@ T{ s" Nat explicit: a Nat explicit: b a b ≤ explicit: h a b ≤ a b ≤ ∧"
 T{ s" True explicit: h True" s" by-simp-only[ ' h ]" ran99 -> true }T   \ True = True: a perm theorem
 T{ s" Nat explicit: n n 0 + n =" s" by-simp-only[ ' Nat.add_zero <- ]" ran99 -> true }T
 T{ s" True explicit: h True" s" by-simp-only[ ' h <- ]" tactic-ran lf-tac-forget -> 502 }T
-T{ s" Nat explicit: a a 0 = Not explicit: h True" s" by-simp-only[ ' h ]" ran-unsupported
-   -> true }T
+T{ s" Nat explicit: a a 0 = Not explicit: h True" s" by-simp-only[ ' h ]" tactic-ran -> 0 }T
 T{ s" True True ∧ explicit: h True" s" by-simp-only[ ' h ]" ran99 -> true }T
 T{ s" True True ↔ explicit: h True" s" by-simp-only[ ' h ]" ran99 -> true }T
 \ A theorem LeanForth's text declared has no defeq tag recorded (99).

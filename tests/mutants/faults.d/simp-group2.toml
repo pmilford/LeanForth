@@ -94,8 +94,82 @@ reason = "SD-b.7: a congruence lemma's hypothesis places checked for order alone
 
 [[fault]]
 id = "symm-true-ignored"
-file = "src/front/tactics/simp-only.fs"
-old = '''  swap if tso-symm-true then drop lf-mk-eq-true ;'''
-new = '''  swap drop drop lf-mk-eq-true ;'''
+file = "src/front/simp/preprocess.fs"
+old = '''  spp-inv? if dup ['] spp-true. lfa-e-simp-symm-true spp-refuse then drop lf-mk-eq-true ;'''
+new = '''  drop lf-mk-eq-true ;'''
 test = "$GFORTH tests/front/tactics/simp-2/test.fs"
 reason = "9.4.8z2(e): <- on a proposition ignored, so h is used as p = True where Lean refuses the rule"
+
+# Slice SL1b, item 1: rules from hypotheses that are no equation (simp/preprocess.fs).
+
+[[fault]]
+id = "iff-no-propext"
+file = "src/front/simp/preprocess.fs"
+old = ''': spp-iff ( e -- p ) s" propext" rot 1 lf-mk-app-m spp-eq ;'''
+new = ''': spp-iff ( e -- p ) spp-eq ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1b: preprocess (SimpTheorems.lean:352) makes propext h of an Iff; h itself is no equation, so the rule is refused"
+
+[[fault]]
+id = "not-as-true"
+file = "src/front/simp/preprocess.fs"
+old = '''  dup spp-not? if lf-term-second@ spp-not exit then spp-true ;'''
+new = '''  spp-true ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1b: preprocess (SimpTheorems.lean:377) makes eq_false h of a Not; taken as (¬ p) = True, k : p no longer becomes False"
+
+[[fault]]
+id = "not-symm-taken"
+file = "src/front/simp/preprocess.fs"
+old = '''  spp-inv? if dup ['] spp-false. lfa-e-simp-symm-not spp-refuse then drop lf-mk-eq-false ;'''
+new = '''  drop lf-mk-eq-false ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1b: <- on a Not or a Ne is Lean's error 503 (SimpTheorems.lean:369); ignored, the rule is taken left to right"
+
+[[fault]]
+id = "bool-not-taken"
+file = "src/front/simp/preprocess.fs"
+old = '''  dup spp-bool? if lf-unported then'''
+new = ''''''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1b: ¬ (x = true) is Lean's Bool.of_not_eq_true h (SimpTheorems.lean:373), not ported; taken as eq_false h, another rule than Lean's"
+
+[[fault]]
+id = "and-right-first"
+file = "src/front/simp/preprocess.fs"
+old = '''  lf-meta-head lf-const-name 2dup 1 spp-proj 0 spp-proj ;'''
+new = '''  lf-meta-head lf-const-name 2dup 0 spp-proj 1 spp-proj ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1b: go e1 ++ go e2 (SimpTheorems.lean:383) walks h.1 first; reversed, h.2 wins where both rewrite a term"
+
+[[fault]]
+id = "forall-unbound"
+file = "src/front/simp/preprocess.fs"
+old = ''': spp-leaf ( p -- ) spp-xs slab-base spp-n@ lf-mk-lambda-fvars spp-out slab-push lf-must ;'''
+new = ''': spp-leaf ( p -- ) spp-out slab-push lf-must ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1b: a proof under a pi's binders is fun x => proof (mkLambdaFVars, SimpTheorems.lean:334); unbound, it names a dropped local"
+
+[[fault]]
+id = "xs-not-cut"
+file = "src/front/simp/preprocess.fs"
+old = '''  dup spp spp-n ! spp-xs slab-cut dup spp-type spp-shaped if spp-leaf then'''
+new = '''  dup spp spp-n ! drop dup spp-type spp-shaped if spp-leaf then'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1b: a term walked after another's binders closes over its own binders only; uncut, h.2 of (∀ n, p n) ∧ (∀ n, q n) closes over h.1's"
+
+[[fault]]
+id = "forall-keys-unopened"
+file = "src/front/simp/theorems.fs"
+old = '''  lf-infer! lf-instantiate! sth-body lf-whnf-r! sth-lhs lf-dt-path-head lf-must ;'''
+new = '''  lf-infer! lf-instantiate! lf-whnf-r! sth-lhs lf-dt-path-head lf-must ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1b: mkSimpTheoremKeys (SimpTheorems.lean:398) opens the type's binders first; unopened, h : ∀ n, n + 0 = n is no Eq and refused"
+
+[[fault]]
+id = "rule-elaborated"
+file = "src/front/tactics/simp-only.fs"
+old = '''  lf-tac-elab-for-apply dup lf-infer! tso-prop? 0= if dup tso-not-prop then'''
+new = '''  -1 false lf-tac-elab-term dup lf-infer! tso-prop? 0= if dup tso-not-prop then'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "SL1b: a hypothesis rule is Term.resolveId?'s free variable (Elab/Tactic/Simp.lean); elaborated as an application, h : ¬ p's type is unfolded to a pi whose binder is unknown (136)"

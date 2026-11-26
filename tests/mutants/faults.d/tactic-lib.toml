@@ -82,8 +82,8 @@ reason = "FE1g-4 review fe1g3 L10 (moved to lf-with-view under lf-with-goal, a2-
 [[fault]]
 id = "lib-local-not-dropped"
 file = "src/front/telescope.fs"
-old = '''  tl-mark >r ['] tl-opened catch r> lf-lctx-drop throw ;'''
-new = '''  tl-mark >r ['] tl-opened catch r> drop throw ;'''
+old = ''': tl-scoped ( i*x xt -- j*x ) tl-mark >r catch r> lf-lctx-drop throw ;'''
+new = ''': tl-scoped ( i*x xt -- j*x ) tl-mark >r catch r> drop throw ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "a2-i withLocalDecl: the local outlives its scope (rw's motive check left one before a2-i)"
 
@@ -98,8 +98,8 @@ reason = "a2-i review F7: a tactic library rejection (Lean's error) told as 93, 
 [[fault]]
 id = "rw-lib-local-not-dropped"
 file = "src/front/telescope.fs"
-old = '''  tl-mark >r ['] tl-opened catch r> lf-lctx-drop throw ;'''
-new = '''  tl-mark >r ['] tl-opened catch r> drop throw ;'''
+old = ''': tl-scoped ( i*x xt -- j*x ) tl-mark >r catch r> lf-lctx-drop throw ;'''
+new = ''': tl-scoped ( i*x xt -- j*x ) tl-mark >r catch r> drop throw ;'''
 test = "$GFORTH tests/front/tactic-run.fs"
 reason = "a2-i review F6: withLocalDecl never drops its local, seen in rw's own test (tactic-run.fs counts the locals rw's step leaves)"
 

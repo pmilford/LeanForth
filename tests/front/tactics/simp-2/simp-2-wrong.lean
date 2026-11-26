@@ -15,3 +15,10 @@ theorem w_arg_var (a : Nat) : a = a := by
   simp only [a]
 theorem w_symm_prop (a b : Nat) (h : a ≤ b) : a ≤ b := by
   simp only [← h]
+theorem w_symm_not (a b : Nat) (h : ¬ a ≤ b) : (a ≤ b) = False := by
+  simp only [← h]
+theorem w_symm_ne (a b : Nat) (h : a ≠ b) : (a = b) = False := by
+  simp only [← h]
+theorem w_and_order (a b c d : Nat) (h : a = b ∧ a = c) (k : c = d) : a = d := by
+  simp only [h]
+  exact k

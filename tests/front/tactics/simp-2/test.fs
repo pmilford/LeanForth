@@ -105,6 +105,59 @@ T{ 0 ' p-replace heap-sweep swept? -> true }T
 ' noop sweep-slabs-xt !
 lf-tac-forget
 
+\ ---- SL1b 1, 2. lf-simp-add-term on hypotheses no LeanForth text states
+\ yet: h : ∀ n, n + 0 = n (Nat.add_zero's statement) is fun n => h n, and
+\ rewrites a + 0 to a by (fun n => h n) a, a beta-redex Lean keeps; a pi
+\ whose binder is unknown (no record), unsupported. h : a = b -> a + 0 = a is a
+\ conditional rule, refused (unsupported) when tried: its condition needs
+\ the discharger (slice SL2). h : ¬ (x = true) of a Bool x: Lean's
+\ Bool.of_not_eq_true, not supported yet.
+: decl ( c-addr u -- d ) lfa-intern lf-menv-find made ;
+: simp ( e -- e' h ) lf-simp-max-steps lf-simp ;
+: add-term ( h inv -- outcome ) ['] lf-simp-add-term catch dup if nip nip lf-meta-outcome then ;
+: simp-outcome ( e -- outcome ) ['] simp catch dup if nip lf-meta-outcome else nip nip then ;
+s" Nat.add_zero" decl lf-menv-type s" hz" binder constant hz0
+T{ lf-simp-set-new hz0 false add-term lf-simp-thms# -> outcome-ok 1 }T
+T{ 0 lf-simp-thm-proof dup lf-term-lam? swap lf-term-second@ lf-term-first@ hz0 = -> true true }T
+T{ a+0 simp drop a0 = -> true }T
+T{ a+0 simp nip dup lf-term-first@ lf-term-lam? swap lf-term-second@ a0 = -> true true }T
+: nat->a+0=a ( -- t ) nat a+0 a0 lf-mk-eq lf-term-pi lf-made! ;
+nat->a+0=a s" hu" binder constant hu0
+T{ lf-simp-set-new hu0 false add-term lf-simp-thms# -> outcome-unsupported 0 }T
+\ An And of two pis: h.1's local cut before h.2's opens, so each proof is
+\ fun n => h.i n, its argument the bound variable.
+: add0 ( -- t ) s" Nat.add_zero" decl lf-menv-type ;
+s" And" lf-mk-const0 add0 add0 2 lf-mk-app-n s" hm" binder constant hm0
+: bound-arg? ( t -- flag ) lf-simp-thm-proof lf-term-second@ lf-term-second@ lf-term-bvar? ;
+T{ lf-simp-set-new hm0 false add-term lf-simp-thms# 0 bound-arg? 1 bound-arg?
+   -> outcome-ok 2 true true }T
+\ Inverted: fun n => Eq.symm (h n), whose left side is a bare variable.
+T{ lf-simp-set-new hz0 true add-term 0 lf-simp-thm-proof lf-term-second@ lf-meta-head
+   s" Eq.symm" lf-meta-const-named? -> outcome-ok true }T
+: a=b->a+0=a ( -- t ) a=b a+0 a0 lf-mk-eq lf-term-pi lf-made! s" hc" lfa-intern lf-binder-named ;
+a=b->a+0=a s" hi" binder constant hi0
+T{ lf-simp-set-new hi0 false add-term -> outcome-ok }T
+T{ a+0 simp-outcome -> outcome-unsupported }T
+s" Bool" lf-mk-const0 s" x" binder constant x0
+x0 s" Bool.true" lf-mk-const0 lf-mk-eq lf-mk-not s" hb" binder constant hb0
+T{ lf-simp-set-new hb0 false add-term -> outcome-unsupported }T
+\ The walk's locals dropped at its end: the context as it was.
+T{ lf-mctx-view lf-view-count lf-simp-set-new hz0 false add-term drop lf-mctx-view lf-view-count
+   = -> true }T
+
+\ ---- SL1b 3. The walk on h : ∀ n, n + 0 = n with each of its slabs
+\ limited in turn (spp-work, spp-xs, spp-out: the answer or
+\ full), and every heap allocation of the walk refused in turn.
+: p-forall ( x -- 0 outcome ) drop lf-simp-set-new hz0 false add-term 0 swap ;
+' spp-work sweep-slab-xt !   T{ 0 ' p-forall slab-sweep swept? -> true }T
+' spp-xs sweep-slab-xt !     T{ 0 ' p-forall slab-sweep swept? -> true }T
+' spp-out sweep-slab-xt !    T{ 0 ' p-forall slab-sweep swept? -> true }T
+: spp-anew ( -- ) spp-work sweep-slab-anew spp-xs sweep-slab-anew spp-out sweep-slab-anew ;
+' spp-anew sweep-slabs-xt !
+T{ 0 ' p-forall heap-sweep swept? -> true }T
+' noop sweep-slabs-xt !
+lf-simp-set-new
+
 \ ---- 1. by-simp-only[ ] at[ ] through its text.
 T{ s" Nat explicit: a Nat explicit: b a 0 + b = explicit: h a b ="
    s" by-simp-only[ ' Nat.add_zero ] at[ h ] ' h by-exact" tactic-ran -> 0 }T
@@ -156,5 +209,39 @@ T{ s" Nat explicit: a a a =" s" by-simp-only[ ] at[ z ]" tactic-ran lf-tac-forge
   s" by-simp-only[ ' h ' Nat.add_zero ] at[ k1 k2 |- ] ' k1 by-exact" text-full ;
 T{ 0 ' p-mixed slab-sweep swept? -> true }T
 lf-tac-forget
+
+\ ---- SL1b 1. Rules from hypotheses that are no equation (simp/
+\ preprocess.fs, Lean's preprocess), through their text: an Iff (both
+\ ways), a Not and a Ne (at k, which becomes False), an And (h.2 closes
+\ the goal; h.1 before h.2 when both rewrite a), Lean's 503 for <- on a
+\ Not or a Ne, and an And inside an And not supported yet (99).
+T{ s" Nat explicit: a Nat explicit: b a b ≤ b a ≤ ↔ explicit: h b a ≤ explicit: hq a b ≤"
+   s" by-simp-only[ ' h ] ' hq by-exact" tactic-ran -> 0 }T
+T{ s" Nat explicit: a Nat explicit: b a b ≤ b a ≤ ↔ explicit: h a b ≤ explicit: hq b a ≤"
+   s" by-simp-only[ ' h <- ] ' hq by-exact" tactic-ran -> 0 }T
+T{ s" Nat explicit: a Nat explicit: b a b ≤ ¬ explicit: h a b ≤ explicit: k b 0 ="
+   s" by-simp-only[ ' h ] at[ k ]" tactic-ran -> 0 }T
+T{ s" Nat explicit: a Nat explicit: b a b ≠ explicit: h a b = explicit: k b 0 ="
+   s" by-simp-only[ ' h ] at[ k ]" tactic-ran -> 0 }T
+T{ s" Nat explicit: a Nat explicit: b a b ≤ b a ≤ ∧ explicit: h b a ≤"
+   s" by-simp-only[ ' h ]" tactic-ran -> 0 }T
+T{ s" Nat explicit: a Nat explicit: b Nat explicit: c Nat explicit: d a b = a c = ∧ explicit: h b d = explicit: k a d ="
+   s" by-simp-only[ ' h ] ' k by-exact" tactic-ran -> 0 }T
+T{ s" Nat explicit: a Nat explicit: b Nat explicit: c Nat explicit: d a b = a c = ∧ explicit: h c d = explicit: k a d ="
+   s" by-simp-only[ ' h ] ' k by-exact" tactic-ran lf-tac-forget -> 96 }T
+T{ s" Nat explicit: a Nat explicit: b a b ≤ ¬ explicit: h a b ≤ False ="
+   s" by-simp-only[ ' h <- ]" tactic-ran lf-tac-forget -> 503 }T
+T{ s" Nat explicit: a Nat explicit: b a b ≠ explicit: h a b = False ="
+   s" by-simp-only[ ' h <- ]" tactic-ran lf-tac-forget -> 503 }T
+T{ s" Nat explicit: a Nat explicit: b Nat explicit: c a b ≤ b c ≤ c a = ∧ ∧ explicit: h c b ≤"
+   s" by-simp-only[ ' h ]" tactic-ran lf-tac-forget -> 99 }T
+
+\ ---- SL1b 3. The text's walk with each of its slabs limited in turn
+\ (spp-work, spp-out: the answer or full).
+: p-and ( x -- code outcome )
+  drop s" Nat explicit: a Nat explicit: b a b ≤ b a ≤ ∧ explicit: h b a ≤"
+  s" by-simp-only[ ' h ]" text-full ;
+' spp-work sweep-slab-xt !  T{ 0 ' p-and slab-sweep swept? -> true }T   lf-tac-forget
+' spp-out sweep-slab-xt !   T{ 0 ' p-and slab-sweep swept? -> true }T   lf-tac-forget
 .( simp-2 test.fs: all tests passed) cr
 bye

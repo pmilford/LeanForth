@@ -1,0 +1,87 @@
+\ by-simp-only[ ' h ] with hypotheses that are no equation (plan row FE9,
+\ simp slice SL1b of docs/design/TACTIC_SIMP.md): Lean's preprocess turns
+\ h : p ↔ q into propext h (p = q), h : ¬ p and h : a ≠ b into eq_false h
+\ (p = False), and h : p ∧ q into its two parts h.1 and h.2. Lean twins
+\ in simp-2.lean.
+
+\ Lean: theorem simp_iff (a b : Nat) (h : a ≤ b ↔ b ≤ a) (hq : b ≤ a) : a ≤ b := by
+\         simp only [h]
+\         exact hq
+\ The target a ≤ b rewritten to b ≤ a by propext h.
+theorem simp_iff
+  Nat explicit: a  Nat explicit: b
+  a b ≤ b a ≤ ↔ explicit: h  b a ≤ explicit: hq
+  a b ≤
+:= by
+  by-simp-only[ ' h ]
+  ' hq by-exact
+end simp_iff
+
+\ Lean: theorem simp_iff_symm (a b : Nat) (h : a ≤ b ↔ b ≤ a) (hq : a ≤ b) : b ≤ a := by
+\         simp only [← h]
+\         exact hq
+\ Right to left: Eq.symm (propext h) rewrites b ≤ a to a ≤ b.
+theorem simp_iff_symm
+  Nat explicit: a  Nat explicit: b
+  a b ≤ b a ≤ ↔ explicit: h  a b ≤ explicit: hq
+  b a ≤
+:= by
+  by-simp-only[ ' h <- ]
+  ' hq by-exact
+end simp_iff_symm
+
+\ Lean: theorem simp_not (a b : Nat) (h : ¬ a ≤ b) (k : a ≤ b) : b = 0 := by
+\         simp only [h] at k
+\ k becomes False by eq_false h, which closes the goal.
+theorem simp_not
+  Nat explicit: a  Nat explicit: b
+  a b ≤ ¬ explicit: h  a b ≤ explicit: k
+  b 0 =
+:= by
+  by-simp-only[ ' h ] at[ k ]
+end simp_not
+
+\ Lean: theorem simp_ne (a b : Nat) (h : a ≠ b) (k : a = b) : b = 0 := by
+\         simp only [h] at k
+\ a ≠ b unfolds to ¬ (a = b): the rule (a = b) = False, again eq_false h.
+theorem simp_ne
+  Nat explicit: a  Nat explicit: b
+  a b ≠ explicit: h  a b = explicit: k
+  b 0 =
+:= by
+  by-simp-only[ ' h ] at[ k ]
+end simp_ne
+
+\ Lean: theorem simp_ne_target (a b : Nat) (h : a ≠ b) : (a = b) = False := by
+\         simp only [h]
+theorem simp_ne_target
+  Nat explicit: a  Nat explicit: b
+  a b ≠ explicit: h
+  a b = False =
+:= by
+  by-simp-only[ ' h ]
+end simp_ne_target
+
+\ Lean: theorem simp_and (a b : Nat) (h : a ≤ b ∧ b ≤ a) : b ≤ a := by
+\         simp only [h]
+\ h.2 rewrites b ≤ a to True; Lean's term is h.2 itself.
+theorem simp_and
+  Nat explicit: a  Nat explicit: b
+  a b ≤ b a ≤ ∧ explicit: h
+  b a ≤
+:= by
+  by-simp-only[ ' h ]
+end simp_and
+
+\ Lean: theorem simp_and_order (a b c d : Nat) (h : a = b ∧ a = c) (k : b = d) : a = d := by
+\         simp only [h]
+\         exact k
+\ h.1 and h.2 both rewrite a; h.1, made first, is tried first.
+theorem simp_and_order
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  Nat explicit: d
+  a b = a c = ∧ explicit: h  b d = explicit: k
+  a d =
+:= by
+  by-simp-only[ ' h ]
+  ' k by-exact
+end simp_and_order

@@ -20,8 +20,9 @@
 \   (isPerm, 291, below) unsupported until SL3d (acLt).
 \ - lf-simp-add-hyp ( h post -- ): mkSimpTheoremCore (502) of the proof
 \   h, a hypothesis or the term preprocess made of one (the caller's:
-\   tactics/simp-only.fs), origin .stx (Elab/Tactic/Simp.lean:363): its
-\   type, whnf'd under mkIndexConfig (lf-with-simp-index), must be an Eq;
+\   simp/preprocess.fs), origin .stx (Elab/Tactic/Simp.lean:363): its
+\   type, through forallMetaTelescopeReducing and whnf'd under
+\   mkIndexConfig (lf-with-simp-index), must be an Eq;
 \   head-only keys (lf-dt-path-head, noIndexAtArgs true, 509); rfl false
 \   (isRflProof of a term that is no constant).
 \ A theorem whose proof is in the set already takes its record again
@@ -110,8 +111,9 @@ lf-tag-sort lf-tag-symbolic-sort lf-tag-constant lf-tag-fvar lf-tag-mvar lf-tag-
 : sth-decl-rfl ( d -- flag ) lf-menv-elab 0= if lf-unported then simp-defeq? lf-must ;
 : lf-simp-add-decl ( d post -- )
   over sth-decl-rfl rot dup >r true sth-claim sth-flags! r> sth-decl-keys sth-insert ;
+: sth-body ( type -- body ) 0 swap -1 ['] 2drop lf-forall-meta-telescope-reducing nip ;
 : sth-hyp-path ( h -- k n )
-  lf-infer! lf-instantiate! lf-whnf-r! sth-lhs lf-dt-path-head lf-must ;
+  lf-infer! lf-instantiate! sth-body lf-whnf-r! sth-lhs lf-dt-path-head lf-must ;
 : sth-hyp-keyed ( h -- k n ) ['] sth-hyp-path lf-with-simp-index ;
 : lf-simp-add-hyp ( h post -- )
   over false sth-claim false swap sth-flags! swap ['] sth-hyp-keyed lf-with-new-depth

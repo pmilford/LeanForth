@@ -23,6 +23,9 @@
 \       every local made inside xt, not only this one: nothing made
 \       inside may escape (a metavariable made there and kept would name
 \       a dead local, which lf-fvar-live? tells; Lean's keeps its context)
+\   lf-with-new-locals ( i*x xt -- j*x )  the same scope for the locals
+\       xt opens itself, one by one (lf-local-decl-new): the view and the
+\       local context put back on both paths
 \   lf-local-decl-new ( type name bi -- fvar view' )  mkFreshFVarId and
 \       LocalContext.mkLocalDecl: a new free variable of type and its local,
 \       named name, of kind bi, pushed on the current view (view' the
@@ -119,8 +122,10 @@ require ./meta-must.fs
 : lf-let-decl-new ( type val name nondep -- fvar view' )
   swap >r tl-let-fvar r> lf-binder-default tl-pushed ;
 : tl-opened ( i*x type name bi xt -- j*x ) >r lf-local-decl-new r> swap lf-with-view ;
-: lf-with-local-decl ( i*x type name bi xt -- j*x )
-  tl-mark >r ['] tl-opened catch r> lf-lctx-drop throw ;
+: tl-scoped ( i*x xt -- j*x ) tl-mark >r catch r> lf-lctx-drop throw ;
+: lf-with-local-decl ( i*x type name bi xt -- j*x ) ['] tl-opened tl-scoped ;
+: tl-kept-view ( i*x xt -- j*x ) lf-mctx-view lf-with-view ;
+: lf-with-new-locals ( i*x xt -- j*x ) ['] tl-kept-view tl-scoped ;
 
 \ ---- forallMetaTelescopeReducing: a frame per telescope open.
 begin-structure /tlf

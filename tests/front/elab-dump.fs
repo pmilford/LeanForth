@@ -2,7 +2,8 @@
 \ (src/front/elab-decl.fs) builds them: for each, "NAME type SX" and
 \ "NAME value SX", SX the S-expression of tests/front/s1-now.lean's
 \ printer ((app F A), (lam T B), (pi T B), #i, Name.{levels}, Sort l, a
-\ literal's value; (let T V B) and (let-nd T V B), batch-b.lean's), so tests/front/check_elab.py compares them with pinned
+\ literal's value; (let T V B) and (let-nd T V B), batch-b.lean's; (proj S i E),
+\ simp-2.lean's), so tests/front/check_elab.py compares them with pinned
 \ Lean's node for node. The library and its elaboration data are the S1
 \ slice's (run mode, as the command line binds them).
 \ Usage: gforth tests/front/elab-dump.fs -e 's" FILE.lf" elab-dump bye'
@@ -31,6 +32,10 @@ defer .t
 : .let ( t c-addr u -- )
   ." (" type space dup lf-term-second@ dup lf-term-first@ .t space swap lf-term-first@ .t
   space lf-term-second@ .t ." )" ;
+\ A projection e.i of the structure S, as Lean's proj S i e: (proj S i e).
+: .proj ( t -- )
+  ." (proj " dup lf-proj-leaf dup lf-proj-name .nm space lf-proj-idx 0 .r space
+  lf-proj-struct .t ." )" ;
 :noname ( t -- )
   dup lf-term-tag@ lf-tag-symbolic-sort = if ." Sort " lf-term-first@ .lv exit then
   dup lf-lit-leaf? if lf-lit-cell 0 .r exit then
@@ -38,7 +43,8 @@ defer .t
     lf-tag-let of s" let" .let endof  lf-tag-let-nondep of s" let-nd" .let endof
     lf-tag-app of s" app" .pair endof  lf-tag-lam of s" lam" .pair endof
     lf-tag-pi of s" pi" .pair endof  lf-tag-bvar of ." #" lf-term-first@ 0 .r endof
-    lf-tag-constant of .const endof  >r drop ." ??" r> endcase ; is .t
+    lf-tag-constant of .const endof  lf-tag-projection of .proj endof
+    >r drop ." ??" r> endcase ; is .t
 : .decl ( decl -- )
   dup lf-fdecl-name @ .nm ."  type " dup lf-fdecl-type @ .t cr
   dup lf-fdecl-name @ .nm ."  value " lf-fdecl-value @ .t cr ;

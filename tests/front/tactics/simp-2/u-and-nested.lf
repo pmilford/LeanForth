@@ -1,0 +1,11 @@
+\ Lean: theorem u_and_nested (a b c : Nat) (h : a ≤ b ∧ b ≤ c ∧ c = a) : c ≤ b := by
+\         simp only [h]
+\ Not supported yet (99): the rule h.2.2's type, a projection of a
+\ projection, is a nested inference LeanForth does not make yet (plan FE1c).
+theorem u_and_nested
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b ≤ b c ≤ c a = ∧ ∧ explicit: h
+  c b ≤
+:= by
+  by-simp-only[ ' h ]
+end u_and_nested

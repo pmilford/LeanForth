@@ -20,19 +20,29 @@ ENV = tactic_check.Env("tests/front/simp-slice.ndjson", "tests/front/simp-slice.
 FILES = [(D + "simp-at.lf", ["simp_at_defeq", "simp_at_proof", "simp_at_goal", "simp_at_two",
                              "simp_at_mixed", "simp_at_false", "simp_at_false_defeq",
                              "simp_at_true", "simp_at_one_still",
-                             "simp_at_goal_kept"])]
+                             "simp_at_goal_kept"]),
+         (D + "simp-hyps.lf", ["simp_iff=propext", "simp_iff_symm=propext", "simp_not=propext",
+                               "simp_ne=propext", "simp_ne_target=propext", "simp_and",
+                               "simp_and_order"])]
 MISMATCH = "  h\nhas type\n  True\nbut is expected to have type\n  a = b"
 NOTE = ("\nNote: This simp theorem will rewrite `a ≤ b` to `True`, which should not be applied "
         "in the reverse direction")
+SYMM_NOT = "Invalid `←` modifier: Cannot be applied to simp theorems of the form `¬ P`"
+NOTE_FALSE = ("\nNote: This simp theorem will rewrite `{}` to `False`, which should not be applied "
+              "in the reverse direction")
 WRONG = [(D + "w-at-self.lf", 96, "Type mismatch", MISMATCH),
          (D + "w-at-no-progress.lf", 500, "`simp` made no progress", ""),
          (D + "w-at-two-no-progress.lf", 500, "`simp` made no progress", ""),
          (D + "w-arg-var.lf", 501,
           "Invalid argument: Variable `a` is not a proposition or let-declaration", ""),
          (D + "w-symm-prop.lf", 502,
-          "Invalid `←` modifier: Cannot be applied to a rule that rewrites to `True`", NOTE)]
+          "Invalid `←` modifier: Cannot be applied to a rule that rewrites to `True`", NOTE),
+         (D + "w-symm-not.lf", 503, SYMM_NOT, NOTE_FALSE.format("a ≤ b")),
+         (D + "w-symm-ne.lf", 503, SYMM_NOT, NOTE_FALSE.format("a = b")),
+         (D + "w-and-order.lf", 96, "Type mismatch",
+          "  k\nhas type\n  c = d\nbut is expected to have type\n  b = d")]
 NOT_YET = "not supported yet: this case of the tactic"
-UNSUPPORTED = [(D + "u-at-star.lf", 99, NOT_YET)]
+UNSUPPORTED = [(D + "u-at-star.lf", 99, NOT_YET), (D + "u-and-nested.lf", 99, NOT_YET)]
 
 if __name__ == "__main__":
     tactic_check.main("simp-2", FILES, WRONG, UNSUPPORTED, env=ENV, lean=D + "simp-2.lean",

@@ -1,7 +1,7 @@
 -- Pinned Lean twins of tests/front/tactics/simp-2/*.lf (plan row FE9, simp slice SL1a-2:
 -- simp only at hypotheses): tactic_check.py --lean writes simp-2.golden from this file's
--- terms, which LeanForth's must equal node for node. u_at_star is the text LeanForth
--- answers 99 (not supported yet) for; Lean accepts it. (A hypothesis changed by defeq that
+-- terms, which LeanForth's must equal node for node. u_at_star and u_and_nested are the texts
+-- LeanForth answers 99 (not supported yet) for; Lean accepts them. (A hypothesis changed by defeq that
 -- another depends on, also 99, is unit-tested: LeanForth's text cannot state `h = h`.)
 import Lean
 open Lean Meta Elab Tactic
@@ -39,6 +39,25 @@ theorem simp_at_goal_kept (a b : Nat) (h : a = b) (k : a + 0 = b) : a = b := by
 theorem u_at_star (a b : Nat) (h : a + 0 = b) : a = b := by
   simp only [Nat.add_zero] at *
   exact h
+theorem simp_iff (a b : Nat) (h : a ≤ b ↔ b ≤ a) (hq : b ≤ a) : a ≤ b := by
+  simp only [h]
+  exact hq
+theorem simp_iff_symm (a b : Nat) (h : a ≤ b ↔ b ≤ a) (hq : a ≤ b) : b ≤ a := by
+  simp only [← h]
+  exact hq
+theorem simp_not (a b : Nat) (h : ¬ a ≤ b) (k : a ≤ b) : b = 0 := by
+  simp only [h] at k
+theorem simp_ne (a b : Nat) (h : a ≠ b) (k : a = b) : b = 0 := by
+  simp only [h] at k
+theorem simp_ne_target (a b : Nat) (h : a ≠ b) : (a = b) = False := by
+  simp only [h]
+theorem simp_and (a b : Nat) (h : a ≤ b ∧ b ≤ a) : b ≤ a := by
+  simp only [h]
+theorem simp_and_order (a b c d : Nat) (h : a = b ∧ a = c) (k : b = d) : a = d := by
+  simp only [h]
+  exact k
+theorem u_and_nested (a b c : Nat) (h : a ≤ b ∧ b ≤ c ∧ c = a) : c ≤ b := by
+  simp only [h]
 
 def pl (l : Level) : String := match l.toNat with
   | some n => toString n
@@ -54,6 +73,7 @@ partial def sx : Expr → MetaM String
   | .sort l => return "Sort " ++ pl l
   | .lit (.natVal n) => return toString n
   | .mdata _ e => sx e
+  | .proj s i e => return s!"(proj {s} {i} {← sx e})"
   | e => return s!"?? {e}"
 
 def dump (n : Name) : MetaM Unit := do
@@ -64,5 +84,6 @@ def dump (n : Name) : MetaM Unit := do
 #eval do
   for n in [``simp_at_defeq, ``simp_at_proof, ``simp_at_goal, ``simp_at_two, ``simp_at_mixed,
       ``simp_at_false, ``simp_at_false_defeq, ``simp_at_true, ``simp_at_one_still,
-      ``simp_at_goal_kept, ``u_at_star] do
+      ``simp_at_goal_kept, ``u_at_star, ``simp_iff, ``simp_iff_symm, ``simp_not, ``simp_ne,
+      ``simp_ne_target, ``simp_and, ``simp_and_order, ``u_and_nested] do
     dump n

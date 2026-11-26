@@ -26,3 +26,20 @@
 {"tactic_steps":{"axioms":[],"cut":false,"declaration":"simp_at_goal_kept","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
 {"goal_before":"a b : Nat\nh : a = b\nk : a + 0 = b\n⊢ a = b","goals_after":["a b : Nat\nh k : a = b\n⊢ a = b"],"parent":0,"source":"128:3","step":1,"tactic":"simp","word":"by-simp-only["}
 {"goal_before":"a b : Nat\nh k : a = b\n⊢ a = b","goals_after":[],"parent":0,"source":"129:7","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_iff","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a ≤ b ↔ b ≤ a\nhq : b ≤ a\n⊢ a ≤ b","goals_after":["a b : Nat\nh : a ≤ b ↔ b ≤ a\nhq : b ≤ a\n⊢ b ≤ a"],"parent":0,"source":"16:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"goal_before":"a b : Nat\nh : a ≤ b ↔ b ≤ a\nhq : b ≤ a\n⊢ b ≤ a","goals_after":[],"parent":0,"source":"17:8","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_iff_symm","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b : Nat\nh : a ≤ b ↔ b ≤ a\nhq : a ≤ b\n⊢ b ≤ a","goals_after":["a b : Nat\nh : a ≤ b ↔ b ≤ a\nhq : a ≤ b\n⊢ a ≤ b"],"parent":0,"source":"29:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"goal_before":"a b : Nat\nh : a ≤ b ↔ b ≤ a\nhq : a ≤ b\n⊢ a ≤ b","goals_after":[],"parent":0,"source":"30:8","step":2,"tactic":"exact","word":"by-exact"}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_not","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh : ¬a ≤ b\nk : a ≤ b\n⊢ b = 0","goals_after":[],"parent":0,"source":"41:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_ne","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh : a ≠ b\nk : a = b\n⊢ b = 0","goals_after":[],"parent":0,"source":"52:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":["propext"],"cut":false,"declaration":"simp_ne_target","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh : a ≠ b\n⊢ (a = b) = False","goals_after":[],"parent":0,"source":"62:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"simp_and","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":1}}
+{"goal_before":"a b : Nat\nh : a ≤ b ∧ b ≤ a\n⊢ b ≤ a","goals_after":[],"parent":0,"source":"73:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"tactic_steps":{"axioms":[],"cut":false,"declaration":"simp_and_order","format":"leanforth-tactic-steps","format_version":1,"open_parts":0,"steps":2}}
+{"goal_before":"a b c d : Nat\nh : a = b ∧ a = c\nk : b = d\n⊢ a = d","goals_after":["a b c d : Nat\nh : a = b ∧ a = c\nk : b = d\n⊢ b = d"],"parent":0,"source":"85:3","step":1,"tactic":"simp","word":"by-simp-only["}
+{"goal_before":"a b c d : Nat\nh : a = b ∧ a = c\nk : b = d\n⊢ b = d","goals_after":[],"parent":0,"source":"86:7","step":2,"tactic":"exact","word":"by-exact"}
