@@ -356,6 +356,31 @@ Unsupported at first: what each slice lists; `(disch := ..)`, `simp!`, `+suggest
   Init export with format 4; which LeanForth spelling elaborates exactly Lean's `:= rfl`; the Mathlib form counts are
   a text count (comment blocks excluded, strings not).
 
+## 9. As built: simp group 4 (2026-11-26)
+
+Plain `simp` landed as group 4 of the architect's plan (`.claude/work/briefs/simp-group-4-architect.md`), in
+three passes on one branch; what differs from sections 1-6 above:
+
+- **Words.** `by-simp` (with `at[ ]`), `by-simp[ ' r .. ]` (with `at[ ]`) in `src/front/tactics/simp.fs`; the
+  rule and location words moved from `simp-only.fs` to `src/front/simp/args.fs` (`lf-simp-args`,
+  `lf-simp-locs`), which both tactics call. A bracket rule goes into the default set after its root's values
+  (`theorems.fs`, Lean's insertion into `thmsArray[0]`).
+- **Data.** Format 4.1's default set (`simp_set`, `simp_lemma`, `simp_left_out`, `simp_unfold`, `simproc`),
+  read by `simp-set-data.fs` onto two ranked-record indexes per kind (`data-index.fs`, `default-set.fs`), each root
+  built at its first query. A data lemma whose proof the library decoder refuses (a string literal, S5) is kept
+  as one the export lacks: unsupported only when reached in candidate order (pass 3; it had made Init's whole
+  `Eq` root unbuildable).
+- **Walk.** Re-entrant (`lf-simp-nested`), Lean's `Step` and methods (`main.fs`), simprocs by name
+  (`simprocs.fs`) with ported actions for `reduceIte`, `reduceDIte` and Nat's literal arithmetic and guards for
+  every other family. The dsimp guard of SL1a became a scan of every node of an argument dsimp would visit
+  (`sm-kept?`, pass 3): kept only when no node could change; full dsimp is still SL1b's.
+- **Not built in group 4:** the discharger (D was 14.8% of L, under the plan's 15%: cut first), `<-` on a
+  theorem (Lean's auxiliary lemma), unfolding, perm lemmas, UInt/SInt simproc actions (guards only), helpers
+  LeanForth would build (group 5).
+- **The harness.** `make reference-simp-init` (daily): 57 of Init's 640 one-line simp proofs accepted with
+  Lean's term node for node, none with another term; the reasons for the rest are counted by the word that
+  refused (`docs/development/measurements/simp-init-2026-11-26/README.md`).
+
 ## Changes after review
 
 1. Must-change items 1-9: keys by origin; dsimp's guard in SL1a and the port in SL1b; the settings layer in SL1a; the

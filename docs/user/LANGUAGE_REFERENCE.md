@@ -1994,12 +1994,13 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-have-by: HYP-NAME` | `( T -- )` | parsing: one name after it, on its line; opens a block that `by-end` closes | read: a block step holding T; HYP-NAME a hypothesis word after the block, names given inside it go at `by-end`. Run: a new goal T, untagged, in the main goal's context, the main goal assigned `have HYP-NAME : T := ?p; ?g` (?g in its place), then the block on ?p alone | Proves the claim T by its own tactics, then goes on with HYP-NAME : T; goals left at `by-end`: 89 (always reported); T no type: 130; `_`: 99. | `have HYP-NAME : T := by tacs` |
 | `by-rw[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: a block step. Run: rewrites the goal with each rule, then tries `by-rfl` | Starts a list of rewrite rules; every value built until `]` is a rule. | `rw [` |
 | `by-rewrite[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, no `by-rfl` | The same without the closing `rfl`. | `rewrite [` |
-| `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules (or terms), in order; closes it | Ends the list of `by-rw[`, `by-rewrite[`, `by-rwa[`, `by-simp-only[`, `by-exacts[` or `by-exists[`; with none open, error 83; with a `<<` open inside the list, 458 at `<<` (its `>>` is missing). | `]` |
-| `<-` | `( r -- )` (top: the rule just written) | ordinary; only inside `by-rw[`, `by-rewrite[`, `by-rwa[` or `by-simp-only[` (83 elsewhere), after a rule (86) | read: the values so far become the bracket's rules, the last one marked right to left | Rewrites with r from right to left. | `← r` |
+| `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules (or terms), in order; closes it | Ends the list of `by-rw[`, `by-rewrite[`, `by-rwa[`, `by-simp-only[`, `by-simp[`, `by-exacts[` or `by-exists[`; with none open, error 83; with a `<<` open inside the list, 458 at `<<` (its `>>` is missing). | `]` |
+| `<-` | `( r -- )` (top: the rule just written) | ordinary; only inside `by-rw[`, `by-rewrite[`, `by-rwa[`, `by-simp-only[` or `by-simp[` (83 elsewhere), after a rule (86) | read: the values so far become the bracket's rules, the last one marked right to left | Rewrites with r from right to left. | `← r` |
 | `by-rwa[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, then `rfl` (reducible) or else `assumption` | Rewrites, then closes the goal; neither closes it: 381; `rfl` failing on a goal that is no `=` (a `≤`, a negation) falls to the hypothesis, as Lean's. With `at[ h ]`, rewrites h and closes the goal with it (456 when its type differs). | `rwa [` |
-| `by-simp` | `( -- )` | ordinary | read: a step. Run: simplifies the main goal's target with Lean's default simp set (format 4.1's data; see [D.12](#d12-by-simp-simp-with-the-default-set)) | Closes the goal when it becomes `True`; nothing changed: 500; a simproc not ported yet that could fire, a lemma the export lacks, a side condition, a definition to unfold: 99. | `simp` |
+| `by-simp` | `( -- )` | ordinary | read: a step. Run: simplifies the main goal's target, or the hypotheses of a trailing `at[ ]`, with Lean's default simp set (format 4.1's data; see [D.12](#d12-by-simp-simp-with-the-default-set)) | Closes the goal when it becomes `True`; nothing changed: 500; a simproc not ported yet that could fire, a lemma the export lacks, a side condition, a definition to unfold: 99. | `simp` |
+| `by-simp[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: a block step. Run: as `by-simp`, with the bracket's rules added to the default set (each after the lemmas it holds under the same key), and a trailing `at[ ]` ([D.12](#d12-by-simp-simp-with-the-default-set)) | The rules as `by-simp-only[`'s (501, 502, 503); a theorem with `<-`, a definition, a simproc: 99; otherwise as `by-simp`. | `simp [` |
 | `by-simp-only[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: a block step. Run: simplifies the main goal's target, or the hypotheses of a trailing `at[ ]` (`at[ * ]`: every hypothesis nothing depends on, and the target), with the rules, `eq_self` and `iff_self` (see [D.10](#d10-by-simp-only--simp-only)) | Rewrites the goal with the equations given (and those `↔`, `¬`, `≠`, `∧` and `∀` hypotheses give) until none applies; closes it when it becomes `True` (or a hypothesis `False`); nothing changed: 500; a variable that is no proposition: 501; `<-` on a rule to `True`: 502, to `False` (a `¬` or `≠`): 503; a case not ported yet: 99. | `simp only [` |
-| `at[ HYP-NAME ... ]` | `( -- )` | parsing: names up to `]`, over lines (458 at `at[` when a LeanForth word other than `_` and `*`, or the text's end, comes first); right after `by-rw[ ]`, `by-rewrite[ ]`, `by-rwa[ ]`, `by-change`, `by-symm`, `by-delta` (453 elsewhere) | read: the names (and `\|-` or `⊢` for the goal, or `*` alone) become the step's location | Runs the tactic at each hypothesis named, then at the goal when named (455 unknown name, reported at the tactic's word; `*`: 99; no name, `_`, `*` among names: 454). | `at h ⊢` |
+| `at[ HYP-NAME ... ]` | `( -- )` | parsing: names up to `]`, over lines (458 at `at[` when a LeanForth word other than `_` and `*`, or the text's end, comes first); right after `by-rw[ ]`, `by-rewrite[ ]`, `by-rwa[ ]`, `by-change`, `by-symm`, `by-delta`, `by-simp-only[ ]`, `by-simp`, `by-simp[ ]` (453 elsewhere) | read: the names (and `\|-` or `⊢` for the goal, or `*` alone) become the step's location | Runs the tactic at each hypothesis named, then at the goal when named (455 unknown name, reported at the tactic's word; `*`: 99, except the simp words' `at[ * ]` (D.10, D.11); no name, `_`, `*` among names: 454). | `at h ⊢` |
 | `by-intro[ HYP-NAME ... ]` | `( -- )` | parsing: names up to `]`, over lines (458 at `by-intro[` when a LeanForth word other than `_` and `*`, or the text's end, comes first), `_` an inaccessible one, none allowed | read: a step; each name a hypothesis word. Run: `by-intro:`'s step for each name in turn; none: one inaccessible | Introduces the goal's first binders as the names; too many: 94; `rfl`: 99; `*`: 84. | `intro a b c` |
 | `by-revert[ HYP-NAME ... ]` | `( -- )` | parsing: names of hypotheses up to `]`, over lines (458 at `by-revert[` when a LeanForth word other than `_` and `*`, or the text's end, comes first; 459 for `_` or `*`; 460 for none) | read: a step. Run: the main goal's locals so named reverted at once, with those depending on them | Puts the hypotheses back into the goal in the context's order; unknown name: 455 (at `by-revert[`; Lean reports it at the name); a constant: 99. | `revert h k` |
 | `by-clear[ HYP-NAME ... ]` | `( -- )` | as `by-revert[` | read: a step. Run: each named local cleared from the main goal, newest first | Removes the hypotheses; 440, 441, 442 as `by-clear`; names as `by-revert[`. | `clear h k` |
@@ -3150,8 +3151,61 @@ Not supported yet (error 99, exit 2), never another route than Lean's:
   whose recorded index keys are not its statement's (Lean's `no_index`),
   a definition the set unfolds (`simp_unfold`);
 - data without the default set (format 4, or none).
-`by-simp[ ]`, `by-simp at[ ]` and the rest of the simp family are not
-built yet (`**` in the tables above).
+
+**Brackets and locations: `by-simp[ ]`, `at[ ]`.** `by-simp[ ' r1 .. ' rn ]`
+is Lean's `simp [r1, .., rn]`: the default set with each rule added, in
+order, after the lemmas the set holds under the same key (Lean inserts
+bracket items into the default set, so a rule the set already holds, such
+as `' Nat.add_zero`, changes nothing). The items are `by-simp-only[ ]`'s
+(D.10): a theorem whose statement is an equation (or `↔`), a hypothesis,
+and a hypothesis written `' h <-` used from right to left (Lean's `← h`).
+`at[ h1 .. hk ]` simplifies those hypotheses instead of the target,
+`at[ h |- ]` the hypotheses and the target, `at[ * ]` every hypothesis that
+is a proposition nothing depends on and the target; after both forms
+(`by-simp at[ h ]`, `by-simp[ ' r ] at[ h ]`). A hypothesis that becomes
+`False` closes the goal; nothing changed anywhere is Lean's error 500.
+
+| Form | Example |
+|---|---|
+| Mathematics | from $h : a = b$, $a + 0 = b$; from $h_1 : a = b$ and $h_2 : a + 0 = b$, $h_2$ becomes True |
+| LeanForth | `by-simp[ ' h ]`; `by-simp[ ' h1 ] at[ h2 ]` |
+| Lean | `theorem t (a b : Nat) (h : a = b) : a + 0 = b := by simp [h]`; `simp [h1] at h2` |
+
+```
+theorem simp_br_hyp
+  Nat explicit: a  Nat explicit: b  a b = explicit: h
+  a 0 + b =
+:= by
+  by-simp[ ' h ]
+end simp_br_hyp
+```
+
+`a + 0` becomes `a` (`Nat.add_zero`), `a` becomes `b` (`h`), and `b = b`
+becomes `True` (`eq_self`); Lean's term is the same node for node
+(`tests/front/tactics/simp-4/brackets.lf`, with `simp [← h]`, `simp at h`,
+`at h ⊢`, `at *`, a hypothesis that becomes `False` and `simp [h1] at h2`).
+
+Not supported yet in the brackets (99): a theorem with `<-` (Lean builds an
+auxiliary lemma at the call), a definition to unfold (`simp [f]`), a
+simproc, `*`, a term, `-x` and `↓`/`↑` items; Lean's errors 501, 502 and
+503 as in D.10.
+
+**Dependent arguments.** Where Lean's simp would run `dsimp` on an
+argument (a type, or an argument others depend on), `by-simp` keeps the
+argument only when `dsimp` would give it back: every part of it a sort, a
+variable or a constant applied (no lambda, matcher, recursor or structure
+projection head, no definition the set unfolds), a numeral counted as one
+part, and no `rfl` lemma or dsimproc of the set a candidate at any part;
+anything else is not supported yet (99).
+
+**On all of Init.** `make reference-simp-init` (part of `make daily`) runs
+Init's 640 one-line `simp` and `simp [..]` proofs as LeanForth text against
+Init and pinned Lean's re-run: 57 are accepted with Lean's term node for
+node, none with another term; 393 can be written in LeanForth today, and the
+rest answer 99 for the reasons above, the largest a bracket theorem with
+`<-` ([measurement](../development/measurements/simp-init-2026-11-26/README.md#the-harness-make-reference-simp-init-simp-group-4-pass-3)).
+`simp only`'s and `simp`'s options (`config[ ]`, `-'`, `'*`), `simp_all`,
+`simpa`, `simp_rw` and `dsimp` are not built yet (`**` in the tables above).
 
 ---
 

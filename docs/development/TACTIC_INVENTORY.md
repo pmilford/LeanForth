@@ -20,7 +20,7 @@ terms, and a tactic inside a macro is counted once. Read the shares as good to a
 |---|---|---:|---:|---:|
 | have | LeanForth has a word today (`by-exact`, `by-apply`, `by-intro`, `by-intros`, `by-rfl`, `by-rw`, `by-induction`, `by-constructor`, `by-left`, `by-right`, `by-assumption`, `by-clear`, `by-exfalso`, `by-decide`, `by-case`) | 15 | 208,319 | 36.9% |
 | small | A structural tactic: in Lean a macro or a short function over the same goal operations we already port (`have`, `refine`, `obtain`, `rcases`, `rintro`, `cases`, `by_cases`, `use`, `subst`, `calc`, the goal combinators, ...) | 84 | 184,079 | 32.6% |
-| simp | `simp` and what is built on it (`simpa`, `simp_rw`, `dsimp`, `simp_all`, `norm_cast`, `norm_num`, `split_ifs`, ...) | 15 | 114,872 | 20.4% |
+| simp | `simp` and what is built on it (`simpa`, `simp_rw`, `dsimp`, `simp_all`, `norm_cast`, `norm_num`, `split_ifs`, ...); LeanForth has `by-simp-only[ ]`, `by-simp` and `by-simp[ ]` with `at[ ]` since 2026-11-26 (57 of Init's 640 one-line simp proofs node for node, `make reference-simp-init`) | 15 | 114,872 | 20.4% |
 | engine | A decision procedure or search of its own (`ext`, `grind`, `congr`/`convert`/`gcongr`, `lia`/`omega`, `aesop`, `ring`, `linarith`, `fun_prop`, `positivity`, ...) | 43 | 53,891 | 9.6% |
 | unclassed | 162 rarely used keywords, none above 140 uses | 162 | 3,138 | 0.6% |
 
