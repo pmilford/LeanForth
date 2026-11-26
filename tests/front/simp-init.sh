@@ -43,6 +43,6 @@ fi
 python3 scripts/export_manifest.py "$work/init.ndjson"
 ELAB_FORMAT=4.1 LEAN="$lean" bash scripts/export-elab.sh "$work/init.elab.ndjson" "$work/init.ndjson" \
   Init >/dev/null
-PATH="$toolchain/bin:$PATH" "$lean" --run tests/front/simp-init.lean >"$work/lean.ndjson"
+PATH="$toolchain/bin:$PATH" "$lean" -DwarningAsError=true --run tests/front/simp-init.lean >"$work/lean.ndjson"
 python3 tests/front/check_simp_init.py "$work/lean.ndjson" "$work/init.ndjson" "$work/init.elab.ndjson" \
   "$snapshot" "$work/run"

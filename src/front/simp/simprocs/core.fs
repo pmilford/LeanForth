@@ -38,8 +38,7 @@ texts+ dite_eq_left_of_eq_true dite_eq_right_of_eq_false of_eq_true of_eq_false
 texts-end constant spc-names
 : spc-name ( k -- c-addr u ) spc-names swap 0 ?do text-next loop count ;
 : spc-arg ( e i -- a ) 5 lf-meta-nth-arg ;   \ of ite or dite
-: spc-harg ( h i -- a ) 6 lf-meta-nth-arg ;  \ of the step's proof
-: spc-branch ( h k -- a ) 1 and 3 + spc-harg ;
+: spc-branch ( h k -- a ) 1 and 3 + lf-meta-app-arg ;
 : spc-truth ( c -- j )
   dup s" True" lf-meta-const-named? if drop 0 exit then
   s" False" lf-meta-const-named? if 1 else -1 then ;
@@ -58,7 +57,8 @@ texts-end constant spc-names
 : spc-proof ( pr e k -- h k ) tuck spc-const spc-applied nip rot lf-mk-app swap ;
 \ reduceDIte's term: (branch (of_eq c pr)).headBeta.
 : spc-of-eq ( h k -- q )
-  1 and 4 + spc-name lf-mk-const0 over 1 spc-harg lf-mk-app swap 5 spc-harg lf-mk-app ;
+  1 and 4 + spc-name lf-mk-const0 over 1 lf-meta-app-arg lf-mk-app swap 5 lf-meta-app-arg
+  lf-mk-app ;
 : spc-dite-term ( h k -- e' )
   2dup spc-branch -rot spc-of-eq lf-mk-app lf-meta-head-beta lf-must ;
 \ The new term: reduceDIte's (theorems 2 and 3) or the branch itself.

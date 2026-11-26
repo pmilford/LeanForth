@@ -288,8 +288,8 @@ reason = "reduceIte's port registered as a post simproc: the data's pre record d
 [[fault]]
 id = "reduce-ite-false-branch"
 file = "src/front/simp/simprocs/core.fs"
-old = ''': spc-branch ( h k -- a ) 1 and 3 + spc-harg ;'''
-new = ''': spc-branch ( h k -- a ) drop 3 spc-harg ;'''
+old = ''': spc-branch ( h k -- a ) 1 and 3 + lf-meta-app-arg ;'''
+new = ''': spc-branch ( h k -- a ) drop 3 lf-meta-app-arg ;'''
 test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
 reason = "a False condition takes the then branch: if False then x else y gives x"
 

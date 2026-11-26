@@ -417,7 +417,7 @@ def opensBefore (env : Environment) (ls : Array String) (pos : Position) : List 
       if env.isNamespace n then out := out.push (OpenDecl.simple n [])
   return out.toList
 
-def oneTheorem (env : Environment) (mod : Name) (ls : Array String) (n : Name) (i : TheoremVal)
+def oneTheorem (env : Environment) (mod : Name) (_ls : Array String) (n : Name) (i : TheoremVal)
     (line : Nat) (shape tac : String) (opens : List OpenDecl) (congrNames : NameSet) : IO Json := do
   let user := (privateToUserName? n).getD n
   let ns := user.getPrefix
