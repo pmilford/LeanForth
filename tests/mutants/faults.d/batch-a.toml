@@ -57,8 +57,8 @@ reason = "TB2: matchHEq?'s arguments out of order"
 [[fault]]
 id = "tb2-rtd-no-instantiate"
 file = "src/front/meta-tactic/goal.fs"
-old = '''  mtg-inst-same? if drop exit then mtg-hinted ;'''
-new = '''  mtg-hinted ;'''
+old = '''  over lf-goal-type swap lf-meta-equal-inst? ;'''
+new = '''  over lf-goal-type over lf-meta-equal? lf-must ;'''
 test = "$GFORTH tests/front/tactics/batch-a/test.fs"
 reason = "TB2: replaceTargetDefEq's second test (both types instantiated) skipped"
 

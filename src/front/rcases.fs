@@ -65,7 +65,7 @@
 \ matchConst -> lf-match-const-induct; getFunInfo's binder infos ->
 \ lf-menv-kinds; MVarId.cases -> lf-goal-cases; fs.append ->
 \ lf-fsubst-append; fs.get -> lf-fsubst-get; findLocalDeclDependsOn ->
-\ lf-local-depends-on?; tryClearMany -> lf-goal-try-clear.
+\ lf-local-depends-on?; tryClearMany -> lf-goal-try-clear-many.
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: rcs-frames (a frame per call open, meta-must.fs's
 \ lf-with-record), in the checker context (ADR 0009); no other. Loads in
@@ -217,10 +217,7 @@ end-structure
   lf-local-fvar swap dup run-count ['] rcs-dep? any? if swap lf-run+ else nip
   then outcome-ok ;
 : rcs-erased ( goal -- run ) rcs-cs swap lf-goal-view ['] rcs-erase+ run-each lf-must ;
-: rcs-cleared ( goal run -- goal' )
-  dup run-count begin ?dup while 1- 2dup run@ >r rot r> lf-goal-try-clear -rot repeat
-  drop ;
-: rcs-finish-in ( goal -- goal' ) dup rcs-erased rcs-cleared ;
+: rcs-finish-in ( goal -- goal' ) dup rcs-erased lf-goal-try-clear-many ;
 : rcs-finish ( -- )
   rcs rcs-goal @ dup ['] rcs-finish-in lf-with-goal
   rcs rcs-goals lf-run+! ;

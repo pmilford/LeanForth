@@ -128,3 +128,68 @@ theorem simp_at_goal_kept
   by-simp-only[ ' Nat.add_zero ] at[ k |- ]
   ' k by-exact
 end simp_at_goal_kept
+
+\ Lean: theorem simp_at_false_first (a b c : Nat) (h : ¬ a ≤ b) (k : a ≤ b) : c = c := by
+\         simp only [h] at k ⊢
+\ The hypotheses before the target (review M1): k becomes False and closes
+\ the goal; the target c = c, which would become True, is never reached.
+theorem simp_at_false_first
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  a b ≤ ¬ explicit: h  a b ≤ explicit: k
+  c c =
+:= by
+  by-simp-only[ ' h ] at[ k |- ]
+end simp_at_false_first
+
+\ Lean: theorem simp_at_defeq_false (a b : Nat) (h : a + 0 = b) (k : False) : a = b := by
+\         simp only [Nat.add_zero] at h k
+\ h changed by definition, then k, False, closes the goal so far (M2).
+theorem simp_at_defeq_false
+  Nat explicit: a  Nat explicit: b  a 0 + b = explicit: h  False explicit: k
+  a b =
+:= by
+  by-simp-only[ ' Nat.add_zero ] at[ h k ]
+end simp_at_defeq_false
+
+\ Lean: theorem simp_at_twice (a b : Nat) (h : a + 0 = b) : a = b := by
+\         simp only [Nat.add_zero] at h h; exact h
+\ The same hypothesis twice, changed by definition: the second pass meets
+\ the hypothesis the first put in its place, already a = b (L1).
+theorem simp_at_twice
+  Nat explicit: a  Nat explicit: b  a 0 + b = explicit: h
+  a b =
+:= by
+  by-simp-only[ ' Nat.add_zero ] at[ h h ]
+  ' h by-exact
+end simp_at_twice
+
+\ Lean: theorem simp_at_try_back (a b c : Nat) (h : a + 0 = b) (k : c = b) : a + 0 = b := by
+\         try (simp only [Nat.add_zero] at h; exact k)
+\         exact h
+\ Rolled back (L6): try's failure leaves h as it was, the goal untouched.
+theorem simp_at_try_back
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  a 0 + b = explicit: h  c b = explicit: k
+  a 0 + b =
+:= by
+  by-try by-simp-only[ ' Nat.add_zero ] at[ h ] ' k by-exact by-end
+  ' h by-exact
+end simp_at_try_back
+
+\ Lean: theorem simp_at_first_back (a b c : Nat) (h : a + 0 = b) (k : c = b) : a + 0 = b := by
+\         first | (simp only [Nat.add_zero] at h; exact k) | exact h
+theorem simp_at_first_back
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  a 0 + b = explicit: h  c b = explicit: k
+  a 0 + b =
+:= by
+  by-first | by-simp-only[ ' Nat.add_zero ] at[ h ] ' k by-exact | ' h by-exact by-end
+end simp_at_first_back
+
+\ Lean: theorem simp_at_first_twice (a b c : Nat) (h : a + 0 = b) (k : c = b) : a = b := by
+\         first | (simp only [Nat.add_zero] at h; exact k)
+\           | (simp only [Nat.add_zero] at h; exact h)
+\ The second alternative changes h again from the state the first left.
+theorem simp_at_first_twice
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  a 0 + b = explicit: h  c b = explicit: k
+  a b =
+:= by
+  by-first | by-simp-only[ ' Nat.add_zero ] at[ h ] ' k by-exact | by-simp-only[ ' Nat.add_zero ] at[ h ] ' h by-exact by-end
+end simp_at_first_twice

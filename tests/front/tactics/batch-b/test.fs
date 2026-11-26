@@ -149,6 +149,12 @@ ab-le tagged constant g4
 T{ g4 fh lf-goal-try-clear dup g4 = swap view# -> false 2 }T
 ab-le tagged constant g5
 T{ g5 fa lf-goal-try-clear g5 = g5 open? -> true true }T
+\ lf-goal-try-clear-many (tryClearMany): the last first, so h cleared
+\ frees a (first to last keeps a, which h names); none: the goal itself.
+fb fb le constant bb-le
+: a-h ( -- run ) 0 fa lf-run+ fh lf-run+ ;
+T{ bb-le tagged a-h lf-goal-try-clear-many view# -> 1 }T
+T{ bb-le tagged dup 0 lf-goal-try-clear-many = -> true }T
 
 \ ---- 5. Resources: each goal operation on a new goal of ab-le, with
 \ every heap allocation refused in turn (the frame slabs given back
@@ -164,17 +170,20 @@ s" k" nm constant nk  s" x" nm constant nx
 : s-let ( type -- n ) new-goal nx nat fa lf-goal-let view# ;
 : s-with ( type -- e ) new-goal nk ab-le fh ['] body-fh lf-goal-have-with ;
 : s-clear ( type -- n ) new-goal fh lf-goal-try-clear view# ;
+: s-clear-many ( type -- n ) drop bb-le new-goal a-h lf-goal-try-clear-many view# ;
 : s-let-decl ( type -- n ) drop ab-le fh nk true lf-let-decl-new nip lf-view-count ;
 : caught ( type xt -- x outcome ) 1 1 lf-meta-catch ;
 : p-have ( type -- n outcome ) ['] s-have caught ;
 : p-let ( type -- n outcome ) ['] s-let caught ;
 : p-with ( type -- e outcome ) ['] s-with caught ;
 : p-clear ( type -- n outcome ) ['] s-clear caught ;
+: p-clear-many ( type -- n outcome ) ['] s-clear-many caught ;
 : p-let-decl ( type -- n outcome ) ['] s-let-decl caught ;
 : both-swept ( type xt -- heap? room? )
   2dup heap-sweep swept? >r room-sweep swept? r> swap ;
 T{ ab-le ' p-have both-swept ab-le ' p-let both-swept -> true true true true }T
 T{ ab-le ' p-with both-swept ab-le ' p-clear both-swept -> true true true true }T
+T{ ab-le ' p-clear-many both-swept -> true true }T
 \ mkLetDecl makes no heap block: its terms, and its local context entry.
 T{ ab-le ' p-let-decl room-sweep swept? -> true }T
 ' lf-lctx sweep-store-xt !

@@ -71,6 +71,10 @@
 \   lf-goal-try-clear ( goal fvar -- goal' )  MVarId.tryClear
 \       (Clear.lean:48-51): goals.fs's lf-goal-clear, or goal itself when
 \       it refuses (replace's, specialize's)
+\   lf-goal-try-clear-many ( goal run -- goal' )  MVarId.tryClearMany
+\       (Clear.lean:59-60): lf-goal-try-clear of each free variable of the
+\       run, the last first, so one cleared first frees an earlier one it
+\       names (rcases's and simpGoal's)
 \   lf-goal-have-with ( goal name type val xt -- body )  the have term
 \       as refine elaborates it (Elab/Binders.lean:745-860,
 \       elabLetDeclAux: withLetDecl, the body, mkLetFVars #[x] body
@@ -182,8 +186,9 @@ end-structure
 : mat-revert ( -- goal1 ) mat mat-goal @ mat mat-fvar @ lf-goal-revert-after drop ;
 : mat-assert ( goal1 -- goal2 )
   mat mat-name @ mat mat-type @ mat mat-val @ lf-goal-assert ;
-: mat-intro ( goal2 addr -- goal3 )
-  mat-names dup 0 swap mat-binders swap mat-xs lf-goal-intro-n ;
+\ introN of n binders named by addr's n cells, the new ones after them.
+: mat-intro-named ( goal addr n -- goal' ) 2dup cells + >r 0 swap r> lf-goal-intro-n ;
+: mat-intro ( goal2 addr -- goal3 ) mat-names mat-binders mat-intro-named ;
 : mat-run ( addr -- goal' fvar' )
   dup >r mat-revert mat-assert swap mat-intro r> mat-xs @ ;
 : mat-after ( -- goal' fvar' )
@@ -192,6 +197,10 @@ end-structure
 \ ---- tryClear (Clear.lean:48): clear, or goal itself when clear refuses.
 : lf-goal-try-clear ( goal fvar -- goal' )
   over swap lf-goal-clear dup outcome-invalid = if 2drop exit then lf-must nip ;
+\ tryClearMany (Clear.lean:59-60, a foldr): each of run tried, the last first.
+: lf-goal-try-clear-many ( goal run -- goal' )
+  dup run-count begin ?dup while 1- 2dup run@ >r rot r> lf-goal-try-clear -rot repeat
+  drop ;
 
 \ ---- replace: the old hypothesis's name, assertAfter', tryClear; the
 \ new goal and the new hypothesis (AssertAfterResult's mvarId, fvarId).
@@ -214,11 +223,9 @@ end-structure
 \ ---- replaceLocalDeclDefEq, route 1: fvar' of type new in fvar's place;
 \ goal' of goal's type, kind and tag there; goal assigned ?d fvar, ?d
 \ delayed-assigned fvar' := goal'.
-: mat-equal-to? ( type new -- flag ) lf-meta-equal? lf-must ;
-\ Expr.equal before and after instantiation; new kept instantiated.
+\ Expr.equal before and after instantiation; new kept as compared.
 : mat-equal? ( -- flag )
-  mat mat-old @ lf-fvar-type mat mat-type @ 2dup mat-equal-to? if 2drop true exit then
-  lf-instantiate! dup mat mat-type ! swap lf-instantiate! mat-equal-to? ;
+  mat mat-old @ lf-fvar-type mat mat-type @ lf-meta-equal-inst? swap mat mat-type ! ;
 : mat-free ( -- )
   mat mat-goal cell-pair@ lf-goal-fvar-free dup outcome-invalid =
   if drop outcome-unsupported then lf-must ;
@@ -253,8 +260,7 @@ end-structure
 : mat-own-at ( run addr k -- run addr )
   >r over r@ 3 * run@ mat-own over r> cells + ! ;
 : mat-intro-hyps ( goal run addr -- goal' )
-  over mat-hyps# 0 ?do i mat-own-at loop
-  swap mat-hyps# >r dup r@ cells + 0 swap r> swap lf-goal-intro-n ;
+  over mat-hyps# 0 ?do i mat-own-at loop swap mat-hyps# mat-intro-named ;
 : mat-hyps-run ( goal run addr -- goal' ) >r mat-assert-all r> mat-intro-hyps ;
 : lf-goal-assert-hyps ( goal run -- goal' )
   dup run-count 0= if drop exit then

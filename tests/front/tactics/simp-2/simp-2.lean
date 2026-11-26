@@ -36,6 +36,19 @@ theorem simp_at_one_still (a b c : Nat) (h : a = b) (k1 : a = c) (k2 : b = c) : 
 theorem simp_at_goal_kept (a b : Nat) (h : a = b) (k : a + 0 = b) : a = b := by
   simp only [Nat.add_zero] at k ⊢
   exact k
+theorem simp_at_false_first (a b c : Nat) (h : ¬ a ≤ b) (k : a ≤ b) : c = c := by
+  simp only [h] at k ⊢
+theorem simp_at_defeq_false (a b : Nat) (h : a + 0 = b) (k : False) : a = b := by
+  simp only [Nat.add_zero] at h k
+theorem simp_at_twice (a b : Nat) (h : a + 0 = b) : a = b := by
+  simp only [Nat.add_zero] at h h; exact h
+theorem simp_at_try_back (a b c : Nat) (h : a + 0 = b) (k : c = b) : a + 0 = b := by
+  try (simp only [Nat.add_zero] at h; exact k)
+  exact h
+theorem simp_at_first_back (a b c : Nat) (h : a + 0 = b) (k : c = b) : a + 0 = b := by
+  first | (simp only [Nat.add_zero] at h; exact k) | exact h
+theorem simp_at_first_twice (a b c : Nat) (h : a + 0 = b) (k : c = b) : a = b := by
+  first | (simp only [Nat.add_zero] at h; exact k) | (simp only [Nat.add_zero] at h; exact h)
 theorem simp_at_star (a b : Nat) (h : a + 0 = b) : a = b := by
   simp only [Nat.add_zero] at *
   exact h
@@ -103,7 +116,8 @@ def dump (n : Name) : MetaM Unit := do
 #eval do
   for n in [``simp_at_defeq, ``simp_at_proof, ``simp_at_goal, ``simp_at_two, ``simp_at_mixed,
       ``simp_at_false, ``simp_at_false_defeq, ``simp_at_true, ``simp_at_one_still,
-      ``simp_at_goal_kept, ``simp_at_star, ``simp_at_star_all, ``simp_at_star_false,
+      ``simp_at_goal_kept, ``simp_at_false_first, ``simp_at_defeq_false, ``simp_at_twice,
+      ``simp_at_try_back, ``simp_at_first_back, ``simp_at_first_twice, ``simp_at_star, ``simp_at_star_all, ``simp_at_star_false,
       ``simp_at_later, ``simp_iff, ``simp_iff_symm, ``simp_not, ``simp_ne,
       ``simp_ne_target, ``simp_and, ``simp_and_order, ``u_and_nested, ``u_binder_arrow, ``u_binder_forall] do
     dump n

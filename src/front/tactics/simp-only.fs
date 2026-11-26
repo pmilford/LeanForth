@@ -89,7 +89,7 @@ s" simp" tac-k-simp-only lf-tactic-lean!
 \ ---- simpGoal: closed, or the new goal (no progress is its error 500).
 : tso-goals ( goal' | 0 -- goals ) ?dup if lf-goals1 else 0 then ;
 : tso-inner ( i goal -- goals )
-  swap dup tso-set tso-locs lf-simp-max-steps lf-goal-simp tso-goals ;
+  swap dup tso-set tso-locs lf-goal-simp tso-goals ;
 : tso-tac ( i goal -- goals ) ['] tso-inner lf-dt-scoped ;
 : tso-lifted ( i -- ) dup ['] tso-tac lf-lift-meta-tactic ;
 : tso-ported ( i -- ) ['] tso-lifted lf-tac-ported ;

@@ -78,6 +78,16 @@ T{ r78 r79 run-cat made ' full-at-8 walk -> outcome-full 78 }T
 T{ 5 99 ' sum run-each 5 r79 ' sum run-each -> 5 outcome-invalid 21 outcome-ok }T
 : trail-r ( x -- outcome ) >r r@ trail+ r> drop ;
 T{ r78 ' trail-r ' walk rs-checked -> outcome-ok 78 }T
+
+\ ---- run-any?: the cells tested in order to the first that holds (none
+\ after it); none holds, or the empty run, false; the values below x the
+\ test's to read.
+: trail-8? ( x -- flag ) dup trail+ drop 8 = ;
+: any-walk ( run xt -- flag trail ) 0 trail ! run-any? trail @ ;
+T{ r78 r79 run-cat made ' trail-8? any-walk -> true 78 }T
+T{ r79 ' trail-8? any-walk 0 ' trail-8? any-walk -> false 79 false 0 }T
+: above? ( n x -- n flag ) over > ;
+T{ 8 r79 ' above? run-any? 9 r78 ' above? run-any? -> 8 true 9 false }T
 : inner ( n x -- n' outcome ) drop r79 ['] sum run-each ;
 T{ 0 r78 ' inner run-each -> 32 outcome-ok }T
 : push-each ( run x -- run' outcome ) run-push ;

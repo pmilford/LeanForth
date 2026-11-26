@@ -35,6 +35,14 @@
 \                                     configuration in force (meta-config.fs's
 \                                     lf-with-approx); apply's and rfl's test
 \   lf-instantiate! ( e -- e' )       instantiateMVars
+\   lf-meta-equal-inst? ( old new -- new' flag )  replaceTargetDefEq's and
+\                                     replaceLocalDeclDefEq's no-change test
+\                                     (Replace.lean:49-56, 116-123):
+\                                     Expr.equal (term-eqv.fs's
+\                                     lf-meta-equal?) as stored, new' new;
+\                                     else both instantiated, new' new
+\                                     instantiated; a pair that holds binders
+\                                     answers unsupported, thrown
 \   lf-open-mvar-free ( e -- e )      e, which holds no such metavariable,
 \                                     else unsupported thrown (the goal
 \                                     words' and tactics' holes LeanForth
@@ -203,6 +211,10 @@ end-structure
 : lf-defeq-approx! ( t s -- flag )
   ['] lf-meta-defeq-guarded lf-with-approx outcome-sane lf-must ;
 : lf-instantiate! ( e -- e' ) lf-instantiate-mvars lf-must ;
+\ Expr.equal as stored, else both instantiated (Replace.lean:49-56, 116-123).
+: lf-meta-equal-inst? ( old new -- new' flag )
+  2dup lf-meta-equal? lf-must if nip true exit then
+  lf-instantiate! swap lf-instantiate! over lf-meta-equal? lf-must ;
 : lf-has-open-mvar? ( e -- flag ) ['] lf-mvar-open? lf-term-holds? lf-must ;
 : lf-open-mvar-free ( e -- e ) dup lf-has-open-mvar? if lf-unported then ;
 \ isDefEq with the elaborator's flags (TermElabM's setElabConfig: foApprox

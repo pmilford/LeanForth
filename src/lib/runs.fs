@@ -30,6 +30,10 @@
 \   first outcome that is not ok (no step after it). The values below x
 \   are the steps' to read and replace, as outcome.fs's ok-each; a step
 \   may make runs (the run it walks stays as it was).
+\ - run-any? ( i*x run xt -- i*x flag ): whether the test xt ( i*x x --
+\   i*x flag ) holds for some cell x of the run, in order: true at the
+\   first it holds for (no test after it), else false (the empty run);
+\   the values below x as run-each's (unchecked: a valid run).
 \ - run-filter ( run xt -- run' outcome ): a new run of the cells x for
 \   which xt ( x -- keep? ) is true, in order (the empty run when none),
 \   the kept cells appended once and one record made. The test appends no
@@ -174,6 +178,11 @@ lf-lib set-current
   over run-valid? 0= if 2drop outcome-invalid exit then
   dup 1+ swap ?do rn-span ?do i rn-cell @ j rn-step 0= if unloop unloop exit then
   loop loop outcome-ok ;
+\ Whether the test xt ( i*x x -- i*x flag ) holds for a cell, the first
+\ first; none after the first that holds (a valid run).
+: run-any? ( i*x run xt -- i*x flag )
+  dup 1+ swap ?do rn-span ?do i rn-cell @ j execute if true unloop unloop exit then
+  loop loop false ;
 lf-lib-private set-current
 \ A filter appends the cells it keeps at the top of rn-cells, from cell
 \ number first on, and makes one run of them at the end; rn-test runs

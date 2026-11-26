@@ -47,8 +47,8 @@ reason = "SL1a-2: a hypothesis another local depends on retyped by route 1, leav
 [[fault]]
 id = "defeq-equal-raw"
 file = "src/front/meta-tactic/assert.fs"
-old = '''  lf-instantiate! dup mat mat-type ! swap lf-instantiate! mat-equal-to? ;'''
-new = '''  2drop false ;'''
+old = '''  mat mat-old @ lf-fvar-type mat mat-type @ lf-meta-equal-inst? swap mat mat-type ! ;'''
+new = '''  mat mat-old @ lf-fvar-type mat mat-type @ lf-meta-equal? lf-must ;'''
 test = "$GFORTH tests/front/tactics/simp-2/test.fs"
 reason = "SL1a-2: replaceLocalDeclDefEq's second Expr.equal (after instantiateMVars) skipped, so an unchanged hypothesis makes a new goal and Lean's no progress is missed"
 
@@ -208,3 +208,68 @@ old = '''  lf-mctx-fvar dup lf-fvar-let? if drop false exit then mtg-prop? ;'''
 new = '''  lf-mctx-fvar mtg-prop? ;'''
 test = "$GFORTH tests/front/tactics/simp-2/test.fs"
 reason = "SL1b: a let has a value, so getNondepPropHyps (Util.lean:114) never takes it; taken, simp at * would rewrite a let's type"
+
+# ---- The fix round of the group's Forth review (2026-11-25, findings B2, M1-M3, L1, L6).
+[[fault]]
+id = "simp-target-before-hyps"
+file = "src/front/simp/goal.fs"
+old = '''  sg-hyps if 0 exit then sg-target? if 0 exit then sg-finish sg-progress ;'''
+new = '''  sg-target? if drop 0 exit then sg-hyps if 0 exit then sg-finish sg-progress ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "review M1: simpGoal simplifies the hypotheses before the target (Main.lean:883-901); target first, a hypothesis that becomes False no longer closes the goal before a target simp cannot enter (p48 answers 99), and the term differs (simp_at_false_first)"
+
+[[fault]]
+id = "simp-close-orig-goal"
+file = "src/front/simp/goal.fs"
+old = '''  sg-goal@ dup lf-goal-type rot lf-mk-false-elim lf-mvar-assign lf-must ;'''
+new = '''  sg sg-orig @ dup lf-goal-type rot lf-mk-false-elim lf-mvar-assign lf-must ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "review M2: a False hypothesis closes mvarIdNew, the goal so far; closing the goal given fails once an earlier hypothesis changed by definition assigned it (p32 answers 93)"
+
+[[fault]]
+id = "simp-old-hyp-kept"
+file = "src/front/simp/goal.fs"
+old = '''  sg-goal@ sg sg-asserts @ lf-goal-assert-hyps sg sg-clears @ lf-goal-try-clear-many ;'''
+new = '''  sg-goal@ sg sg-asserts @ lf-goal-assert-hyps ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "review M3: tryClearMany skipped, so the old hypothesis stays beside the new one and proves what Lean's context no longer can (assumption after clearing the new k)"
+
+[[fault]]
+id = "simp-twice-old-fvar"
+file = "src/front/simp/goal.fs"
+old = '''  sg-goal@ sg-fvar@ sg-now rot lf-goal-replace-local-decl-defeq sg sg-goal ! false ;'''
+new = '''  sg-goal@ sg-fvar@ rot lf-goal-replace-local-decl-defeq sg sg-goal ! false ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "review L1: at[ h h ] changed by definition: the second pass must meet the hypothesis the first put in h's place (Lean's fvarId, retyped in mvarIdNew); the old one is gone from the goal so far, so 93 where Lean accepts"
+
+[[fault]]
+id = "nondep-type-candidate"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  lf-mctx-fvar dup lf-fvar-let? if drop false exit then mtg-prop? ;'''
+new = '''  lf-mctx-fvar dup lf-fvar-let? if drop false exit then drop true ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "review L6 (F6): getNondepPropHyps takes only propositions (Util.lean:114, isProp); taking every local, an unused c : Nat becomes a location of simp at *"
+
+[[fault]]
+id = "new-locals-no-catch"
+file = "src/front/telescope.fs"
+old = ''': lf-with-new-locals ( i*x xt -- j*x ) ['] tl-kept-view tl-scoped ;'''
+new = ''': lf-with-new-locals ( i*x xt -- j*x ) lf-mctx-view >r execute r> lf-mctx-view! ;'''
+test = "$GFORTH tests/front/tactics/simp-2/test.fs"
+reason = "review L6 (F13): a walk that throws must still give back the view and the local context it opened (the preprocess walk of an unsupported hypothesis)"
+
+[[fault]]
+id = "try-clear-many-forward"
+file = "src/front/meta-tactic/assert.fs"
+old = '''  dup run-count begin ?dup while 1- 2dup run@ >r rot r> lf-goal-try-clear -rot repeat'''
+new = '''  dup run-count 0 ?do dup i run@ >r swap r> lf-goal-try-clear swap loop'''
+test = "$GFORTH tests/front/tactics/batch-b/test.fs"
+reason = "review B2: tryClearMany is a foldr, the last first (Clear.lean:59-60); first to last, a hypothesis named by a later one is tried while that one still names it and stays"
+
+[[fault]]
+id = "run-any-stops-late"
+file = "src/lib/runs.fs"
+old = '''  dup 1+ swap ?do rn-span ?do i rn-cell @ j execute if true unloop unloop exit then'''
+new = '''  dup 1+ swap ?do rn-span ?do i rn-cell @ j execute drop'''
+test = "$GFORTH tests/lib/runs.fs"
+reason = "review B4: run-any? answers at the first cell the test holds for, with no test after it (any?'s contract, simpGoal's stop at a closed goal); testing every cell, the trail shows the cells after the first that holds and the answer is lost"

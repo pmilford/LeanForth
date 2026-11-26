@@ -211,7 +211,7 @@ require ../telescope.fs
   dup lf-local-detail-at? if drop false exit then
   lf-mctx-fvar over lf-local-depends-on? lf-must ;
 : mtg-used? ( goal c -- flag )
-  lf-mctx-view lf-view-count 0 ?do i mtg-uses? if 2drop true unloop exit then loop
+  lf-mctx-view lf-view-count ['] mtg-uses? any? if 2drop true exit then
   swap lf-goal-type lf-instantiate! swap lf-depends-on? lf-must ;
 \ A candidate pushed, then taken back when it is used.
 : mtg-hyp ( goal run k -- goal run' )
@@ -508,21 +508,18 @@ end-structure
 : lf-goal-refl ( goal -- ) lf-goal-not-assigned mrf-frames ['] mrf-framed lf-with-record ;
 
 \ ---- replaceTargetDefEq (Replace.lean:44-61): goal itself when new is
-\ its type as stored, or both instantiated are, compared node for node
-\ (Expr.equal; term-eqv.fs's lf-meta-eqv, Lean's ==, differs only on
-\ binder names, which LeanForth's terms keep apart and no text writes);
+\ its type as stored, or both instantiated are, Expr.equal (meta-must.fs's
+\ lf-meta-equal-inst?, replaceLocalDeclDefEq's test too);
 \ else goal' of type new with goal's tag in its context, and goal
 \ assigned @id.{u} target goal' (mkExpectedTypeHint of the target
 \ instantiated). LeanForth keeps a goal's type as made, so the type
 \ Lean caches on the second test stays as it was (the same term once
 \ instantiated).
-: mtg-unchanged? ( goal new -- goal new flag ) over lf-goal-type over lf-eqv! ;
-: mtg-inst-same? ( goal new -- goal new' flag )
-  lf-instantiate! over lf-goal-type lf-instantiate! over lf-eqv! ;
+: mtg-unchanged? ( goal new -- goal new' flag )
+  over lf-goal-type swap lf-meta-equal-inst? ;
 : mtg-hinted ( goal new -- goal' )
   over lf-goal-fresh over lf-goal-type lf-instantiate! over swap lf-mk-expected-type-hint
   mtg-assign ;
 : lf-goal-replace-target-defeq ( goal new -- goal' )
-  over lf-goal-not-assigned drop mtg-unchanged? if drop exit then
-  mtg-inst-same? if drop exit then mtg-hinted ;
+  over lf-goal-not-assigned drop mtg-unchanged? if drop exit then mtg-hinted ;
 base !   \ the BASE this file was loaded with

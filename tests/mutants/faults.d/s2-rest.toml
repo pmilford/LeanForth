@@ -157,7 +157,7 @@ reason = "s2-rest review F1: findTag?'s suffix pass before its exact pass (c_ord
 [[fault]]
 id = "case-underscores-rename"
 file = "src/front/meta-tactic/rename.fs"
-old = ''': mrn-any? ( names -- flag ) dup run-count ['] mrn-ident? any? nip ;'''
+old = ''': mrn-any? ( names -- flag ) ['] 0<> run-any? ;'''
 new = ''': mrn-any? ( names -- flag ) drop true ;'''
 test = "GFORTH=$GFORTH python3 tests/front/check_s2.py --case"
 reason = "s2-rest review F2: names that are all _ still run renameInaccessibles (s2w-case-under.lf: 211, not rfl's 97)"

@@ -44,8 +44,7 @@ end-structure
 : mrn ( -- frame ) mrn-frames slab-last ;
 
 \ ---- Whether a name is given (Lean's callerScopes: some identifier).
-: mrn-ident? ( names k -- names flag ) over swap run@ 0<> ;
-: mrn-any? ( names -- flag ) dup run-count ['] mrn-ident? any? nip ;
+: mrn-any? ( names -- flag ) ['] 0<> run-any? ;
 
 \ ---- The locals, from the newest: shadowed when a newer local the user
 \ can name has local j's name.

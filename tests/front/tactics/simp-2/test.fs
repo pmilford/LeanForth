@@ -16,8 +16,9 @@
 \    and without binders, different terms, a dead term), lf-local-refvar's
 \    and lf-view-refvar's refusals, replaceLocalDeclDefEq's two equal cases
 \    (before and after instantiation), assertHypotheses of none;
-\ 3. resources: every heap allocation of a replacement refused in turn,
-\    and every local's record (lv-locals) of a run: full or the answer.
+\ 3. resources: every heap allocation of a replacement and of
+\    lf-goal-simp refused in turn, simpGoal's frames limited in turn, and
+\    every local's record (lv-locals) of a run: full or the answer.
 \ The tactic's end-to-end runs against pinned Lean are check.py's.
 \ Nothing here accepts a theorem: only the kernel's check does.
 include ../../../support/heap-watch.fs
@@ -95,6 +96,9 @@ h0 h0 lf-mk-eq s" k" binder constant k0
 T{ ' dep outcome-of -> outcome-unsupported }T
 \ assertHypotheses of no hypothesis: the goal itself.
 T{ goal dup 0 lf-goal-assert-hyps = -> true }T
+\ simpGoal on an assigned goal: checkNotAssigned's refusal (invalid).
+: simp-g1 ( -- ) g1 false 0 h0 lf-run+ lf-goal-simp drop ;
+T{ ' simp-g1 outcome-of -> outcome-invalid }T
 \ ---- 3. Every heap allocation of a replacement refused in turn (its
 \ frames given back first): replaced (0) or full.
 : replace-anew ( -- ) mat-frames sweep-slab-anew mat-cells sweep-slab-anew ;
@@ -141,6 +145,14 @@ T{ a+0 simp-outcome -> outcome-unsupported }T
 s" Bool" lf-mk-const0 s" x" binder constant x0
 x0 s" Bool.true" lf-mk-const0 lf-mk-eq lf-mk-not s" hb" binder constant hb0
 T{ lf-simp-set-new hb0 false add-term -> outcome-unsupported }T
+\ The same below a binder, h : ∀ x : Bool, ¬ x = true: the walk throws
+\ after it opened x's local, which it drops (lf-with-new-locals): the
+\ view and the local context as they were.
+create x-cell x0 ,
+x0 s" Bool.true" lf-mk-const0 lf-mk-eq lf-mk-not x-cell 1 lf-mk-forall-fvars
+s" hv" binder constant hv0
+T{ lf-lctx-count @ lf-mctx-view lf-simp-set-new hv0 false add-term >r lf-mctx-view =
+   swap lf-lctx-count @ = r> -> true true outcome-unsupported }T
 \ The walk's locals dropped at its end: the context as it was.
 T{ lf-mctx-view lf-view-count lf-simp-set-new hz0 false add-term drop lf-mctx-view lf-view-count
    = -> true }T
@@ -156,16 +168,35 @@ T{ lf-mctx-view lf-view-count lf-simp-set-new hz0 false add-term drop lf-mctx-vi
 ' spp-anew sweep-slabs-xt !
 T{ 0 ' p-forall heap-sweep swept? -> true }T
 ' noop sweep-slabs-xt !
+
+\ ---- 3. lf-goal-simp at h : a + 0 = b with the rule hz : ∀ n, n + 0 = n
+\ (the smallest goal with a proof): its frames (sg-frames) limited in
+\ turn, and every heap allocation refused in turn (each run in the same
+\ context, the frames given back first): the answer (the new goal's
+\ context's size) or full.
+: simp-h ( -- n ) goal false 0 h0 lf-run+ lf-goal-simp lf-goal-view lf-view-count ;
+: p-simp ( x -- n outcome )
+  drop ['] simp-h catch ?dup if lf-meta-outcome 0 swap else outcome-ok then ;
+: simp-anew ( -- )
+  sg-frames sweep-slab-anew mat-frames sweep-slab-anew mat-cells sweep-slab-anew
+  sweep-view-anew ;
+lf-simp-set-new hz0 false add-term drop
+' sg-frames sweep-slab-xt !   T{ 0 ' p-simp slab-sweep swept? -> true }T
+sweep-keep-view ' simp-anew sweep-slabs-xt !
+T{ 0 ' p-simp heap-sweep swept? -> true }T
+' noop sweep-slabs-xt !
 lf-simp-set-new
 
 \ ---- SL1b 4. getNondepPropHyps (meta-tactic/goal.fs): in a context of
-\ its own, a, b, h : a = b, k : h = h, h is used by k's type, so k alone;
+\ its own, a, b, h : a = b, k : h = h, c : Nat (no proposition, used by
+\ nothing: no candidate), h is used by k's type, so k alone;
 \ a target naming k, none. A let l : a = b := h and an implementation
 \ detail d : k = k added: l is no candidate (it has a value), nor d, whose
 \ use of k does not count (Lean skips details).
 0 lf-mctx-view!
 nat s" a" binder constant na   nat s" b" binder constant nb
 na nb lf-mk-eq s" h" binder constant nh   nh nh lf-mk-eq s" k" binder constant nk
+nat s" c" binder drop
 : goal2 ( -- g ) na nb lf-mk-eq 0 ctx lf-goal-new made ;
 : nondep1 ( goal -- n x ) lf-goal-nondep-prop-hyps dup run-count swap 0 run@ ;
 T{ goal2 nondep1 -> 1 nk }T
@@ -225,6 +256,23 @@ T{ s" Nat explicit: a Nat explicit: b Nat explicit: c a b = explicit: h a 0 + c 
 T{ s" Nat explicit: a False explicit: h a 0 =" s" by-simp-only[ ] at[ * ]" tactic-ran -> 0 }T
 T{ s" Nat explicit: a Nat explicit: b a b = explicit: h b a ="
    s" by-simp-only[ ' Nat.add_zero ] at[ * ]" tactic-ran lf-tac-forget -> 500 }T
+\ The hypotheses before the target (Lean's order; probe p48): k becomes
+\ False and closes the goal before the target, a ∀ simp cannot enter yet
+\ (99), is reached.
+T{ s" Nat explicit: a Nat explicit: b Nat explicit: c a b ≤ ¬ explicit: h a b ≤ explicit: k c 0 + c ="
+   s" ' c by-revert by-simp-only[ ' h ] at[ k |- ]" tactic-ran -> 0 }T
+\ Changed by definition, then closed by a False hypothesis: the goal so
+\ far is the one closed (p32).
+T{ s" Nat explicit: a Nat explicit: b a 0 + b = explicit: h False explicit: k a b ="
+   s" by-simp-only[ ' Nat.add_zero ] at[ h k ]" tactic-ran -> 0 }T
+\ The old hypothesis cleared: once the new k is cleared, nothing proves
+\ a = c (Lean: assumption fails).
+T{ s" Nat explicit: a Nat explicit: b Nat explicit: c a b = explicit: h a c = explicit: k a c ="
+   s" by-simp-only[ ' h ] at[ k ] ' k by-clear by-assumption" tactic-ran lf-tac-forget -> 381 }T
+\ The same hypothesis twice, changed by definition (p30): the second pass
+\ meets the hypothesis the first put in h's place.
+T{ s" Nat explicit: a Nat explicit: b a 0 + b = explicit: h a b ="
+   s" by-simp-only[ ' Nat.add_zero ] at[ h h ] ' h by-exact" tactic-ran -> 0 }T
 \ The pass-1 review's case: h, a rule, changed by definition first.
 T{ s" Nat explicit: a Nat explicit: b Nat explicit: c a 0 + 2 * b = explicit: h a 0 + 2 * c = explicit: j a 2 * c ="
    s" by-simp-only[ ' Nat.add_zero ' h ] at[ h j ] ' j by-exact" tactic-ran -> 0 }T
