@@ -64,6 +64,7 @@
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../lib/lib.fs
 require ../lib/memo.fs
+require ../lib/find.fs
 require ./elab-data.fs
 
 begin-structure /simp-congr
@@ -173,12 +174,13 @@ end-structure
   nip dup sdc sdc-decl @ sd-lemma-role sd-index memo! elab-roomed ;
 \ The run's order (error 48) comes before the head (error 37): a record
 \ out of place is refused for its place, whatever its lemma.
-create sdc-members
-  s" fun" counted, s" hyps" counted, s" name" counted, s" priority" counted,
-  s" rank" counted, 0 0 counted,
-create sdc-form  sdc-members , ' simp-congrs ,
+\ Each form is one table: its members' names follow its steps.
+create sdc-form  0 , ' simp-congrs ,
   ' sdc-ready , ' sdc-name! , ' sdc-fun! , ' sdc-priority! , ' sdc-hyps! , ' sdc-fit ,
   ' sdc-rank! , ' sdc-order , ' sdc-falls , ' sdc-head , ' sdc-index , 0 ,
+sdc-form elab-keys-here
+  s" fun" counted, s" hyps" counted, s" name" counted, s" priority" counted,
+  s" rank" counted, 0 0 counted,
 sdc-form ' sd-clear s" congr" elab-add-kind constant simp-congr-kind
 
 \ ---- Realized congruence theorems (format 4.1).
@@ -197,10 +199,10 @@ end-structure
   sdr sdr-kinds swap c" arg_kinds" elab-member elab-numbers ;
 : simp-realized-kinds ( r -- addr n ) sdr sdr-kinds elab-span@ ;
 : sd-kind? ( n -- flag ) 4 u< ;   \ congr-thms.fs's four kinds, 0-3
+: sd-bad-kind? ( addr i -- addr flag ) over swap cells + @ sd-kind? 0= ;
 : sdr-kinds-ok ( value r -- outcome )
-  nip simp-realized-kinds cells bounds ?do
-    i @ sd-kind? 0= if elab-malformed unloop exit then
-  cell +loop outcome-ok ;
+  nip simp-realized-kinds ['] sd-bad-kind? find-index
+  if drop elab-malformed else outcome-ok then ;
 \ name is fun's congr_simp (Lean's reserved name, CongrTheorems.lean:399).
 : sd-congr-simp-of ( f -- name )
   elab-decl-name s" congr_simp" elab-tier name-seek-str drop ;
@@ -210,11 +212,11 @@ end-structure
   nip dup sdr sdr-fun @ sd-real-role 2dup sd-index memo-at
   if 2drop drop elab-e-congr-twice elab-refuse exit then sd-index memo! elab-roomed ;
 : sdr-clear ( -- ) simp-reals slab-clear ;
-create sdr-members
-  s" arg_kinds" counted, s" fun" counted, s" kind" counted, s" name" counted, 0 0 counted,
-create sdr-form  sdr-members , ' simp-reals ,
+create sdr-form  0 , ' simp-reals ,
   ' sdc-ready , ' sdr-name! , ' sdr-fun! , ' sdr-kind , ' sdr-kinds! , ' sdr-kinds-ok ,
   ' sdr-fit , ' sdr-index , 0 ,
+sdr-form elab-keys-here
+  s" arg_kinds" counted, s" fun" counted, s" kind" counted, s" name" counted, 0 0 counted,
 sdr-form ' sdr-clear s" realized" elab-add-kind41 constant simp-realized-kind
 
 \ ---- The questions.

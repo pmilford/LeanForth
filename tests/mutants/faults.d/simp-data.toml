@@ -311,8 +311,8 @@ reason = "SD-b: a realized record's theorem must be its function's congr_simp (L
 [[fault]]
 id = "realized-kinds-unchecked"
 file = "src/front/simp-data.fs"
-old = '''    i @ sd-kind? 0= if elab-malformed unloop exit then'''
-new = ''''''
+old = ''': sd-bad-kind? ( addr i -- addr flag ) over swap cells + @ sd-kind? 0= ;'''
+new = ''': sd-bad-kind? ( addr i -- addr flag ) drop false ;'''
 test = "$GFORTH tests/front/simp-data.fs"
 reason = "SD-b: an argument kind beyond 3 (none of mkCongrSimpCore?'s) is malformed"
 

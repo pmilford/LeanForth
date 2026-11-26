@@ -821,6 +821,9 @@ end-structure
 : ed-on-form ( value form -- outcome )
   2dup ed-form-keys @ ed-shape? 0= if 2drop ed-malformed exit then
   dup ed-form-claim ok-then? if swap ed-form-steps ed-steps else nip nip then ;
+\ A form laid as one table: its keys cell 0, its slab and steps, then
+\ its members' names laid from here on (elab-add-kind's callers).
+: elab-keys-here ( form -- ) here swap ed-form-keys ! ;
 \ A span's first number and count, the units of slab claimed between.
 : ed-span-open ( span slab -- ) slab-count swap ! ;
 : ed-span-close ( span slab -- ) over @ swap slab-since swap cell+ ! ;
