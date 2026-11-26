@@ -79,10 +79,11 @@
 \ context-unbalanced ?call-balanced call-balanced allocate0 /context-header
 \ context-owner context-bytes context-main context-seal context-sealed?
 \ context? context-idle? context-use context-record: context-store:
-\ context-offset context-walk: context-walk2: context-frames: context-slab:
-\ context-setup context-teardown context-need context-needs context-new
-\ context-free context-claim context-release context-catch. Every other word is private
-\ (lf-lib-private; ADR 0010): tests reach it with `lf-lib-private order+`.
+\ context-offset context-in context-walk: context-walk2: context-frames:
+\ context-slab: context-setup context-teardown context-need context-needs
+\ context-new context-free context-claim context-release context-catch. Every
+\ other word is private (lf-lib-private; ADR 0010): tests reach it with
+\ `lf-lib-private order+`.
 \
 \ State: the layout record, context-layout, with the stated stack needs
 \ and the teardown words, and the lists of walk, frames and slab members
@@ -279,10 +280,18 @@ lf-lib set-current
 \ one of its members (a field of a record member, a store header's cell):
 \ the same in every context, so a word can add it, as one literal, to
 \ lf-context @, as a member's own address word does (member-body), and
-\ reach that cell with one fetch of the context. Example:
+\ reach that cell with one fetch of the context. An address outside the
+\ current context is refused (abort); the word runs while files load and
+\ in context-in, never in a read. Example:
 \   2 cells context-record: pos   pos cell+ context-offset constant pos-y
 \   : pos-y@ ( -- n ) lf-context @ pos-y + @ ;
-: context-offset ( addr -- u ) lf-context @ - ;
+: context-offset ( addr -- u )
+  lf-context @ - dup context-bytes u< 0= abort" context-offset: not in the context" ;
+\ addr's place in another context: addr is inside the current context
+\ (context-offset refuses it otherwise), and every context has the same
+\ layout. Example, a store member's count in context c:
+\   my-store c context-in store-count @
+: context-in ( addr context -- addr' ) swap context-offset + ;
 lf-lib-private set-current
 \ A context's walks are growable (walk.fs): capacity is their first room;
 \ their heap blocks are freed with the context (walks-free, below).

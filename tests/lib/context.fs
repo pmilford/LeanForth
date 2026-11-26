@@ -248,6 +248,23 @@ T{ c-rec @ c-terms store-count @ -> 7 2 }T
 T{ c-rec cell+ context-offset rec-y = 5 c-rec cell+ ! rec-y@ terms-count@ -> true 5 2 }T
 context-main context-use
 T{ rec-y@ terms-count@ -> 0 1 }T
+\ context-in: a member's cell in another context (a record's cells, a
+\ store header's count), the current context's own left alone; each
+\ context reaches its own cells by it too.
+T{ c-rec cell+ ctx1 context-in @ c-terms store-count ctx1 context-in @ c-rec cell+ @
+   -> 5 2 0 }T
+T{ c-rec ctx1 context-in @ c-rec @ c-rec lf-context @ context-in c-rec = -> 7 42 true }T
+T{ 3 c-rec cell+ ctx1 context-in ! ctx1 context-use rec-y@ context-main context-use
+   rec-y@ -> 3 0 }T
+\ context-offset refuses an address outside the current context (abort,
+\ THROW -2): below it, just past its end, a CREATEd one; context-in too.
+create c-outside 2 cells allot
+T{ lf-context @ context-offset lf-context @ context-bytes 1- + context-offset
+   -> 0 context-bytes 1- }T
+T{ lf-context @ 1- ' context-offset catch nip
+   lf-context @ context-bytes + ' context-offset catch nip -> -2 -2 }T
+T{ c-outside ' context-offset catch nip c-outside ctx1 ' context-in catch nip nip
+   -> -2 -2 }T
 ctx1 context-use  0 c-rec cell+ !
 
 \ A failing setup word: no context, the THROW code, the current context kept.

@@ -329,7 +329,7 @@ removes first what the rows before it already take (the overlap), so the rows ca
 | 5 clean roots | 2.1 (20 s, run 1's counted copy) | 0.6 (27% of `lf-open-pass` lies under validity words) | 1.5 | 14 | 700-766 | 18.2-19.9 |
 | 6 cache keys | 2.17 (`lf-node-key`) | 1.79 under validity words (`lf-fvars-live?` 1.59) | 0.4 | 4 | 696-762 | 18.1-19.8 |
 | 7 replace memo | 8.30 (`lf-rmemo@`, `lf-rmemo!`) | 2.1 under validity words; its hashing (3.9) stays here, not in 4 | 3.1 | 30 | 666-732 | 17.3-19.1 |
-| 3 field reads inlined (fused words written, 9.4.8z3; with `hash-fmix` 7.5 points measured, above) | 40.3 reads exclusive | 16.7 under validity, 4.6 in substitution, 1.0 in the memo | 6-9 | 57-86 | 580-675 | 15.1-17.6 |
+| 3 field reads inlined (fused words written, 9.4.8z3; with `hash-fmix` 7.5 points measured on wall time, 8.9 on CPU time, above) | 40.3 reads exclusive | 16.7 under validity, 4.6 in substitution, 1.0 in the memo | 6-9 | 57-86 | 580-675 | 15.1-17.6 |
 | 4 hashing and probe, Forth macros (`hash-fmix` fused, 9.4.8z3; the probe left) | 16.3 hashing exclusive | 4.1 under validity, 3.9 in the memo, 1.3 in substitution | 2.4 | 23 | 557-652 | 14.5-17.0 |
 | 4 the same, native | the same 7.1 | the same | 4.7 | 45 | 535-630 | 13.9-16.4 |
 
@@ -372,8 +372,9 @@ same command on `gforth-fast`, from scratch copies of the two trees, one run eac
 machine shared with another agent's small test runs). Main, 14:51-15:04: check phase 770.3 s wall (770.2 s
 CPU), total 784.6 s (load average 0.6 at the start, 1.2 at the end). Branch, 15:09-15:21: check phase 712.4 s
 wall (701.4 s CPU), total 726.3 s (load 1.9 at the start, 2.1 at the end, 3.8 over the last minute). The fused
-reads and `hash-fmix` take 57.9 s, **7.5 points** of the 770.3 s (measured, single runs; the review's estimate
-was 9-12 points): Init's check is now about 18.6 times Lean's 38.4 s (recorded), against 20.1. Both reports are
+reads and `hash-fmix` take 57.9 s, **7.5 points** of the 770.3 s on wall time, and on CPU time, the fairer
+figure here since the branch's run was the more loaded one, 770.2 s -> 701.4 s: 68.8 s, **8.9 points**
+(measured, single runs; the review's estimate was 9-12 points): Init's check is now about 18.6 times Lean's 38.4 s (recorded), against 20.1. Both reports are
 identical outside `measured`, `settings` and `run`: 59,349 declarations accepted, 1 not proved, fuel
 654,719,715, the same axiom sets. The decide slice (`tests/front/decide-slice.ndjson`, 1,290 declarations, load
 1.9) went from 3.08 s to 2.52 s of check phase at one worker and from 1.24 s to 1.04 s at four, with reports

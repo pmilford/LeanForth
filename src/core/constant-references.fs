@@ -396,15 +396,15 @@ create lf-cref-hooks /htab-hooks allot
 : lf-cref-under-end ( -- offset )
   lf-cref-base ?dup if 1- lf-cref-slot lf-cref-end else 0 then ;
 : lf-cref-copy ( source -- )
-  >r lf-crefs r@ lf-member-in lf-cref-under lf-cunder-store store-header move
-  lf-cref-pool r@ lf-member-in lf-cref-under lf-cunder-pool /slab move
-  lf-cref-table r@ lf-member-in lf-cref-under lf-cunder-table /htab move
+  >r lf-crefs r@ context-in lf-cref-under lf-cunder-store store-header move
+  lf-cref-pool r@ context-in lf-cref-under lf-cunder-pool /slab move
+  lf-cref-table r@ context-in lf-cref-under lf-cunder-table /htab move
   lf-cref-under lf-cunder-table htab-freeze
-  lf-cref-serial r> lf-member-in @ lf-cref-serial @ max lf-cref-serial !
+  lf-cref-serial r> context-in @ lf-cref-serial @ max lf-cref-serial !
   lf-cref-under lf-cunder-store store-count @ lf-cref-under lf-cunder-base !
   lf-cref-under-end lf-cref-under lf-cunder-top ! ;
 : lf-cref-lendable? ( source -- flag )
-  dup lf-context @ <> swap lf-cref-under swap lf-member-in lf-cunder-base @ 0= and
+  dup lf-context @ <> swap lf-cref-under swap context-in lf-cunder-base @ 0= and
   lf-cref-count @ 0= and lf-cref-base 0= and ;
 : lf-cref-borrow ( source -- outcome )
   dup lf-cref-lendable? if lf-cref-copy outcome-ok else drop outcome-invalid then ;

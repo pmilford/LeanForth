@@ -508,10 +508,10 @@ create lf-input-slabs ' lf-lit-limbs , ' lf-str-bytes ,
 \ sealed, borrowed or holds a declaration. lf-input-end seals it
 \ afterwards, as after a feed.
 : lf-input-in ( k source -- count mark-count )
-  >r dup lf-input-store r@ lf-member-in store-count @
-  swap lf-input-mark r> lf-member-in mark-count @ ;
+  >r dup lf-input-store r@ context-in store-count @
+  swap lf-input-mark r> context-in mark-count @ ;
 : lf-input-pristine? ( source -- flag )
-  lf-input-state over lf-member-in dup lf-inrec-sealed @ true =
+  lf-input-state over context-in dup lf-inrec-sealed @ true =
   swap lf-inrec-borrowed @ 0= and
   if lf-input-cref-k swap lf-input-in = else drop false then ;
 : lf-input-lendable? ( source -- flag )
@@ -519,9 +519,9 @@ create lf-input-slabs ' lf-lit-limbs , ' lf-str-bytes ,
   lf-input-sealed? 0= and lf-input-borrowed? 0= and lf-input-count 0= and ;
 : lf-input-copy-in ( source -- )
   lf-inputs store-heap-free lf-input-names slab-free lf-input-more slab-free
-  >r lf-inputs r@ lf-member-in lf-inputs store-header move
-  lf-input-names r@ lf-member-in lf-input-names /slab move
-  lf-input-more r> lf-member-in lf-input-more /slab move
+  >r lf-inputs r@ context-in lf-inputs store-header move
+  lf-input-names r@ context-in lf-input-names /slab move
+  lf-input-more r> context-in lf-input-more /slab move
   true lf-input-state lf-inrec-borrowed ! ;
 : lf-input-borrow ( source -- outcome )
   dup lf-input-lendable? if lf-input-copy-in outcome-ok else drop outcome-invalid then ;

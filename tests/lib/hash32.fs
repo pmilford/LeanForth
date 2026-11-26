@@ -29,8 +29,8 @@ T{ ranges? -> true }T
 T{ 5 ' hash-fmix rs-checked s" ab" ' hash-bytes rs-checked drop -> 5 hash-fmix }T
 \ hash-fmix written out in one definition (plan 9.4.8z3) gives what the
 \ chain of helpers it replaced gives, kept here as it was: on 0, -1, 2^k
-\ and its neighbours for every bit k of a cell, 100,000 random 32-bit
-\ values and 100,000 random cells (all 64 bits on a 64-bit host, whose
+\ and its neighbours for every bit k of a cell, 500,000 random 32-bit
+\ values and 500,000 random cells (all 64 bits on a 64-bit host, whose
 \ products the masks bring back to 32 bits).
 : old-mul ( h m -- h' ) * u32-mask and ;
 : old-shift ( h n -- h' ) over swap rshift xor ;
@@ -44,7 +44,7 @@ $C2B2 16 lshift $AE35 or constant old-m2
   0 fmix-same? -1 fmix-same? and 1 cells 8 * 0 do 1 i lshift near-same? and loop ;
 : rnd-cell ( -- x ) hash-rnd 16 lshift 16 lshift hash-rnd xor ;
 : randoms-same? ( -- flag )
-  true 100000 0 do hash-rnd fmix-same? and rnd-cell fmix-same? and loop ;
+  true 500000 0 do hash-rnd fmix-same? and rnd-cell fmix-same? and loop ;
 T{ edges-same? randoms-same? u32-mask fmix-same? 1 31 lshift near-same? -> true true true true }T
 \ Only the interface is public: helpers are private (ADR 0010).
 T{ s" hash-mul" forth-wordlist search-wordlist s" hash-mul" lf-lib search-wordlist -> 0 0 }T

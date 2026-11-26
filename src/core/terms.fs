@@ -715,10 +715,8 @@ defer lf-term-view-hook ( -- outcome )
 \ (lf-tview-tables-free erases the copies). ok, then the hook again (its
 \ failure, full, keeps the view); invalid, nothing changed, when this
 \ context has no view, its tier is not the source's, it borrowed already
-\ or the source is this context. lf-member-in gives the address of a
-\ member of the current context in another context: every context has
-\ the same layout (lib/context.fs).
-: lf-member-in ( addr context -- addr' ) swap lf-context @ - + ;
+\ or the source is this context (context-in: a member's address in the
+\ source, lib/context.fs).
 \ The units of a slab member copied from the same member of the source
 \ context into this context's, which must be empty (the literals' limbs
 \ and bytes, a few kilobytes, which checks append to): ok; invalid when it
@@ -726,7 +724,7 @@ defer lf-term-view-hook ( -- outcome )
 \ room.
 : lf-slab-bytes-of ( slab -- addr u ) 0 over slab-at swap slab-used-bytes ;
 : lf-slab-copy-in ( slab source -- outcome )
-  over swap lf-member-in 2dup = 2 pick slab-count 0<> or
+  over swap context-in 2dup = 2 pick slab-count 0<> or
   if 2drop outcome-invalid exit then
   dup slab-count 2 pick slab-claim nip dup ok? 0= if nip nip exit then drop
   lf-slab-bytes-of rot 0 swap slab-at swap move outcome-ok ;
@@ -740,7 +738,7 @@ defer lf-term-view-hook ( -- outcome )
   dup lf-term-view <> swap lf-tview-tier @ lf-term-tier = and lf-term-viewed? and
   lf-term-view lf-tview-borrowed @ 0= and ;
 : lf-term-borrow ( source -- outcome )
-  lf-term-view swap lf-member-in dup lf-tview-lendable?
+  lf-term-view swap context-in dup lf-tview-lendable?
   if lf-tview-copy lf-term-view-grown else drop outcome-invalid then ;
 
 \ Give input leaf node index its fields and stamp (the importer, after

@@ -118,8 +118,94 @@ quick = true
 [[fault]]
 id = "kr1-context-offset-cell"
 file = "src/lib/context.fs"
-old = ''': context-offset ( addr -- u ) lf-context @ - ;'''
-new = ''': context-offset ( addr -- u ) lf-context @ - cell+ ;'''
+old = '''  lf-context @ - dup context-bytes u< 0= abort" context-offset: not in the context" ;'''
+new = '''  lf-context @ - cell+ dup context-bytes u< 0= abort" context-offset: not in the context" ;'''
 test = "$GFORTH tests/lib/context.fs"
 reason = "the offset word off by a cell: a word built on it reads the next cell of the member"
+quick = true
+
+[[fault]]
+id = "kr1-valid-boundary"
+file = "src/core/terms.fs"
+old = '''  lf-term-base 2dup u< if drop lf-tin-valid? exit then - lf-terms store-at? ;'''
+new = '''  lf-term-base 2dup 1+ u< if drop lf-tin-valid? exit then - lf-terms store-at? ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "the fused lf-term-valid? splits the tiers one late: the base's own number, the store's first node, is read as an input node"
+quick = true
+
+[[fault]]
+id = "kr1-at-count"
+file = "src/core/terms.fs"
+old = '''  dup store-block @ swap store-capacity @ cells + + ;'''
+new = '''  dup store-block @ swap store-count @ cells + + ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "lf-term-at places the records after count identity cells, not capacity: every store node's fields read from the wrong record"
+quick = true
+
+[[fault]]
+id = "kr1-at-block-once"
+file = "src/core/terms.fs"
+old = ''': lf-term-at ( r -- addr )
+  4 lshift lf-context @ lf-terms-at +
+  dup store-block @ swap'''
+new = '''lf-terms store-block @ constant blk0
+: lf-term-at ( r -- addr )
+  4 lshift lf-context @ lf-terms-at +
+  blk0 swap'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "lf-term-at uses the block read once while the file loads: after the store grows, or in another context, it reads freed or foreign memory"
+quick = true
+
+[[fault]]
+id = "kr1-identity-capacity"
+file = "src/core/terms.fs"
+old = '''  dup lf-terms store-at? 0= if drop false exit then lf-term-id-at @ true ;'''
+new = '''  dup lf-terms store-capacity @ u< 0= if drop false exit then lf-term-id-at @ true ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "a store node's identity bounded by the capacity, not the count: a number past the last node gives an identity"
+quick = true
+
+[[fault]]
+id = "kr1-tin-entry-dropped"
+file = "src/core/terms.fs"
+old = '''  dup lf-tin-at tuck quad-head u32@ head-tag swap 1 and lf-tin-entry @ ;'''
+new = '''  dup lf-tin-at tuck quad-head u32@ head-tag swap drop 0 lf-tin-entry @ ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "lf-tin-record drops the entry bit: an input node's second entry reads as its first"
+quick = true
+
+[[fault]]
+id = "kr1-tin-second-other"
+file = "src/core/terms.fs"
+old = '''  if drop nip quad-b u32@ lf-tin-child else nip lf-tin-other@ nip then ;'''
+new = '''  if drop nip quad-b u32@ lf-tin-child else nip lf-tin-other@ drop then ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "lf-tin-second@'s other branch keeps the wrong half of the pair: an input node's second child is its first"
+quick = true
+
+[[fault]]
+id = "kr1-data-word-field"
+file = "src/core/terms.fs"
+old = '''  - lf-term-at lf-term-data-at + u32@ ;'''
+new = '''  - lf-term-at lf-term-second-at + u32@ ;'''
+test = "$GFORTH tests/core/check-declaration-ndjson.fs"
+reason = "lf-term-data-word reads a store node's second field, not its data word"
+quick = true
+
+[[fault]]
+id = "kr1-context-offset-unguarded"
+file = "src/lib/context.fs"
+old = '''  lf-context @ - dup context-bytes u< 0= abort" context-offset: not in the context" ;'''
+new = '''  lf-context @ - ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "context-offset without its guard: an address outside the context gives an offset into wild memory in every context"
+quick = true
+
+[[fault]]
+id = "kr1-context-in-current"
+file = "src/lib/context.fs"
+old = ''': context-in ( addr context -- addr' ) swap context-offset + ;'''
+new = ''': context-in ( addr context -- addr' ) drop ;'''
+test = "$GFORTH tests/lib/context.fs"
+reason = "context-in answers the current context's cell, not the other context's: a copy from the source copies a context onto itself"
 quick = true

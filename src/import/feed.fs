@@ -672,7 +672,7 @@ here feed-shares - 1 cells / constant feed-shares#
 : feed-place-copy ( e feed -- outcome )
   2dup feed-dirty? 0= if 2drop outcome-ok exit then over 2* lf-term-horizon! feed-expr ;
 : feed-made-copies? ( feed -- flag )
-  lf-terms swap feed-source @ lf-member-in store-count @ 0<> ;
+  lf-terms swap feed-source @ context-in store-count @ 0<> ;
 : feed-copies ( feed -- outcome )
   dup feed-made-copies? 0= if drop outcome-ok exit then
   dup ['] feed-mark-copy feed-each dup ok? 0= if nip exit then
