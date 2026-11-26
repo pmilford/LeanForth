@@ -485,7 +485,8 @@ u-rmemo lf-rmemo-release
 create v-rmemo /lf-rmemo allot  v-rmemo /lf-rmemo erase
 : v-made ( -- n ) live-blocks @ 0 v-rmemo lf-rmemo-begin live-blocks @ swap - ;
 v-made 2/ constant memo-blocks  v-rmemo lf-rmemo-release
-: v-refused ( stamp -- ) v-rmemo lf-rmemo-release memo-blocks 1+ heap-refusals ! v-rmemo lf-rmemo-begin ;
+: v-refused-at ( stamp k -- ) v-rmemo lf-rmemo-release heap-refusals ! v-rmemo lf-rmemo-begin ;
+: v-refused ( stamp -- ) memo-blocks 1+ v-refused-at ;
 : v-live ( -- table? scratch? ) v-rmemo lf-rmemo-table memo-live? v-rmemo lf-rmemo-scratch memo-live? ;
 : v-keep ( offset -- ) n11 twice-0 rot v-rmemo lf-rmemo! ;
 : v-find ( offset -- flag ) twice-0 swap v-rmemo lf-rmemo@ dup if nip then ;
@@ -496,6 +497,11 @@ outcome-ok v-end
 T{ 7 v-refused 5 v-keep 5 v-find outcome-invalid v-end 7 v-rmemo lf-rmemo-begin 5 v-find -> true false }T
 outcome-ok v-end
 T{ 0 v-refused 0 v-keep 0 v-find outcome-ok v-end v-rmemo lf-rmemo-count -> false 0 }T
+\ The table refused (made first): the scratch memo is made, and kept by
+\ the next call, which makes the table alone and numbers on, so that it
+\ finds none of the last call's entries.
+T{ 0 1 v-refused-at v-live 0 v-keep 0 v-find outcome-ok v-end -> false true true }T
+T{ 0 v-rmemo lf-rmemo-begin v-live 0 v-find outcome-ok v-end -> true true false }T
 v-rmemo lf-rmemo-release
 
 \ ---------------------------------------------------------------------------
