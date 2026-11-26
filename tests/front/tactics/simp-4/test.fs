@@ -164,6 +164,16 @@ false add0-perm !
 : add0-proof ( -- a-addr ) add0-i ssl ssl-proof ;
 add0-proof @ constant add0-d   -1 add0-proof !   simp-thms slab-count constant thms0
 T{ add0-i lf-simp-data-entry ok? swap -1 = simp-thms slab-count thms0 = -> false true true }T
+\ One whose proof's declaration the library cannot decode (a string
+\ literal, plan S5: mkPanicMessageWithDecl's "PANIC at "): its record
+\ made, with no proof, kept as one the library lacks, so a root that
+\ holds it is still built and it is unsupported only when tried.
+: str-decl ( -- d ) s" mkPanicMessageWithDecl" lfa-intern lf-libdec-find made ;
+T{ str-decl lf-menv-of-data nip -> outcome-unsupported }T
+str-decl add0-proof !
+add0-i lf-simp-data-entry ok? constant str-ok constant str-t
+T{ str-ok str-t lf-simp-thm-proof -> true -1 }T
+T{ str-t ' lf-simp-thm-usable thrown1 -> outcome-unsupported }T
 add0-d add0-proof !
 \ The simprocs: x = x has post candidates (reduceCtorEq, keyed on every
 \ Eq, and Nat's), none pre; a free variable none. Their guards answer

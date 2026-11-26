@@ -130,7 +130,10 @@ get-current lf-lib set-current   \ every word below is public, in lf-lib
 \ ok-each over the parts of one record x: the step xt ( x k -- x outcome )
 \ for k below count ( x -- n )'s answer, x dropped at the end: the
 \ outcome alone. Example: `job ['] binders# ['] binder-at ok-each-of`.
-: ok-each-of ( x count xt -- outcome ) >r over swap execute r> ok-each nip ;
+\ (A loop run once, its index xt, keeps xt without a return-stack
+\ operation of its own, as ok-each's does.)
+: ok-each-of ( x count xt -- outcome )
+  dup 1+ swap ?do over swap execute i ok-each nip loop ;
 \ A fold with a context: x := xt ( x k y -- x' outcome ) for k = 0, 1,
 \ ... n-1, y given to every step, while ok: the last x' and ok, or the
 \ failing step's x' (-1 when it has none) and its outcome. n <= 0 gives x

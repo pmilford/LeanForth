@@ -159,8 +159,13 @@ lf-tag-sort lf-tag-symbolic-sort lf-tag-constant lf-tag-fvar lf-tag-mvar lf-tag-
 
 \ ---- The default set's lemmas (simp/default-set.fs's trees): a record
 \ per value of the data, made when its root is built.
+\ A data lemma whose proof the library cannot decode (a string literal,
+\ plan S5: unsupported) is kept as one the library lacks: its record is
+\ made, and unsupported when the rewrite reaches it in candidate order.
+: sth-undecoded ( x outcome -- x' outcome' )
+  dup outcome-unsupported = if 2drop -1 outcome-ok then ;
 : sth-v-proof ( v -- x outcome )
-  dup 0< if drop -1 outcome-ok else simp-lemma-proof lf-menv-of-data then ;
+  dup 0< if drop -1 outcome-ok else simp-lemma-proof lf-menv-of-data sth-undecoded then ;
 : sth-v-rfl ( v -- flag ) dup 0< if drop true else simp-lemma-rfl? then ;
 : sth-v-data ( v -- x ) dup 0< if drop -1 else 1+ then ;
 : sth-put ( v addr xt off -- v addr ) >r >r over r> execute over r> + ! ;
@@ -168,10 +173,11 @@ lf-tag-sort lf-tag-symbolic-sort lf-tag-constant lf-tag-fvar lf-tag-mvar lf-tag-
   dup /sth erase true over sth-decl? !  ['] sth-v-rfl 0 sth-rfl sth-put
   ['] simp-lemma-post? 0 sth-post sth-put  ['] simp-lemma-prio 0 sth-prio sth-put
   ['] sth-v-data 0 sth-data sth-put 2drop ;
+: sth-proof! ( x addr -- ) over 0< if -1 over sth-data ! then sth-proof ! ;
 : lf-simp-data-entry ( v -- t outcome )
   dup sth-v-proof ok-then? 0= if nip no-result exit then
   1 simp-thms slab-claim ok-then? 0= if nip nip no-result exit then
-  >r swap r@ sth sth-fill r@ sth sth-proof ! r> outcome-ok ;
+  >r swap r@ sth sth-fill r@ sth sth-proof! r> outcome-ok ;
 \ Before a lemma is tried: one the library lacks unsupported (its
 \ statement is unknown); a data lemma's keys recomputed from its proof's
 \ statement once, which must be its record's (a recorded star where the

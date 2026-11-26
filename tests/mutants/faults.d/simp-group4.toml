@@ -256,8 +256,8 @@ reason = "the last slab given is left uncleared (and on the stack): a module's r
 [[fault]]
 id = "ok-each-of-keeps-record"
 file = "src/lib/outcome.fs"
-old = ''': ok-each-of ( x count xt -- outcome ) >r over swap execute r> ok-each nip ;'''
-new = ''': ok-each-of ( x count xt -- outcome ) >r over swap execute 1- r> ok-each nip ;'''
+old = '''  dup 1+ swap ?do over swap execute i ok-each nip loop ;'''
+new = '''  dup 1+ swap ?do over swap execute 1- i ok-each nip loop ;'''
 test = "$GFORTH tests/lib/lib.fs"
 reason = "the record's last part is never stepped: a construction's last front binder, an index's last value root"
 
@@ -288,8 +288,8 @@ reason = "reduceIte's port registered as a post simproc: the data's pre record d
 [[fault]]
 id = "reduce-ite-false-branch"
 file = "src/front/simp/simprocs/core.fs"
-old = ''': spc-branch ( e i -- a ) 1 and 3 + spc-arg ;'''
-new = ''': spc-branch ( e i -- a ) drop 3 spc-arg ;'''
+old = ''': spc-branch ( h k -- a ) 1 and 3 + spc-harg ;'''
+new = ''': spc-branch ( h k -- a ) drop 3 spc-harg ;'''
 test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
 reason = "a False condition takes the then branch: if False then x else y gives x"
 
@@ -396,3 +396,19 @@ old = '''  lf-simp-visit = if sm-again else sm-pre-continue then ;'''
 new = '''  drop sm-pre-continue ;'''
 test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
 reason = "a pre simproc's visit taken as continue: reduceIte's x is not simplified again (its step count differs)"
+
+[[fault]]
+id = "undecoded-lemma-fails-root"
+file = "src/front/simp/theorems.fs"
+old = '''  dup outcome-unsupported = if 2drop -1 outcome-ok then ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "a data lemma whose proof the library cannot decode makes no record: its root is never built, so every term the root keys (Init's Eq) is unsupported"
+
+[[fault]]
+id = "undecoded-lemma-usable"
+file = "src/front/simp/theorems.fs"
+old = ''': sth-proof! ( x addr -- ) over 0< if -1 over sth-data ! then sth-proof ! ;'''
+new = ''': sth-proof! ( x addr -- ) sth-proof ! ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "an undecodable lemma's record keeps its data place: tried, it is checked with no proof instead of answering unsupported"
