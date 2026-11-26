@@ -1,0 +1,46 @@
+c-pass 98493 
+c-visit 1237176 
+c-rm@ 655857 
+c-rm-hit 62065 
+c-seen2 62673 
+c-hit-in 60339 
+c-hit-cross 1726 
+c-hit-otheroff 457 
+c-hit-stamped 50873 
+c-rm-stamped 294669 
+c-rm-intier 397502 
+c-hit-intier 54549 
+c-rm-unsh 13517 
+c-hit-unsh 0 
+c-hit-unsh-in 0 
+c-rm! 593792 
+c-oob 0 
+c-cons 833837 
+c-cons-open 585650 
+c-cons-mls 141915 
+c-tin-sought 833837 
+c-tin-hit 74468 
+c-store-hit 375752 
+c-new 396017 
+c-forget 396017 
+c-fc1-hit 349545 
+c-fc1-same 336565 
+c-fc2-hit 520579 
+c-fc2-same 481485 
+c-rd-in 6970307 
+c-rd-st 8111172 
+c-dw-in 2287953 
+c-dw-st 2013662 
+c-tin-dec 16760964 
+c-mls 14985 
+c-mls-sort 21775 
+c-mls-image 175110 
+c-mls-binary 131928 
+cache 0 27542 75618 0 
+cache 1 4628 7196 0 
+cache 2 901 59579 14098 
+cache 3 4085 4579 4579 
+cache 4 6882 2542 2542 
+cache 5 1202 13474 60244 
+cache 6 2 326 29 
+cache 7 0 0 0 

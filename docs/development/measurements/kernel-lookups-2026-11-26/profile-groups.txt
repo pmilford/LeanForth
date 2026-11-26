@@ -1,0 +1,12 @@
+  9.59%  input-tier decode (lf-tin-*, quad-*, head-*)
+  4.31%  base fetch (lf-term-base, lf-terms, lf-term-view)
+  9.80%  store reads (lf-term-at, slab-*, store-*)
+  3.08%  field words (lf-term-*@, data, tag)
+  2.66%  validity (valid?, between?, identity)
+ 12.66%  htab and hashing
+  3.19%  memo.fs
+  3.32%  frame.fs
+  2.49%  sort.fs and lower-bound
+  1.17%  outcome.fs
+  0.53%  Gforth depth
+ 99.81%  all words listed
