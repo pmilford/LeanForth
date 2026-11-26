@@ -94,6 +94,12 @@ toolchain) on the same export with `num_threads` N, `bin/leanforth check --jobs 
 - Loads: the 4- and 1-worker LeanForth runs at load 1.9 -> 4.0 -> 1.0; the Lean, nanoda and 6- and 10-worker
   runs at 2.1 -> 9.0 (their own threads), nothing else running.
 
+**Measured on main after group 3** (2026-11-26 02:50-03:04, main e86a8df1, one run each, no other heavy
+run; whole runs): one thread 639.7 s (check phase 625.8 s; peak 630 MB) against Lean's checker 31.0 s and
+nanoda 30.7 s: 20.6 and 20.8 times; four threads 191.4 s (check phase 173.7 s; peak 889 MB) against nanoda
+9.7 s: 19.7 times. Before group 3: 670.4 s and 199.6 s. Reports identical outside `measured`, `settings`
+and `run`.
+
 **Measured after group 3** (branch `kernel-speed-3`, head a96646ff, plan 9.4.8z8: the replace memo's scratch
 memo (P1) and the lean walk of instantiation with closed roots (P3); P2 dropped, P4 left out). Same command,
 same export, gforth-fast, one run each on 2026-11-26 (1 thread 01:29-01:40, load 0.5 -> 1.4; 4 threads

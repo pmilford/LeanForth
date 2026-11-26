@@ -1,6 +1,6 @@
 # A leaner term store and lean walks (design, 2026-11-25)
 
-Status: **designed, not reviewed, no code.** Base: main f0f552fd. Builds on
+Status: **reviewed (corrections binding, at the end); the memo cut (P1) and the lean walk (P3) are on main 2d68f7cd ("As landed" below); stored hashes (P2) were measured on Init and dropped, the leaf array (P4) left out; the rest is superseded by [KERNEL_LOOKUPS.md](KERNEL_LOOKUPS.md).** Base: main f0f552fd. Builds on
 [KERNEL_SPEED.md](../development/KERNEL_SPEED.md) (sections 0-4, 9, 10), the two landed steps
 [KERNEL_VALIDITY_CHECKS.md](KERNEL_VALIDITY_CHECKS.md) and [KERNEL_TERM_READS.md](KERNEL_TERM_READS.md) with
 their reviews, and takes in the unreviewed, on-hold group 2 design (its file KERNEL_SPEED_GROUP_2 on branch
@@ -368,7 +368,7 @@ From the independent review, [2026-11-25-term-store.md](../development/design-re
 
 ## As landed (group kernel-speed-3, 2026-11-26)
 
-Two of the prototype's four changes, landed as reviewed-quality code on branch `kernel-speed-3` (plan 9.4.8z8;
+Two of the prototype's four changes, landed as reviewed-quality code (branch `kernel-speed-3`, on main since 2d68f7cd; plan 9.4.8z8;
 owner 2026-11-25, "Speed land the prototypes. Do 2b."), behaviour-preserving with the one exception below. A
 third, P2, was landed, measured on Init and dropped; P4 was left out.
 
