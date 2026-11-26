@@ -10,6 +10,16 @@
 \   reducible transparency with the elaborator's flags (withSimpContext,
 \   Types.lean:963). The result as simp/types.fs's.
 \ - lf-simp-steps ( -- n ): the steps the last lf-simp took (numSteps).
+\ - lf-simp-nested ( e -- e' h ): Simp.simp of e inside the walk running
+\   (a simproc's or the discharger's nested simp, Lean's simp in SimpM):
+\   its visits on the same frames, from the cells then in use (frame.fs's
+\   frame-through), so they share the run's cache, steps, maximum and
+\   depth, and leave the running visits' frames and activations as they
+\   were. Outside a running walk invalid (a throw).
+\ - lf-simp-preserved ( e -- e' h ): withPreservedCache (Types.lean:
+\   373): lf-simp-nested, then the cache cut back to its entries before
+\   (lib/memo.fs's memo-cut; a nested walk never writes over an entry it
+\   finds, so the cut is exact); the steps stay spent.
 \ - lf-goal-simp-target ( goal max -- goal' | 0 ): simpTargetCore in the
 \   goal's context: a result True closes the goal with of_eq_true h
 \   (mkOfEqTrue's shortcuts) or True.intro (0); a proof h replaces the
@@ -59,9 +69,11 @@
 \ activations. Untrusted: the kernel checks every proof at end NAME.
 \ State: the frames sm-frames, the records sm (steps, maximum) and
 \ sm-cache, the slabs sm-acts and sm-xs (the binder visits' variables);
-\ one simp at a time (a busy record refuses a nested call,
-\ unsupported). The binder visits' locals are dropped when the walk
-\ ends, a throw included (lf-with-new-locals).
+\ one run at a time (lf-simp while a walk runs is unsupported; a nested
+\ walk is lf-simp-nested's). The words that run a visit read the newest
+\ activation (sa) and sm-xs by index, so a nested walk that grows them
+\ moves nothing they hold. The binder visits' locals are dropped when the
+\ walk ends, a throw included (lf-with-new-locals).
 \ Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
@@ -302,15 +314,19 @@ defer sm-loop-call ( e cont -- e frames xt )
 : sm-ready ( max -- )
   sm-frames frame-busy? if lf-unported then
   sm sm-max ! 0 sm sm-steps ! sm-acts slab-clear sm-xs slab-clear sm-cache-ready
-  sm-frames frame-reset max-n sm-frames frame-budget drop ;
+  lf-simp-rewrite-reset sm-frames frame-reset max-n sm-frames frame-budget drop ;
 : sm-root ( e frames cont -- e frames xt ) nip sm-simp-call ;
 : sm-walk ( e -- e' h ) sm-frames ['] sm-root frame-through drop ;
+: lf-simp-nested ( e -- e' h )
+  sm-frames frame-busy? 0= if outcome-invalid lf-must then sm-walk ;
+: lf-simp-preserved ( e -- e' h )
+  sm-cache memo-count >r lf-simp-nested r> sm-cache memo-cut ;
 : sm-scoped ( e -- e' h true ) ['] sm-walk lf-with-new-locals true ;
 \ A throw rolls back to the mark before the walk: the metavariable depths
 \ its congruence lemmas opened (simp/congr.fs) close with it.
 : sm-marked ( e -- e' h ) ['] sm-scoped lf-commit-when drop ;
-: sm-guarded ( e -- e' h )
-  ['] sm-marked catch ?dup if sm-frames frame-reset sm-acts slab-clear throw then ;
+: sm-forget ( -- ) sm-frames frame-reset sm-acts slab-clear lf-simp-rewrite-reset ;
+: sm-guarded ( e -- e' h ) ['] sm-marked catch ?dup if sm-forget throw then ;
 : lf-simp ( e max -- e' h )
   sm-ready ['] sm-guarded lf-defeq-flags lf-defeq-elab or lf-tr-reducible lf-meta-with ;
 

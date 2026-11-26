@@ -1,0 +1,70 @@
+# Planted faults of simp group 4 (plan row FE9, docs/design/TACTIC_SIMP.md;
+# the plan .claude/work/briefs/simp-group-4-architect.md section 3): the
+# re-entrant walk (src/front/simp/main.fs, rewrite.fs), the shared ranked-record
+# index (src/front/data-index.fs), the default-set records of format 4.1
+# (src/front/simp-set-data.fs) and the default set (src/front/simp/default-set.fs).
+
+[[fault]]
+id = "cands-shared-nested"
+file = "src/front/simp/rewrite.fs"
+old = ''': sr-pair ( i -- thm extra ) 2* srt srt-cands @ + sr-cands slab-at 2@ swap ;'''
+new = ''': sr-pair ( i -- thm extra ) 2* sr-cands slab-at 2@ swap ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "every call reads its candidates from cell 0, the outermost call's: a discharger's nested rewrite of x + 0 tries the outer call's first hypothesis and leaves x + 0 as it is"
+
+[[fault]]
+id = "rewrite-frame-shared"
+file = "src/front/simp/rewrite.fs"
+old = ''': srt ( -- addr ) sr-frames slab-last ;'''
+new = ''': srt ( -- addr ) sr-frames slab-base ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "one frame for every call: the nested rewrite writes its theorem, term and bases over the outer call's, whose proof of a = c is then no longer h1 hp"
+
+[[fault]]
+id = "nested-steps-own"
+file = "src/front/simp/main.fs"
+old = '''  sm-frames frame-busy? 0= if outcome-invalid lf-must then sm-walk ;'''
+new = '''  sm-frames frame-busy? 0= if outcome-invalid lf-must then sm sm-steps @ >r sm-walk r> sm sm-steps ! ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "a nested walk's steps not counted in the run's numSteps: f (x + 0) takes fewer steps than the plain run"
+
+[[fault]]
+id = "nested-cache-cut"
+file = "src/front/simp/main.fs"
+old = '''  sm-frames frame-busy? 0= if outcome-invalid lf-must then sm-walk ;'''
+new = '''  sm-frames frame-busy? 0= if outcome-invalid lf-must then sm-cache memo-count >r sm-walk r> sm-cache memo-cut ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "a nested walk's cache entries dropped (Lean's nested simp keeps them): the outer walk visits x + 0 again and takes more steps than the plain run"
+
+[[fault]]
+id = "preserved-cache-kept"
+file = "src/front/simp/main.fs"
+old = '''  sm-cache memo-count >r lf-simp-nested r> sm-cache memo-cut ;'''
+new = '''  lf-simp-nested ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "withPreservedCache keeps the nested walk's entries: the outer walk finds x + 0 cached and does not pay its steps again"
+
+[[fault]]
+id = "nested-outside-walk"
+file = "src/front/simp/main.fs"
+old = '''  sm-frames frame-busy? 0= if outcome-invalid lf-must then sm-walk ;'''
+new = '''  sm-walk ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "a nested walk outside a run is not refused: it runs on idle frames with no budget instead of answering invalid"
+
+[[fault]]
+id = "rewrite-frames-kept-after-throw"
+file = "src/front/simp/main.fs"
+old = ''': sm-forget ( -- ) sm-frames frame-reset sm-acts slab-clear lf-simp-rewrite-reset ;'''
+new = ''': sm-forget ( -- ) sm-frames frame-reset sm-acts slab-clear ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "a throw out of a rewrite leaves its frame, candidates and metavariables behind"
+
+[[fault]]
+id = "discharge-false-ignored"
+file = "src/front/simp/rewrite.fs"
+old = '''  -rot bounds ?do i sr-arg-at 0= if drop false unloop exit then loop drop true ;'''
+new = '''  -rot bounds ?do i sr-arg-at drop loop drop true ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "a side condition the discharger did not prove is taken as proved: h1's proof keeps its metavariable, an unassigned argument"
+equivalent = "the proof then holds an assignable metavariable, which sr-proof refuses (hasAssignableMVar), so the theorem fails either way; Lean's synthesizeArgs returns false one step earlier"

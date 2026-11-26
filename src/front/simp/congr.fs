@@ -183,7 +183,10 @@ end-structure
 : sc-pop ( -- ) sc-acts slab-drop ;
 : sc-reset ( -- ) 0 sc sc-k ! false sc sc-mod ! false sc sc-dead ! ;
 : sc-refuse ( flag -- ) outcome-unsupported and lf-must ;   \ not supported yet when flag
-: sc-mvars ( -- addr n ) sa sa-xs @ dup sm-xs slab-at swap sc sc-hxs @ swap - ;
+\ The lemma's metavariables: their first cell in sm-xs and count; their
+\ cells (valid until sm-xs grows).
+: sc-mvar-cells ( -- first n ) sa sa-xs @ sc sc-hxs @ over - ;
+: sc-mvars ( -- addr n ) sc-mvar-cells swap sm-xs slab-at swap ;
 : sc-new-x ( acc mvar kind -- acc ) drop sm-xs slab-push lf-must ;
 : sc-hyps ( -- addr n ) sc sc-c @ simp-congr-hyps ;
 : sc-decl ( -- d ) sc sc-c @ simp-congr@ drop lf-menv-of-data lf-must ;
@@ -240,8 +243,9 @@ defer sc-try ( -- ... )
 : sc-proof ( -- p ) sc sc-thm @ sc-mvars lf-mk-app-cells ;
 : sc-result ( -- e' h ) sc-sides nip lf-instantiate! sc-proof lf-instantiate! ;
 : sc-closed? ( e' h -- flag ) lf-meta-has-assignable? swap lf-meta-has-assignable? or 0= ;
+: sc-synthesized? ( -- flag ) sc-mvar-cells sm-xs lf-simp-synthesize ;
 : sc-answer ( -- e' h true | x x false )
-  sc-live? if sc-mvars lf-simp-synthesize sc-result 2dup sc-closed? else 0 0 false then ;
+  sc-live? if sc-synthesized? if sc-result 2dup sc-closed? exit then then 0 0 false ;
 : sc-hyps-done ( -- ... )
   sc-answer if sc-close sc-pop sm-pop sm-done else 2drop sc-fail then ;
 defer sc-next-hyp ( -- ... )

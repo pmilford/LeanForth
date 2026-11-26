@@ -278,7 +278,8 @@ s" Nat.add_zero" set-of
 : simp-pass ( e -- e' outcome )
   ['] simp catch ?dup 0= if drop outcome-ok exit then
   nip -1 swap dup lf-meta-thrown? 0= if throw then lf-meta-outcome ;
-: slabs-anew ( -- ) sm-acts sweep-slab-anew sr-cands sweep-slab-anew sr-xs sweep-slab-anew ;
+: slabs-anew ( -- )
+  sm-acts sweep-slab-anew sr-frames sweep-slab-anew sr-cands sweep-slab-anew sr-xs sweep-slab-anew ;
 ' slabs-anew sweep-slabs-xt !
 T{ n+0 ' simp-pass heap-sweep nip -> 0 }T
 

@@ -28,14 +28,26 @@
 \   (simp/types.fs's lf-simp-extra-args).
 \ - lf-simp-rfl-match? ( e tree -- flag ): whether a theorem with the rfl
 \   flag is among e's candidates (the dsimp guard of simp/main.fs).
-\ - lf-simp-synthesize ( addr n -- ): synthesizeArgs of the n
-\   metavariables in cells at addr (also simp/congr.fs's, for a
-\   congruence lemma); no claim may move the cells while it runs.
+\ - lf-simp-synthesize ( first n slab -- flag ): synthesizeArgs of the n
+\   metavariables in the cells of slab from cell first (also
+\   simp/congr.fs's, for a congruence lemma): false when one is left that
+\   the discharger did not prove. Each cell is read when its turn comes,
+\   so the slab may grow while it runs (a discharger's nested simp).
+\ - lf-simp-discharge ( x type -- flag ): the discharger's hook
+\   (Methods.discharge?, Rewrite.lean:637): a proof of the proposition
+\   type assigned to the metavariable x, true; false when it finds none.
+\   Until the discharger is ported (slice SL2) it answers unsupported.
+\ Re-entrant: each call keeps a frame of its own (srt, the newest of the
+\ slab sr-frames), and its candidates and its theorem's metavariables
+\ above the bases its frame records in sr-cands and sr-xs, read by
+\ index, never by an address held across a step that may run simp again
+\ (a discharger's nested simp, simp/main.fs's lf-simp-nested), and cut
+\ back to those bases when it returns. lf-simp-rewrite-reset ( -- )
+\ forgets every frame (simp/main.fs: at a run's start, after a throw).
 \ Throws as meta-must.fs's words do. Untrusted: a rewrite's proof is
-\ checked by the kernel. State: the context slabs sr-cands (the
-\ candidates, pairs) and sr-xs (the telescope's metavariables), the
-\ record srt (the theorem tried) and the sorter sr-sort, each valid
-\ within one call.
+\ checked by the kernel. State: the context slabs sr-frames (a frame per
+\ call in progress), sr-cands (the candidates, pairs) and sr-xs (the
+\ telescopes' metavariables), and the sorter sr-sort (one sort's).
 \ Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
@@ -49,22 +61,33 @@ require ./types.fs
 require ./theorems.fs
 
 1 cells context-slab: sr-cands   \ (theorem, extra arguments) pairs
-1 cells context-slab: sr-xs      \ the theorem's metavariables, in order
+1 cells context-slab: sr-xs      \ the theorems' metavariables, in order
 /sorter context-record: sr-sort
 begin-structure /srt
   field: srt-e   field: srt-n   field: srt-thm   field: srt-app   field: srt-type
+  field: srt-cands   \ the call's first cell in sr-cands
+  field: srt-xs      \ its theorem's first metavariable's cell in sr-xs
 end-structure
-/srt context-record: srt
+/srt context-slab: sr-frames
+: srt ( -- addr ) sr-frames slab-last ;
+: lf-simp-rewrite-reset ( -- ) sr-frames slab-clear sr-cands slab-clear sr-xs slab-clear ;
+\ A call's frame, its bases the slabs' counts; given back with what the
+\ call put above them.
+: sr-push ( -- )
+  1 sr-frames slab-claim lf-must drop srt /srt erase
+  sr-cands slab-count srt srt-cands !  sr-xs slab-count srt srt-xs ! ;
+: sr-pop ( -- )
+  srt srt-xs @ sr-xs slab-cut  srt srt-cands @ sr-cands slab-cut  sr-frames slab-drop ;
 
 \ ---- The candidates, highest priority first.
-: sr-query ( e tree -- ) sr-cands slab-clear sr-cands lf-dt-get-match-extra ;
+: sr-query ( e tree -- ) sr-cands lf-dt-get-match-extra ;
 : sr-prio ( a-addr -- p ) @ lf-simp-thm-prio negate ;   \ ascending: highest first
+: sr-cands# ( -- n ) srt srt-cands @ sr-cands slab-since 2/ ;
 : sr-sorted ( -- )
   2 cells ['] sort-signed sr-sort sorter-init lf-must ['] sr-prio sr-sort sorter-key!
-  sr-cands slab-base sr-cands slab-count 2/ sr-sort sort-records lf-must ;
-: sr-cands-of ( e tree -- n )
-  ['] sr-query lf-with-simp-index sr-sorted sr-cands slab-count 2/ ;
-: sr-pair ( i -- thm extra ) 2* sr-cands slab-at 2@ swap ;
+  srt srt-cands @ sr-cands slab-at sr-cands# sr-sort sort-records lf-must ;
+: sr-cands-of ( e tree -- n ) ['] sr-query lf-with-simp-index sr-sorted sr-cands# ;
+: sr-pair ( i -- thm extra ) 2* srt srt-cands @ + sr-cands slab-at 2@ swap ;
 
 \ ---- tryTheoremCore's term: e less its extra arguments, and those.
 : srt-e@ ( -- e ) srt srt-e @ ;   : srt-n@ ( -- n ) srt srt-n @ ;
@@ -76,7 +99,7 @@ end-structure
   if dup lf-meta-const-fresh lf-must swap else -1 then ;
 : sr-keep ( app type -- ) lf-instantiate! lf-whnf-r! srt srt-type ! srt srt-app ! ;
 : sr-open ( t -- )
-  sr-xs slab-clear sr-value >r dup lf-infer! r> ['] sr-mvar
+  srt srt-xs @ sr-xs slab-cut sr-value >r dup lf-infer! r> ['] sr-mvar
   lf-forall-meta-telescope-reducing sr-keep ;
 : sr-sides ( -- lhs rhs ) srt srt-type @ lf-simp-sides ;
 : sr-e0 ( -- e ) srt-e@ srt-n@ lf-term-fns ;
@@ -92,14 +115,19 @@ end-structure
 : sr-instance? ( x type -- flag )
   lf-try-synth lf-must lf-synth-some =
   if ['] lf-defeq! lf-tr-instances lf-meta-at else 2drop false then ;
+\ The discharger (Methods.discharge?): until slice SL2 unsupported.
+defer lf-simp-discharge ( x type -- flag )
+:noname ( x type -- flag ) 2drop lf-unported false ; is lf-simp-discharge
 \ One metavariable: an instance found for a class; a proposition left to
-\ the discharger (slice SL2's dischargeDefault?, not ported: unsupported).
-: sr-arg ( x -- )
-  dup sr-open? 0= if drop exit then
+\ the discharger, whose failure fails the theorem (false).
+: sr-arg ( x -- flag )
+  true swap dup sr-open? 0= if drop exit then
   dup lf-infer! dup sr-class? if 2dup sr-instance? if 2drop exit then then
-  nip lf-is-prop! if lf-unported then ;
-: lf-simp-synthesize ( addr n -- ) cells bounds ?do i @ sr-arg cell +loop ;
-: sr-synthesize ( -- ) sr-xs slab-data lf-simp-synthesize ;
+  dup lf-is-prop! if rot drop lf-simp-discharge else 2drop then ;
+: sr-arg-at ( slab i -- slab flag ) over slab-at @ sr-arg ;
+: lf-simp-synthesize ( first n slab -- flag )
+  -rot bounds ?do i sr-arg-at 0= if drop false unloop exit then loop drop true ;
+: sr-synthesize ( -- flag ) srt srt-xs @ dup sr-xs slab-since sr-xs lf-simp-synthesize ;
 
 \ ---- tryTheoremCore's go: the rewrite, or none.
 : sr-rfl? ( -- flag ) srt srt-thm @ lf-simp-thm-rfl? ;
@@ -116,7 +144,7 @@ end-structure
   dup lf-meta-has-assignable? if 2drop false exit then sr-extras true ;
 : sr-go ( t -- e' h true | false )
   sr-open sr-unifies? 0= if false exit then
-  sr-synthesize sr-proof dup if drop sr-result then ;
+  sr-synthesize 0= if false exit then sr-proof dup if drop sr-result then ;
 : sr-try ( e t n -- e' h true | false )
   srt srt-n ! dup srt srt-thm ! swap srt srt-e ! ['] sr-go lf-with-new-depth ;
 
@@ -124,11 +152,16 @@ end-structure
 : sr-candidate ( e rfl-only i -- e rfl-only e' h true | e rfl-only false )
   sr-pair >r 2dup sr-skip? if r> 2drop false exit then
   >r over r> r> sr-try ;
-: lf-simp-rewrite? ( e tree rfl-only -- e' h true | false )
-  >r over swap sr-cands-of r> swap 0 ?do i sr-candidate
-    if 2swap 2drop true unloop exit then loop 2drop false ;
+: sr-first ( e rfl-only n -- e' h true | false )
+  0 ?do i sr-candidate if 2swap 2drop true unloop exit then loop 2drop false ;
+: sr-rewrite ( e tree rfl-only -- e' h true | false )
+  >r over swap sr-cands-of r> swap sr-first ;
+\ The call's frame given back on either answer.
+: sr-popped ( x1 x2 true -- x1 x2 true | false -- false )
+  dup if >r 2>r sr-pop 2r> r> else sr-pop then ;
+: lf-simp-rewrite? ( e tree rfl-only -- e' h true | false ) sr-push sr-rewrite sr-popped ;
 : sr-rfl-at? ( i -- flag ) sr-pair drop lf-simp-thm-rfl? ;
-: lf-simp-rfl-match? ( e tree -- flag )
-  sr-cands-of false swap 0 ?do i sr-rfl-at? or loop ;
+: sr-rfl-any? ( e tree -- flag ) sr-cands-of false swap 0 ?do i sr-rfl-at? or loop ;
+: lf-simp-rfl-match? ( e tree -- flag ) sr-push sr-rfl-any? sr-pop ;
 
 base !   \ the BASE this file was loaded with
