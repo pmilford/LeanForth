@@ -14,8 +14,9 @@ Measurements: [kernel-lookups-2026-11-26](../development/measurements/kernel-loo
 four changes (measured; Lean's checker 31.0 s, nanoda 30.7 s): **18.6 times Lean**. The profile of that run
 shows where: **universe substitution 138 s** (it walks every term twice, sorts what it reached and finds each
 child's image by binary search), the **instantiation memo 60 s** (a hash-table lookup and insert at almost
-every rebuilt node, though 90% of the lookups are a node's first sighting in its pass and only 0.3% of those hit), **hash-consing's two probes 52 s**, **reading the
-input terms in their export format 57 s** (decoding each record on every read), and the per-operation layers
+every rebuilt node, though 90% of the lookups are a node's first sighting in its pass and only 0.3% of
+those hit), **hash-consing's two probes 52 s**, **reading the input terms in their export format 57 s**
+(decoding each record on every read), and the per-operation layers
 that remain (validity tests, frames, the base fetch on every read: about 100 s). All seconds are of the
 check phase at one thread; shares of the profile converted at 5.9 s a point (estimate).
 
@@ -35,7 +36,7 @@ check phase at one thread; shares of the profile converted at 5.9 s a point (est
    definitional equality use lean frames; the hottest read and probe words become Forth macros where
    measured.
 
-**What it reaches** (estimates; basis in section 6): after group 1 about 445-485 s (14.4-15.7 times Lean),
+**What it reaches** (estimates; basis in section 7 and Appendix B): after group 1 about 445-485 s (14.4-15.7 times Lean),
 after group 2 about 355-425 s (11.5-13.7 times), after group 3 about **265-375 s at one thread, 74-104 s at
 four (8.5-12 times Lean, most likely about 10 times)**. This confirms the upper half of "7-10 times" and
 corrects the lower half: 7 times (about 220 s) is not reachable with these levers in pure Forth; it needs
