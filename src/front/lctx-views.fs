@@ -22,7 +22,10 @@
 \   lf-fvar-ldecl? ( fvar -- flag ) a let or a have (LocalDecl.ldecl);
 \   lf-local-renamed ( local name -- local' outcome ) (setUserName: the
 \   new name is the user's, accessible); lf-local-instance ( local class
-\   -- local' outcome ); lf-local-valid? ( local -- flag ).
+\   -- local' outcome ); lf-local-refvar ( local fvar -- local' outcome )
+\   (the same local on another live free variable, whose type the core
+\   keeps: Lean's setType, meta-tactic/assert.fs's replaceLocalDeclDefEq);
+\   lf-local-valid? ( local -- flag ).
 \ A view (Lean's LocalContext) is a run of locals (runs.fs), oldest first,
 \ each free variable at most once; lf-view-empty is the empty context:
 \ - lf-view-push ( view local -- view' outcome ): mkLocalDecl, the local
@@ -30,7 +33,9 @@
 \ - lf-view-erase ( view fvar -- view' outcome ): erase (no change when
 \   the view does not hold it);
 \ - lf-view-rename ( view fvar name -- view' outcome ): setUserName in
-\   place (invalid when the view does not hold it);
+\   place (invalid when the view does not hold it); lf-view-refvar ( view
+\   fvar fvar' -- view' outcome ): fvar's local on fvar' (lf-local-refvar)
+\   in place, the same refusals (Lean's setType);
 \ - lf-view-find ( view fvar -- i true | false ): its place;
 \   lf-view-has? ( view fvar -- flag ): whether it holds it (contains);
 \   lf-view-named ( view name -- i true | false ): the newest accessible
@@ -129,6 +134,9 @@ end-structure
 : lf-local-renamed ( local name -- local' outcome )
   lv-renamable? 0= if 2drop -1 outcome-invalid exit then
   swap lv-copy ok-then? if tuck lv-name! outcome-ok else nip no-result then ;
+: lf-local-refvar ( local fvar -- local' outcome )
+  2dup lf-fvar-live? swap lf-local-valid? and 0= if 2drop -1 outcome-invalid exit then
+  swap lv-copy ok-then? if tuck lv-loc loc-fvar ! outcome-ok else nip no-result then ;
 : lv-class? ( local class -- local class flag )
   2dup dup 0<> swap lf-name-valid? and swap lf-local-valid? and ;
 : lf-local-instance ( local class -- local' outcome )
@@ -175,10 +183,14 @@ end-structure
   >r 2dup run-take ok-then? if r> run-push else r> drop no-result then ;
 : lv-replaced ( view i local -- view' outcome )
   lv-front ok-then? if -rot lv-rest else nip nip no-result then ;
-: lv-renamed-at ( view i name -- view' outcome )
-  >r 2dup lf-view-local r> lf-local-renamed ['] lv-replaced ok-apply3 ;
-: lf-view-rename ( view fvar name -- view' outcome )
-  >r over swap lf-view-find if r> lv-renamed-at else r> 2drop -1 outcome-invalid then ;
+\ fvar's local changed by xt ( local x -- local' outcome ), in place.
+: lv-changed-at ( view i x xt -- view' outcome )
+  2>r 2dup lf-view-local 2r> execute ['] lv-replaced ok-apply3 ;
+: lv-change ( view fvar x xt -- view' outcome )
+  2>r over swap lf-view-find if 2r> lv-changed-at exit then
+  2r> 2drop drop -1 outcome-invalid ;
+: lf-view-rename ( view fvar name -- view' outcome ) ['] lf-local-renamed lv-change ;
+: lf-view-refvar ( view fvar fvar' -- view' outcome ) ['] lf-local-refvar lv-change ;
 
 \ Lean's isSubPrefixOf: walking view2, each of view1's free variables in
 \ turn is found (k of them so far), view1's exceptions passed over.

@@ -1,0 +1,9 @@
+\ Lean: theorem w_arg_var (a : Nat) : a = a := by
+\         simp only [a]
+\ a is no proposition and no let: Lean's "Invalid argument" naming it.
+theorem w_arg_var
+  Nat explicit: a
+  a a =
+:= by
+  by-simp-only[ ' a ]
+end w_arg_var

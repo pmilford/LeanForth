@@ -18,6 +18,9 @@
 \   fvar, another local's type or (shown) value depends on it, or its type
 \   does (lf-depends-on?); else a new goal with the same type and tag in
 \   the context without fvar, the old goal assigned the new one.
+\   lf-goal-fvar-free ( goal fvar -- outcome ): its dependency test
+\   alone, ok when nothing depends on fvar, invalid when something does
+\   (meta-tactic/assert.fs's replaceLocalDeclDefEq).
 \ - lf-local-depends-on? ( lfvar fvar -- flag outcome ): Lean's
 \   localDeclDependsOn: lfvar's local's type, or its value when it is a
 \   let not hidden, depends on fvar (lf-depends-on?); MVarId.clear's test
@@ -102,6 +105,7 @@ end-structure
 : gl-free-of ( goal fvar -- outcome )
   over gl-view over gl-others-dep gl-none dup ok? if drop gl-target-dep gl-none
   else nip nip then ;
+: lf-goal-fvar-free ( goal fvar -- outcome ) gl-free-of ;
 : gl-has? ( goal fvar -- flag ) swap gl-view swap lf-view-has? ;
 : gl-clearable ( goal fvar -- outcome )
   over gl-open? 0= if 2drop outcome-invalid exit then

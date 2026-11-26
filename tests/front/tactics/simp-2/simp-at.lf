@@ -1,0 +1,130 @@
+\ by-simp-only[ ] at[ ] (plan row FE9, simp slice SL1a-2 of
+\ docs/design/TACTIC_SIMP.md): Lean's simp only at hypotheses. Lean twins in
+\ simp-2.lean.
+\ Lean: theorem simp_at_defeq (a b : Nat) (h : a + 0 = b) : a = b := by
+\         simp only [Nat.add_zero] at h
+\         exact h
+\ Nat.add_zero is an rfl theorem: h takes the type a = b with no proof
+\ (replaceLocalDeclDefEq), so the term is h itself.
+theorem simp_at_defeq
+  Nat explicit: a  Nat explicit: b
+  a 0 + b = explicit: h
+  a b =
+:= by
+  by-simp-only[ ' Nat.add_zero ] at[ h ]
+  ' h by-exact
+end simp_at_defeq
+
+\ Lean: theorem simp_at_proof (a b c : Nat) (h : a = b) (k : a + 0 = c) : b = c := by
+\         simp only [h, Nat.add_zero] at k
+\         exact k
+\ k rewritten with a proof: Eq.mp of it, asserted as a new k.
+theorem simp_at_proof
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  a 0 + c = explicit: k
+  b c =
+:= by
+  by-simp-only[ ' h ' Nat.add_zero ] at[ k ]
+  ' k by-exact
+end simp_at_proof
+
+\ Lean: theorem simp_at_goal (a b c : Nat) (h : a = b) (k : a + 0 = c) : b + 0 = c := by
+\         simp only [h, Nat.add_zero] at k ⊢
+\         exact k
+\ The hypothesis first, then the target (by defeq), then k asserted.
+theorem simp_at_goal
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  a 0 + c = explicit: k
+  b 0 + c =
+:= by
+  by-simp-only[ ' h ' Nat.add_zero ] at[ k |- ]
+  ' k by-exact
+end simp_at_goal
+
+\ Lean: theorem simp_at_two (a b c d : Nat) (h : a = b) (k1 : a + 0 = c) (k2 : a = d) :
+\           b = c := by
+\         simp only [h, Nat.add_zero] at k1 k2
+\         exact k1
+\ Two hypotheses with proofs, asserted at once (assertHypotheses).
+theorem simp_at_two
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  Nat explicit: d
+  a b = explicit: h  a 0 + c = explicit: k1  a d = explicit: k2
+  b c =
+:= by
+  by-simp-only[ ' h ' Nat.add_zero ] at[ k1 k2 ]
+  ' k1 by-exact
+end simp_at_two
+
+\ Lean: theorem simp_at_mixed (a b c : Nat) (h : a = b) (k1 : c + 0 = b) (k2 : a = c) :
+\           c = b := by
+\         simp only [h, Nat.add_zero] at k1 k2
+\         exact k1
+\ k1 by defeq (no proof), k2 with a proof.
+theorem simp_at_mixed
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  c 0 + b = explicit: k1  a c = explicit: k2
+  c b =
+:= by
+  by-simp-only[ ' h ' Nat.add_zero ] at[ k1 k2 ]
+  ' k1 by-exact
+end simp_at_mixed
+
+\ Lean: theorem simp_at_false (a b : Nat) (k : (a = b) = False) (h : a = b) : a = 0 := by
+\         simp only [k] at h
+\ h becomes False with a proof: the goal closed by False.elim (Eq.mp ..).
+theorem simp_at_false
+  Nat explicit: a  Nat explicit: b
+  a b = False = explicit: k  a b = explicit: h
+  a 0 =
+:= by
+  by-simp-only[ ' k ] at[ h ]
+end simp_at_false
+
+\ Lean: theorem simp_at_false_defeq (a : Nat) (h : False) : a = 0 := by
+\         simp only [] at h
+\ h is False already (no proof): False.elim h.
+theorem simp_at_false_defeq
+  Nat explicit: a  False explicit: h
+  a 0 =
+:= by
+  by-simp-only[ ] at[ h ]
+end simp_at_false_defeq
+
+\ Lean: theorem simp_at_true (a b : Nat) (h : a = b) (k : b = a) : b = a := by
+\         simp only [h] at h
+\         exact k
+\ The rule h is no .fvar origin, so it rewrites h itself: True.
+theorem simp_at_true
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  b a = explicit: k
+  b a =
+:= by
+  by-simp-only[ ' h ] at[ h ]
+  ' k by-exact
+end simp_at_true
+
+\ Lean: theorem simp_at_one_still (a b c : Nat) (h : a = b) (k1 : a = c) (k2 : b = c) :
+\           b = c := by
+\         simp only [h] at k1 k2
+\         exact k1
+\ k2 does not change: no error, as k1 does.
+theorem simp_at_one_still
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h  a c = explicit: k1  b c = explicit: k2
+  b c =
+:= by
+  by-simp-only[ ' h ] at[ k1 k2 ]
+  ' k1 by-exact
+end simp_at_one_still
+
+\ Lean: theorem simp_at_goal_kept (a b : Nat) (h : a = b) (k : a + 0 = b) : a = b := by
+\         simp only [Nat.add_zero] at k ⊢
+\         exact k
+theorem simp_at_goal_kept
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h  a 0 + b = explicit: k
+  a b =
+:= by
+  by-simp-only[ ' Nat.add_zero ] at[ k |- ]
+  ' k by-exact
+end simp_at_goal_kept

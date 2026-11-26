@@ -1,0 +1,10 @@
+\ Lean: theorem w_at_no_progress (a b : Nat) (h : a = b) : a = b := by
+\         simp only [] at h
+\ Nothing to rewrite at h: Lean's "`simp` made no progress".
+theorem w_at_no_progress
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  by-simp-only[ ] at[ h ]
+end w_at_no_progress

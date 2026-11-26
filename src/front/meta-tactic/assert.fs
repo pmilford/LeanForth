@@ -27,6 +27,29 @@
 \       of type new, as above (the new hypothesis where new allows, fvar
 \       cleared unless something depends on it); fvar' the new hypothesis
 \       (AssertAfterResult.fvarId: rwa's)
+\   lf-goal-replace-local-decl-defeq ( goal fvar type -- goal' )
+\       MVarId.replaceLocalDeclDefEq (Replace.lean:110-132; simp at h's
+\       result without a proof): type definitionally equal to fvar's; goal
+\       itself when they are Expr.equal (term-eqv.fs's lf-meta-equal?),
+\       before or after instantiation. Lean keeps fvar and changes its
+\       type; LeanForth's core keeps a free variable's type with it, so
+\       (route 1 of the simp design's review) a new free variable fvar' of
+\       type (instantiated) in fvar's place, with its name and kind
+\       (lctx-views.fs's lf-view-refvar), goal' a new goal of goal's type,
+\       kind and tag in that context, and goal assigned ?d fvar, ?d a new
+\       synthetic opaque metavariable delayed-assigned fvar' := goal': once
+\       instantiated, goal's value is goal''s with fvar' made fvar again,
+\       Lean's term node for node. Not supported yet (thrown unsupported):
+\       a hypothesis another local or the target depends on
+\       (goals.fs's lf-goal-fvar-free)
+\   lf-goal-assert-hyps ( goal run -- goal' )  MVarId.assertHypotheses
+\       (Assert.lean:139-159): run a run of (local type value) triples,
+\       each value a proof of its type; goal itself for none; else goal'
+\       of type (n1 : t1) -> .. -> (nk : tk) -> target with goal's tag,
+\       each name its local's, goal assigned goal' v1 .. vk (lf-goal-assert
+\       of each, last first), and the k introduced again at once (introNP:
+\       lf-goal-intro-n, an inaccessible local's name made inaccessible
+\       again); simpGoal's (simp/goal.fs)
 \   lf-goal-change-local-decl ( goal fvar type -- goal' )
 \       MVarId.changeLocalDecl (Replace.lean:200-217, checkDefEq true;
 \       change at h): fvar reverted (revert.fs; checkNotAssigned there);
@@ -93,6 +116,7 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../../lib/lib.fs
 require ../../lib/slab.fs
 require ../../lib/find.fs
+require ../../lib/runs.fs
 require ../../lib/context.fs
 require ../../core/terms.fs
 require ../../present/binder-table.fs
@@ -100,6 +124,7 @@ require ../mvars.fs
 require ../lctx-views.fs
 require ../goals.fs
 require ../term-find.fs
+require ../term-eqv.fs
 require ../meta-must.fs
 require ../app-builder.fs
 require ../telescope.fs
@@ -185,6 +210,55 @@ end-structure
 \ replaceLocalDecl: replace with Eq.mp proof fvar of type new.
 : lf-goal-replace-local-decl ( goal fvar new proof -- goal' fvar' )
   rot tuck lf-mk-eq-mp rot mat-replace ;
+
+\ ---- replaceLocalDeclDefEq, route 1: fvar' of type new in fvar's place;
+\ goal' of goal's type, kind and tag there; goal assigned ?d fvar, ?d
+\ delayed-assigned fvar' := goal'.
+: mat-equal-to? ( type new -- flag ) lf-meta-equal? lf-must ;
+\ Expr.equal before and after instantiation; new kept instantiated.
+: mat-equal? ( -- flag )
+  mat mat-old @ lf-fvar-type mat mat-type @ 2dup mat-equal-to? if 2drop true exit then
+  lf-instantiate! dup mat mat-type ! swap lf-instantiate! mat-equal-to? ;
+: mat-free ( -- )
+  mat mat-goal cell-pair@ lf-goal-fvar-free dup outcome-invalid =
+  if drop outcome-unsupported then lf-must ;
+: mat-retyped-view ( -- view )
+  mat mat-type @ lf-lctx-local lf-must dup mat mat-fvar !
+  mat-view mat mat-old @ rot lf-view-refvar lf-must ;
+: mat-like ( view -- goal' )
+  >r mat mat-goal @ dup lf-goal-type swap lf-goal-kind r> lf-mvar-new-at lf-must
+  dup mat mat-goal @ lf-goal-tag lf-mvar-tag! lf-must ;
+: mat-aux ( -- aux )
+  mat-old-local lf-local-name mat mat-type @ mat mat-goal @ lf-goal-type mat-pi
+  mv-opaque mat-view lf-mvar-new-at lf-must ;
+: mat-delayed ( goal' aux -- )
+  mat mat-fvar @ lf-delay-fvar lf-must tuck swap 1 lf-mvar-delay lf-must
+  mat mat-old @ lf-mk-app mat mat-goal @ swap lf-mvar-assign lf-must ;
+: mat-defeq-run ( -- goal' )
+  mat mat-goal @ lf-goal-not-assigned drop mat-equal? if mat mat-goal @ exit then
+  mat-free mat-retyped-view mat-like dup mat-aux mat-delayed ;
+: mat-defeq ( goal fvar type -- goal' )
+  mat mat-type ! mat mat-goal cell-pair! mat-defeq-run ;
+: lf-goal-replace-local-decl-defeq ( goal fvar type -- goal' )
+  mat-frames ['] mat-defeq lf-with-record ;
+
+\ ---- assertHypotheses: a run of (local type value) triples asserted
+\ last first, one goal each, then introduced again at once (introNP).
+: mat-hyps# ( run -- n ) run-count 3 / ;
+: mat-triple ( run k -- local type val ) 3 * 3 0 do 2dup i + run@ -rot loop 2drop ;
+: mat-assert-at ( goal run k -- goal' run )
+  over >r mat-triple >r >r lf-local-name r> r> lf-goal-assert r> ;
+: mat-assert-all ( goal run -- goal' run )
+  0 over mat-hyps# 1- do i mat-assert-at -1 +loop ;
+: mat-own-at ( run addr k -- run addr )
+  >r over r@ 3 * run@ mat-own over r> cells + ! ;
+: mat-intro-hyps ( goal run addr -- goal' )
+  over mat-hyps# 0 ?do i mat-own-at loop
+  swap mat-hyps# >r dup r@ cells + 0 swap r> swap lf-goal-intro-n ;
+: mat-hyps-run ( goal run addr -- goal' ) >r mat-assert-all r> mat-intro-hyps ;
+: lf-goal-assert-hyps ( goal run -- goal' )
+  dup run-count 0= if drop exit then
+  dup mat-hyps# 2* mat-cells ['] mat-hyps-run lf-with-cells ;
 
 \ ---- changeLocalDecl of a hypothesis nothing else depends on: revert
 \ it, the pi's domain made type (isDefEq first, unequal not supported),

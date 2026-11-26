@@ -10,6 +10,12 @@
 \   variable or metavariable only as the same node; the store may hold
 \   equal terms twice when it does not share (core/terms.fs), so equal
 \   leaves of two nodes are compared by content.
+\ - lf-meta-equal? ( a b -- flag outcome ): Expr.equal, which also
+\   compares binder names and binder information: the same node, or two
+\   terms lf-meta-eqv finds equal that hold no lambda, pi or let (two
+\   that do, as different nodes, answer unsupported: the binder table's
+\   names are not compared yet); replaceLocalDeclDefEq's test
+\   (meta-tactic/assert.fs).
 \ - lf-meta-eta-expanded ( e -- f flag outcome ): etaExpanded?: e is
 \   fun x1 .. xn => f x1 .. xn (n >= 0) with no xi in f: flag true and f;
 \   else false and e. Lean assumes e closed; so does this.
@@ -58,6 +64,7 @@ require ../core/statement-match.fs
 require ./level-simp.fs
 require ./instantiate.fs
 require ./meta-spine.fs
+require ./term-find.fs
 
 0 constant lf-lb-false  1 constant lf-lb-true  2 constant lf-lb-undef
 : lf-lb ( flag -- lbool ) if lf-lb-true else lf-lb-false then ;
@@ -112,6 +119,19 @@ require ./meta-spine.fs
   2dup lf-term-pair-valid? 0= if 2drop false outcome-invalid exit then
   2dup = if 2drop true outcome-ok exit then
   eq-pairs slab-clear eq-push dup ok? if drop eq-run else false swap then ;
+\ Expr.equal: equal terms as above that are different nodes and hold a
+\ binder (whose names the binder table keeps) are not compared yet.
+lf-tag-lam lf-tag-pi lf-tag-let lf-tag-let-nondep 4 lf-tags constant eq-named-tags
+: eq-named? ( node -- flag ) lf-term-tag@ eq-named-tags lf-tag-in? ;
+: eq-unnamed? ( t -- outcome )   \ ok: t holds no binder
+  ['] eq-named? lf-term-holds-node? ok-then?
+  if if outcome-unsupported else outcome-ok then then ;
+: eq-both-unnamed ( a b -- flag outcome )
+  eq-unnamed? dup ok? if drop eq-unnamed? else nip then true swap ;
+: lf-meta-equal? ( a b -- flag outcome )
+  2dup = if 2drop true outcome-ok exit then
+  2dup lf-meta-eqv ok-then? 0= if nip nip false swap exit then
+  if eq-both-unnamed else 2drop false outcome-ok then ;
 
 \ A name against a dotted text (Lean's match_expr and isConstOf compare
 \ names so; the anonymous name is 0 and the empty text).

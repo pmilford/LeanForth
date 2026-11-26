@@ -1,7 +1,8 @@
 -- Pinned Lean twins of tests/front/tactics/simp-1/*.lf (plan row FE9, simp slice SL1a-1:
 -- simp only on the target): tactic_check.py --lean writes simp-1.golden from this file's
--- terms, which LeanForth's must equal node for node. u_def, u_at, u_hyp_prop and u_literal
--- are the texts LeanForth answers 99 (not supported yet) for; Lean accepts them.
+-- terms, which LeanForth's must equal node for node. u_def, u_hyp_prop and u_literal are the
+-- texts LeanForth answers 99 (not supported yet) for; Lean accepts them (u_at, accepted
+-- since slice SL1a-2, is tests/front/tactics/simp-2/'s simp_at_defeq).
 import Lean
 open Lean Meta Elab Tactic
 set_option linter.unusedVariables false
@@ -17,9 +18,6 @@ theorem simp_true : True := by
   simp only []
 theorem simp_self (n : Nat) : n = n := by
   simp only []
-theorem u_at (a b : Nat) (h : a + 0 = b) : a = b := by
-  simp only [Nat.add_zero] at h
-  exact h
 theorem simp_symm (a b : Nat) (h : b = a) : a = b := by
   simp only [← h]
 theorem simp_prop (a b : Nat) (h : a ≤ b) : a ≤ b ∧ a ≤ b := by
@@ -73,5 +71,5 @@ def dump (n : Name) : MetaM Unit := do
   for n in [``simp_add_zero, ``simp_hyp, ``simp_hyp_whole, ``simp_true, ``simp_self,
       ``simp_symm, ``simp_prop, ``simp_same_head, ``simp_mul_zero, ``simp_mul_one,
       ``simp_mul_one_twice, ``simp_zero_add_mul_one, ``simp_sub_self, ``simp_chain,
-      ``simp_one_mul, ``u_at, ``u_hyp_prop, ``u_def, ``u_literal] do
+      ``simp_one_mul, ``u_hyp_prop, ``u_def, ``u_literal] do
     dump n

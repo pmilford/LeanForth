@@ -1,0 +1,13 @@
+\ Lean: theorem w_at_self (a b : Nat) (h : a = b) : a = b := by
+\         simp only [h] at h
+\         exact h
+\ The rule h (origin .stx) is not erased at h (only a .fvar origin is):
+\ h becomes True, and exact fails with Lean's Type mismatch.
+theorem w_at_self
+  Nat explicit: a  Nat explicit: b
+  a b = explicit: h
+  a b =
+:= by
+  by-simp-only[ ' h ] at[ h ]
+  ' h by-exact
+end w_at_self

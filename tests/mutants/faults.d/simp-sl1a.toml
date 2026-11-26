@@ -162,8 +162,8 @@ reason = "SL1a-2: preprocess (SimpTheorems.lean:338) with inv makes Eq.symm h; i
 [[fault]]
 id = "prop-shapes-taken"
 file = "src/front/tactics/simp-only.fs"
-old = '''  if lf-tac-unported then dup tso-type tso-shaped? if lf-tac-unported then lf-mk-eq-true ;'''
-new = '''  if lf-tac-unported then lf-mk-eq-true ;'''
+old = '''  over tso-type dup tso-shaped? if lf-tac-unported then'''
+new = '''  over tso-type dup tso-shaped? drop'''
 test = "$GFORTH tests/front/tactics/simp-1/test.fs"
 reason = "SL1a-2: preprocess (SimpTheorems.lean:344-380) turns an Iff, Ne, Not, And or pi hypothesis into other theorems; taken as p = True, h : True ∧ True is a rule no Lean run has"
 
