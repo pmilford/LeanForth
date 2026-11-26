@@ -30,8 +30,7 @@ status changes when this date is older than them. Stages are those of the
 
 **Now**
 - 2026-11-26, 09:40: plan 9.4.8z11 (group kernel-speed-4: the exact steps of universe substitution's build,
-  each timed on Init before it lands), branch `kernel-speed-4`: **written and tested on its branch, not
-  reviewed, not merged, not done**. Nothing paid on Init, so no code is kept: S1 631.7 s and S1 with S2
+  each timed on Init before it lands): **closed, measurements only**. Nothing paid on Init, so no code is kept: S1 631.7 s and S1 with S2
   628.9 s and 640.4 s against 631.2 s (check phase, one thread); S3 not attempted. Measurements in
   [KERNEL_SPEED.md](../development/KERNEL_SPEED.md) section 0, "Measured after group 4".
 - 2026-11-26, 04:27: plan row FE9's simp group 3 is **done** on main cdba6027 (done check [2026-11-26-simp-group-3-done.md](../development/done-checks/2026-11-26-simp-group-3-done.md)): `by-simp-only[ ... ]` rewrites under an arrow and under `∀` (goals made with `by-revert`), through `c t e ite` (condition, branch, nested), and in `decide` goals; `bin/leanforth check --env tests/front/simp-slice.ndjson --elab-data tests/front/simp-slice.elab.ndjson my.lf` reads data format 4.1 ("5 realized congruence theorems"): the checker's own 6 theorems accepted, 2 wrong ones refused, one documented unsupported shape exit 2; four accepted and two refused agree with pinned Lean. Not yet: conditional rules, dependent arguments, plain `by-simp`.
