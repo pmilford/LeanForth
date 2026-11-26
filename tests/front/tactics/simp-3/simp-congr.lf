@@ -1,0 +1,27 @@
+\ by-simp-only[ ] through Lean's @[congr] lemmas and automatic congruence
+\ (plan row FE9, simp group 3: slice SL2 of docs/design/TACTIC_SIMP.md);
+\ each theorem's term equals pinned Lean's node for node (simp-3.lean,
+\ tests/front/tactics/simp-3/check.py). `c t e ite` is Lean's
+\ `if c then t else e`, its Decidable instance found as Lean finds it.
+
+\ Lean: theorem simp_ite (a b : Nat) (h : a = b) :
+\         (if a = 0 then 1 else 2) = (if b = 0 then 1 else 2) := by simp only [h]
+\ ite_congr rewrites the condition (h) and keeps both branches; the
+\ second ite is unchanged (automatic congruence: its Decidable instance
+\ is a subsingleton argument), so eq_self closes the goal.
+theorem simp_ite
+  Nat explicit: a  Nat explicit: b  a b = explicit: h
+  a 0 = 1 2 ite b 0 = 1 2 ite =
+:= by
+  by-simp-only[ ' h ]
+end simp_ite
+
+\ Lean: theorem simp_ite_branch (a b c : Nat) (h : a = b) :
+\         (if c = 0 then a else 2) = (if c = 0 then b else 2) := by simp only [h]
+\ The then-branch rewritten under ite_congr's hypothesis c = 0 -> a = u.
+theorem simp_ite_branch
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  a b = explicit: h
+  c 0 = a 2 ite c 0 = b 2 ite =
+:= by
+  by-simp-only[ ' h ]
+end simp_ite_branch

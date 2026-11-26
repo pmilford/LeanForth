@@ -28,6 +28,14 @@ theorem simp_binder_nested (b a : Nat) (h : a + 0 = b) : a = b := by
   intro a
   intro h
   exact h
+theorem simp_ite (a b : Nat) (h : a = b) :
+    (if a = 0 then 1 else 2) = (if b = 0 then 1 else 2) := by
+  simp only [h]
+theorem simp_ite_branch (a b c : Nat) (h : a = b) :
+    (if c = 0 then a else 2) = (if c = 0 then b else 2) := by
+  simp only [h]
+theorem u_decide (a b : Nat) (h : a = b) : decide (a = 0) = decide (b = 0) := by
+  simp only [h]
 
 def pl (l : Level) : String := match l.toNat with
   | some n => toString n
@@ -53,5 +61,5 @@ def dump (n : Name) : MetaM Unit := do
 
 #eval do
   for n in [``simp_binder_arrow, ``simp_binder_forall, ``simp_binder_forall_hyp,
-      ``simp_binder_nested] do
+      ``simp_binder_nested, ``simp_ite, ``simp_ite_branch, ``u_decide] do
     dump n

@@ -93,13 +93,14 @@ T{ c0 simp lf-simp-steps -> c0 lf-simp-none 1 }T
 \ visit (dsimp-guard-off).
 nat nat lf-term-pi lf-made! s" f" binder constant f0
 T{ f0 f0 lf-mk-eq unsupported? -> true }T
-\ ite has @[congr] lemmas (ite_congr): unsupported (SL2).
+\ ite has an @[congr] lemma, ite_congr (simp group 3): nothing to
+\ rewrite, so not modified; the automatic congruence keeps the term.
 0 lf-term-symbolic-sort lf-made! s" p" binder constant p0
 s" Decidable" lf-mk-const0 p0 lf-mk-app s" i" binder constant i0
 : ite-n ( -- e )
   s" ite" nat lf-level! lf-mk-const1 nat lf-mk-app p0 lf-mk-app i0 lf-mk-app n0 lf-mk-app
   n0 lf-mk-app ;
-T{ ite-n unsupported? -> true }T
+T{ ite-n simp nip -> lf-simp-none }T
 \ eq_true (h : p) : p = True as a rule at p: h, a proposition, is left
 \ unassigned by the left side (the discharger, SL2): unsupported.
 s" eq_true" set-of
@@ -197,8 +198,9 @@ T{ y0 y0 lf-mk-eq kept? -> true lf-simp-none }T
 : id-f-n ( -- e ) s" id" nat>nat lf-level! lf-mk-const1 nat>nat lf-mk-app f0 lf-mk-app n0 lf-mk-app ;
 T{ id-f-n unsupported? -> true }T
 \ Decidable.decide p i: its instance's congruence kind is not fixed or eq
-\ (subsingletonInst), unsupported (SL2).
-T{ s" Decidable.decide" lf-mk-const0 p0 lf-mk-app i0 lf-mk-app unsupported? -> true }T
+\ (subsingletonInst): the automatic congruence (simp group 3), nothing
+\ to rewrite, so the term itself.
+T{ s" Decidable.decide" lf-mk-const0 p0 lf-mk-app i0 lf-mk-app kept? -> true lf-simp-none }T
 \ More visits in progress than sm-depth-max: unsupported, never Lean's error.
 : deep ( -- e ) n0 200 0 do s" Nat.succ" lf-mk-const0 swap lf-mk-app loop ;
 T{ deep unsupported? sm-frames frame-busy? -> true false }T

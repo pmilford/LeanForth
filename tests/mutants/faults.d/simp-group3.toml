@@ -41,3 +41,35 @@ old = '''  swap lf-instantiate-mvars ok-then? 0= if nip no-result exit then swap
 new = ''''''
 test = "$GFORTH tests/front/infer.fs"
 reason = "simp group 3: mkBinding instantiates the type before elimMVarDeps; an assigned metavariable left in a lambda's type is refused, so forall_congr's mkAppM (fun x => eq_self x) answers unsupported"
+
+[[fault]]
+id = "congr-unmodified-taken"
+file = "src/front/simp/congr.fs"
+old = ''': sc-live? ( -- flag ) sc sc-mod @ sc sc-dead @ 0= and ;'''
+new = ''': sc-live? ( -- flag ) sc sc-dead @ 0= ;'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "SL2: trySimpCongrTheorem? answers none when no hypothesis was modified (Main.lean:619); taken, (if c = 0 then 1 else 2) = (if c = 0 then 1 else 3) gets ite_congr's proof and no longer makes no progress (500)"
+
+[[fault]]
+id = "auto-proof-dropped"
+file = "src/front/simp/congr.fs"
+old = '''  sc-has-proof sc-flag? sc-has-cast sc-flag? or if lf-unported then'''
+new = '''  sc-has-cast sc-flag? if lf-unported then'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "SL2: tryAutoCongrTheorem? (Types.lean:870) builds the automatic theorem's proof when an argument has one; dropped, decide (x = a) i becomes decide (x = b) i with no proof"
+
+[[fault]]
+id = "congr-lemmas-skipped"
+file = "src/front/simp/congr.fs"
+old = '''  dup lf-meta-head sm-congr-run ?dup if sc-lemmas else drop sc-default then ;'''
+new = '''  dup lf-meta-head sm-congr-run 2drop sc-default ;'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "SL2: congr (Main.lean:637) tries a head's @[congr] lemmas before congrDefault; skipped, an ite's condition goes to the automatic congruence (another route than Lean's, here not supported)"
+
+[[fault]]
+id = "instance-not-synthesized"
+file = "src/front/simp/rewrite.fs"
+old = '''  dup lf-infer! dup sr-class? if 2dup sr-instance? if 2drop exit then then'''
+new = '''  dup lf-infer! dup sr-class? if 2drop exit then'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "SL2: synthesizeArgs (Rewrite.lean:89) synthesizes an unassigned instance; left open, ite_congr's [Decidable c] stays a metavariable and the lemma answers none"

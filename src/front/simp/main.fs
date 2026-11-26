@@ -157,10 +157,11 @@ lf-tag-let lf-tag-let-nondep lf-tag-projection lf-tag-annotation lf-tag-lit 5 lf
   dup sm-char? if drop true exit then sm-scientific? ;
 
 \ ---- congr (Main.lean:637) and congrDefault's mkCongrSimp? (Types.lean:773).
-: sm-lemmas? ( d' -- flag ) simp-congr-lemmas lf-must nip 0<> ;
-: sm-congr-lemmas? ( f -- flag )
-  dup lf-term-const? 0= if drop false exit then
-  lf-const-name lf-menv-data-decl dup if drop sm-lemmas? then ;   \ no data: no lemmas
+\ f's @[congr] lemmas, records c .. c+n-1 (n = 0: none; no data: none).
+: sm-congr-run ( f -- c n )
+  dup lf-term-const? 0= if drop 0 0 exit then
+  lf-const-name lf-menv-data-decl if simp-congr-lemmas lf-must else 0 0 then ;
+: sm-congr-lemmas? ( f -- flag ) sm-congr-run nip 0<> ;
 : sm-congr-check ( e -- )
   lf-meta-head dup sm-congr-lemmas? if lf-unported then
   lf-congr-simp-kinds lf-must lf-congr-plain? 0= if lf-unported then ;
@@ -205,8 +206,10 @@ defer sm-simp-arg ( a -- a frames xt )
 defer sm-simp-call ( e cont -- e frames xt )
 : sm-app-open ( e -- ... )
   dup sm-push dup lf-meta-args# sa sa-n ! lf-meta-head ['] sm-app-head sm-simp-call ;
-: sm-app ( e -- ... )
-  dup sm-literal? if lf-simp-none sm-done exit then dup sm-congr-check sm-app-open ;
+\ congr (Main.lean:637): simp/congr.fs's, else the refusals above.
+defer sm-congr ( e -- ... )
+:noname ( e -- ... ) dup sm-congr-check sm-app-open ; is sm-congr
+: sm-app ( e -- ... ) dup sm-literal? if lf-simp-none sm-done exit then sm-congr ;
 lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-str 4 lf-tags constant sm-plain-tags
 : sm-fvar ( e -- e ) dup lf-fvar-let? if lf-unported then ;
 : sm-leaf-of ( e tag -- e' )
@@ -224,9 +227,10 @@ lf-tag-sort lf-tag-symbolic-sort lf-tag-lit lf-tag-str 4 lf-tags constant sm-pla
 : sm-scope ( -- ) lf-locals-mark sa sa-scope 2! sm-xs slab-count sa sa-xs ! ;
 : sm-unscope ( -- ) sa sa-scope 2@ lf-locals-back sa sa-xs @ sm-xs slab-cut ;
 : sm-xs-n ( -- addr n ) sa sa-xs @ dup sm-xs slab-at swap sm-xs slab-since ;
-: sm-bind ( pi -- body )   \ withLocalDecl of the dsimp'd domain, the body opened
-  dup dup lf-term-first@ sm-dsimp lf-binder-local dup sm-xs slab-push lf-must
-  lf-meta-open lf-must ;
+\ withLocalDecl: a local of type dom on sm-xs, pi's body opened with it.
+: sm-local ( pi dom -- body )
+  over swap lf-binder-local dup sm-xs slab-push lf-must lf-meta-open lf-must ;
+: sm-bind ( pi -- body ) dup lf-term-first@ sm-dsimp sm-local ;   \ the domain dsimp'd
 : sm-binder-done ( e' h -- e' h frames 0 ) sm-unscope sm-pop sm-done ;
 \ mkAppM c (fun x => h): funext, forall_congr.
 : sm-under ( h addr c-addr u -- h' ) 2>r 1 lf-mk-lambda-fvars 2r> rot 1 lf-mk-app-m ;
@@ -311,9 +315,12 @@ defer sm-loop-call ( e cont -- e frames xt )
   sm-frames frame-reset max-n sm-frames frame-budget drop ;
 : sm-root ( e frames cont -- e frames xt ) nip sm-simp-call ;
 : sm-walk ( e -- e' h ) sm-frames ['] sm-root frame-through drop ;
-: sm-scoped ( e -- e' h ) ['] sm-walk lf-with-new-locals ;
+: sm-scoped ( e -- e' h true ) ['] sm-walk lf-with-new-locals true ;
+\ A throw rolls back to the mark before the walk: the metavariable depths
+\ its congruence lemmas opened (simp/congr.fs) close with it.
+: sm-marked ( e -- e' h ) ['] sm-scoped lf-commit-when drop ;
 : sm-guarded ( e -- e' h )
-  ['] sm-scoped catch ?dup if sm-frames frame-reset sm-acts slab-clear throw then ;
+  ['] sm-marked catch ?dup if sm-frames frame-reset sm-acts slab-clear throw then ;
 : lf-simp ( e max -- e' h )
   sm-ready ['] sm-guarded lf-defeq-flags lf-defeq-elab or lf-tr-reducible lf-meta-with ;
 

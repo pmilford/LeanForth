@@ -9,6 +9,9 @@ theorem w_binder_skipped (a : Nat) : a + 0 = a := by
   simp only [Nat.add_zero]
   intro a
   exact Nat.add_zero a
+theorem w_ite_no_progress (a b c : Nat) (h : a = b) :
+    (if c = 0 then 1 else 2) = (if c = 0 then 1 else 3) := by
+  simp only [h]
 theorem w_binder_no_progress (b c d : Nat) (h : c = d) (a : Nat) : a + 1 = b := by
   revert a
   simp only [h]

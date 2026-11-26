@@ -12,10 +12,13 @@
 \   SimpTheorem.getValue 475; a hypothesis itself), its type's
 \   forallMetaTelescopeReducing, whnf of the body (reducible, simp's
 \   transparency), its left side unified with e less its extra arguments
-\   at mkMetaConfig (lf-with-simp-meta); then synthesizeArgs (58): a
-\   metavariable left unassigned whose type is a proposition (the
-\   discharger, SL2) or is a class (instance synthesis, SL1a-2) is
-\   unsupported; the proof none for an rfl theorem (implicitDefEqProofs),
+\   at mkMetaConfig (lf-with-simp-meta); then synthesizeArgs (58,
+\   lf-simp-synthesize): a metavariable left unassigned whose type is a
+\   class gets the instance trySynthInstance finds (synth.fs's
+\   lf-try-synth) when isDefEq at reducible and instances transparency
+\   agrees; one whose type is a proposition needs the discharger (slice
+\   SL2, not ported: unsupported); the proof none for an rfl theorem
+\   (implicitDefEqProofs),
 \   else the value applied to the metavariables, refused (none) when it
 \   holds an assignable metavariable (hasAssignableMVar,
 \   app-builder.fs's lf-meta-has-assignable?); the result refused when
@@ -25,6 +28,9 @@
 \   (simp/types.fs's lf-simp-extra-args).
 \ - lf-simp-rfl-match? ( e tree -- flag ): whether a theorem with the rfl
 \   flag is among e's candidates (the dsimp guard of simp/main.fs).
+\ - lf-simp-synthesize ( addr n -- ): synthesizeArgs of the n
+\   metavariables in cells at addr (also simp/congr.fs's, for a
+\   congruence lemma); no claim may move the cells while it runs.
 \ Throws as meta-must.fs's words do. Untrusted: a rewrite's proof is
 \ checked by the kernel. State: the context slabs sr-cands (the
 \ candidates, pairs) and sr-xs (the telescope's metavariables), the
@@ -76,14 +82,24 @@ end-structure
 : sr-e0 ( -- e ) srt-e@ srt-n@ lf-term-fns ;
 : sr-unifies? ( -- flag ) sr-sides drop sr-e0 ['] lf-defeq! lf-with-simp-meta ;
 
-\ ---- synthesizeArgs: an unassigned argument of a proposition or of a
-\ class (isClass?, instances.fs's lf-class?).
-: sr-x ( i -- x ) sr-xs slab-at @ ;
+\ ---- synthesizeArgs (58, with tactic.skipAssignedInstances's default):
+\ an unassigned argument of a class (isClass?, instances.fs's lf-class?)
+\ or of a proposition.
 : sr-open? ( x -- flag ) lf-instantiate! lf-mvar? ;
 : sr-class? ( type -- flag ) lf-class? lf-must dup if nip then ;
-: sr-needs? ( x -- flag ) lf-infer! dup lf-meta-is-prop lf-must swap sr-class? or ;
-: sr-check-x ( x -- ) dup sr-open? if sr-needs? if lf-unported then else drop then ;
-: sr-synthesize ( -- ) sr-xs slab-count 0 ?do i sr-x sr-check-x loop ;
+\ synthesizeInstance: trySynthInstance's instance, assigned when isDefEq
+\ at reducible and instances transparency agrees.
+: sr-instance? ( x type -- flag )
+  lf-try-synth lf-must lf-synth-some =
+  if ['] lf-defeq! lf-tr-instances lf-meta-at else 2drop false then ;
+\ One metavariable: an instance found for a class; a proposition left to
+\ the discharger (slice SL2's dischargeDefault?, not ported: unsupported).
+: sr-arg ( x -- )
+  dup sr-open? 0= if drop exit then
+  dup lf-infer! dup sr-class? if 2dup sr-instance? if 2drop exit then then
+  nip lf-meta-is-prop lf-must if lf-unported then ;
+: lf-simp-synthesize ( addr n -- ) cells bounds ?do i @ sr-arg cell +loop ;
+: sr-synthesize ( -- ) sr-xs slab-data lf-simp-synthesize ;
 
 \ ---- tryTheoremCore's go: the rewrite, or none.
 : sr-rfl? ( -- flag ) srt srt-thm @ lf-simp-thm-rfl? ;

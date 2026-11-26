@@ -1,0 +1,12 @@
+\ Lean: theorem u_decide (a b : Nat) (h : a = b) : decide (a = 0) = decide (b = 0) := by
+\         simp only [h]
+\ Not supported yet (99): decide's Decidable instance is a subsingleton
+\ argument, so Lean rewrites a = 0 by its automatic congruence theorem,
+\ the library's Decidable.decide.congr_simp (a realized constant: slice
+\ SD-b), which LeanForth does not build yet.
+theorem u_decide
+  Nat explicit: a  Nat explicit: b  a b = explicit: h
+  a 0 = Decidable.decide b 0 = Decidable.decide =
+:= by
+  by-simp-only[ ' h ]
+end u_decide

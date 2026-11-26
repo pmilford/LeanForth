@@ -80,7 +80,8 @@ x0 x0 lf-mk-eq lf-infer! constant prop
 prop s" p" binder constant p0   prop s" q" binder constant q0
 p0 s" hp" binder constant hp0   create hp-cell hp0 ,
 : all-hp ( -- e ) hp0 hp0 lf-mk-eq hp-cell 1 lf-mk-forall-fvars ;
-T{ with-self all-hp simp-outcome -> outcome-unsupported }T
+T{ with-self all-hp simp s" forall_congr" head? swap lf-term-second@ s" True" head?
+   -> true true }T
 p0 q0 lf-mk-eq s" hpq" binder constant hpq0
 T{ with-self hpq0 add-hyp all-hp simp-outcome -> outcome-unsupported }T
 \ ∀ x, x = a with h: ∀ x, x = b by forall_congr; the arrow x = a -> p:
@@ -94,6 +95,32 @@ T{ with-h dom-arrow simp s" implies_congr" head? swap lf-term-first@ x0 b0 lf-mk
 create n-cell x0 ,
 : all-n ( -- e ) x0 x0 lf-mk-eq nat lf-term-pi lf-made! n-cell 1 lf-mk-forall-fvars ;
 T{ with-self all-n simp-outcome -> outcome-unsupported }T
+
+\ ---- 1. The automatic congruence (tryAutoCongrTheorem?, simp/congr.fs):
+\ decide (x + 0 = x) i with Nat.add_zero alone: its eq argument changed
+\ by definition, its instance (a subsingleton argument) kept: decide
+\ (x = x) i, no proof. With h, decide (x = a) i' needs the automatic
+\ theorem's proof (Decidable.decide.congr_simp, not built yet):
+\ unsupported.
+: decide-of ( p inst -- e ) s" Decidable.decide" lf-mk-const0 rot lf-mk-app swap lf-mk-app ;
+: dec-type ( p -- t ) s" Decidable" lf-mk-const0 swap lf-mk-app ;
+x0 plus0 x0 lf-mk-eq constant x+0=x
+x+0=x dec-type s" i" binder constant i0
+x0 a0 lf-mk-eq dec-type s" j" binder constant j0
+: only-add0 ( -- ) lf-simp-set-new s" Nat.add_zero" decl true lf-simp-add-decl ;
+T{ only-add0 x+0=x i0 decide-of simp swap x0 x0 lf-mk-eq i0 decide-of lf-meta-eqv drop
+   -> lf-simp-none true }T
+T{ with-h x0 a0 lf-mk-eq j0 decide-of simp-outcome -> outcome-unsupported }T
+\ visitFn: decide p j with the rule Decidable.decide = g2 (post): the
+\ arguments unchanged, the head rewritten with a proof, which Lean
+\ carries through each argument by Meta.mkCongrFun (its general build,
+\ app-builder.fs, not ported yet: unsupported). (The kinds of a
+\ variable's arguments are not read yet either, congr-thms.fs.)
+s" Decidable.decide" decl lf-menv-type s" g2" binder constant g20
+s" Decidable.decide" lf-mk-const0 g20 lf-mk-eq s" hd" binder constant hd0
+: g-app ( g -- e ) x0 a0 lf-mk-eq lf-mk-app j0 lf-mk-app ;
+T{ with-self hd0 add-hyp s" Decidable.decide" lf-mk-const0 g-app simp-outcome
+   -> outcome-unsupported }T
 
 \ ---- 2. The scope: after a run below binders, and after a throw below
 \ one (a let variable in a lambda's body, reduceFVar's case not ported),
@@ -144,5 +171,15 @@ T{ s" Nat explicit: b Nat explicit: c Nat explicit: d c d = explicit: h Nat expl
 \ of the body.
 T{ s" Nat explicit: a Nat explicit: b Nat explicit: c a c = explicit: h2 a b = explicit: h c b ="
    s" ' h by-revert by-simp-only[ ' h2 ] by-intro: h ' h by-exact" tactic-ran -> 0 }T
+\ Through ite_congr (simp-congr.lf's twins): the condition, a branch; no
+\ progress (500); decide's automatic theorem not built yet (99).
+T{ s" Nat explicit: a Nat explicit: b a b = explicit: h a 0 = 1 2 ite b 0 = 1 2 ite ="
+   s" by-simp-only[ ' h ]" tactic-ran -> 0 }T
+T{ s" Nat explicit: a Nat explicit: b Nat explicit: c a b = explicit: h c 0 = a 2 ite c 0 = b 2 ite ="
+   s" by-simp-only[ ' h ]" tactic-ran -> 0 }T
+T{ s" Nat explicit: a Nat explicit: b Nat explicit: c a b = explicit: h c 0 = 1 2 ite c 0 = 1 3 ite ="
+   s" by-simp-only[ ' h ]" tactic-ran lf-tac-forget -> 500 }T
+T{ s" Nat explicit: a Nat explicit: b a b = explicit: h a 0 = Decidable.decide b 0 = Decidable.decide ="
+   s" by-simp-only[ ' h ]" tactic-ran lf-tac-forget -> 99 }T
 .( simp-3 test.fs: all tests passed) cr
 bye

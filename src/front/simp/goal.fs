@@ -45,6 +45,7 @@ require ../../author/errors.fs
 require ../tactic-run.fs
 require ../meta-tactic/assert.fs
 require ./main.fs
+require ./congr.fs   \ main.fs's congruence, through its hook sm-congr
 
 500 lfa-lean s" `simp` made no progress" lfa-code: lfa-e-simp-progress
 begin-structure /sg

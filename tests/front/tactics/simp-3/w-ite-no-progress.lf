@@ -1,0 +1,10 @@
+\ Lean: theorem w_ite_no_progress (a b c : Nat) (h : a = b) :
+\         (if c = 0 then 1 else 2) = (if c = 0 then 1 else 3) := by simp only [h]
+\ Refused as Lean refuses it (error 500): ite_congr finds nothing to
+\ rewrite (not modified), and neither does the automatic congruence.
+theorem w_ite_no_progress
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  a b = explicit: h
+  c 0 = 1 2 ite c 0 = 1 3 ite =
+:= by
+  by-simp-only[ ' h ]
+end w_ite_no_progress
