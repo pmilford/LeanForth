@@ -447,11 +447,12 @@ defer lf-meta-synth ( type -- inst flag outcome )
 \ whnfR that fails passes its outcome on (fuel, room). A side may match a
 \ hint when its head is a definition or a projection node (Lean's key
 \ .proj, the key of 26 of Mathlib's 27 hints).
+: de-not? ( t -- flag ) lf-not-app? ;
 : de-hint-key? ( t -- flag )
   dup de-head-defn? if drop true else lf-meta-head lf-proj? then ;
 : de-hint-free? ( t -- flag outcome )
   elab-init-only? 0= if drop false outcome-ok exit then
-  lf-meta-whnf-r ok-then? if lf-not-app? 0= outcome-ok else false swap then ;
+  lf-meta-whnf-r ok-then? if de-not? 0= outcome-ok else false swap then ;
 : de-hints ( t -- )
   dup lf-mvar? if drop exit then dup de-hint-key? 0= if drop exit then
   de-hint-free? ok-then? 0= if de-abort exit then
