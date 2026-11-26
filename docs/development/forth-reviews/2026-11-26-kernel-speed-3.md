@@ -142,21 +142,21 @@ Harness and scripts are in /tmp/claude-1000/-home-peter-code-LeanForth/69a89404-
 ## Resolution (fix round, 2026-11-26)
 
 The reviewed net diff (`ea791fac..c9ff49e6`) leaves out the stored-hash commits `86d9d31a` and `7f6a3ac9`, which
-`a96646ff` reverted. The code fixes are one commit, `b7711ad5`; the documentation fixes and this record are the
-commit that adds this section.
+`a96646ff` reverted. The code fixes are `b7711ad5` and `cacfd42b` (a test the coverage check asked for); the
+documentation fixes and this record are the commit that adds this section.
 
 | Finding | Resolution |
 |---|---|
 | 1 (medium) | Fixed in `b7711ad5`: `tests/core/mixed-instantiate.fs` tests `lf-scratch-counts?` with each family's seal broken (terms, levels, constant references) and a closed root `closed-11 subst 1 lf-instantiate-rev` over each, `-1 outcome-invalid` with the fuel unchanged; fault `ks3-scratch-counts-always-true` (M4), caught. |
 | 2 (medium, reuse) | Planned: plan row 9.4.8z9 (abstract through the walk, the six frame-machine words deleted). `mixed-open.fs` now says why abstract keeps the frame machine and cites the row (`b7711ad5`). |
-| 3 (low) | (a) Fixed in the documentation commit: TERM_STORE.md "As landed" and KERNEL_SPEED.md section 0 declare every heap refusal (the frames' stack, either replace memo, the scratch-mark stack) may land at another step and change the outcome and fuel at a refused allocation, including full against ok; nothing differs when the heap grants every request. (b) Fixed in `b7711ad5`: a refusal of the scratch memo (made second) keeps a stamped call's keep, find and cut, and gives an unstamped call a miss. (c) Done in `b7711ad5`: `lf-rmemo-make` remakes only the memo that is not live (the scratch memo's numbering restarts only when it is made), and `lf-rmemo-end` acts when the memo its call keeps in is live, so a failed stamped call is cut with the scratch memo refused, as on main; faults `ks3-rmemo-remake-both` and `ks3-rmemo-end-needs-both-live`, caught. |
+| 3 (low) | (a) Fixed in the documentation commit: TERM_STORE.md "As landed" and KERNEL_SPEED.md section 0 declare every heap refusal (the frames' stack, either replace memo, the scratch-mark stack) may land at another step and change the outcome and fuel at a refused allocation, including full against ok; nothing differs when the heap grants every request. (b) Fixed in `b7711ad5`: a refusal of the scratch memo (made second) keeps a stamped call's keep, find and cut, and gives an unstamped call a miss. (c) Done in `b7711ad5`: `lf-rmemo-make` remakes only the memo that is not live (the scratch memo's numbering restarts only when it is made), and `lf-rmemo-end` acts when the memo its call keeps in is live, so a failed stamped call is cut with the scratch memo refused, as on main; faults `ks3-rmemo-remake-both` and `ks3-rmemo-end-needs-both-live`, caught. The branch coverage check then found the remake's branch for a kept scratch memo unrun: `cacfd42b` refuses the table instead and checks that the kept scratch memo keeps its numbering (fault `ks3-rmemo-restart-kept-scratch`, caught). |
 | 4 (low) | Fixed in `b7711ad5`: after a closed-root `lf-instantiate-scope` the memo's stamp is x's identity + 1 and its base the table's count (the base set to max-n first); fault `ks3-closed-root-scope-memo-skipped` (M5), caught. |
 | 5 (low) | Fixed in `b7711ad5`: `lf-rmemo-begin` takes a negative stamp as 0 (every caller passes 0 or an identity + 1, so none changes); the header says stamps are >= 0; a test that a negative stamp naming a scratch call's number finds none of its entries; fault `ks3-rmemo-negative-stamp-kept`, caught. |
 | 6 (low, doc) | Fixed in `b7711ad5`: the header says the count stops showing a thrown unstamped call's entries when the next unstamped call begins, and that the passes' recovery empties both memos. |
 | 7 (low) | Planned: plan row 9.4.8z9 (look and join from a walker record, the base on the frames' stack instead of `frame-job`). |
 | 8 (low, style) | Fixed in `b7711ad5`: `lf-open-quick?` as the review writes it (two lines, to stay under 90 characters); the form is a member of the false-positive duplicate group `8c62bb325216` (`dup a? if b else drop false then`), whose record lists it in `452e7d52`. |
 
-Checks of the fix round (`ulimit -u 500`): the five new faults caught (`scripts/mutants.py --only ...`, gforth);
+Checks of the fix round (`ulimit -u 500`): the six new faults caught (`scripts/mutants.py --only ...`, gforth);
 `tests/core/mixed-instantiate.fs`, `mixed-shift.fs`, `mixed-beta.fs`, `check-declaration-ndjson.fs` and
 `heap-refusals.fs` pass on gforth and gforth-fast; `bin/leanforth check --json --resources
 tests/front/decide-slice.ndjson` on gforth-fast at `--jobs 1` and `--jobs 4` is identical to a `git archive` copy
