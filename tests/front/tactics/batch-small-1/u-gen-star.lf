@@ -1,0 +1,11 @@
+\ Not supported yet (plan row TB2, small tactics 1): at[ * ], every
+\ hypothesis (Lean's getLocalHyps), 99 (exit 2).
+\ Lean: theorem u_gen_star (a b c : Nat) (h : a + b = c) : a + b = c := by
+\         generalize a + b = x at *
+\         exact h
+theorem u_gen_star
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  a b + c = explicit: h  a b + c =
+:= by
+  a b + by-generalize: x at[ * ]
+  ' h by-exact
+end u_gen_star

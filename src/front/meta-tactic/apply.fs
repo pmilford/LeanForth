@@ -35,6 +35,12 @@
 \       binder), reorderGoals nonDependentFirst (those no other new
 \       metavariable's type names first, the others after, each in
 \       order) and headBetaType of each (meta-tactic/goal.fs).
+\   lf-goal-apply-const ( goal c-addr u -- goals )  apply c written in a
+\       macro (funext's funext, trivial's And.intro), c a constant's full
+\       name: elabTermForApply of the identifier (Term.resolveId?: the
+\       constant at new level metavariables, no argument inserted;
+\       mvars.fs's lf-meta-const-fresh), then lf-goal-apply-named; a name
+\       no declaration has is thrown invalid (an export without it)
 \ Not ported (unsupported, error 99, never a wrong answer): Lean's other
 \ goals, the metavariables of e itself (getMVarsNoDelayed): e
 \ instantiated must hold none. Lean's addPPExplicitToExposeDiff and
@@ -223,4 +229,7 @@ end-structure
 : ap-apply ( goal e -- goals ) ap ap-e ! ap ap-goal ! ap-run ;
 : lf-goal-apply ( goal e -- goals ) false ap ap-named ! ap-apply ;
 : lf-goal-apply-named ( goal e -- goals ) true ap ap-named ! ap-apply ;
+\ resolveId? of a constant's full name: the constant at new level metavariables.
+: ap-const ( c-addr u -- e ) lfa-intern lf-menv-find lf-must lf-meta-const-fresh lf-must ;
+: lf-goal-apply-const ( goal c-addr u -- goals ) ap-const lf-goal-apply-named ;
 base !   \ the BASE this file was loaded with

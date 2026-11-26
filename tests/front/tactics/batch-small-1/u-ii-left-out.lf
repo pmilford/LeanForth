@@ -1,0 +1,11 @@
+\ Not supported yet (plan row TB2, small tactics 1): the instance search
+\ for Inhabited False tries an instance the export left out (119, exit
+\ 2); Lean fails with "failed to synthesize".
+theorem u_ii_left_out
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  False Inhabited by-have-by: d
+    by-infer-instance
+  by-end
+  ' h by-exact
+end u_ii_left_out

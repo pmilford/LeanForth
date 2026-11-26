@@ -69,6 +69,13 @@ Process for the batches (plan row TB2 and after):
    `trans`, `funext`, `use`, `exists`, `unfold`, `delta`, `revert`, `generalize`, `rename`,
    `trivial`, `calc`; then `simp` (designed in parallel), `ext`, `congr`, `ring`.
 
+Small tactics 1 (2026-11-26, branch `small-tactics-1`; tests in
+`tests/front/tactics/batch-small-1/`, each term node for node pinned Lean's): `funext`
+(`by-funext`, `by-funext[ x .. ]`; 989 uses), `infer_instance` (`by-infer-instance`; 2,842),
+`rename` (`T by-rename: h`; 197), `generalize` (`e by-generalize: x`, `e by-generalize-eq: h x`,
+each with `at[ ]`; 209), `skip` (`by-skip`) and `done` (`by-done`); their limits are in the
+language reference's section D.11.
+
 ## The table (keywords with 100 uses or more)
 
 | # | Tactic | Uses | Running share | Class | Declared in |

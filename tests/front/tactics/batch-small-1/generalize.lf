@@ -1,0 +1,81 @@
+\ e by-generalize: x and e by-generalize-eq: h x, with at[ ], Lean's
+\ generalize e = x and generalize h : e = x (plan row TB2, small tactics
+\ 1; src/front/tactics/generalize.fs over meta-tactic/generalize.fs's
+\ lf-goal-generalize-hyp). Lean twins in batch-small-1.lean.
+\ Lean: theorem gz_one (a b : Nat) : a + b = a + b := by
+\         generalize a + b = x
+\         rfl
+theorem gz_one
+  Nat explicit: a  Nat explicit: b  a b + a b + =
+:= by
+  a b + by-generalize: x
+  by-rfl
+end gz_one
+
+\ The equation form: h : a + b = x, proved by Eq.refl.
+\ Lean: theorem gz_eq (a b : Nat) : a + b = a + b := by
+\         generalize h : a + b = x
+\         rfl
+theorem gz_eq
+  Nat explicit: a  Nat explicit: b  a b + a b + =
+:= by
+  a b + by-generalize-eq: h x
+  by-rfl
+end gz_eq
+
+\ The equation used: x put back by h, then k, which at[ ] left alone.
+\ Lean: theorem gz_eq_used (a b c : Nat) (k : a + b = c) : a + b = c := by
+\         generalize h : a + b = x
+\         rw [← h]
+\         exact k
+theorem gz_eq_used
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  a b + c = explicit: k  a b + c =
+:= by
+  a b + by-generalize-eq: h x
+  by-rw[ ' h <- ]
+  ' k by-exact
+end gz_eq_used
+
+\ at[ h ]: h holds a + b, reverted, generalized, introduced again.
+\ Lean: theorem gz_at (a b c : Nat) (h : a + b = c) : a + b = c := by
+\         generalize a + b = x at h
+\         exact h
+theorem gz_at
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  a b + c = explicit: h  a b + c =
+:= by
+  a b + by-generalize: x at[ h ]
+  ' h by-exact
+end gz_at
+
+\ The equation form at[ h ].
+\ Lean: theorem gz_at_eq (a b c : Nat) (h : a + b = c) : a + b = c := by
+\         generalize k : a + b = x at h
+\         exact h
+theorem gz_at_eq
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  a b + c = explicit: h  a b + c =
+:= by
+  a b + by-generalize-eq: k x at[ h ]
+  ' h by-exact
+end gz_at_eq
+
+\ A hypothesis of at[ ] without e stays where it is.
+\ Lean: theorem gz_at_skip (a b c : Nat) (h : c = c) : a + b = a + b := by
+\         generalize a + b = x at h
+\         rfl
+theorem gz_at_skip
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  c c = explicit: h  a b + a b + =
+:= by
+  a b + by-generalize: x at[ h ]
+  by-rfl
+end gz_at_skip
+
+\ e nowhere in the goal: x is introduced all the same.
+\ Lean: theorem gz_absent (a b : Nat) (h : a = b) : a = b := by
+\         generalize a + b = x
+\         exact h
+theorem gz_absent
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  a b + by-generalize: x
+  ' h by-exact
+end gz_absent

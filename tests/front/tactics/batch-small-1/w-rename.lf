@@ -1,0 +1,10 @@
+\ A wrong twin (plan row TB2, small tactics 1; batch-small-1-wrong.lean):
+\ no hypothesis of type b = a: Lean's "Failed to find a hypothesis with
+\ type" (482).
+\ Lean: theorem w_rename (a b : Nat) (h : a = b) : a = b := by
+\         rename b = a => k
+theorem w_rename
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  b a = by-rename: k
+end w_rename

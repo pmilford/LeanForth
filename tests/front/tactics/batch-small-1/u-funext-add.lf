@@ -1,0 +1,12 @@
+\ Not supported yet (plan row TB2, small tactics 1): funext on a function
+\ of two arguments, whose apply funext needs ?β x =?= Nat → Nat, which
+\ LeanForth's unifier does not settle yet (93, exit 2); Lean accepts.
+\ Lean: theorem u_funext_add : Nat.add = Nat.add := by
+\         funext x y
+\         rfl
+theorem u_funext_add
+  ' Nat.add ' Nat.add =
+:= by
+  by-funext[ x y ]
+  by-rfl
+end u_funext_add

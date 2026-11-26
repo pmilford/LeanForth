@@ -1,0 +1,36 @@
+\ by-skip and by-done, Lean's skip and done (plan row TB2, small tactics
+\ 1; src/front/tactics/skip.fs and done.fs). Lean twins in
+\ batch-small-1.lean.
+\ Lean: theorem sk_one (a b : Nat) (h : a = b) : a = b := by
+\         skip
+\         exact h
+\         done
+theorem sk_one
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  by-skip
+  ' h by-exact
+  by-done
+end sk_one
+
+\ skip with no goal left.
+\ Lean: theorem sk_after (a b : Nat) (h : a = b) : a = b := by
+\         exact h
+\         skip
+theorem sk_after
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  ' h by-exact
+  by-skip
+end sk_after
+
+\ done failing inside try: taken back with the state.
+\ Lean: theorem dn_try (a b : Nat) (h : a = b) : a = b := by
+\         try done
+\         exact h
+theorem dn_try
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  by-try by-done by-end
+  ' h by-exact
+end dn_try

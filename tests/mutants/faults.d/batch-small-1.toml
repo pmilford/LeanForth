@@ -1,0 +1,149 @@
+# Planted faults of small tactics 1 (plan row TB2: meta-tactic/apply.fs's lf-goal-apply-const,
+# meta-tactic/generalize.fs's lf-goal-generalize-eq and lf-goal-generalize-hyp, and
+# tactics/funext.fs, infer-instance.fs, rename.fs, generalize.fs, done.fs), read with
+# faults.toml as one list (scripts/mutants.py). Each is caught by the test it names
+# (tests/front/tactics/batch-small-1/test.fs or check.py).
+
+[[fault]]
+id = "sm1-apply-const-no-levels"
+file = "src/front/meta-tactic/apply.fs"
+old = ''': ap-const ( c-addr u -- e ) lfa-intern lf-menv-find lf-must lf-meta-const-fresh lf-must ;'''
+new = ''': ap-const ( c-addr u -- e ) lf-mk-const0 ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1: apply c builds the constant with no universe levels, where resolveId? gives it new level metavariables: funext.{} is no term (test.fs's funext goals)"
+
+[[fault]]
+id = "sm1-apply-const-unnamed"
+file = "src/front/meta-tactic/apply.fs"
+old = ''': lf-goal-apply-const ( goal c-addr u -- goals ) ap-const lf-goal-apply-named ;'''
+new = ''': lf-goal-apply-const ( goal c-addr u -- goals ) ap-const lf-goal-apply ;'''
+test = "GFORTH=$GFORTH python3 tests/front/tactics/batch-small-1/check.py"
+reason = "small tactics 1: apply c's 380 names \"the term\" where evalApply's term? names `funext` (check.py's w-funext.lf first line)"
+
+[[fault]]
+id = "sm1-funext-no-repeat"
+file = "src/front/tactics/funext.fs"
+old = ''': tfx-repeat ( i -- ) drop begin ['] tfx-once lf-tac-try-lean 0= until ;'''
+new = ''': tfx-repeat ( i -- ) drop ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1: funext alone does no pass, the goal f = g left as it was, where repeat (apply funext; intro) opens it (test.fs's by-show of Nat.succ = Nat.succ after by-funext: 444)"
+
+[[fault]]
+id = "sm1-funext-repeat-unguarded"
+file = "src/front/tactics/funext.fs"
+old = ''': tfx-repeat ( i -- ) drop begin ['] tfx-once lf-tac-try-lean 0= until ;'''
+new = ''': tfx-repeat ( i -- ) drop begin tfx-once again ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1: funext's repeat without try: the pass that fails stops the proof with apply's 380 where Lean's repeat undoes it and ends (test.fs's by-funext on a = b, 0)"
+
+[[fault]]
+id = "sm1-funext-intro-dropped"
+file = "src/front/tactics/funext.fs"
+old = ''': tfx-pass ( name i -- ) dup ['] tfx-tac lf-lift-meta-tactic -1 swap lf-tac-intro1 ;'''
+new = ''': tfx-pass ( name i -- ) ['] tfx-tac lf-lift-meta-tactic drop ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1: funext x applies funext and introduces nothing, the goal left ∀ x, f x = g x (test.fs's by-funext[ x ] by-rfl, 0)"
+
+[[fault]]
+id = "sm1-funext-name-dropped"
+file = "src/front/tactics/funext.fs"
+old = ''': tfx-named ( i k -- ) over swap lf-tac-arg swap tfx-pass ;'''
+new = ''': tfx-named ( i k -- ) drop 0 swap tfx-pass ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1: funext x introduces an inaccessible variable, so a later step cannot name x (test.fs's by-show of Nat.succ x = Nat.succ x, 0)"
+
+[[fault]]
+id = "sm1-infer-instance-other-constant"
+file = "src/front/tactics/infer-instance.fs"
+old = '''s" inferInstance" lfa-const-named'''
+new = '''s" inferInstanceAs" lfa-const-named'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1: infer_instance elaborates another constant than the macro's inferInstance (test.fs's Subsingleton and Decidable goals, 0)"
+
+[[fault]]
+id = "sm1-rename-oldest-first"
+file = "src/front/tactics/rename.fs"
+old = '''  -1 true lf-tac-elab-term dup lf-local-index-with-type? if nip lf-mctx-fvar exit then'''
+new = '''  -1 true lf-tac-elab-term dup lf-mctx-view lf-view-count ['] mas-fits? find-index if nip lf-mctx-fvar exit then'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1: rename searches the oldest hypothesis first, where findDeclRevM? takes the newest (test.fs's h2: h renamed, ' h unknown)"
+
+[[fault]]
+id = "sm1-rename-state-kept"
+file = "src/front/tactics/rename.fs"
+old = '''  lf-tac-save lf-tac-must >r ['] trn-quiet catch r> lf-tac-restore lf-tac-must throw ;'''
+new = '''  lf-tac-save lf-tac-must >r ['] trn-quiet catch r> lf-tac-commit lf-tac-must throw ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1: rename keeps what its search did (the OfNat problem of _ = 2 its elaboration put off; the depth scope undoes the hole's assignment either way), where withoutModifyingState puts the state back (test.fs's by-probe-assigned: no pending problem added)"
+
+[[fault]]
+id = "sm1-rename-skipped"
+file = "src/front/tactics/rename.fs"
+old = '''' trn-run tac-k-rename lf-tactic-action!'''
+new = '''' drop tac-k-rename lf-tactic-action!'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1 (template: action skipped): rename does nothing, so k names nothing (test.fs's a b = by-rename: k ' k by-exact, 0)"
+
+[[fault]]
+id = "sm1-generalize-eq-no-refl"
+file = "src/front/meta-tactic/generalize.fs"
+old = ''': mgq-applied ( goal' -- e ) mgz-applied mgq-e lf-mk-eq-refl lf-mk-app ;'''
+new = ''': mgq-applied ( goal' -- e ) mgz-applied ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1: generalize h : e = x assigns the goal ?g e without Eq.refl e for h (test.fs's assignment of ge)"
+
+[[fault]]
+id = "sm1-generalize-eq-names-swapped"
+file = "src/front/meta-tactic/generalize.fs"
+old = ''': mgq-names ( -- names ) mgz-names mgq mgq-h @ lf-run+ ;'''
+new = ''': mgq-names ( -- names ) mgq mgq-h @ lf-run1 0 mgz-arg nip lf-run+ ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1: generalize h : e = x names the binders h then x, where introNP keeps x then h (test.fs's names at places 3 and 4)"
+
+[[fault]]
+id = "sm1-generalize-eq-tag-lost"
+file = "src/front/meta-tactic/generalize.fs"
+old = ''': mgq-new ( -- goal' ) mgz-target mgz-checked mgq-target mgz mgz-goal @ lf-goal-fresh ;'''
+new = ''': mgq-new ( -- goal' ) mgz-target mgz-checked mgq-target 0 lf-mctx-view lf-goal-new lf-must ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1 (template: tag lost): the equation form's new goal is untagged, where mkFreshExprSyntheticOpaqueMVar takes the goal's tag (test.fs's tag-t?)"
+
+[[fault]]
+id = "sm1-generalize-hyp-no-filter"
+file = "src/front/meta-tactic/generalize.fs"
+old = ''': mgh-keep ( fvar -- ) dup mgh-holds? if mgh mgh-kept lf-run+! else drop then ;'''
+new = ''': mgh-keep ( fvar -- ) mgh mgh-kept lf-run+! ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1: generalizeHyp reverts a hypothesis without e too, where Lean's filter keeps it in place (test.fs's hc at place 4)"
+
+[[fault]]
+id = "sm1-generalize-hyp-not-back"
+file = "src/front/meta-tactic/generalize.fs"
+old = '''  mgh mgh-locals @ dup run-count lf-goal-intro-kept drop ;'''
+new = '''  ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1: generalizeHyp leaves the reverted hypotheses as binders of the goal, where introNP puts them back (test.fs's gh' with 6 locals)"
+
+[[fault]]
+id = "sm1-generalize-eq-as-plain"
+file = "src/front/tactics/generalize.fs"
+old = '''  swap dup tgz-names dup 2 tgz-arg over 1 lf-tac-arg rot tgz-hyps tgz-gen ;'''
+new = '''  swap dup tgz-names dup 2 tgz-arg 0 rot tgz-hyps tgz-gen ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1: by-generalize-eq: makes no equation, so k names nothing (test.fs's by-rw[ ' k <- ], 0)"
+
+[[fault]]
+id = "sm1-generalize-at-ignored"
+file = "src/front/tactics/generalize.fs"
+old = ''': tgz-hyps ( i -- hyps ) 0 swap ['] lf-run+ ['] noop lf-with-location ;'''
+new = ''': tgz-hyps ( i -- hyps ) drop 0 ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1: generalize e = x at h leaves h as it was (test.fs's at[ h ] ' h by-exact, 0; and at[ * ] answers no 99)"
+
+[[fault]]
+id = "sm1-done-never-fails"
+file = "src/front/tactics/done.fs"
+old = ''': tdn-run ( i -- ) lf-tac-done ;'''
+new = ''': tdn-run ( i -- ) drop ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
+reason = "small tactics 1: done with goals left passes, the error then the proof's at its end, not Lean's at done (test.fs's 89 at by-done)"

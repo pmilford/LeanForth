@@ -1,0 +1,37 @@
+\ by-infer-instance, Lean's infer_instance (plan row TB2, small tactics 1;
+\ src/front/tactics/infer-instance.fs): exact inferInstance, the main
+\ goal's instance found by instance search. Lean twins in
+\ batch-small-1.lean.
+\ Lean: theorem ii_sub (a b : Nat) : Subsingleton (Decidable (a = b)) := by
+\         infer_instance
+theorem ii_sub
+  Nat explicit: a  Nat explicit: b  a b = Decidable Subsingleton
+:= by
+  by-infer-instance
+end ii_sub
+
+\ A Decidable goal of a have: instDecidableEqNat.
+\ Lean: theorem ii_have (a b : Nat) (h : a = b) : a = b := by
+\         have d : Decidable (a = b) := by infer_instance
+\         exact h
+theorem ii_have
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  a b = Decidable by-have-by: d
+    by-infer-instance
+  by-end
+  ' h by-exact
+end ii_have
+
+\ An instance with instances below it: instDecidableAnd, Nat.decLe.
+\ Lean: theorem ii_and (a b : Nat) (h : a = b) : a = b := by
+\         have d : Decidable (a = b ∧ a ≤ b) := by infer_instance
+\         exact h
+theorem ii_and
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  a b =  a b ≤  ∧ Decidable by-have-by: d
+    by-infer-instance
+  by-end
+  ' h by-exact
+end ii_and

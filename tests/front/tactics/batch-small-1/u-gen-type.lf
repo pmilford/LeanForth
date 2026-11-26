@@ -1,0 +1,12 @@
+\ Not supported yet (plan row TB2, small tactics 1): generalizing a = b in
+\ decide (a = b) leaves the instance instDecidableEqNat a b of type
+\ Decidable (a = b) where Decidable x is wanted, a result that is not type
+\ correct: Lean's error, 99 here (exit 2).
+\ Lean: theorem u_gen_type (a b : Nat) : decide (a = b) = decide (a = b) := by
+\         generalize (a = b) = x
+theorem u_gen_type
+  Nat explicit: a  Nat explicit: b  a b = Decidable.decide a b = Decidable.decide =
+:= by
+  a b = by-generalize: x
+  by-rfl
+end u_gen_type

@@ -1,0 +1,48 @@
+\ by-funext and by-funext[ x .. ], Lean's funext (plan row TB2, small
+\ tactics 1; src/front/tactics/funext.fs): apply funext, then intro, once
+\ per name or until a pass fails. LeanForth's statements cannot write a
+\ function's type yet, so the functions are the library's (Nat.succ).
+\ Lean twins in batch-small-1.lean.
+\ Lean: theorem fx_one : Nat.succ = Nat.succ := by
+\         funext x
+\         rfl
+theorem fx_one
+  ' Nat.succ ' Nat.succ =
+:= by
+  by-funext[ x ]
+  by-rfl
+end fx_one
+
+\ The plain form repeats until apply fails: one pass here, its variable
+\ inaccessible.
+\ Lean: theorem fx_plain : Nat.succ = Nat.succ := by
+\         funext
+\         rfl
+theorem fx_plain
+  ' Nat.succ ' Nat.succ =
+:= by
+  by-funext
+  by-rfl
+end fx_plain
+
+\ On a goal that is no function equation the plain form changes nothing.
+\ Lean: theorem fx_none (a b : Nat) (h : a = b) : a = b := by
+\         funext
+\         exact h
+theorem fx_none
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  by-funext
+  ' h by-exact
+end fx_none
+
+\ _ leaves the variable inaccessible, as Lean's intro _.
+\ Lean: theorem fx_blank : Nat.succ = Nat.succ := by
+\         funext _
+\         rfl
+theorem fx_blank
+  ' Nat.succ ' Nat.succ =
+:= by
+  by-funext[ _ ]
+  by-rfl
+end fx_blank

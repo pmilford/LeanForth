@@ -1,0 +1,9 @@
+\ A wrong twin (plan row TB2, small tactics 1; batch-small-1-wrong.lean):
+\ a goal that is no class: Lean's "type class instance expected" (110).
+\ Lean: theorem w_ii_class (a b : Nat) (h : a = b) : a = b := by
+\         infer_instance
+theorem w_ii_class
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  by-infer-instance
+end w_ii_class

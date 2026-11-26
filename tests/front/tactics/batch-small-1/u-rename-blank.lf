@@ -1,0 +1,8 @@
+\ Not supported (plan row TB2, small tactics 1): _ for the new name, which
+\ Lean's parser refuses (an identifier is wanted): 99 (exit 2).
+theorem u_rename_blank
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  a b = by-rename: _
+  ' h by-exact
+end u_rename_blank

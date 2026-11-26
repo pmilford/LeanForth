@@ -1,0 +1,12 @@
+\ A wrong twin (plan row TB2, small tactics 1; batch-small-1-wrong.lean):
+\ by-funext[ y ] on a goal that is no function equation: apply's 380.
+\ LeanForth names the constant `funext` where Lean prints `@funext` (the
+\ printer shows no @ before a bare constant), so check.py keeps this
+\ message as LeanForth's own (OWN).
+\ Lean: theorem w_funext (a : Nat) : a + 0 = a := by
+\         funext y
+theorem w_funext
+  Nat explicit: a  a 0 + a =
+:= by
+  by-funext[ y ]
+end w_funext

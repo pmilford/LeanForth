@@ -1,0 +1,13 @@
+\ A wrong twin (plan row TB2, small tactics 1; batch-small-1-wrong.lean):
+\ no IntCast instance for Nat: Lean's "failed to synthesize" (125).
+\ Lean: theorem w_ii_none (a b : Nat) (h : a = b) : a = b := by
+\         have d : IntCast Nat := by infer_instance
+\         exact h
+theorem w_ii_none
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  Nat IntCast by-have-by: d
+    by-infer-instance
+  by-end
+  ' h by-exact
+end w_ii_none

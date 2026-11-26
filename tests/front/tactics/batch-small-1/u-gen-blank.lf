@@ -1,0 +1,8 @@
+\ Not supported (plan row TB2, small tactics 1): _ for x, which Lean's
+\ parser refuses (an identifier is wanted): 99 (exit 2), never accepted.
+theorem u_gen_blank
+  Nat explicit: a  Nat explicit: b  a b + a b + =
+:= by
+  a b + by-generalize: _
+  by-rfl
+end u_gen_blank

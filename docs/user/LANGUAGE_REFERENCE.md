@@ -2003,6 +2003,14 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-revert[ HYP-NAME ... ]` | `( -- )` | parsing: names of hypotheses up to `]`, over lines (458 at `by-revert[` when a LeanForth word other than `_` and `*`, or the text's end, comes first; 459 for `_` or `*`; 460 for none) | read: a step. Run: the main goal's locals so named reverted at once, with those depending on them | Puts the hypotheses back into the goal in the context's order; unknown name: 455 (at `by-revert[`; Lean reports it at the name); a constant: 99. | `revert h k` |
 | `by-clear[ HYP-NAME ... ]` | `( -- )` | as `by-revert[` | read: a step. Run: each named local cleared from the main goal, newest first | Removes the hypotheses; 440, 441, 442 as `by-clear`; names as `by-revert[`. | `clear h k` |
 | `by-rename-i[ HYP-NAME ... ]` | `( -- )` | as `by-intro[`, one name at least (460) | read: a step; each name a hypothesis word. Run: renameInaccessibles of the main goal | Names the newest inaccessible hypotheses; too many names: 211. | `rename_i x y` |
+| `by-rename: HYP-NAME` | `( T -- )` (top: T) | parsing: one name after it, on its line | read: a step holding T; HYP-NAME a hypothesis word. Run: the newest hypothesis whose type is definitionally T (T's holes filled by the search, which is then undone) renamed HYP-NAME in a new main goal (see [D.11](#d11-by-funext-by-infer-instance-by-rename-by-generalize-by-skip-by-done)) | Renames a hypothesis found by its type; none: 482; `_`: 99. | `rename T => HYP-NAME` |
+| `by-funext` | `( -- )` | ordinary | read: a step. Run: `apply funext`, then a hidden variable introduced, again until `apply funext` fails (that pass undone) | Turns a goal `f = g` between functions into `f x = g x`; on a goal that is no equation of functions nothing changes; a function of two arguments: 93 (not supported yet). | `funext` |
+| `by-funext[ NAME ... ]` | `( -- )` | parsing: names up to `]` as `by-intro[`, one at least (460) | read: a step; each name a hypothesis word (`_` a hidden one). Run: for each name, `apply funext`, then the name introduced | The same with the variables named; a goal that is no equation of functions: 380. | `funext x y` |
+| `by-infer-instance` | `( -- )` | ordinary | read: a step. Run: `by-exact` of `inferInstance`, its instance found by instance search | Closes a goal that is a class (`Decidable (a = b)`, `Subsingleton (Decidable p)`); none found: 125; the goal no class: 110; a search that meets an instance the export left out: 119 (not supported yet). | `infer_instance` |
+| `by-generalize: NAME` | `( e -- )` (top: e) | parsing: one name after it, on its line; a trailing `at[ h ... ]` may follow | read: a step holding e; NAME a hypothesis word. Run: e's occurrences in the goal, and in the hypotheses of `at[ ]` (taken out and put back), replaced by a new variable NAME | Abstracts e into a variable; a result that is not type correct, `at[ * ]` or `_`: 99 (not supported yet). | `generalize e = NAME`, `... at h` |
+| `by-generalize-eq: HYP-NAME NAME` | `( e -- )` (top: e) | parsing: two names after it, on its line; a trailing `at[ h ... ]` may follow | read: as `by-generalize:`, HYP-NAME a hypothesis word too. Run: as `by-generalize:`, then HYP-NAME : e = NAME | The same, keeping the equation; errors as `by-generalize:`. | `generalize HYP-NAME : e = NAME` |
+| `by-skip` | `( -- )` | ordinary | read: a step. Run: nothing | Does nothing, with goals or none. | `skip` |
+| `by-done` | `( -- )` | ordinary | read: a step. Run: no goal may be left | Checks the proof is finished at that point; goals left: 89 at `by-done` (inside `by-try` taken back). | `done` |
 | `by-refine` | `( t -- )` (top: t) | ordinary | read: a step holding t. Run: elaborates t against the goal, assigns it, its `?_` and `?: NAME` new goals in its place, tagged as Lean's | Closes the goal with t up to its holes; a `_` left open: 461 (99 as an argument); an implicit argument left: 95; a mismatch: 96; a NAME taken: 139. | `refine t` |
 | `_` | `( -- t )` | ordinary (kernel form: 52) | read: a hole node | A hole unification fills (or a goal where the tactic allows one: `by-specialize`). | `_` |
 | `?_` | `( -- t )` | ordinary (kernel form: 52) | read: a synthetic hole node | A new goal of `by-refine`; elsewhere left open (461 in `by-exact`). | `?_` |
@@ -2942,6 +2950,64 @@ rule set that loops (`h : a = a + 0` used at `a`: Lean stops with its
 maximum recursion depth error) and `<-` on a let variable (Lean gives
 an error). A hypothesis named twice (`at[ h h ]`)
 is simplified twice, as in Lean.
+
+### D.11 `by-funext`, `by-infer-instance`, `by-rename:`, `by-generalize:`, `by-skip`, `by-done`
+
+Small tactics 1 (plan row TB2; `src/front/tactics/funext.fs`,
+`infer-instance.fs`, `rename.fs`, `generalize.fs`, `skip.fs`, `done.fs`,
+over the goal operations `lf-goal-apply-const`, `lf-goal-generalize-eq`
+and `lf-goal-generalize-hyp` of `src/front/meta-tactic/`). Each is a
+port of pinned Lean 4.35.0's tactic: `funext` is the macro `repeat
+(apply funext; intro)`, or `apply funext; intro x` per name
+(`Init/NotationExtra.lean:279-284`); `infer_instance` is `exact
+inferInstance` (`Init/Tactics.lean:518`); `rename` is
+`Elab/Tactic/ElabTerm.lean:365-383`; `generalize` is
+`Elab/Tactic/Generalize.lean` over `Meta/Tactic/Generalize.lean`
+(`generalizeHyp`); `skip` and `done` are `BuiltinTactic.lean`'s. Every
+term below is checked node for node against pinned Lean's
+(`tests/front/tactics/batch-small-1/`, `check.py`):
+
+| Form | Example |
+| --- | --- |
+| mathematics | the successor function equals itself, shown pointwise: for every $x$, $\mathrm{succ}\,x = \mathrm{succ}\,x$ |
+| LeanForth | the statement `' Nat.succ ' Nat.succ =`, proved by `by-funext[ x ]` then `by-rfl` |
+| Lean | `theorem fx_one : Nat.succ = Nat.succ := by funext x; rfl` |
+
+| Form | Example |
+| --- | --- |
+| mathematics | equality of natural numbers is decidable: a decision procedure for $a = b$ exists |
+| LeanForth | `a b = Decidable by-have-by: d` with the block `by-infer-instance`, `by-end` (and `Nat explicit: a`, `Nat explicit: b`) |
+| Lean | `have d : Decidable (a = b) := by infer_instance` |
+
+| Form | Example |
+| --- | --- |
+| mathematics | from $h : a = b$ (and $h_2 : a = b$), call the newer one $k$ |
+| LeanForth | `a b = by-rename: k` |
+| Lean | `rename a = b => k` |
+
+| Form | Example |
+| --- | --- |
+| mathematics | to show $a + b = c$ from $h : a + b = c$, write $x$ for $a + b$ in both, with $k : a + b = x$ kept |
+| LeanForth | `a b + by-generalize-eq: k x at[ h ]`, then `' h by-exact` |
+| Lean | `generalize k : a + b = x at h; exact h` |
+
+`by-skip` does nothing; `by-done` fails with Lean's "unsolved goals"
+(89) while a goal is left.
+
+Not supported yet (exit 2, never accepted): `by-funext` on a function of
+two arguments (`Nat.add = Nat.add`, 93: the unifier does not settle
+`?β x =?= Nat → Nat` yet; LeanForth statements cannot write a function
+type, so the functions are the library's); `by-generalize:` whose result
+is not type correct (Lean's error too; 99), `at[ * ]` (99) and a goal
+where kabstract must compare `a + b` with another sum such as `b + a`
+(93, the unifier at instances transparency); `_` as a name of
+`by-rename:` or `by-generalize:` (99; Lean's parser refuses it); an
+instance search that meets an instance the export left out (119).
+Several arguments (`generalize e1 = x, e2 = y`) and term patterns after
+`funext` have no form. Messages: Lean prints `@funext` in apply's 380
+where LeanForth prints `funext`, `IntCast Nat` where LeanForth prints
+`@IntCast Nat` (125), and the goal's type under 110, which LeanForth
+leaves out.
 
 ---
 

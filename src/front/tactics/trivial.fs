@@ -24,9 +24,9 @@
 \ Lean call list: the macro's rules -> lf-tac-macro-alts; focus ->
 \ lf-tac-focus, lf-tac-unfocus (tactic-run.fs); apply c ->
 \ lf-lift-meta-tactic, lf-tac-with-synth (tactic-core.fs) and
-\ lf-goal-apply-named; all_goals -> ttr-all (setGoals [g]: lf-tac-only;
-\ getUnsolvedGoals: lf-goals-unsolved); the other rules -> lf-tac-row of
-\ their rows.
+\ lf-goal-apply-const (meta-tactic/apply.fs); all_goals -> ttr-all
+\ (setGoals [g]: lf-tac-only; getUnsolvedGoals: lf-goals-unsolved); the
+\ other rules -> lf-tac-row of their rows.
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: the record ttr (the nesting of trivial inside its own first
 \ rule, put back however a nested run ends), in the checker context (ADR
@@ -49,9 +49,8 @@ end-structure
 : ttr-room ( -- ) ttr ttr-depth @ ttr-most < 0= if lf-tac-unported then ;
 : ttr-deeper ( xt -- ) ttr-room 1 ttr ttr-depth +! catch -1 ttr ttr-depth +! throw ;
 
-\ ---- apply c: c a constant of no universe parameter.
-: ttr-apply-tac ( goal c-addr u -- goals )
-  lf-mk-const0 ['] lf-goal-apply-named lf-tac-with-synth ;
+\ ---- apply c (evalApply: the apply under withSynthesize).
+: ttr-apply-tac ( goal c-addr u -- goals ) ['] lf-goal-apply-const lf-tac-with-synth ;
 : ttr-and-tac ( goal -- goals ) s" And.intro" ttr-apply-tac ;
 : ttr-true-tac ( goal -- goals ) s" True.intro" ttr-apply-tac ;
 : ttr-true ( -- ) lf-tac-step ['] ttr-true-tac lf-lift-meta-tactic ;

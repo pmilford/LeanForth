@@ -1,0 +1,45 @@
+\ T by-rename: h, Lean's rename T => h (plan row TB2, small tactics 1;
+\ src/front/tactics/rename.fs): the newest hypothesis whose type is
+\ defeq T takes the name h. Lean twins in batch-small-1.lean.
+\ Lean: theorem rn_one (a b : Nat) (h : a = b) : a = b := by
+\         rename a = b => k
+\         exact k
+theorem rn_one
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  a b = by-rename: k
+  ' k by-exact
+end rn_one
+
+\ Two of that type: the newest is renamed, h keeps its name.
+\ Lean: theorem rn_newest (a b : Nat) (h : a = b) (h2 : a = b) : a = b := by
+\         rename a = b => k
+\         exact h
+theorem rn_newest
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b = explicit: h2  a b =
+:= by
+  a b = by-rename: k
+  ' h by-exact
+end rn_newest
+
+\ A hole in T, filled by the search (h : a = b does not fit _ = a).
+\ Lean: theorem rn_hole (a b : Nat) (k : b = a) (h : a = b) : b = a := by
+\         rename _ = a => j
+\         exact j
+theorem rn_hole
+  Nat explicit: a  Nat explicit: b  b a = explicit: k  a b = explicit: h  b a =
+:= by
+  _ a = by-rename: j
+  ' j by-exact
+end rn_hole
+
+\ Defeq, not equal: a + 0 = b is a = b by unfolding.
+\ Lean: theorem rn_defeq (a b : Nat) (h : a + 0 = b) : a = b := by
+\         rename a = b => k
+\         exact k
+theorem rn_defeq
+  Nat explicit: a  Nat explicit: b  a 0 + b = explicit: h  a b =
+:= by
+  a b = by-rename: k
+  ' k by-exact
+end rn_defeq

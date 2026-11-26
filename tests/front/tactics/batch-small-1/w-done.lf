@@ -1,0 +1,9 @@
+\ A wrong twin (plan row TB2, small tactics 1; batch-small-1-wrong.lean):
+\ by-done with a goal left is Lean's "unsolved goals" (89).
+\ Lean: theorem w_done (a b : Nat) (h : a = b) : a = b := by
+\         done
+theorem w_done
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  by-done
+end w_done
