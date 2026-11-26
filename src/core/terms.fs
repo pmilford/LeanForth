@@ -324,11 +324,13 @@ end-structure
 : lf-tnode-same ( n key htab -- flag ) drop swap lf-tleaf lf-tleaf-node @ = ;
 \ The record a hash table is asked for (the input view's lf-tin-key, the
 \ store's lf-term-key, levels.fs's lf-level-key): a tag and two fields,
-\ hashed alike, and whether a record's fields are the ones sought.
+\ hashed alike, and whether a record's fields are the ones sought; the
+\ hash is kept with them, for the entry of a record not found.
 begin-structure /lf-sought
   field: lf-sought-tag
   field: lf-sought-first
   field: lf-sought-second
+  field: lf-sought-hashed
 end-structure
 : lf-sought! ( tag first second key -- )
   lf-sought-tag cell-triple! ;
@@ -337,9 +339,10 @@ end-structure
 : lf-sought= ( tag first second key -- flag )
   >r r@ lf-sought-second @ = swap r@ lf-sought-first @ = and
   swap r> lf-sought-tag @ = and ;
-\ The key's hash after its fields are stored.
+\ The key's hash after its fields are stored, and kept with them.
 : lf-sought-hash! ( tag first second key -- key h )
-  dup >r lf-sought! r@ dup lf-sought@ hash-3 r> drop ;
+  dup >r lf-sought! r@ dup lf-sought@ hash-3 dup r> lf-sought-hashed ! ;
+: lf-sought-hash ( key -- h ) lf-sought-hashed @ ;
 : lf-tfields-rehash ( n htab -- h ) drop lf-tleaf lf-tleaf-fields hash-3 ;
 : lf-tfields-same ( n key htab -- flag ) drop >r lf-tleaf lf-tleaf-fields r> lf-sought= ;
 create lf-tnode-hooks /htab-hooks allot
@@ -753,13 +756,13 @@ defer lf-term-view-hook ( -- outcome )
   lf-tleaf tuck lf-tleaf-node ! tuck lf-tleaf-stamp ! tuck lf-tleaf-second !
   lf-tleaf-first ! ;
 : lf-tleaf-by-node ( n -- )
-  dup lf-tleaf lf-tleaf-node @ dup hash-fmix lf-term-view lf-tview-nodes htab-find
-  if 2drop else lf-term-view lf-tview-nodes htab-put then ;
+  dup lf-tleaf lf-tleaf-node @ dup hash-fmix tuck lf-term-view lf-tview-nodes htab-find
+  if 2drop drop else swap lf-term-view lf-tview-nodes htab-put then ;
 : lf-tleaf-hash ( n -- key h ) lf-tleaf lf-tleaf-fields hash-3 lf-tin-key swap ;
 : lf-tleaf-by-fields ( n -- )
   dup lf-tleaf lf-tleaf-fields lf-tin-leaf-find if 2drop exit then
-  dup lf-tleaf-hash lf-term-view lf-tview-fields htab-find
-  if 2drop else lf-term-view lf-tview-fields htab-put then ;
+  dup lf-tleaf-hash tuck lf-term-view lf-tview-fields htab-find
+  if 2drop drop else swap lf-term-view lf-tview-fields htab-put then ;
 : lf-tleaf-new ( first second stamp index -- outcome )
   lf-tleaf-room dup ok? 0= if >r 2drop 2drop r> exit then drop
   1 lf-term-view lf-tview-leaves slab-claim dup ok? 0= if nip >r 2drop 2drop r> exit then
@@ -781,8 +784,8 @@ defer lf-term-view-hook ( -- outcome )
   dup lf-term-input? 0= if drop false exit then
   lf-tin-tag@ lf-term-binder-tag? ;
 : lf-tbind-new? ( index -- flag )
-  dup lf-tbind-fields lf-tin-key! lf-term-view lf-tview-binders htab-find
-  if 2drop false else lf-term-view lf-tview-binders htab-put true then ;
+  dup lf-tbind-fields lf-tin-key! tuck lf-term-view lf-tview-binders htab-find
+  if 2drop drop false else swap lf-term-view lf-tview-binders htab-put true then ;
 : lf-term-input-binder-first ( index -- flag outcome )
   dup lf-tin-binder? 0= if drop false outcome-invalid exit then
   lf-term-view lf-tview-binders htab-ready dup ok? 0= if nip false swap exit then
@@ -857,7 +860,8 @@ defer lf-term-view-hook ( -- outcome )
 : lf-term-find ( tag first second -- n true | i false )
   lf-term-key lf-sought-hash! lf-term-table htab-find ;
 : lf-term-enter ( i index true | i false -- index true | false )
-  if tuck swap lf-term-table htab-put true else drop false then ;
+  if tuck swap lf-term-key lf-sought-hash lf-term-table htab-put true
+  else drop false then ;
 \ An equal node found is given only where an allocation would be allowed
 \ (store-open?: a valid store with room and serials, and the test hook of
 \ lib/store.fs), so a store that would refuse a new node refuses alike.

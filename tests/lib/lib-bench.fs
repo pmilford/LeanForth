@@ -94,7 +94,7 @@ create htable /htab allot   create hooks /htab-hooks allot
 : h-same ( n key htab -- flag ) drop swap hval = ;
 ' h-rehash ' h-same hooks htab-hooks!
 : h-add ( i -- ) htable htab-ready drop dup hval dup hash-fmix htable htab-find
-  if 2drop else htable htab-put then ;
+  if 2drop else over hval hash-fmix htable htab-put then ;
 : h-find ( i -- ) hval dup hash-fmix htable htab-find 0= abort" htab lost a value" drop ;
 : two-n ( n -- ) 2* items ! ;
 : htab-go ( n -- ) 4 hooks htable htab-init drop

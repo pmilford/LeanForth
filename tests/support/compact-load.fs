@@ -247,7 +247,7 @@ variable decl-top  variable types-seen  variable ctors-seen  variable recs-seen
   2dup type ." :" 2 pick cons-numbers s" numbers" .kv
   2 pick cons-records slab-used-bytes s" record-bytes" .kv
   2 pick cons-bytes slab-count s" text-bytes" .kv
-  2 pick cons-table htab-slots u32s s" table-bytes" .kv cr ." table " .table ;
+  2 pick cons-table htab-bytes s" table-bytes" .kv cr ." table " .table ;
 : decls-of-kind ( kind -- n )
   0 compact-stage stage-decls 0 ?do i compact-stage staged-kind@ 2 pick = - loop nip ;
 : compact-stats ( -- )

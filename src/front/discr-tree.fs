@@ -181,7 +181,7 @@ create dt-edge-hooks /htab-hooks allot
 : dt-edge-add ( c -- outcome )
   dtq dt-edges htab-ready dup ok? 0= if nip exit then drop
   dup dn@ dup dn-key @ swap dn-parent @ dt-edge-find if 2drop outcome-invalid exit then
-  dtq dt-edges htab-put outcome-ok ;
+  dtq dt-edges htab-enter outcome-ok ;
 : dt-append-child ( c n -- )
   dn@ dup dn-child @ 0< if 2dup dn-child ! else 2dup dn-last-child @ dn@ dn-sibling ! then
   dn-last-child ! ;
@@ -224,7 +224,7 @@ create dt-edge-hooks /htab-hooks allot
   dup dr@ dr-key @ elab-key-star? if dup 1+ dtq dt-star-root ! then ;
 : dt-root-put ( k i -- r outcome )
   >r dtq dt-roots ['] dr-init dt-claimed ok-then? 0= if r> drop no-result exit then
-  dt-star-mark dup r> dtq dt-roots-index htab-put outcome-ok ;
+  dt-star-mark dup r> dtq dt-roots-index htab-enter outcome-ok ;
 : dt-root-add ( k -- r outcome )
   dtq dt-roots-index htab-ready dup ok? 0= if nip no-result exit then drop
   dup dt-root-find if nip outcome-ok else dt-root-put then ;

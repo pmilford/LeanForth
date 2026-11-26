@@ -321,7 +321,7 @@ end-structure
 \ A new entry, with its hash, into the slot its lookup found.
 : lf-name-list ( slot id -- id )
   lf-name-sought lf-nsought-hash @ over lf-name-slot lf-entry-hash !
-  tuck swap lf-name-table htab-put lf-name-count @ lf-name-listed ! ;
+  tuck swap lf-name-table htab-enter lf-name-count @ lf-name-listed ! ;
 
 \ Appending; callers have checked validity, absence and room. The store's
 \ identities are issued but unused: names are compared by content.

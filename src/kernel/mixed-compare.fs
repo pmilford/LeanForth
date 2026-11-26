@@ -228,7 +228,7 @@ create lf-meq-hooks /htab-hooks allot
 : lf-meq-reset ( -- ) 0 lf-meq-count ! lf-meq-table ['] lf-meq-table-make htab-renew ;
 : lf-meq-keep ( x y i -- )
   lf-meq-count @ 1+ lf-meq-pairs slab-hold ok? 0= if drop 2drop exit then
-  >r lf-meq-count @ lf-meq-pair 2! lf-meq-count @ r> lf-meq-table htab-put
+  >r lf-meq-count @ lf-meq-pair 2! lf-meq-count @ r> lf-meq-table htab-enter
   1 lf-meq-count +! ;
 : lf-meq-seen? ( x y -- flag )
   lf-meq-table htab-ready ok? 0= if 2drop false exit then

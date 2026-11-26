@@ -943,7 +943,7 @@ create ed-key-readers  ' ed-key-const , ' ed-key-proj , ' ed-key-lit , ' ed-key-
 : ed-place ( e -- outcome )
   ed-ranks htab-ready ed-roomed dup ok? 0= if nip exit then drop
   dup ed-value ed-rank-find
-  if 2drop ed-e-rank ed-bad else ed-ranks htab-put outcome-ok then ;
+  if 2drop ed-e-rank ed-bad else ed-ranks htab-enter outcome-ok then ;
 
 \ ---- A record's own declaration, its member name: read by the kind's
 \ reader, named by one record of the kind at most (a second: the kind's
@@ -1101,7 +1101,7 @@ create ed-elim-steps  ' ed-elim-kind! , ' ed-elim-decl! , ' ed-elim-types! , 0 ,
 : ed-elim-insert ( i -- outcome )
   ed-table htab-ready ed-roomed dup ok? 0= if nip exit then drop
   dup elab elab-elim-key tuck ed-key! ed-key-find
-  if ed-twice else ed-table htab-put outcome-ok then ;
+  if ed-twice else ed-table htab-enter outcome-ok then ;
 : ed-on-eliminator ( value -- outcome )
   dup ed-elim-keys ed-shape? 0= if drop ed-malformed exit then
   elab-elims ed-claim ok-then? 0= if nip exit then tuck ed-elim-steps ed-steps

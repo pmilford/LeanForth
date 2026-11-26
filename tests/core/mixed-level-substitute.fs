@@ -194,7 +194,7 @@ T{ 500 run-substitution -> fixture-root @ root-id @ outcome-ok }T
 T{ lf-mls-set htab-count lf-mls-reached @ -> 0 4 }T
 2 actuals pair! 3 actuals 2 cells + pair!
 : stale-set ( -- )
-  lf-mls-reached @ 0 ?do i lf-mls-node lf-mls-find drop i swap lf-mls-set htab-put loop ;
+  lf-mls-reached @ 0 ?do i lf-mls-node lf-mls-find drop i swap lf-mls-set htab-enter loop ;
 stale-set
 T{ lf-mls-set htab-count -> 4 }T
 T{ 500 run-substitution -> 7 term-serial outcome-ok }T

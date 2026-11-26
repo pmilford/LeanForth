@@ -110,7 +110,7 @@ top3 cons-free mid cons-free
 \ Sealing freezes the table: finds through an extension change no byte of
 \ the sealed set's record or slots, and count themselves in the extension.
 create base-copy /cons allot
-: low-slots ( -- addr u ) low cons-table htab-block @ low cons-table htab-slots u32s ;
+: low-slots ( -- addr u ) low cons-table htab-block @ low cons-table htab-bytes ;
 create slots-copy 64 u32s allot
 T{ low cons-table htab-frozen? low-slots nip 64 u32s <= -> true true }T
 low base-copy /cons move  low-slots slots-copy swap move

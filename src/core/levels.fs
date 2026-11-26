@@ -93,9 +93,11 @@ create lf-level-hooks /htab-hooks allot
 : lf-level-key@ ( -- tag first second ) lf-level-key lf-sought@ ;
 : lf-level-find ( tag first second -- n true | i false )
   lf-level-key lf-sought-hash! lf-level-table htab-find ;
-\ Enter the new record index at the empty slot i the find gave.
+\ Enter the new record index at the empty slot i the find gave, with the
+\ hash the find kept in the key.
+: lf-level-put ( index i -- ) lf-level-key lf-sought-hash lf-level-table htab-put ;
 : lf-level-enter ( i index true | i false -- index true | false )
-  if tuck swap lf-level-table htab-put true else drop false then ;
+  if tuck swap lf-level-put true else drop false then ;
 \ Take record index out of the table, if it is there (a record made while
 \ sharing was off, or that the table could not take, is not), and every
 \ record from count up to the store's count.
@@ -108,7 +110,7 @@ create lf-level-hooks /htab-hooks allot
 \ sharing).
 : lf-level-enter-zero ( -- )
   lf-level-table htab-ready ok? 0= if exit then
-  0 lf-level-slot node@ lf-level-find if drop else 0 swap lf-level-table htab-put then ;
+  0 lf-level-slot node@ lf-level-find if drop else 0 swap lf-level-put then ;
 \ Empty the table, back to 16 slots when it had grown large.
 : lf-level-table-empty ( -- ) lf-level-table ['] lf-level-table-make htab-renew ;
 

@@ -844,7 +844,7 @@ T{ stale-jobs -rot = swap -> true 0 }T
 \ over a leaf of its own, not that later input leaf (core/terms.fs's
 \ lf-term-horizon!), or its fingerprint differs; kinds has an mdata too.
 get-order lf-lib-private swap 1+ set-order
-: htab-mix ( h htab -- h' ) dup htab-block @ swap htab-slots u32s bytes-mix ;
+: htab-mix ( h htab -- h' ) dup htab-block @ swap htab-bytes bytes-mix ;
 previous
 : slab-mix ( h slab -- h' ) 0 over slab-at swap slab-bytes bytes-mix ;
 : view-mix ( h -- h' )

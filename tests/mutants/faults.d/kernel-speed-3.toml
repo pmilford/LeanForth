@@ -1,0 +1,117 @@
+# Planted faults of group kernel-speed-3 (2026-11-25; plan 9.4.8z7), the
+# prototype's four changes landed: stored hashes in lib/htab.fs's slots
+# (P2), the replace memo's scratch memo for unstamped calls (P1), the lean
+# walker of instantiation (P3) and input leaf entries without a probe (P4).
+# Read with tests/mutants/faults.toml as one list.
+
+# ---- P2: a slot holds the entry and its hash; the hash decides only which
+# entries same is asked about.
+
+[[fault]]
+id = "ks3-htab-growth-loses-hash"
+file = "src/lib/htab.fs"
+old = '''  >r htab-slot@ dup r@ htab-empty r> htab-slot htab-slot! ;'''
+new = '''  >r htab-slot@ dup r@ htab-empty r> htab-slot nip 0 swap htab-slot! ;'''
+test = "$GFORTH tests/lib/htab.fs"
+reason = "growth moves an entry without its stored hash: every entry is lost to its finds"
+quick = true
+
+[[fault]]
+id = "ks3-htab-removal-leaves-hash"
+file = "src/lib/htab.fs"
+old = ''': htab-shift ( hole j htab -- ) tuck htab-slot -rot htab-slot /htab-slot move ;'''
+new = ''': htab-shift ( hole j htab -- ) tuck htab-slot -rot htab-slot 1 u32s move ;'''
+test = "$GFORTH tests/lib/htab.fs"
+reason = "Algorithm R moves an entry back without its hash: the hole's old hash hides it"
+quick = true
+
+[[fault]]
+id = "ks3-htab-find-trusts-hash"
+file = "src/lib/htab.fs"
+old = '''    1- dup 2r@ htab-same if nip nip 2r> 2drop true exit then drop r@ htab-next'''
+new = '''    1- dup 2r@ 2drop drop true if nip nip 2r> 2drop true exit then drop r@ htab-next'''
+test = "$GFORTH tests/lib/htab.fs"
+reason = "a find takes an equal stored hash for an equal entry, without asking same"
+quick = true
+
+[[fault]]
+id = "ks3-htab-find-skips-equal-hash"
+file = "src/lib/htab.fs"
+old = '''  >r begin 2dup r@ htab-slot tuck htab-hash@ <> swap u32@ dup while'''
+new = '''  >r begin 2dup r@ htab-slot tuck htab-hash@ = swap u32@ dup while'''
+test = "$GFORTH tests/lib/htab.fs"
+reason = "a find asks same only of entries whose hash differs, so it never finds one"
+
+[[fault]]
+id = "ks3-htab-find-ignores-hash"
+file = "src/lib/htab.fs"
+old = '''  >r begin 2dup r@ htab-slot tuck htab-hash@ <> swap u32@ dup while'''
+new = '''  >r begin 2dup r@ htab-slot tuck 2drop false swap u32@ dup while'''
+test = "$GFORTH tests/lib/htab.fs"
+reason = "a find asks same of every entry of its run, the stored hash unused"
+
+[[fault]]
+id = "ks3-htab-put-wrong-hash"
+file = "src/lib/htab.fs"
+old = ''': htab-put ( n i h htab -- ) 1 over htab-entries +! >r swap r> htab-slot htab-slot! ;'''
+new = ''': htab-put ( n i h htab -- ) 1 over htab-entries +! >r swap 1+ r> htab-slot htab-slot! ;'''
+test = "$GFORTH tests/lib/htab.fs"
+reason = "htab-put stores a hash other than the one given: the entry is never found"
+quick = true
+
+[[fault]]
+id = "ks3-htab-enter-wrong-hash"
+file = "src/lib/htab.fs"
+old = ''': htab-enter ( n i htab -- ) 2 pick over htab-rehash swap htab-put ;'''
+new = ''': htab-enter ( n i htab -- ) 2 pick over htab-rehash 1+ swap htab-put ;'''
+test = "$GFORTH tests/lib/htab.fs"
+reason = "htab-enter stores a hash other than rehash's"
+
+[[fault]]
+id = "ks3-htab-bytes-four"
+file = "src/lib/htab.fs"
+old = ''': htab-bytes ( htab -- u ) htab-slots /htab-slot * ;'''
+new = ''': htab-bytes ( htab -- u ) htab-slots 4 * ;'''
+test = "$GFORTH tests/lib/htab.fs"
+reason = "a table's bytes counted at the old 4 a slot: memory reports miss half of every table"
+
+[[fault]]
+id = "ks3-htab-sound-blind"
+file = "src/lib/htab.fs"
+old = '''  tuck htab-slot htab-slot@ >r swap htab-rehash u32-mask and r> = ;'''
+new = '''  tuck htab-slot htab-slot@ >r swap htab-rehash u32-mask and r> drop drop true ;'''
+test = "$GFORTH tests/lib/htab.fs"
+reason = "htab-sound? passes a stored hash that is not rehash's"
+
+[[fault]]
+id = "ks3-memo-index-wrong-hash"
+file = "src/lib/memo.fs"
+old = ''': memo-index ( n i memo -- ) dup memo-probe-hash @ swap memo-table htab-put ;'''
+new = ''': memo-index ( n i memo -- ) 0 swap memo-table htab-put ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "a memo enters a key with a hash its finds never use: every key is lost"
+quick = true
+
+[[fault]]
+id = "ks3-memo-look-keeps-no-hash"
+file = "src/lib/memo.fs"
+old = '''  2dup memo-hash 2dup swap memo-probe-hash ! swap memo-table htab-find ;'''
+new = '''  2dup memo-hash swap memo-table htab-find ;'''
+test = "$GFORTH tests/lib/memo.fs"
+reason = "memo-look keeps no hash: a new entry is entered with the previous key's"
+
+[[fault]]
+id = "ks3-cons-find-keeps-no-hash"
+file = "src/lib/cons.fs"
+old = '''  2dup cons-hashed ! tuck cons-table htab-find ;'''
+new = '''  tuck cons-table htab-find ;'''
+test = "$GFORTH tests/lib/cons.fs"
+reason = "cons-commit enters a new record with a stale hash, so it is not found again"
+
+[[fault]]
+id = "ks3-sought-keeps-no-hash"
+file = "src/core/terms.fs"
+old = '''  dup >r lf-sought! r@ dup lf-sought@ hash-3 dup r> lf-sought-hashed ! ;'''
+new = '''  dup >r lf-sought! r@ dup lf-sought@ hash-3 0 r> lf-sought-hashed ! ;'''
+test = "$GFORTH tests/core/terms.fs"
+reason = "a new node is entered with hash 0, not its fields': hash-consing loses it"
