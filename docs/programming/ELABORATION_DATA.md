@@ -841,6 +841,42 @@ file order (48), the places increasing and below the number of the lemma's leadi
 check); faults `tests/mutants/faults.d/simp-data.toml`. The check's "elaboration data:" line ends
 with ", N congruence lemmas, M defeq tags" for format 4 (`cli-elab-format4`, `src/cli/leanforth-text.fs`).
 
+## Format 4.1: realized congruence theorems (slice SD-b)
+
+Plan FE9, slice SD-b of [TACTIC_SIMP.md](../design/TACTIC_SIMP.md) (the owner's question 3 of its section 0,
+approved with the plan on 2026-11-24). `ELAB_FORMAT=4.1 scripts/export-elab.sh OUTPUT EXPORT MODULE...` writes
+format 4 and, for every congruence theorem Lean realized in the library (Init has 256), a `realized` record. The
+simp data's Lean part is `scripts/export_simp.lean` (plan task SD-b.6: moved out of `export_elab.lean`, whose
+digest keys the Mathlib slice's cache): the defeq tag, the `congr` records and the `realized` records, joined by
+`export-elab.sh` to `export_elab.lean`'s records under one header; formats 3 and 4 are written byte for byte as
+before (Init's data of both compared with the earlier scripts, 2026-11-26). The header says
+`"format_version":"4.1"` (a text, as 3.1 and 3.2) and counts `realized` too.
+
+| Record | Members | From |
+| --- | --- | --- |
+| `realized` | `name` (a theorem `f.congr_simp`), `fun` (`f`), `kind` (`congr_simp`), `arg_kinds` (its argument kinds as `congrKindsExt` holds them: 0 fixed, 1 eq, 2 cast, 3 subsingletonInst) | `Meta/CongrTheorems.lean:405-446` (realizeConst), `congrKindsExt` |
+
+`{"realized":{"arg_kinds":[1,3],"fun":["Decidable","decide"],"kind":"congr_simp","name":["Decidable","decide","congr_simp"]}}`.
+The finisher keeps a record when the export has the theorem and its function, and leaves it out otherwise (Init's
+export lacks 20 of the 256, of private functions); LeanForth then answers unsupported where simp would need that
+theorem, as for a function the library has none for (Lean makes it in the user's file). The record has no
+statement of its own: the theorem is the export's, checked by the kernel with the library.
+
+**Read** by `src/front/simp-data.fs` as a kind added with `elab-add-kind41` (`src/front/elab-data.fs`): read in a
+format-4.1 file alone (in format 4 an unknown kind, error 11, and not counted in its header); the theorem a
+theorem of the library (errors 12, 14) and named once, one record a function (47); the theorem is the function's
+`congr_simp` (37); `kind` the text `congr_simp` and the kinds numbers 0-3 (10). `simp-realized ( f -- r flag
+outcome )` answers unsupported for older data. simp's `tryAutoCongrTheorem?` (`src/front/simp/congr.fs`) uses
+the theorem when its kinds are the ones it computes (Lean's `mkCongrSimp?`, `Simp/Types.lean:793`). The check's
+data line ends with ", N realized congruence theorems" (`cli-elab-format41`). Tests: `tests/front/simp-data.fs`,
+`tests/front/elab-kinds.fs`, `tests/front/test_simp_data.py` (the finisher's 4.1, eight damaged 4.1 files);
+faults in `tests/mutants/faults.d/simp-data.toml`. The test export `tests/front/simp-slice.ndjson` holds 5
+realized theorems (`Decidable.decide.congr_simp` and `ite.congr_simp` among them) and, for plan task SD-b.8,
+`ForM.forM` with its two congruence lemmas (Init has no second `@[congr]` lemma of `ite`). Not written yet (SD-b's
+rest): the `simp` and `simp_left_out` records, `simp_set`, `simp_unfold`, simprocs, `backward_defeq`, the
+`coe_decl` tag, the `refl` and `symm` sets, the `simp_helper` kind of `realized` (Init's `._simp_N` helpers, with
+EX), the `reference-elab-data` comparisons of plan task SD-b.6 (b) and (c).
+
 ## Unification hints: not in the data
 
 Lean keeps every `unif_hint` in `unificationHintExtension`'s discrimination

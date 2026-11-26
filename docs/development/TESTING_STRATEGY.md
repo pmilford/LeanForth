@@ -1122,7 +1122,10 @@ scripts/export-elab.sh tests/front/patterns-slice.elab.ndjson \
   tests/front/patterns-slice.ndjson Init                            # pinned Lean
 ```
 
-The slicer keeps the export's order and header; the re-export must print
+The simp slice (`tests/front/simp-slice`, from `simp-slice.roots`) is made
+the same way with `ELAB_FORMAT=4.1` for its data; its cut of 2026-11-26 had
+gaps in its numbering, so the slice is the re-export's copy, which then
+re-exports "identical" (a fixed point). The slicer keeps the export's order and header; the re-export must print
 "identical" (the review of slice E2b reproduced the committed file byte for
 byte, sha256 `ade176ae…`); the manifest is written beside the export
 (`.ndjson.manifest.json`), and `export-elab.sh` writes the elaboration data

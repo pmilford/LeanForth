@@ -2842,10 +2842,29 @@ kept, and an instance the lemma needs is found as Lean finds it.
 then the same and `eq_self` closes the goal (`simp-congr.lf`, both
 terms equal to Lean's).
 
+A function without `@[congr]` lemmas whose arguments include an
+instance (or a proof) is simplified by Lean's automatic congruence
+theorem, `f.congr_simp`, which Lean made once for the library
+("realized"). LeanForth reads the library's realized theorems from the
+elaboration data (format 4.1, written by `ELAB_FORMAT=4.1
+scripts/export-elab.sh`) and uses the one Lean uses, with the new
+instance found as Lean finds it:
+
+| Form | Example |
+| --- | --- |
+| mathematics | if $a = b$ then the truth value of $a = 0$ equals that of $b = 0$ |
+| LeanForth | `a b = explicit: h` and `a 0 = Decidable.decide b 0 = Decidable.decide =`, proved by `by-simp-only[ ' h ]` |
+| Lean | `theorem simp_decide (a b : Nat) (h : a = b) : decide (a = 0) = decide (b = 0) := by simp only [h]` |
+
+The proof is `Decidable.decide.congr_simp` applied to `a = 0`, `b = 0`,
+the rewrite's proof, the old instance and `instDecidableEqNat b 0`
+(`tests/front/tactics/simp-3/simp-decide.lf`, its term equal to Lean's
+node for node).
+
 **Running it.** The theorems `by-simp-only[ ]` can use are those of the
 library the file is checked against. The test library is
 `tests/front/simp-slice.ndjson`, cut from Lean's `Init` from the roots in
-`tests/front/simp-slice.roots` (about 2,000 declarations, among them
+`tests/front/simp-slice.roots` (1,803 declarations, among them
 the rules `Nat.add_zero`, `Nat.zero_add`, `Nat.mul_one`, `Nat.one_mul`,
 `Nat.mul_zero`, `Nat.sub_self`, `and_self`, `and_true`, `true_and`,
 `eq_self` and `iff_self`):
@@ -2899,9 +2918,12 @@ each):
   `forall_prop_domain_congr`); a `fun` of two or more variables whose
   body is rewritten with a proof; a `∀` that is no proposition; a
   rewrite inside an argument other terms depend on (Lean's `dsimp`);
-- a rewrite Lean proves with an automatic congruence theorem, as
-  `decide (a = 0) = decide (b = 0)` from `' h` (Lean's
-  `Decidable.decide.congr_simp`, `tests/front/tactics/simp-3/u-decide.lf`);
+- a rewrite Lean proves with an automatic congruence theorem the
+  library does not hold (Lean then makes it in the user's file), whose
+  argument kinds differ from the ones Lean computes, of a function that
+  is a local variable, or with a proof argument whose type the rewrite
+  changes (Lean's casts); an instance the theorem needs that is not
+  found (Lean then takes another way);
   a congruence lemma that is an `↔`, or whose hypothesis's right side
   has arguments (`dite_congr`), or an `if` applied to more arguments;
   a function rewritten with a proof at the head of its arguments.

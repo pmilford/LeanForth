@@ -124,12 +124,24 @@ T{ with-h x0 a0 lf-mk-eq j0 decide-of simp s" Decidable.decide.congr_simp" head?
 \ The record's kinds other than the computed ones (Lean then builds the
 \ theorem itself, mkCongrSimpCore?, not ported): unsupported, the kind
 \ put back after. An eq argument without a proof is Eq.refl of itself.
+: sa-n-set ( e n -- ) swap sm-push sa sa-n ! ;
 : dec-kinds ( -- addr )
   s" Decidable.decide" lfa-intern lf-menv-data-decl drop simp-realized 2drop
   simp-realized-kinds drop ;
 T{ dec-kinds dup @ 0 rot ! with-h x0 a0 lf-mk-eq j0 decide-of simp-outcome swap dec-kinds !
    -> outcome-unsupported }T
 T{ x0 lf-simp-none sc-h' s" Eq.refl" head? x0 h0 sc-h' -> true h0 }T
+\ The words alone, on an activation of their own: the old instance kept
+\ when its type is the new class; kinds of another number differ; the
+\ realized theorem of a head that is no constant, a constant the data
+\ does not hold, or one without a record: unsupported.
+T{ j0 x0 a0 lf-mk-eq dec-type sc-new-inst -> j0 }T
+: realized-of ( e -- outcome )
+  sm-push ['] sc-realized catch ?dup if lf-meta-outcome else drop outcome-ok then sm-pop ;
+T{ x0 a0 lf-mk-eq j0 decide-of 2 sa-n-set dec-kinds 1 sc-kinds= sm-pop -> false }T
+T{ x0 x0 lf-mk-app realized-of -> outcome-unsupported }T
+T{ s" zz.none" lfa-intern 0 lf-mk-const-id x0 lf-mk-app realized-of -> outcome-unsupported }T
+T{ s" Nat.succ" lf-mk-const0 x0 lf-mk-app realized-of -> outcome-unsupported }T
 \ A cast argument (a proof whose type mentions a rewritten argument):
 \ @Fin.mk x (x + 0) h with h : x + 0 < x (kinds fixed, eq, cast), x + 0
 \ to x by definition, needs removeUnnecessaryCasts (not ported):

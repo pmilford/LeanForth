@@ -136,6 +136,10 @@ binds) and gains record kinds; format 4 is format 3 plus:
 the `congr` records and the `defeq` tag ([ELABORATION_DATA.md](../programming/ELABORATION_DATA.md), "Format 4").
 The other additions below come with slice SD-b as format `"4.1"` (a text, as `"3.1"` and `"3.2"` were introduced),
 which SD-a's reader refuses as another version (error 7), never misreads.
+*Format 4.1 (2026-11-26, simp group 3):* written and read for the `realized` kind alone (`name`, `fun`, `kind`
+`congr_simp`, `arg_kinds`: the kinds `congrKindsExt` holds, which simp compares with those it computes); no
+statement member, since the theorem is the export's own and the kernel checks it. The other kinds of the table
+below are still to come ([ELABORATION_DATA.md](../programming/ELABORATION_DATA.md), "Format 4.1").
 
 | Kind | Members | From |
 | --- | --- | --- |
