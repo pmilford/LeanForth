@@ -2926,7 +2926,16 @@ each):
   found (Lean then takes another way);
   a congruence lemma that is an `↔`, or whose hypothesis's right side
   has arguments (`dite_congr`), or an `if` applied to more arguments;
-  a function rewritten with a proof at the head of its arguments.
+  a function rewritten with a proof at the head of its arguments;
+- a rule under two binders whose body mentions both variables (`∀ a b,
+  a + 0 + (b + 0) = a + b` by `Nat.add_zero`, after `by-revert`; `∀ a b,
+  b + 0 = b` works), and a `∀` over a further unnamed `Nat →` (`∀ a,
+  Nat → a + 0 = a`): the same unification as the two-variable `fun`;
+- an `if` branch or a `decide` argument changed only by a definitional
+  rule (`if c = 0 then a + 0 else 1` or `decide (a + 0 = 0)` with
+  `' Nat.add_zero`): the condition or a rule with a proof works;
+- a hypothesis holding an `if` cannot be stated yet (error 139 at the
+  statement, exit 2), so `at[ h ]` on one is not reachable from text.
 
 Also error 99 (exit 2) where Lean refuses with an error of its own: a
 rule set that loops (`h : a = a + 0` used at `a`: Lean stops with its
