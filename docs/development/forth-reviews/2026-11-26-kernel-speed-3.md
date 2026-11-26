@@ -154,7 +154,7 @@ commit that adds this section.
 | 5 (low) | Fixed in `b7711ad5`: `lf-rmemo-begin` takes a negative stamp as 0 (every caller passes 0 or an identity + 1, so none changes); the header says stamps are >= 0; a test that a negative stamp naming a scratch call's number finds none of its entries; fault `ks3-rmemo-negative-stamp-kept`, caught. |
 | 6 (low, doc) | Fixed in `b7711ad5`: the header says the count stops showing a thrown unstamped call's entries when the next unstamped call begins, and that the passes' recovery empties both memos. |
 | 7 (low) | Planned: plan row 9.4.8z9 (look and join from a walker record, the base on the frames' stack instead of `frame-job`). |
-| 8 (low, style) | Fixed in `b7711ad5`: `lf-open-quick?` as the review writes it (two lines, to stay under 90 characters). |
+| 8 (low, style) | Fixed in `b7711ad5`: `lf-open-quick?` as the review writes it (two lines, to stay under 90 characters); the form is a member of the false-positive duplicate group `8c62bb325216` (`dup a? if b else drop false then`), whose record lists it in `452e7d52`. |
 
 Checks of the fix round (`ulimit -u 500`): the five new faults caught (`scripts/mutants.py --only ...`, gforth);
 `tests/core/mixed-instantiate.fs`, `mixed-shift.fs`, `mixed-beta.fs`, `check-declaration-ndjson.fs` and
