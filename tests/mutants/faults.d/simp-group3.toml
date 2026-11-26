@@ -106,3 +106,19 @@ old = '''  sc-has-cast sc-flag? if lf-unported then'''
 new = ''''''
 test = "$GFORTH tests/front/tactics/simp-3/test.fs"
 reason = "SL2: a cast argument needs removeUnnecessaryCasts (Types.lean:900), not ported; taken, Pc (x + 0) rfl becomes Pc x rfl, ill-typed"
+
+[[fault]]
+id = "eq-arg-refl-of-old"
+file = "src/front/simp/congr.fs"
+old = '''  dup sc-old dup sc-v+ swap sc-arg sca-r 2@ over sc-v+ lf-simp-proof' sc-v+ ;'''
+new = '''  dup sc-old dup sc-v+ swap sc-arg sca-r 2@ over sc-v+ nip lf-simp-proof sc-v+ ;'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "review M2: tryAutoCongrTheorem? proves an eq argument changed by definition with getProof' of the new term (Types.lean:905), Eq.refl b; Eq.refl of the old b + 0 is accepted by the kernel but is not Lean's term"
+
+[[fault]]
+id = "getproof-hint-dropped"
+file = "src/front/simp/types.fs"
+old = '''  2dup lf-defeq! if nip lf-mk-eq-refl else st-hinted-refl then ;'''
+new = '''  nip lf-mk-eq-refl ;'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "review M2: Result.getProof' (Types.lean:569) gives mkExpectedTypeHint (Eq.refl e) (src = e) when src and e are not definitionally equal in the settings in force"

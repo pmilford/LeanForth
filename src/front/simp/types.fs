@@ -8,6 +8,10 @@
 \ (only simprocs and dischargers make it false).
 \ - lf-simp-none ( -- -1 ), lf-simp-none? ( h -- flag ).
 \ - lf-simp-proof ( e h -- p ): Result.getProof (560): h, else mkEqRefl e.
+\ - lf-simp-proof' ( src e h -- p ): Result.getProof' (569) of the result
+\   ( e h ) of src: h, else mkEqRefl e when src and e are definitionally
+\   equal in the settings in force, else that proof with the expected type
+\   src = e (mkExpectedTypeHint).
 \ - lf-simp-trans ( h1 e2 h2 -- e2 h ): r1.mkEqTrans r2
 \   (mkEqTransOptProofResult, 345) for r1's proof h1: r2 as it is when h1
 \   is none, with h1 when h2 is none, else with Meta.mkEqTrans h1 h2
@@ -38,12 +42,18 @@ base @ decimal   \ the numbers below are decimal; the BASE kept here returns at 
 require ../../lib/lib.fs
 require ../../lib/context.fs
 require ../../core/terms.fs
+require ../meta-must.fs
 require ../app-builder.fs
 
 -1 constant lf-simp-none
 : lf-simp-none? ( h -- flag ) lf-simp-none = ;
 : lf-simp-sides ( type -- lhs rhs ) lf-eq? 0= if lf-unported then >r nip r> ;
 : lf-simp-proof ( e h -- p ) dup lf-simp-none? if drop lf-mk-eq-refl else nip then ;
+: st-hinted-refl ( src e -- p )
+  tuck lf-mk-eq swap lf-mk-eq-refl swap lf-mk-expected-type-hint ;
+: lf-simp-proof' ( src e h -- p )
+  dup lf-simp-none? 0= if nip nip exit then drop
+  2dup lf-defeq! if nip lf-mk-eq-refl else st-hinted-refl then ;
 : lf-simp-trans ( h1 e2 h2 -- e2 h )
   rot dup lf-simp-none? if drop exit then
   over lf-simp-none? if nip exit then swap lf-mk-eq-trans ;

@@ -131,6 +131,29 @@ T{ with-h x0 a0 lf-mk-eq j0 decide-of simp s" Decidable.decide.congr_simp" head?
 T{ dec-kinds dup @ 0 rot ! with-h x0 a0 lf-mk-eq j0 decide-of simp-outcome swap dec-kinds !
    -> outcome-unsupported }T
 T{ x0 lf-simp-none lf-simp-proof s" Eq.refl" head? x0 h0 lf-simp-proof -> true h0 }T
+\ Result.getProof' (lf-simp-proof', Types.lean:569): a proof kept; with
+\ none, Eq.refl of the new term when the two are definitionally equal
+\ (b + 0 and b), else that proof with the expected type src = e (a and b:
+\ id (a = b) (Eq.refl b)).
+b0 plus0 constant b+0
+: hinted ( -- p ) a0 b0 lf-simp-none lf-simp-proof' ;
+T{ a0 b0 h0 lf-simp-proof' -> h0 }T
+T{ b+0 b0 lf-simp-none lf-simp-proof' b0 lf-mk-eq-refl lf-eqv! -> true }T
+T{ hinted b0 lf-mk-eq-refl a0 b0 lf-mk-eq lf-mk-expected-type-hint lf-eqv! -> true }T
+T{ hinted s" id" head? -> true }T
+\ tryAutoCongrTheorem?'s eq arguments (sc-eq-vals, Types.lean:902) of
+\ @Eq Nat a (b + 0), a's result b by h and b + 0's b by definition: the
+\ values a b h, then b + 0, b and getProof''s Eq.refl b (not of b + 0).
+: eq-act ( -- )
+  a0 b+0 lf-mk-eq 3 sa-n-set sc-args slab-count sa sa-xs !
+  lf-ck-fixed nat sc-claim lf-ck-eq a0 sc-claim lf-ck-eq b+0 sc-claim ;
+: eq-vals ( -- base )
+  eq-act b0 h0 1 sc-result! b0 lf-simp-none 2 sc-result!
+  sm-xs slab-count 1 sc-eq-vals 2 sc-eq-vals ;
+: eq-done ( base -- ) sm-xs slab-cut sc-cut sm-pop ;
+: xs@ ( base k -- x base ) over + sm-xs slab-at @ swap ;
+T{ eq-vals 0 xs@ 1 xs@ 2 xs@ 3 xs@ 4 xs@ 5 xs@ eq-done b0 lf-mk-eq-refl lf-eqv!
+   -> a0 b0 h0 b+0 b0 true }T
 \ The words alone, on an activation of their own: the old instance kept
 \ when its type is the new class; kinds of another number differ; the
 \ realized theorem of a head that is no constant, a constant the data
