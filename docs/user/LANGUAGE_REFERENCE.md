@@ -2850,6 +2850,12 @@ each):
   (congruence lemmas), and a rewrite inside an argument other terms
   depend on.
 
+Also error 99 (exit 2) where Lean refuses with an error of its own: a
+rule set that loops (`h : a = a + 0` used at `a`: Lean stops with its
+maximum recursion depth error) and `<-` on a let variable (Lean gives
+an error). A hypothesis named twice (`at[ h h ]`)
+is simplified twice, as in Lean.
+
 ---
 
 ## E. Vocabulary tools
