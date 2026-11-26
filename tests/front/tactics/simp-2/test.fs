@@ -48,11 +48,12 @@ T{ s" tests/front/simp-slice.elab.ndjson" lfc-elab-file! lfc-elab-read lfc-rooms
 \ term (invalid).
 nat s" a" binder constant a0   nat s" b" binder constant b0
 : a=b ( -- e ) a0 b0 lf-mk-eq ;
+: equal-apart ( a b -- flag outcome same? ) 2dup = >r lf-meta-equal? r> ;
 T{ a=b dup lf-meta-equal? -> true outcome-ok }T
-T{ a=b a=b 2dup = >r lf-meta-equal? r> -> true outcome-ok false }T
+T{ a=b a=b equal-apart -> true outcome-ok false }T
 T{ a=b b0 a0 lf-mk-eq lf-meta-equal? -> false outcome-ok }T
 : lam ( -- e ) nat nat lf-term-lam lf-made! ;
-T{ lam lam 2dup = >r lf-meta-equal? nip r> -> outcome-unsupported false }T
+T{ lam lam equal-apart rot drop -> outcome-unsupported false }T
 T{ -1 a0 lf-meta-equal? nip -> outcome-invalid }T
 
 \ ---- 2. lf-local-refvar, lf-view-refvar: a dead free variable or an

@@ -237,8 +237,8 @@ end-structure
 : mat-defeq-run ( -- goal' )
   mat mat-goal @ lf-goal-not-assigned drop mat-equal? if mat mat-goal @ exit then
   mat-free mat-retyped-view mat-like dup mat-aux mat-delayed ;
-: mat-defeq ( goal fvar type -- goal' )
-  mat mat-type ! mat mat-goal cell-pair! mat-defeq-run ;
+: mat-retype! ( goal fvar type -- ) mat mat-type ! mat mat-goal cell-pair! ;
+: mat-defeq ( goal fvar type -- goal' ) mat-retype! mat-defeq-run ;
 : lf-goal-replace-local-decl-defeq ( goal fvar type -- goal' )
   mat-frames ['] mat-defeq lf-with-record ;
 
@@ -279,8 +279,7 @@ end-structure
   2 mat-cells ['] mat-intro1 lf-with-cells ;
 : mat-change-run ( -- goal' )
   mat-revert1 mat-retyped mat-old-local lf-goal-intro1-as drop ;
-: mat-changed ( goal fvar type -- goal' )
-  mat mat-type ! mat mat-goal cell-pair! mat-change-run ;
+: mat-changed ( goal fvar type -- goal' ) mat-retype! mat-change-run ;
 : lf-goal-change-local-decl ( goal fvar type -- goal' )
   mat-frames ['] mat-changed lf-with-record ;
 
