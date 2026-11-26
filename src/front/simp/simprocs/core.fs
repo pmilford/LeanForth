@@ -15,7 +15,8 @@
 \   dsimp (inDSimp), as simp always is here.
 \ A step's theorem k is its place in spc-names: the port's x (reduceIte
 \ 0, reduceDIte 2) plus the branch j (0 True: the then branch; 1 False:
-\ the else branch), so k's low bit is j. The proof h, theorem k applied
+\ the else branch), so k's low bit is j and its bit 1 reduceDIte's (one
+\ port, spc-reduce, serves both). The proof h, theorem k applied
 \ to α c i tb eb pr, is built first: the new term reads its branch (h's
 \ argument 3 + j) and reduceDIte's c and pr (arguments 1 and 5) from it.
 \ A simplification of c that throws throws (unsupported, as the walk).
@@ -60,16 +61,14 @@ texts-end constant spc-names
   1 and 4 + spc-name lf-mk-const0 over 1 spc-harg lf-mk-app swap 5 spc-harg lf-mk-app ;
 : spc-dite-term ( h k -- e' )
   2dup spc-branch -rot spc-of-eq lf-mk-app lf-meta-head-beta lf-must ;
-\ The step: the proof, then the new term by xt ( h k -- e' ); visit.
-: spc-step ( pr e k xt -- e' h step )
-  >r spc-proof over swap r> execute swap lf-simp-visit ;
-: spc-reduce-ite ( e x -- e' h step )
-  spc-decided if ['] spc-branch spc-step else lf-simp-pass then ;
-: spc-reduce-dite ( e x -- e' h step )
-  spc-decided if ['] spc-dite-term spc-step else lf-simp-pass then ;
+\ The new term: reduceDIte's (theorems 2 and 3) or the branch itself.
+: spc-term ( h k -- e' ) dup 2 and if spc-dite-term else spc-branch then ;
+\ The step: the proof, then the new term; visit.
+: spc-step ( pr e k -- e' h step ) spc-proof over swap spc-term swap lf-simp-visit ;
+: spc-reduce ( e x -- e' h step ) spc-decided if spc-step else lf-simp-pass then ;
 
-' spc-reduce-ite 0 5 true false lf-simproc: ite reduceIte
-' spc-reduce-dite 2 5 true false lf-simproc: dite reduceDIte
+' spc-reduce 0 5 true false lf-simproc: ite reduceIte
+' spc-reduce 2 5 true false lf-simproc: dite reduceDIte
 \ Outside dsimp continue: main.fs's answer of no simproc.
 ' lf-simp-no-procs 0 5 true true lf-simproc: ite dreduceIte
 ' lf-simp-no-procs 0 5 true true lf-simproc: dite dreduceDIte

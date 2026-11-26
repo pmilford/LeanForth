@@ -1,0 +1,9 @@
+\ Lean: theorem u_rev_const (a : Nat) : a = a + 0 := by simp [← Nat.add_zero]
+\ Not supported yet (99): a constant with <- is Lean's auxiliary lemma
+\ (mkSimpTheoremsFromConst's preprocess, slice SL3d).
+theorem u_rev_const
+  Nat explicit: a
+  a a 0 + =
+:= by
+  by-simp[ ' Nat.add_zero <- ]
+end u_rev_const

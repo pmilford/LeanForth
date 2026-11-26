@@ -20,12 +20,16 @@ FILES = [(D + "simp-4.lf", ["simp_true", "simp_true_and=propext", "simp_add_zero
                             "simp_or_true=propext", "simp_not_not=propext",
                             "simp_mul_one=propext"]),
          (D + "simprocs.lf", ["simp_ite_true=propext", "simp_ite_false=propext",
-                               "simp_add_lits=propext", "simp_mul_add=propext"])]
+                               "simp_add_lits=propext", "simp_mul_add=propext"]),
+         (D + "brackets.lf", ["simp_br_hyp=propext", "simp_br_rev=propext", "simp_br_const=propext",
+                              "simp_at_hyp=propext", "simp_at_both=propext", "simp_at_all=propext",
+                              "simp_at_false=propext", "simp_br_at=propext"])]
 WRONG = [(D + "w-no-progress.lf", 500, "`simp` made no progress", ""),
-         (D + "w-ite-other.lf", 89, "unsolved goals", "⊢ False")]
+         (D + "w-ite-other.lf", 89, "unsolved goals", "⊢ False"),
+         (D + "w-at-no-progress.lf", 500, "`simp` made no progress", "")]
 NOT_YET = "not supported yet: this case of the tactic"
 UNSUPPORTED = [(D + "u-left-out.lf", 99, NOT_YET), (D + "u-simproc.lf", 99, NOT_YET),
-               (D + "u-ctor-eq.lf", 99, NOT_YET)]
+               (D + "u-ctor-eq.lf", 99, NOT_YET), (D + "u-rev-const.lf", 99, NOT_YET)]
 
 if __name__ == "__main__":
     tactic_check.main("simp-4", FILES, WRONG, UNSUPPORTED, env=ENV, lean=D + "simp-4.lean",

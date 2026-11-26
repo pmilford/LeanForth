@@ -19,6 +19,15 @@ theorem simp_ite_true (a b : Nat) : (if True then a else b) = a := by simp
 theorem simp_ite_false (a b : Nat) : (if False then a else b) = b := by simp
 theorem simp_add_lits : 2 + 3 = 5 := by simp
 theorem simp_mul_add : 7 * 6 + 2 = 44 := by simp
+-- Pass 3: brackets and locations (tests/front/tactics/simp-4/brackets.lf).
+theorem simp_br_hyp (a b : Nat) (h : a = b) : a + 0 = b := by simp [h]
+theorem simp_br_rev (a b : Nat) (h : b = a) : a + 0 = b := by simp [← h]
+theorem simp_br_const (a : Nat) : a + 0 = a := by simp [Nat.add_zero]
+theorem simp_at_hyp (a : Nat) (h : a * 1 + 0 = a) : True := by simp at h; exact h
+theorem simp_at_both (a : Nat) (h : a + 0 = a) : True ∧ True := by simp at h ⊢
+theorem simp_at_all (a : Nat) (h : a + 0 = a) : a * 1 = a := by simp at *
+theorem simp_at_false (h : ¬True) : 1 = 2 := by simp at h
+theorem simp_br_at (a b : Nat) (h1 : a = b) (h2 : a + 0 = b) : True := by simp [h1] at h2; exact h2
 
 def pl (l : Level) : String := match l.toNat with
   | some n => toString n
@@ -45,5 +54,6 @@ def dump (n : Name) : MetaM Unit := do
 #eval do
   for n in [``simp_true, ``simp_true_and, ``simp_add_zero, ``simp_or_true, ``simp_not_not,
       ``simp_mul_one, ``simp_ite_true, ``simp_ite_false, ``simp_add_lits,
-      ``simp_mul_add] do
+      ``simp_mul_add, ``simp_br_hyp, ``simp_br_rev, ``simp_br_const, ``simp_at_hyp,
+      ``simp_at_both, ``simp_at_all, ``simp_at_false, ``simp_br_at] do
     dump n

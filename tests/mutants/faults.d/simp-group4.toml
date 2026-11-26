@@ -280,8 +280,8 @@ reason = "the check's elaboration-data line leaves out the default simp set's ki
 [[fault]]
 id = "ite-run-post"
 file = "src/front/simp/simprocs/core.fs"
-old = '''' spc-reduce-ite 0 5 true false lf-simproc: ite reduceIte'''
-new = '''' spc-reduce-ite 0 5 false false lf-simproc: ite reduceIte'''
+old = '''' spc-reduce 0 5 true false lf-simproc: ite reduceIte'''
+new = '''' spc-reduce 0 5 false false lf-simproc: ite reduceIte'''
 test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
 reason = "reduceIte's port registered as a post simproc: the data's pre record does not fit it, so if True then x else y is unsupported"
 
@@ -412,3 +412,19 @@ old = ''': sth-proof! ( x addr -- ) over 0< if -1 over sth-data ! then sth-proof
 new = ''': sth-proof! ( x addr -- ) sth-proof ! ;'''
 test = "$GFORTH tests/front/tactics/simp-4/test.fs"
 reason = "an undecodable lemma's record keeps its data place: tried, it is checked with no proof instead of answering unsupported"
+
+[[fault]]
+id = "simp-rules-unread"
+file = "src/front/tactics/simp.fs"
+old = '''  swap dup lf-simp-default lf-simp-args lf-simp-locs lf-goal-simp lf-goals0/1 ;'''
+new = '''  swap dup lf-simp-default drop lf-simp-locs lf-goal-simp lf-goals0/1 ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "by-simp[ ' h ] with the default set alone: a + 0 = b is left a = b (unsolved), never closed by h"
+
+[[fault]]
+id = "simp-locs-target-only"
+file = "src/front/tactics/simp.fs"
+old = '''  swap dup lf-simp-default lf-simp-args lf-simp-locs lf-goal-simp lf-goals0/1 ;'''
+new = '''  swap dup lf-simp-default lf-simp-args drop true 0 lf-goal-simp lf-goals0/1 ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "by-simp at[ h ] simplifies the target alone: h : ¬True is never False, so 1 = 2 is not closed"

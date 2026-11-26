@@ -1,0 +1,9 @@
+\ Lean: theorem w_at_no_progress (h : True) : True := by simp at h
+\ Refused as Lean refuses it (error 500): the default set rewrites
+\ nothing in the hypothesis True, the only location.
+theorem w_at_no_progress
+  True explicit: h
+  True
+:= by
+  by-simp at[ h ]
+end w_at_no_progress

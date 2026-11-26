@@ -1,0 +1,69 @@
+\ by-simp[ ] and at[ ] (simp group 4, pass 3): bracket rules added to the
+\ default set after their roots' values (Lean's order), a hypothesis
+\ forwards and with <-, and the locations of simp/args.fs, each term node
+\ for node pinned Lean's (tests/front/tactics/simp-4/check.py; Lean twins
+\ in simp-4.lean). The hypotheses simplified become True or False: an
+\ equation of two different Nat terms meets Nat.succ_ne_self's helper in
+\ candidate order, which the slice's export lacks (unsupported).
+\ Lean: theorem simp_br_hyp (a b : Nat) (h : a = b) : a + 0 = b := by simp [h]
+theorem simp_br_hyp
+  Nat explicit: a  Nat explicit: b  a b = explicit: h
+  a 0 + b =
+:= by
+  by-simp[ ' h ]
+end simp_br_hyp
+\ Lean: theorem simp_br_rev (a b : Nat) (h : b = a) : a + 0 = b := by simp [← h]
+theorem simp_br_rev
+  Nat explicit: a  Nat explicit: b  b a = explicit: h
+  a 0 + b =
+:= by
+  by-simp[ ' h <- ]
+end simp_br_rev
+\ Lean: theorem simp_br_const (a : Nat) : a + 0 = a := by simp [Nat.add_zero]
+\ A lemma the default set holds: replaced in place (insertVal), so the
+\ term is plain simp's.
+theorem simp_br_const
+  Nat explicit: a
+  a 0 + a =
+:= by
+  by-simp[ ' Nat.add_zero ]
+end simp_br_const
+\ Lean: theorem simp_at_hyp (a : Nat) (h : a * 1 + 0 = a) : True := by simp at h; exact h
+theorem simp_at_hyp
+  Nat explicit: a  a 1 * 0 + a = explicit: h
+  True
+:= by
+  by-simp at[ h ]
+  ' h by-exact
+end simp_at_hyp
+\ Lean: theorem simp_at_both (a : Nat) (h : a + 0 = a) : True ∧ True := by simp at h ⊢
+theorem simp_at_both
+  Nat explicit: a  a 0 + a = explicit: h
+  True True ∧
+:= by
+  by-simp at[ h |- ]
+end simp_at_both
+\ Lean: theorem simp_at_all (a : Nat) (h : a + 0 = a) : a * 1 = a := by simp at *
+theorem simp_at_all
+  Nat explicit: a  a 0 + a = explicit: h
+  a 1 * a =
+:= by
+  by-simp at[ * ]
+end simp_at_all
+\ Lean: theorem simp_at_false (h : ¬True) : 1 = 2 := by simp at h
+\ The hypothesis becomes False: the goal closed by False.elim.
+theorem simp_at_false
+  True ¬ explicit: h
+  1 2 =
+:= by
+  by-simp at[ h ]
+end simp_at_false
+\ Lean: theorem simp_br_at (a b : Nat) (h1 : a = b) (h2 : a + 0 = b) : True := by
+\   simp [h1] at h2; exact h2
+theorem simp_br_at
+  Nat explicit: a  Nat explicit: b  a b = explicit: h1  a 0 + b = explicit: h2
+  True
+:= by
+  by-simp[ ' h1 ] at[ h2 ]
+  ' h2 by-exact
+end simp_br_at

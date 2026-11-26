@@ -78,7 +78,7 @@ reason = "SL1a-2: Expr.equal answered by Expr.eqv for terms with binders, whose 
 
 [[fault]]
 id = "let-rule-is-error"
-file = "src/front/tactics/simp-only.fs"
+file = "src/front/simp/args.fs"
 old = '''  dup lf-fvar-let? if lf-tac-unported then'''
 new = '''  dup lf-fvar-let? drop'''
 test = "$GFORTH tests/front/tactics/simp-2/test.fs"
@@ -168,17 +168,17 @@ reason = "SL1b: mkSimpTheoremKeys (SimpTheorems.lean:398) opens the type's binde
 
 [[fault]]
 id = "rule-elaborated"
-file = "src/front/tactics/simp-only.fs"
-old = '''  lf-tac-elab-for-apply dup lf-infer! lf-is-prop! 0= if dup tso-not-prop then'''
-new = '''  -1 false lf-tac-elab-term dup lf-infer! lf-is-prop! 0= if dup tso-not-prop then'''
+file = "src/front/simp/args.fs"
+old = '''  lf-tac-elab-for-apply dup lf-infer! lf-is-prop! 0= if dup sar-not-prop then'''
+new = '''  -1 false lf-tac-elab-term dup lf-infer! lf-is-prop! 0= if dup sar-not-prop then'''
 test = "$GFORTH tests/front/tactics/simp-2/test.fs"
 reason = "SL1b: a hypothesis rule is Term.resolveId?'s free variable (Elab/Tactic/Simp.lean); elaborated as an application, h : ¬ p's type is unfolded to a pi whose binder is unknown (136)"
 
-# Slice SL1b, item 4: at[ * ] (tactics/simp-only.fs) and getNondepPropHyps (meta-tactic/goal.fs).
+# Slice SL1b, item 4: at[ * ] (simp/args.fs since simp group 4, pass 3) and getNondepPropHyps (meta-tactic/goal.fs).
 
 [[fault]]
 id = "wildcard-target-only"
-file = "src/front/tactics/simp-only.fs"
+file = "src/front/simp/args.fs"
 old = '''  dup lf-tac-loc-all? if drop true over lf-goal-nondep-prop-hyps exit then'''
 new = '''  dup lf-tac-loc-all? if drop true 0 exit then'''
 test = "$GFORTH tests/front/tactics/simp-2/test.fs"

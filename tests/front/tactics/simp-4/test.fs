@@ -231,6 +231,22 @@ T{ s" True" ran s" True True ∧" ran s" Nat explicit: a a 0 + a =" ran s" False
    -> 0 0 0 0 }T
 T{ s" False" ran s" True Not" ran s" True False ∨" ran -> 500 89 99 }T
 T{ s" Nat explicit: a a 0 = True ∧ a 0 = ↔" ran -> 99 }T
+\ by-simp[ ] and at[ ] (pass 3, simp/args.fs's rules and locations, simp
+\ only's): a hypothesis, forwards and with <-, and a lemma the set holds
+\ closed; Lean's 501 (a variable that is no proposition); not supported
+\ yet (99): a constant with <-, a definition; at[ h ] with h False closes
+\ the goal, h True is Lean's 500 (no progress), at[ * ] the target too.
+: ran-as ( c-addr u c-addr' u' -- code ) tactic-ran lf-tac-forget ;
+: hyp-ab ( -- c-addr u ) s" Nat explicit: a Nat explicit: b a b = explicit: h a 0 + b =" ;
+: hyp-ba ( -- c-addr u ) s" Nat explicit: a Nat explicit: b b a = explicit: h a 0 + b =" ;
+T{ hyp-ab s" by-simp[ ' h ]" ran-as hyp-ba s" by-simp[ ' h <- ]" ran-as -> 0 0 }T
+T{ s" Nat explicit: a a 0 + a =" s" by-simp[ ' Nat.add_zero ]" ran-as -> 0 }T
+T{ s" Nat explicit: a a 0 + a =" s" by-simp[ ' a ]" ran-as -> 501 }T
+T{ s" Nat explicit: a a a 0 + =" s" by-simp[ ' Nat.add_zero <- ]" ran-as -> 99 }T
+T{ s" Nat explicit: a a 0 + a =" s" by-simp[ ' Nat.add ]" ran-as -> 99 }T
+T{ s" True ¬ explicit: h 1 2 =" s" by-simp at[ h ]" ran-as -> 0 }T
+T{ s" True explicit: h True" s" by-simp at[ h ]" ran-as -> 500 }T
+T{ s" Nat explicit: a a 0 + a = explicit: h a 1 * a =" s" by-simp at[ * ]" ran-as -> 0 }T
 \ Data without the default set: unsupported.
 elab-reset
 T{ ' lf-simp-default catch lf-meta-outcome -> outcome-unsupported }T
