@@ -101,15 +101,18 @@ end-structure
   sdc swap c" priority" elab-member elab-u32 ['] sdc-priority elab-put ;
 : sdc-hyps! ( value c -- outcome ) sdc sdc-hyps swap c" hyps" elab-member elab-numbers ;
 : simp-congr-hyps ( c -- addr n ) sdc sdc-hyps elab-span@ ;
-\ Increasing places, each below the lemma's leading binders.
-: sd-hyp-next ( limit prev h -- limit h flag ) tuck < >r 2dup > r> and ;
-: sd-hyps-fit? ( limit addr n -- flag )
+\ Increasing places, each below the lemma's leading binders (elab-data.fs's
+\ ed-below?, review of SD-a finding 10, plan task SD-b.7).
+: sd-hyp-next ( prev h -- h flag ) tuck < ;
+: sd-increasing? ( addr n -- flag )
   -1 -rot cells bounds ?do
-    i @ sd-hyp-next 0= if 2drop false unloop exit then
-  1 cells +loop 2drop true ;
+    i @ sd-hyp-next 0= if drop false unloop exit then
+  1 cells +loop drop true ;
+: sd-hyps-fit? ( limit c -- flag )
+  sdc sdc-hyps tuck swap ed-below? if elab-span@ sd-increasing? else drop false then ;
 : sd-fit ( flag -- outcome ) if outcome-ok else elab-e-unfit elab-refuse then ;
 : sdc-fit ( value c -- outcome )
-  nip dup sdc sdc-decl @ elab-type-pis swap simp-congr-hyps sd-hyps-fit? sd-fit ;
+  nip dup sdc sdc-decl @ elab-type-pis swap sd-hyps-fit? sd-fit ;
 \ Lean's funName (mkSimpCongrTheorem, SimpCongrTheorems.lean): the
 \ lemma's conclusion, past its written Pis, is Eq _ lhs rhs or Iff lhs
 \ rhs (Expr.eqOrIff?), lhs and rhs call one constant with as many

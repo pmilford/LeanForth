@@ -21,7 +21,7 @@ reason = "SD-a: a definition is read as a congruence lemma (error 14 never given
 [[fault]]
 id = "sd-hyps-unchecked"
 file = "src/front/simp-data.fs"
-old = '''  nip dup sdc sdc-decl @ elab-type-pis swap simp-congr-hyps sd-hyps-fit? sd-fit ;'''
+old = '''  nip dup sdc sdc-decl @ elab-type-pis swap sd-hyps-fit? sd-fit ;'''
 new = '''  2drop outcome-ok ;'''
 test = "$GFORTH tests/front/simp-data.fs"
 reason = "SD-a: hypothesis places beyond the lemma's binders or out of order are read (error 37 never given)"
@@ -29,16 +29,16 @@ reason = "SD-a: hypothesis places beyond the lemma's binders or out of order are
 [[fault]]
 id = "sd-hyps-unordered"
 file = "src/front/simp-data.fs"
-old = ''': sd-hyp-next ( limit prev h -- limit h flag ) tuck < >r 2dup > r> and ;'''
-new = ''': sd-hyp-next ( limit prev h -- limit h flag ) nip 2dup > ;'''
+old = ''': sd-hyp-next ( prev h -- h flag ) tuck < ;'''
+new = ''': sd-hyp-next ( prev h -- h flag ) nip true ;'''
 test = "$GFORTH tests/front/simp-data.fs"
 reason = "SD-a: hypothesis places that do not increase are read"
 
 [[fault]]
 id = "sd-hyps-byte-steps"
 file = "src/front/simp-data.fs"
-old = '''  1 cells +loop 2drop true ;'''
-new = '''  loop 2drop true ;'''
+old = '''  1 cells +loop drop true ;'''
+new = '''  loop drop true ;'''
 test = "$GFORTH tests/front/simp-data.fs"
 reason = "SD-a: the places are read a byte apart, not a cell (the slice's own data refused)"
 

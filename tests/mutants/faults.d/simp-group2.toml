@@ -85,6 +85,14 @@ test = "$GFORTH tests/front/tactics/simp-2/test.fs"
 reason = "9.4.8z2(e): a let variable as a rule (Lean unfolds it, slice SL3a) given Lean's error for a variable that is no proposition"
 
 [[fault]]
+id = "sd-hyps-unbounded"
+file = "src/front/simp-data.fs"
+old = '''  sdc sdc-hyps tuck swap ed-below? if elab-span@ sd-increasing? else drop false then ;'''
+new = '''  sdc sdc-hyps nip elab-span@ sd-increasing? ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "SD-b.7: a congruence lemma's hypothesis places checked for order alone (ed-below?'s limit dropped), so a place beyond its binders is read"
+
+[[fault]]
 id = "symm-true-ignored"
 file = "src/front/tactics/simp-only.fs"
 old = '''  swap if tso-symm-true then drop lf-mk-eq-true ;'''
