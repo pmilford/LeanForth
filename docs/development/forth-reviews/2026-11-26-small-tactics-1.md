@@ -348,4 +348,4 @@ The code fixes are `33e51e05`, `34dc834a` and `91ac4bb9` (on `727d4c72`); the re
 - **Finding 3**: (a) plan row 9.4.8z12 (e) in `91ac4bb9` (the guard compares the full type); (b) documented in `91ac4bb9` (LANGUAGE_REFERENCE.md D.11: error 93, `' Nat.succ_ne_zero by-have`), its port 9.4.8z12 (e).
 - **Finding 4**: fixed in `91ac4bb9`: `li-classed` skips an implementation-detail local (`lf-local-detail?`), tested with such a local of a class's type; fault `sm1-local-instance-detail-classed`, caught.
 - **Finding 5**: plan row 9.4.8z12 (e) in `91ac4bb9`: `lf-elab-class?`, `sr-class?`, `synth.fs:714` and the fun-info/congr-thms path switch to `lf-class-whnf?`.
-- **Style**: `tactic-run.fs` stays at its baseline (3 deep shuffles, 21 return-stack operations, no long word); no baseline entry raised.
+- **Style**: `tactic-run.fs` stays at its baseline (3 deep shuffles, 21 return-stack operations, no long word); no baseline entry raised. `lfr-weight` and `lfr-opened` were one shape twice (check-duplicates.py's new group `05f1a4415f3b`): both run through `lfr-mode-do` since `b27f1983`; no group new or grown.
