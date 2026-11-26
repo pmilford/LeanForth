@@ -151,8 +151,10 @@ T{ lf-simp-set-new hb0 false add-term -> outcome-unsupported }T
 create x-cell x0 ,
 x0 s" Bool.true" lf-mk-const0 lf-mk-eq lf-mk-not x-cell 1 lf-mk-forall-fvars
 s" hv" binder constant hv0
-T{ lf-lctx-count @ lf-mctx-view lf-simp-set-new hv0 false add-term >r lf-mctx-view =
-   swap lf-lctx-count @ = r> -> true true outcome-unsupported }T
+: hv-kept ( -- view-kept? lctx-kept? outcome )
+  lf-lctx-count @ lf-mctx-view lf-simp-set-new hv0 false add-term >r lf-mctx-view =
+  swap lf-lctx-count @ = r> ;
+T{ hv-kept -> true true outcome-unsupported }T
 \ The walk's locals dropped at its end: the context as it was.
 T{ lf-mctx-view lf-view-count lf-simp-set-new hz0 false add-term drop lf-mctx-view lf-view-count
    = -> true }T
