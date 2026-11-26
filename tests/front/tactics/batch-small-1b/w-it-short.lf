@@ -1,0 +1,11 @@
+\ A wrong twin (plan row TB2, small tactics 1; batch-small-1b-wrong.lean):
+\ one pass leaves the second goal: Lean's "unsolved goals".
+\ Lean: theorem w_it_short (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         iterate 1 constructor
+\         exact h
+theorem w_it_short
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  b a = explicit: k  a b =  b a = ∧
+:= by
+  1 by-iterate by-constructor by-end
+  ' h by-exact
+end w_it_short

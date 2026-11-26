@@ -147,3 +147,35 @@ old = ''': tdn-run ( i -- ) lf-tac-done ;'''
 new = ''': tdn-run ( i -- ) drop ;'''
 test = "$GFORTH tests/front/tactics/batch-small-1/test.fs"
 reason = "small tactics 1: done with goals left passes, the error then the proof's at its end, not Lean's at done (test.fs's 89 at by-done)"
+
+[[fault]]
+id = "sm1-iterate-once"
+file = "src/front/tactics/iterate.fs"
+old = ''': tit-end ( frame -- ) tit-left if lf-tac-again else drop then ;'''
+new = ''': tit-end ( frame -- ) drop ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1b/test.fs"
+reason = "small tactics 1: iterate n runs its block once, where the macro runs it n times (test.fs's probe: 3 runs)"
+
+[[fault]]
+id = "sm1-iterate-zero-runs"
+file = "src/front/tactics/iterate.fs"
+old = ''': tit-open ( frame -- ) dup tit-count 2dup swap tfr-at ! 0= if lfr-skip else drop then ;'''
+new = ''': tit-open ( frame -- ) dup tit-count swap tfr-at ! ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1b/test.fs"
+reason = "small tactics 1: iterate 0 runs its block once, where iterate 0 is skip (test.fs's probe: 0 runs)"
+
+[[fault]]
+id = "sm1-iterate-count-off"
+file = "src/front/tactics/iterate.fs"
+old = ''': tit-left ( frame -- frame n ) dup tfr-at @ 1- 0 max 2dup swap tfr-at ! ;'''
+new = ''': tit-left ( frame -- frame n ) dup tfr-at @ 2 - 0 max 2dup swap tfr-at ! ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1b/test.fs"
+reason = "small tactics 1: iterate n counts two passes down at each end, running fewer than n (test.fs's probe: 3 runs)"
+
+[[fault]]
+id = "sm1-iterate-any-count"
+file = "src/front/tactics/iterate.fs"
+old = '''  dup syn-kind@ syn-k-num = if syn-a@ exit then drop lf-tac-unported ;'''
+new = '''  syn-a@ ;'''
+test = "$GFORTH tests/front/tactics/batch-small-1b/test.fs"
+reason = "small tactics 1: iterate takes any value's field as its count, where Lean's parser wants a numeral (test.fs's a by-iterate: 99)"

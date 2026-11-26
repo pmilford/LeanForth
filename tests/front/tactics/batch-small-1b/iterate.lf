@@ -1,0 +1,66 @@
+\ n by-iterate tacs by-end, Lean's iterate n tacs (plan row TB2, small
+\ tactics 1; src/front/tactics/iterate.fs): the block's tactics n times
+\ over, in the block around it. Lean twins in batch-small-1b.lean.
+\ Lean: theorem it_two (a b : Nat) (h : a = b) (k : b = a) :
+\           (a = b ∧ a = b) ∧ b = a := by
+\         iterate 2 constructor
+\         exact h
+\         exact h
+\         exact k
+theorem it_two
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  b a = explicit: k
+  a b =  a b = ∧  b a = ∧
+:= by
+  2 by-iterate by-constructor by-end
+  ' h by-exact
+  ' h by-exact
+  ' k by-exact
+end it_two
+
+\ iterate 0 is skip.
+\ Lean: theorem it_zero (a b : Nat) (h : a = b) : a = b := by
+\         iterate 0 exact h
+\         exact h
+theorem it_zero
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  0 by-iterate ' h by-exact by-end
+  ' h by-exact
+end it_zero
+
+\ A block of several tactics, each pass on the main goal of its moment.
+\ Lean: theorem it_seq (a b : Nat) (h : a = b) :
+\           (a = b ∧ a = b) ∧ (a = b ∧ a = b) := by
+\         constructor
+\         iterate 2
+\           constructor
+\           exact h
+\           exact h
+theorem it_seq
+  Nat explicit: a  Nat explicit: b  a b = explicit: h
+  a b =  a b = ∧  a b =  a b = ∧ ∧
+:= by
+  by-constructor
+  2 by-iterate
+    by-constructor
+    ' h by-exact
+    ' h by-exact
+  by-end
+end it_seq
+
+\ Nested: iterate 2 (iterate 1 constructor).
+\ Lean: theorem it_nest (a b : Nat) (h : a = b) (k : b = a) :
+\           (a = b ∧ a = b) ∧ b = a := by
+\         iterate 2 iterate 1 constructor
+\         exact h
+\         exact h
+\         exact k
+theorem it_nest
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  b a = explicit: k
+  a b =  a b = ∧  b a = ∧
+:= by
+  2 by-iterate 1 by-iterate by-constructor by-end by-end
+  ' h by-exact
+  ' h by-exact
+  ' k by-exact
+end it_nest

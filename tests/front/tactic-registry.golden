@@ -343,6 +343,7 @@ reserved by-generalize-eq: word
 reserved by-infer-instance word
 reserved by-intro[ word
 reserved by-intros word
+reserved by-iterate word
 reserved by-left word
 reserved by-obtain[ word
 reserved by-rcases[ word
@@ -418,22 +419,23 @@ kind 53 by-generalize-eq: 0 generalize run
 kind 54 by-infer-instance 0 infer_instance run
 kind 55 by-intro[ 0 intro run
 kind 56 by-intros 0 intros run
-kind 57 by-left 0 left run
-kind 58 by-obtain[ 0 obtain run
-kind 59 by-rcases[ 0 rcases run
-kind 60 by-refine 0 refine run
-kind 61 by-rename-i[ 0 rename_i run
-kind 62 by-rename: 0 rename run
-kind 63 by-replace: 0 replace run
-kind 64 by-revert 0 revert run
-kind 65 by-revert[ 0 revert run
-kind 66 by-right 0 right run
-kind 67 by-rwa[ 0 rwa run
-kind 68 by-simp-only[ 0 simp run
-kind 69 by-skip 0 skip run
-kind 70 by-specialize 0 specialize run
-kind 71 by-subst 0 subst run
-kind 72 by-subst[ 0 subst run
-kind 73 by-subst-vars 0 subst_vars run
-kind 74 by-swap 0 swap run
-kind 75 by-symm 0 symm run
+kind 57 by-iterate 0 iterate run
+kind 58 by-left 0 left run
+kind 59 by-obtain[ 0 obtain run
+kind 60 by-rcases[ 0 rcases run
+kind 61 by-refine 0 refine run
+kind 62 by-rename-i[ 0 rename_i run
+kind 63 by-rename: 0 rename run
+kind 64 by-replace: 0 replace run
+kind 65 by-revert 0 revert run
+kind 66 by-revert[ 0 revert run
+kind 67 by-right 0 right run
+kind 68 by-rwa[ 0 rwa run
+kind 69 by-simp-only[ 0 simp run
+kind 70 by-skip 0 skip run
+kind 71 by-specialize 0 specialize run
+kind 72 by-subst 0 subst run
+kind 73 by-subst[ 0 subst run
+kind 74 by-subst-vars 0 subst_vars run
+kind 75 by-swap 0 swap run
+kind 76 by-symm 0 symm run

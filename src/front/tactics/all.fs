@@ -28,6 +28,7 @@ require ./induction.fs
 require ./infer-instance.fs
 require ./intro.fs
 require ./intros.fs
+require ./iterate.fs
 require ./left.fs
 require ./obtain.fs
 require ./refine.fs

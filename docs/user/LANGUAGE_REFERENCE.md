@@ -2003,7 +2003,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-revert[ HYP-NAME ... ]` | `( -- )` | parsing: names of hypotheses up to `]`, over lines (458 at `by-revert[` when a LeanForth word other than `_` and `*`, or the text's end, comes first; 459 for `_` or `*`; 460 for none) | read: a step. Run: the main goal's locals so named reverted at once, with those depending on them | Puts the hypotheses back into the goal in the context's order; unknown name: 455 (at `by-revert[`; Lean reports it at the name); a constant: 99. | `revert h k` |
 | `by-clear[ HYP-NAME ... ]` | `( -- )` | as `by-revert[` | read: a step. Run: each named local cleared from the main goal, newest first | Removes the hypotheses; 440, 441, 442 as `by-clear`; names as `by-revert[`. | `clear h k` |
 | `by-rename-i[ HYP-NAME ... ]` | `( -- )` | as `by-intro[`, one name at least (460) | read: a step; each name a hypothesis word. Run: renameInaccessibles of the main goal | Names the newest inaccessible hypotheses; too many names: 211. | `rename_i x y` |
-| `by-rename: HYP-NAME` | `( T -- )` (top: T) | parsing: one name after it, on its line | read: a step holding T; HYP-NAME a hypothesis word. Run: the newest hypothesis whose type is definitionally T (T's holes filled by the search, which is then undone) renamed HYP-NAME in a new main goal (see [D.11](#d11-by-funext-by-infer-instance-by-rename-by-generalize-by-skip-by-done)) | Renames a hypothesis found by its type; none: 482; `_`: 99. | `rename T => HYP-NAME` |
+| `by-rename: HYP-NAME` | `( T -- )` (top: T) | parsing: one name after it, on its line | read: a step holding T; HYP-NAME a hypothesis word. Run: the newest hypothesis whose type is definitionally T (T's holes filled by the search, which is then undone) renamed HYP-NAME in a new main goal (see [D.11](#d11-by-funext-by-infer-instance-by-rename-by-generalize-by-skip-by-done-by-iterate)) | Renames a hypothesis found by its type; none: 482; `_`: 99. | `rename T => HYP-NAME` |
 | `by-funext` | `( -- )` | ordinary | read: a step. Run: `apply funext`, then a hidden variable introduced, again until `apply funext` fails (that pass undone) | Turns a goal `f = g` between functions into `f x = g x`; on a goal that is no equation of functions nothing changes; a function of two arguments: 93 (not supported yet). | `funext` |
 | `by-funext[ NAME ... ]` | `( -- )` | parsing: names up to `]` as `by-intro[`, one at least (460) | read: a step; each name a hypothesis word (`_` a hidden one). Run: for each name, `apply funext`, then the name introduced | The same with the variables named; a goal that is no equation of functions: 380. | `funext x y` |
 | `by-infer-instance` | `( -- )` | ordinary | read: a step. Run: `by-exact` of `inferInstance`, its instance found by instance search | Closes a goal that is a class (`Decidable (a = b)`, `Subsingleton (Decidable p)`); none found: 125; the goal no class: 110; a search that meets an instance the export left out: 119 (not supported yet). | `infer_instance` |
@@ -2011,6 +2011,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-generalize-eq: HYP-NAME NAME` | `( e -- )` (top: e) | parsing: two names after it, on its line; a trailing `at[ h ... ]` may follow | read: as `by-generalize:`, HYP-NAME a hypothesis word too. Run: as `by-generalize:`, then HYP-NAME : e = NAME | The same, keeping the equation; errors as `by-generalize:`. | `generalize HYP-NAME : e = NAME` |
 | `by-skip` | `( -- )` | ordinary | read: a step. Run: nothing | Does nothing, with goals or none. | `skip` |
 | `by-done` | `( -- )` | ordinary | read: a step. Run: no goal may be left | Checks the proof is finished at that point; goals left: 89 at `by-done` (inside `by-try` taken back). | `done` |
+| `by-iterate` | `( n -- )` (n a numeral) | ordinary; opens a block that `by-end` closes; names given inside it stay | read: a block step holding n. Run: the block's tactics n times over, each pass on the goals of its moment, no focus and no save (0: none at all) | Repeats a tactic block an exact number of times; a pass's error is that step's (90 no goal, 383, ...); n no numeral: 99. | `iterate n tacs` |
 | `by-refine` | `( t -- )` (top: t) | ordinary | read: a step holding t. Run: elaborates t against the goal, assigns it, its `?_` and `?: NAME` new goals in its place, tagged as Lean's | Closes the goal with t up to its holes; a `_` left open: 461 (99 as an argument); an implicit argument left: 95; a mismatch: 96; a NAME taken: 139. | `refine t` |
 | `_` | `( -- t )` | ordinary (kernel form: 52) | read: a hole node | A hole unification fills (or a goal where the tactic allows one: `by-specialize`). | `_` |
 | `?_` | `( -- t )` | ordinary (kernel form: 52) | read: a synthetic hole node | A new goal of `by-refine`; elsewhere left open (461 in `by-exact`). | `?_` |
@@ -2951,7 +2952,7 @@ maximum recursion depth error) and `<-` on a let variable (Lean gives
 an error). A hypothesis named twice (`at[ h h ]`)
 is simplified twice, as in Lean.
 
-### D.11 `by-funext`, `by-infer-instance`, `by-rename:`, `by-generalize:`, `by-skip`, `by-done`
+### D.11 `by-funext`, `by-infer-instance`, `by-rename:`, `by-generalize:`, `by-skip`, `by-done`, `by-iterate`
 
 Small tactics 1 (plan row TB2; `src/front/tactics/funext.fs`,
 `infer-instance.fs`, `rename.fs`, `generalize.fs`, `skip.fs`, `done.fs`,
@@ -2993,6 +2994,20 @@ term below is checked node for node against pinned Lean's
 
 `by-skip` does nothing; `by-done` fails with Lean's "unsolved goals"
 (89) while a goal is left.
+
+`n by-iterate tacs by-end` is the macro of `Init/TacticsExtra.lean:69-75`
+(`iterate 0` is `skip`, `iterate (n+1) tacs` is `(tacs); iterate n
+tacs`; `src/front/tactics/iterate.fs`, a block mode of the runner;
+twins in `tests/front/tactics/batch-small-1b/`):
+
+| Form | Example |
+| --- | --- |
+| mathematics | split $(a = b \wedge a = b) \wedge b = a$ twice into its three parts |
+| LeanForth | `2 by-iterate by-constructor by-end`, then `' h by-exact` twice and `' k by-exact` |
+| Lean | `iterate 2 constructor; exact h; exact h; exact k` |
+
+`iterate` with no count (repeat until a failure, through `try`) has no
+form.
 
 Not supported yet (exit 2, never accepted): `by-funext` on a function of
 two arguments (`Nat.add = Nat.add`, 93: the unifier does not settle

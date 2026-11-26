@@ -1,0 +1,9 @@
+\ A wrong twin (plan row TB2, small tactics 1; batch-small-1b-wrong.lean):
+\ the third pass's constructor fits no constructor of a = b: Lean's error.
+\ Lean: theorem w_it_ctor (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         iterate 3 constructor
+theorem w_it_ctor
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  b a = explicit: k  a b =  b a = ∧
+:= by
+  3 by-iterate by-constructor by-end
+end w_it_ctor

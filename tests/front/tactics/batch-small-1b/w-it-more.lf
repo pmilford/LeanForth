@@ -1,0 +1,9 @@
+\ A wrong twin (plan row TB2, small tactics 1; batch-small-1b-wrong.lean):
+\ the second pass meets no goal: Lean's "No goals to be solved".
+\ Lean: theorem w_it_more (a b : Nat) (h : a = b) : a = b := by
+\         iterate 2 exact h
+theorem w_it_more
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  2 by-iterate ' h by-exact by-end
+end w_it_more

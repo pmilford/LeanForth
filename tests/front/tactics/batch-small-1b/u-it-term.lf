@@ -1,0 +1,7 @@
+\ Not supported (plan row TB2, small tactics 1): a count that is no
+\ numeral, which Lean's parser refuses (iterate takes a num literal): 99.
+theorem u_it_term
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  a by-iterate ' h by-exact by-end
+end u_it_term
