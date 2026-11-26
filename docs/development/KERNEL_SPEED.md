@@ -94,26 +94,33 @@ toolchain) on the same export with `num_threads` N, `bin/leanforth check --jobs 
 - Loads: the 4- and 1-worker LeanForth runs at load 1.9 -> 4.0 -> 1.0; the Lean, nanoda and 6- and 10-worker
   runs at 2.1 -> 9.0 (their own threads), nothing else running.
 
-**Measured after group 3** (branch `kernel-speed-3`, head 4d416a3c, plan 9.4.8z7: stored hashes in
-`lib/htab.fs`, the replace memo's scratch memo, the lean walk of instantiation with closed roots; P4 left
-out). Same command, same export, gforth-fast, one run each on 2026-11-26 (1 thread 00:35-00:46, load 1.3 ->
-1.8; 4 threads 00:46-00:49, load 1.8 -> 4.5); both reports identical to main's outside `measured`,
+**Measured after group 3** (branch `kernel-speed-3`, head a96646ff, plan 9.4.8z8: the replace memo's scratch
+memo (P1) and the lean walk of instantiation with closed roots (P3); P2 dropped, P4 left out). Same command,
+same export, gforth-fast, one run each on 2026-11-26 (1 thread 01:29-01:40, load 0.5 -> 1.4; 4 threads
+01:40-01:44, load 1.4 -> 3.7); both reports identical to main's outside `measured`,
 `settings` and `run` (59,349 accepted, fuel 654,719,715; the `export` field spells the same file's path
 absolute).
 
 | Threads | Lean's checker | nanoda | LeanForth, main | LeanForth, group 3 | Group 3 / Lean | Group 3 / nanoda |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1 | 31.0 s | 30.7 s | 670.4 s (check phase 656.5 s), peak 645.5 MB | 634.8 s (check phase 620.6 s), peak 729.7 MB | 20.5 | 20.7 |
-| 4 | no parallel checker | 9.7 s | 199.6 s (check phase 182.1 s), peak 901.4 MB | 191.6 s (check phase 175.1 s), peak 1,019.5 MB | – | 19.8 |
+| 1 | 31.0 s | 30.7 s | 670.4 s (check phase 656.5 s), peak 645.5 MB | 651.0 s (check phase 637.0 s), peak 645.4 MB | 21.0 | 21.2 |
+| 4 | no parallel checker | 9.7 s | 199.6 s (check phase 182.1 s), peak 901.4 MB | 191.3 s (check phase 174.4 s), peak 919.0 MB | – | 19.7 |
 
-- The check phase falls 35.9 s at one thread (5.5%) and 7.0 s at four. Stored hashes alone (head 488fd7dc,
-  one thread, load 1.6 -> 1.3) gave 650.9 s of check phase: about 6 s; the memo's cut and the lean walk the
-  other 30 s. The throwaway prototype reached 575.4 s with its P4 (a dense array of leaf entries, +49 MB) and
-  a closed-root test made before any of the pass's own checks; here the closed root still passes
-  `lf-open-ready` (the substitution's checks, as every call does) and an open root its frame admission.
-- Memory: 8-byte slots double every hash table: the input stage grows from 179.7 MB to 251.6 MB, the peak 13%
-  at one and four threads. The owner allowed P4 only within 5% of main's peak; P2 alone is past it, so P4 is
-  left out ([TERM_STORE.md](../design/TERM_STORE.md), "As landed").
+- The check phase falls 19.5 s at one thread (3.0%) and 7.7 s at four, with no memory added: the input stage
+  holds 179.7 MB as on main, the peak is main's at one thread and 1.95% over it at four (one run each; a peak
+  at four threads depends on which declarations overlap).
+- Stored hashes (P2: an entry's hash kept in its `lib/htab.fs` slot) were landed, measured on Init and dropped:
+  alone (head 488fd7dc, load 1.6 -> 1.3) they took the check phase to 650.9 s, about 6 s, for about 87 MB more
+  peak (732.8 MB, +13.5%; 1,019.5 MB at four threads), and the library's own timing showed a find at 10^6
+  entries slower (31 -> 67 ns) with the slots doubled. With them the group reached 620.6 s.
+- The throwaway prototype reached 575.4 s with P2 and its P4 (a dense array of leaf entries, +49 MB) and a
+  closed-root test made before any of the pass's own checks. Here a closed root still passes `lf-open-ready`:
+  its refusals (a pass in progress, a negative count, a dead substitution term, the heap refusing the
+  substitution's room) are fail-closed checks a closed root would turn into ok, and the scope mode's memo stamp
+  is read from the copied substitution. An open root keeps its frame admission (`lf-rebuild-run`): the
+  root's frame (`frame-call`, after `frame-admit`'s soundness, fuel and room tests, charging the root's unit)
+  is what makes the record busy, which `lf-open-ready` reads against re-entry; `frame-start` sets the binder
+  depth the walk changes; the scratch mark is the rollback of a failed walk's nodes.
 
 ## 1. Time by family, beside Lean and nanoda
 

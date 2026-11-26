@@ -2070,5 +2070,5 @@ prototypes. Do 2b."
   peak memory stays within 5% of main's (the owner has not approved more memory).
 - **Then (2b): a pure-Forth redesign** for fewer table lookups, aiming at 7-10 times Lean; native code only
   as a later proposal.
-- Carried out on branch `kernel-speed-3` (plan 9.4.8z7, 2026-11-26: written and tested, not reviewed, not
+- Carried out on branch `kernel-speed-3` (plan 9.4.8z8, 2026-11-26: written and tested, not reviewed, not
   merged).
