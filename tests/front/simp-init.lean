@@ -131,6 +131,171 @@ def Lean.Expr.lambdaCount : Expr → Nat
   | .mdata _ b => b.lambdaCount
   | _ => 0
 
+-- ---- The theorem as LeanForth natural-form text (simp group 4, pass 3: the
+-- harness make reference-simp-init, tests/front/check_simp_init.py). The
+-- introduced binders are v1 .. vk, the statement the goal's target in
+-- postfix: Lean's notations as LeanForth's words (binop%, binrel% and the
+-- logical connectives), a numeral as itself, any other constant applied to
+-- its explicit arguments (`a1 .. an C`, or `' C a1 $ .. an $` when the
+-- count is not its type's), the bracket items as `' NAME` (`<-` after a
+-- reversed one). Anything else (a binder, fun, let or projection in the
+-- statement, a sort, a raw or string literal, a private or escaped name,
+-- universe parameters, a `*`, term, erased or ↓/↑ item) cannot be written:
+-- lf_why names it. The statement LeanForth elaborates is compared with
+-- Lean's (the dumped types), so a printing Lean's elaborator and
+-- LeanForth's read differently is found, never counted.
+abbrev LfM := ExceptT String MetaM
+
+def lfOps : List (Name × Nat × String) :=
+  [(``HAdd.hAdd, 6, "+"), (``HMul.hMul, 6, "*"), (``HSub.hSub, 6, "-"), (``HDiv.hDiv, 6, "/"),
+   (``HMod.hMod, 6, "%"), (``HPow.hPow, 6, "^"), (``Eq, 3, "="), (``LE.le, 4, "≤"),
+   (``LT.lt, 4, "<"), (``GE.ge, 4, "≥"), (``GT.gt, 4, ">"), (``Ne, 3, "≠"), (``And, 2, "∧"),
+   (``Or, 2, "∨"), (``Iff, 2, "↔"), (``Dvd.dvd, 4, "∣")]
+
+def lfName (n : Name) : LfM String := do
+  if isPrivateName n then throwThe String "a private constant"
+  if n.hasNum then throwThe String "a name with a numeric part"
+  let s := n.toString (escape := true)
+  if s.any (fun c => c == '«' || c == ' ' || c == '»') then throwThe String "a name that needs escaping"
+  return s
+
+-- The binder kinds of a type's syntactic telescope, and whether its body's
+-- head may unfold to more binders (LeanForth then counts no arity).
+partial def lfTele (env : Environment) : Expr → Array BinderInfo → Array BinderInfo × Bool
+  | .forallE _ _ b bi, acc => lfTele env b (acc.push bi)
+  | .mdata _ b, acc => lfTele env b acc
+  | e, acc => (acc, match e.getAppFn with
+      | .const c _ => match env.find? c with | some (.defnInfo _) => true | _ => false
+      | .lam .. | .letE .. | .proj .. | .mdata .. => true
+      | _ => false)
+
+-- Numerals and arithmetic of numerals alone: nothing in it fixes a numeral's type.
+partial def lfNumOnly (e : Expr) : Bool :=
+  if e.isAppOfArity ``OfNat.ofNat 3 then true
+  else if e.isAppOfArity ``Neg.neg 3 then lfNumOnly e.appArg!
+  else if [``HAdd.hAdd, ``HMul.hMul, ``HSub.hSub, ``HDiv.hDiv, ``HMod.hMod, ``HPow.hPow].any
+      (e.isAppOfArity · 6) then lfNumOnly e.appFn!.appArg! && lfNumOnly e.appArg!
+  else false
+
+def lfJoin (xs : List String) : String := " ".intercalate (xs.filter (· != ""))
+
+mutual
+partial def lfTerm (names : FVarId → Option String) (e : Expr) : LfM String := do
+  match e with
+  | .fvar id => lfLocal names id #[]
+  | .mdata _ b => lfTerm names b
+  | .lit (.natVal _) => throwThe String "a raw natural literal"
+  | .lit (.strVal _) => throwThe String "a string literal"
+  | .sort _ => throwThe String "a sort (Prop, Type, Sort)"
+  | .forallE .. => throwThe String "a binder (∀ or →) in the statement"
+  | .lam .. => throwThe String "a fun in the statement"
+  | .letE .. => throwThe String "a let in the statement"
+  | .proj .. => throwThe String "a projection in the statement"
+  | .const n _ => lfApp names n #[]
+  | .app .. => match e.getAppFn with
+    | .const n _ => lfApp names n e.getAppArgs
+    | .fvar id => lfLocal names id e.getAppArgs
+    | _ => throwThe String "an application of no constant or variable"
+  | _ => throwThe String "a metavariable or loose variable"
+
+partial def lfArgs (names : FVarId → Option String) (bis : Array BinderInfo) (args : Array Expr) :
+    LfM (List String) := do
+  let mut out := #[]
+  for h : j in [0 : args.size] do
+    if bis.getD j .default == .default then out := out.push (← lfTerm names args[j])
+  return out.toList
+
+-- A constant applied: a numeral, a notation, or its explicit arguments.
+partial def lfApp (names : FVarId → Option String) (n : Name) (args : Array Expr) : LfM String := do
+  if n == ``OfNat.ofNat && args.size == 3 then
+    match args[1]! with
+    | .lit (.natVal k) => if k < 1000000000 then return toString k
+                          else throwThe String "a numeral of ten digits or more"
+    | _ => throwThe String "OfNat.ofNat of no literal"
+  if n == ``Not && args.size == 1 then return s!"{← lfTerm names args[0]!} ¬"
+  for (op, ar, w) in lfOps do
+    if n == op && args.size == ar then
+      let (a, b) := (args[ar-2]!, args[ar-1]!)
+      if !args[0]!.isConstOf ``Nat && lfNumOnly a && lfNumOnly b && ar > 2 then
+        throwThe String "numerals of a type other than Nat no variable fixes (a type ascription)"
+      return s!"{← lfTerm names a} {← lfTerm names b} {w}"
+  let some ci := (← getEnv).find? n | throwThe String "an unknown constant"
+  let (bis, unf) := lfTele (← getEnv) ci.type #[]
+  let name ← lfName n
+  let exps ← lfArgs names bis args
+  let nexp := (bis.filter (· == .default)).size
+  if !unf && args.size ≤ bis.size && exps.length == nexp then return lfJoin (exps ++ [name])
+  return lfJoin ([s!"' {name}"] ++ exps.map (· ++ " $"))
+
+-- A variable applied to its explicit arguments, as its type counts them.
+partial def lfLocal (names : FVarId → Option String) (id : FVarId) (args : Array Expr) :
+    LfM String := do
+  let some s := names id | throwThe String "a free variable of no binder"
+  let (bis, unf) := lfTele (← getEnv) (← instantiateMVars (← id.getType)) #[]
+  let exps ← lfArgs names bis args
+  if !unf && args.size == bis.size && exps.length == (bis.filter (· == .default)).size then
+    return lfJoin (exps ++ [s])
+  return lfJoin ([s!"' {s}"] ++ exps.map (· ++ " $"))
+end
+
+def lfBinderWord : BinderInfo → String
+  | .default => "explicit:" | .implicit => "implicit:"
+  | .strictImplicit => "strict-implicit:" | .instImplicit => "instance:"
+
+-- A bracket item as `' NAME` or `' NAME <-`, resolved as classifyItem does.
+def lfItem (names : FVarId → Option String) (item : String) : TacticM (Except String String) := do
+  let mut t := item; let mut arrow := false
+  if t.startsWith "←" then arrow := true; t := strim (sdrop t 1)
+  else if t.startsWith "<-" then arrow := true; t := strim (sdrop t 2)
+  if t.startsWith "-" then return .error "an erased item (-x)"
+  if t.startsWith "↓" || t.startsWith "↑" then return .error "a pre or post item (↓, ↑)"
+  if t == "*" then return .error "the item *"
+  if t.any (fun c => c == ' ' || c == '(') then return .error "a term item"
+  let tail := if arrow then " <-" else ""
+  let id := t.toName
+  if let some d := (← getLCtx).findFromUserName? id then
+    match names d.fvarId with
+    | some s => return .ok s!"' {s}{tail}"
+    | none => return .error "an item naming no binder"
+  match ← resolveGlobalName id with
+  | (n, []) :: _ => match ← (lfName n).run with
+    | .ok s => return .ok s!"' {s}{tail}"
+    | .error w => return .error s!"an item: {w}"
+  | _ => return .error "an unresolved item"
+
+-- Postfix tokens as lines below 900 characters (a LeanForth line has fewer than 1024).
+def lfLines (s : String) : List String := Id.run do
+  let mut out := #[]; let mut cur := ""
+  for w in s.splitOn " " do
+    if cur.length + w.length + 1 > 900 then out := out.push cur; cur := w
+    else cur := if cur == "" then w else cur ++ " " ++ w
+  return (out.push cur).toList
+
+-- The theorem's text, or why it cannot be written, in g's context after introNP.
+def lfText (i : TheoremVal) (name tac : String) (fvars : Array FVarId) (g : MVarId) :
+    TacticM (Except String String) := do
+  if !i.levelParams.isEmpty then return .error "universe parameters"
+  let names : FVarId → Option String := fun id =>
+    (fvars.idxOf? id).map (fun j => s!"v{j + 1}")
+  let mut lines := #[s!"theorem {name}"]
+  for h : j in [0 : fvars.size] do
+    let d ← fvars[j].getDecl
+    if d.isLet then return .error "a let binder"
+    match ← (lfTerm names (← instantiateMVars d.type)).run with
+    | .ok s => lines := lines ++ ((lfLines s!"{s} {lfBinderWord d.binderInfo} v{j + 1}").map ("  " ++ ·)).toArray
+    | .error w => return .error s!"binder type: {w}"
+  match ← (lfTerm names (← instantiateMVars (← g.getType))).run with
+  | .ok s => lines := lines ++ ((lfLines s).map ("  " ++ ·)).toArray
+  | .error w => return .error s!"statement: {w}"
+  let mut items := #[]
+  if let [_, rest] := tac.splitOn "[" then
+    for item in splitItems (sdropRight rest 1) do
+      match ← lfItem names item with
+      | .ok s => items := items.push s
+      | .error w => return .error s!"bracket: {w}"
+  let t := if tac == "simp" then "by-simp" else s!"by-simp[ {lfJoin items.toList} ]"
+  return .ok ("\n".intercalate (lines ++ #[":= by", s!"  {t}", s!"end {name}"]).toList ++ "\n")
+
 structure Run where
   closed : Bool
   why : String := ""
@@ -139,6 +304,7 @@ structure Run where
   att : Nat := 0
   ok : Nat := 0
   items : Array Json := #[]
+  lf : Except String String := .error "not made"
 
 def countingDisch (att ok : IO.Ref Nat) : Simp.Discharge := fun e => do
   att.modify (· + 1)
@@ -147,12 +313,13 @@ def countingDisch (att ok : IO.Ref Nat) : Simp.Discharge := fun e => do
   return r
 
 -- One run of `tac` on theorem `i`: intro, mkSimpContext, Simp.main, close.
-def runSimp (i : TheoremVal) (tac : String) (withItems : Bool) : TermElabM Run := do
+def runSimp (i : TheoremVal) (tac : String) (withItems : Bool) (lfName : String := "") :
+    TermElabM Run := do
   let stx ← match Parser.runParserCategory (← getEnv) `tactic tac with
     | .ok s => pure s | .error e => throwError "parse: {e}"
   let g0 ← mkFreshExprMVar i.type .syntheticOpaque
   let k := i.value.lambdaCount
-  let (_, g) ← g0.mvarId!.introNP k
+  let (fvars, g) ← g0.mvarId!.introNP k
   let res ← IO.mkRef ({ closed := false } : Run)
   let att ← IO.mkRef 0; let ok ← IO.mkRef 0
   let _ ← Tactic.run g do
@@ -163,6 +330,9 @@ def runSimp (i : TheoremVal) (tac : String) (withItems : Bool) : TermElabM Run :
         | _ => pure #[]
         else pure #[]
       res.modify ({ · with items })
+      if withItems then
+        let lf ← lfText i lfName tac fvars g
+        res.modify ({ · with lf })
       let r ← mkSimpContext stx (eraseLocal := false)
       let target ← instantiateMVars (← g.getType)
       let methods := Simp.mkMethods r.simprocs (countingDisch att ok) (wellBehavedDischarge := true)
@@ -255,14 +425,18 @@ def oneTheorem (env : Environment) (mod : Name) (ls : Array String) (n : Name) (
   let base : List (String × Json) := [("name", toJson (n.toString (escape := false))), ("module", toJson mod.toString),
     ("line", toJson line), ("shape", toJson shape), ("tactic", toJson tac), ("lambdas", toJson i.value.lambdaCount)]
   let t0 ← IO.monoMsNow
-  match ← runCore env ns opens (runSimp i tac true) with
+  let lfOut (r : Run) : List (String × Json) := match r.lf with
+    | .ok t => [("lf", toJson t), ("type", toJson (sx i.type))]
+    | .error w => [("lf", Json.null), ("lf_why", toJson w)]
+  match ← runCore env ns opens (runSimp i tac true "THEOREM") with
   | .error m => return Json.mkObj (base ++ [("closed", toJson false), ("why", toJson (errClass m)), ("msg", toJson (stake m 300)),
       ("ms", toJson ((← IO.monoMsNow) - t0))])
   | .ok r =>
     let ms := (← IO.monoMsNow) - t0
     if !r.closed then
       return Json.mkObj (base ++ [("closed", toJson false), ("why", toJson (r.why)), ("items", toJson r.items),
-        ("discharge", Json.mkObj [("attempts", toJson (r.att)), ("ok", toJson (r.ok))]), ("ms", toJson (ms))])
+        ("discharge", Json.mkObj [("attempts", toJson (r.att)), ("ok", toJson (r.ok))]), ("ms", toJson (ms))]
+        ++ lfOut r)
     let ordered := (r.used.toArray.qsort (fun a b => a.2 < b.2)).toList.map (·.1)
     let mut lemmas := #[]; let mut simprocs := #[]; let mut hyps := #[]
     for o in ordered do
@@ -294,7 +468,8 @@ def oneTheorem (env : Environment) (mod : Name) (ls : Array String) (n : Name) (
       ("helpers", nm (cs.filter fun c => match c with | .str _ s => s.startsWith "_simp_" | _ => false)),
       ("casts", nm (cs.filter castConsts.contains)),
       ("reduce_ablation", toJson (abl)), ("same_as_stored", toJson (v == i.value)),
-      ("size", toJson (sz)), ("ms", toJson (ms)), ("term", if sz ≤ maxSx then toJson (sx v) else Json.null)])
+      ("size", toJson (sz)), ("ms", toJson (ms)), ("term", if sz ≤ maxSx then toJson (sx v) else Json.null)]
+      ++ lfOut r)
 
 unsafe def main (args : List String) : IO Unit := do
   -- The running binary's toolchain, never a `lean` found on PATH (an elan

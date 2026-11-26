@@ -1307,6 +1307,17 @@ reference-decide-init:
 	GFORTH=$(GFORTH) $(RUN) python3 tests/front/tactics/decide/check.py --init \
 	$(INIT_SNAPSHOT) $(INIT_ELAB)
 .PHONY: reference-decide-init
+# by-simp on Init's one-line simp proofs (simp group 4, pass 3; tests/front/simp-init.sh): Init
+# exported, its format-4.1 data written, pinned Lean's re-run of each proof with its LeanForth
+# text, then tests/front/check_simp_init.py: K of N accepted with terms node for node pinned
+# Lean's, U by reason, and no theorem accepted with another term or where Lean's run fails
+# (about 4 minutes). Part of make daily only, after make parallel-init (its INIT_SNAPSHOT),
+# never of make check. Its tests/front/simp-init.fs runs on Gforth 1.0 itself (its backtrace).
+reference-simp-init: RUN := timeout 3600
+reference-simp-init:
+	LEAN=$(LEAN) GFORTH=$(LEANFORTH_GFORTH) GFORTH_FAST=$(GFORTH_FAST) $(RUN) \
+	bash tests/front/simp-init.sh $(INIT_SNAPSHOT)
+.PHONY: reference-simp-init
 
 .PHONY: test-front test-front-e2e test-showcase reference-front reference-constructions reference-binder-kinds
 test: test-front test-front-e2e test-showcase

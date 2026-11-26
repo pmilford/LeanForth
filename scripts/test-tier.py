@@ -125,7 +125,9 @@ FULL_SUITES = (
 # The daily full run (make daily) and what make tag-check requires: every suite, cache off, and
 # all of Init at --jobs 8 against --jobs 1 (make parallel-init, plan 9.4.8p; owner, 2026-11-18),
 # then by-decide and the symbol words against the Init snapshot that run wrote, node for node
-# pinned Lean's (make reference-decide-init; review of ops-symbols B3, 2026-11-20).
+# pinned Lean's (make reference-decide-init; review of ops-symbols B3, 2026-11-20), and by-simp
+# on Init's one-line simp proofs against the same snapshot (make reference-simp-init; simp
+# group 4, pass 3).
 DAILY_SUITES = (
     {"label": "coverage-check", "goals": ["coverage-check"]},
     {"label": "testfast", "goals": ["test-unit"], "engine": "fast"},
@@ -133,6 +135,7 @@ DAILY_SUITES = (
     {"label": "test073", "goals": ["test-unit"], "engine": "073"},
     {"label": "parallel-init", "goals": ["parallel-init"]},
     {"label": "reference-decide-init", "goals": ["reference-decide-init"]},
+    {"label": "reference-simp-init", "goals": ["reference-simp-init"]},
 )
 
 

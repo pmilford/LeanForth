@@ -26,6 +26,7 @@ test-tactic-*                      unit    tests/front/tactics/NAME/test.fs: its
 # make daily only (never make check or a tier)
 parallel-init                      daily   all of Init at --jobs 8 against --jobs 1 (plan 9.4.8p)
 reference-decide-init              daily   decide/check.py --init: symbol words on Init, node for node pinned Lean's
+reference-simp-init                daily   simp-init.sh: by-simp on Init's one-line simp proofs, K of N node for node pinned Lean's
 
 # make test: unit
 check-tools-untracked              unit
@@ -194,6 +195,9 @@ tests/lib/bignum-bench.fs          manual  report-only benchmark
 tests/lib/lib-bench.fs             manual  report-only benchmark of every library (make lib-bench)
 tests/lib/bignum_bench.py          manual  report-only benchmark against Python
 tests/front/simp_init_summary.py   manual  the simp-init measurement's summary (docs/development/measurements/simp-init-2026-11-26)
+tests/front/simp-init.sh           manual  make reference-simp-init's script (daily, not make check)
+tests/front/check_simp_init.py     manual  make reference-simp-init's comparison (daily, not make check)
+tests/front/simp-init.fs           manual  make reference-simp-init's LeanForth runs (daily, not make check)
 tests/lib/sha256-bench.fs          manual  report-only benchmark
 tests/lib/task-bench.fs            manual  report-only benchmark
 tests/front/check_binder_kinds.py  manual  make reference-binder-kinds, a measurement on all of Init

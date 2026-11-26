@@ -66,7 +66,8 @@ make check) with LEAN_CACHE=0, make test-unit on Gforth 0.7.3, make parallel-ini
 Init at --jobs 8 against --jobs 1, plan 9.4.8p; it needs the machine-local Init export and
 fails without it, so such a machine has no complete daily run) and make reference-decide-init
 (by-decide and the symbol words against the Init snapshot parallel-init wrote; it fails without
-it, REQUIRE_INIT_SNAPSHOT=1), none narrowed by a variable.
+it, REQUIRE_INIT_SNAPSHOT=1) and make reference-simp-init (by-simp on Init's one-line simp proofs
+against the same snapshot, likewise), none narrowed by a variable.
 daily-status prints the newest complete daily run (its date, commit and age) and, with
 --warn-hours H, a warning when there is none or it is older than H hours; it always exits 0
 (push.sh reports it, never refuses on it). tag-check exits 0 when HEAD's exact tree has a
@@ -550,6 +551,7 @@ def daily_needs():
         and r["gforth"] == engines["073"],
         "make parallel-init": lambda r: r["suite"] == "parallel-init",
         "make reference-decide-init": lambda r: r["suite"] == "reference-decide-init",
+        "make reference-simp-init": lambda r: r["suite"] == "reference-simp-init",
     }, chain["lean"]
 
 
@@ -618,7 +620,8 @@ def run_daily(args):
     need_of = {"coverage-check": "make coverage-check", "testfast": "make test-unit on gforth-fast",
                "check-rest": "make check-rest with LEAN_CACHE=0", "test073": "make test-unit on Gforth 0.7.3",
                "parallel-init": "make parallel-init",
-               "reference-decide-init": "make reference-decide-init"}
+               "reference-decide-init": "make reference-decide-init",
+               "reference-simp-init": "make reference-simp-init"}
     for suite in test_tier.DAILY_SUITES:
         need = need_of[suite["label"]]
         argv = suite_argv(suite, args.make, args.jobs, "0")
@@ -729,7 +732,8 @@ def run_tier(args):
     if skipped and result["tier"] != "full":
         lines.append(f"not run (tier {result['tier']} does not reach them): {', '.join(skipped)}")
     lines.append("not run in a tier (make daily runs them): make coverage-check of every file, "
-                 "make test-unit on Gforth 0.7.3, make parallel-init, make reference-decide-init")
+                 "make test-unit on Gforth 0.7.3, make parallel-init, make reference-decide-init, "
+                 "make reference-simp-init")
     if not result["coverage"]:
         lines.append("branch coverage check (make cover-changed): not needed, no Forth file of src/ "
                      "added or modified")
