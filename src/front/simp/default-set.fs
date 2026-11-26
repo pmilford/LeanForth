@@ -41,40 +41,35 @@ require ../meta-config.fs
 require ./theorems.fs
 require ./main.fs
 
-\ ---- The lemma trees' kinds: a phase's values, the theorem record made
-\ for each when its root is built; the checks run per lemma when tried.
+\ ---- The lemma trees' kind: the values of the tree's phase (the post
+\ tree's, or the pre tree's), the theorem record made for each when its
+\ root is built; the checks run per lemma when it is tried.
 : ds-ok ( rix -- outcome ) drop outcome-ok ;
-: ds-pre# ( -- n ) false simp-lemmas# ;
-: ds-post# ( -- n ) true simp-lemmas# ;
-: ds-pre-value ( k -- v ) false simp-lemma-value ;
-: ds-post-value ( k -- v ) true simp-lemma-value ;
-' ds-pre# ' ds-pre-value ' simp-lemma-count ' simp-lemma-keys ' simp-lemma-rank ' ds-ok
-  ' lf-simp-data-entry rix-kind, constant ds-pre-kind
-' ds-post# ' ds-post-value ' simp-lemma-count ' simp-lemma-keys ' simp-lemma-rank ' ds-ok
-  ' lf-simp-data-entry rix-kind, constant ds-post-kind
+: ds-post? ( rix -- flag ) lf-simp-post-tree = ;
+: ds-count ( rix -- n ) ds-post? simp-lemmas# ;
+: ds-value ( k rix -- v ) ds-post? simp-lemma-value ;
+' ds-count ' ds-value ' simp-lemma-count ' simp-lemma-keys ' simp-lemma-rank ' ds-ok
+  ' lf-simp-data-entry rix-kind, constant ds-kind
 
-\ ---- The simprocs' kinds: a phase's entries, the tree holding each
-\ entry's number.
-: ds-self ( p -- p outcome ) outcome-ok ;
-: ds-proc-pre# ( -- n ) false simp-procs# ;
-: ds-proc-post# ( -- n ) true simp-procs# ;
-: ds-proc-pre-value ( k -- p ) false simp-proc-value ;
-: ds-proc-post-value ( k -- p ) true simp-proc-value ;
-' ds-proc-pre# ' ds-proc-pre-value ' simp-proc-count ' simp-proc-keys ' simp-proc-rank
-  ' ds-ok ' ds-self rix-kind, constant ds-proc-pre-kind
-' ds-proc-post# ' ds-proc-post-value ' simp-proc-count ' simp-proc-keys ' simp-proc-rank
-  ' ds-ok ' ds-self rix-kind, constant ds-proc-post-kind
+\ ---- The simprocs' kind: the entries of the index's phase, the tree
+\ holding each entry's number.
 /rix context-record: ds-proc-pre
 /rix context-record: ds-proc-post
+: ds-self ( p -- p outcome ) outcome-ok ;
+: ds-proc-post? ( rix -- flag ) ds-proc-post = ;
+: ds-proc-count ( rix -- n ) ds-proc-post? simp-procs# ;
+: ds-proc-value ( k rix -- p ) ds-proc-post? simp-proc-value ;
+' ds-proc-count ' ds-proc-value ' simp-proc-count ' simp-proc-keys ' simp-proc-rank
+  ' ds-ok ' ds-self rix-kind, constant ds-proc-kind
 1 cells context-slab: ds-out
 :noname ( -- ) ds-proc-pre lf-rix-free ds-proc-post lf-rix-free ; context-teardown
 : ds-procs-new ( -- )
   ds-proc-pre lf-rix-free ds-proc-post lf-rix-free
-  ds-proc-pre-kind ds-proc-pre lf-rix-kind! ds-proc-post-kind ds-proc-post lf-rix-kind! ;
+  ds-proc-kind ds-proc-pre lf-rix-kind! ds-proc-kind ds-proc-post lf-rix-kind! ;
 
 : lf-simp-default ( -- )
   simp-default? 0= if lf-unported then
-  lf-simp-set-new ds-pre-kind ds-post-kind lf-simp-set-data! ds-procs-new ;
+  lf-simp-set-new ds-kind ds-kind lf-simp-set-data! ds-procs-new ;
 
 \ ---- The guard: a simproc candidate of e in its phase, unsupported.
 : ds-procs ( post? -- rix ) if ds-proc-post else ds-proc-pre then ;

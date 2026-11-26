@@ -231,6 +231,11 @@ CASES = {
     "proc-keys-cut": (set41(S_PROC, S_PROC.replace(',"star"', '')), "invalid", 12, 30),
     "v4-lemma": (assemble(GOOD + [S_ADD0]), "invalid", 6, 11),
     "set41-uncounted": (assemble(SET41, "4.1", drop="simp_lemma"), "invalid", 1, 10),
+    "set-name-text": (set41(S_SET, S_SET.replace('"name":["simp"]', '"name":"simp"')),
+                      "invalid", 8, 52),
+    "left-proof-name": (set41(S_LEFT, S_LEFT.replace('"proof":["imp_not_self","_simp_1"]',
+                                                     '"proof":"x"')), "invalid", 10, 10),
+    "lemma-pre": (set41(S_ADD0, S_ADD0.replace('"post":true', '"post":false')), "ok", 0, 0),
 }
 
 

@@ -164,6 +164,9 @@ T{ -1 simp-lemma-rank -1 simp-lemma-prio -1 simp-lemma-keys nip false simp-lemma
 T{ s" Eq" s" ndrec" two simp-unfold? s" add_zero" nat simp-unfold? -> true false }T
 T{ false simp-procs# true simp-procs# 0 false simp-proc-value dup simp-proc-dsimproc? swap
    simp-proc-rank 0 simp-proc-keys nip -> 1 0 true 0 2 }T
+\ A pre lemma (Lean's @[simp ↓]): in the pre tree's values.
+T{ fixture lemma-pre set-refused false simp-lemmas# 0 false simp-lemma-value true simp-lemmas#
+   -> outcome-ok 0 0 4 1 0 1 }T
 T{ fixture good41 set-refused simp-default? -> outcome-ok 0 0 0 false }T
 T{ fixture set-twice set-refused -> outcome-invalid 13 52 0 }T
 T{ fixture set-other set-refused -> outcome-invalid 8 52 0 }T
@@ -184,6 +187,8 @@ T{ fixture proc-name set-refused -> outcome-invalid 12 10 0 }T
 T{ fixture proc-keys-cut set-refused -> outcome-invalid 12 30 0 }T
 T{ fixture v4-lemma set-refused -> outcome-invalid 6 11 0 }T
 T{ fixture set41-uncounted set-refused -> outcome-invalid 1 10 0 }T
+T{ fixture set-name-text set-refused -> outcome-invalid 8 52 0 }T
+T{ fixture left-proof-name set-refused -> outcome-invalid 10 10 0 }T
 \ After a refusal, simp-data? is false and the next read works again.
 T{ simp-data? good simp-congr-count -> false outcome-ok 3 }T
 \ Format 4 has no realized records: unsupported, never "none"; 4.1 has.

@@ -43,8 +43,8 @@ create vkeys 8 cells allot       \ ( k n ) by v + 1
 nat add0 keys 0 slot 2!   lv1 ?tv add keys 1 slot 2!   nat add0 keys -1 slot 2!
 nat mul0 keys 2 slot 2!
 variable checks-out   outcome-ok checks-out !   variable entry-out   outcome-ok entry-out !
-: t-count ( -- n ) 4 ;
-: t-value ( k -- v ) cells enum + @ ;
+: t-count ( rix -- n ) drop 4 ;
+: t-value ( k rix -- v ) drop cells enum + @ ;
 : t-records ( -- n ) 3 ;
 : t-keys ( v -- k n ) slot 2@ ;
 : t-rank ( v -- rank ) 1+ cells vranks + @ ;

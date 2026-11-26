@@ -16,7 +16,8 @@
 \ (lf-rix-tree is the identity) and the tree's builder finds it. A kind,
 \ a table of seven execution tokens laid once (rix-kind, below), says
 \ what its values are:
-\   count ( -- n ) the values, and value ( k -- v ) the k-th, k from 0;
+\   count ( rix -- n ) the values, and value ( k rix -- v ) the k-th, k
+\     from 0 (the index given, so that one kind serves several);
 \     a value v from 0 up is a record of the user's, one below 0 a value
 \     the library's export lacks (left out: lf-rix-left-out?);
 \   records ( -- n ) the records, 0 .. n-1, each with a status cell;
@@ -62,7 +63,7 @@
 \ Loads in decimal whatever BASE is, then restores it.
 \
 \ Example (a kind of the instance table's, front/instances.fs):
-\   ' it-values# ' it-value ' it-records# ' it-keys ' it-rank ' it-checks
+\   ' it-count ' it-value-of ' it-records# ' it-keys ' it-rank ' it-checks
 \     ' it-entry rix-kind, constant it-kind
 \   it-kind it-rix lf-rix-kind!  it-rix lf-rix-roots  ...
 \   type it-rix it-out lf-rix-unify
@@ -98,8 +99,8 @@ end-structure
 
 \ ---- The kind's hooks.
 : rk@ ( rix field -- xt ) swap rix-kind @ + @ ;
-: rix-values# ( rix -- n ) 0 rk-count rk@ execute ;
-: rix-value ( k rix -- v ) 0 rk-value rk@ execute ;
+: rix-values# ( rix -- n ) dup 0 rk-count rk@ execute ;
+: rix-value ( k rix -- v ) dup 0 rk-value rk@ execute ;
 : rix-records# ( rix -- n ) 0 rk-records rk@ execute ;
 : rix-keys ( v rix -- k n ) 0 rk-keys rk@ execute ;
 : rix-rank ( v rix -- rank ) 0 rk-rank rk@ execute ;

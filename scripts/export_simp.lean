@@ -34,6 +34,15 @@ the import:
             with the kinds it computes before it uses the theorem
             (Simp/Types.lean:793)
 
+  simp_set, simp_lemma, simp_unfold, simproc  (format 4.1, simp group 4)
+            the default simp set (simpExtension) and simproc set
+            (simprocExtension): the set and its simproc set; each lemma of
+            its pre and post trees with its origin, proof, flags, priority,
+            keys and rank (its place in a depth-first walk of its root
+            key's trie); each definition it unfolds; each simproc entry
+            with its keys, phase, rank and whether it is a dsimproc.
+            scripts/export_simp.py finishes them against the export.
+
 A name is a JSON array of its parts, root first, as export_elab.lean
 writes it. It stops (exit status 1) on a congruence lemma filed under
 another function, a realized constant that is no theorem, one without

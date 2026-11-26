@@ -355,8 +355,10 @@ end-structure
   ['] it-class-pass it-dt lf-rix-each ['] it-keys-ranks ok-and ;
 : it-checks ( rix -- outcome ) drop it-root-checks it-refused ;
 : it-records# ( -- n ) elab-instance elab-count ;
+: it-count ( rix -- n ) drop it-values# ;
+: it-value-of ( k rix -- v ) drop it-value ;
 : it-entry ( v -- v outcome ) outcome-ok ;   \ the tree holds the value itself
-' it-values# ' it-value ' it-records# ' it-keys ' it-rank ' it-checks ' it-entry
+' it-count ' it-value-of ' it-records# ' it-keys ' it-rank ' it-checks ' it-entry
   rix-kind, constant it-kind
 
 \ ---- The roots: every value's root key, made once per data read

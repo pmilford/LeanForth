@@ -153,6 +153,18 @@ T{ add0-i lf-simp-data-entry drop dup lf-simp-thm-usable sth sth-checked @ -> tr
 T{ add0-i lf-simp-data-entry drop ' lf-simp-thm-usable thrown1 -> outcome-unsupported }T
 7 add0-keys# !
 T{ add0-i simp-lemma-keys 2dup sth-keys= add0-i simp-lemma-keys 2dup 1- sth-keys= -> true false }T
+T{ add0-i simp-lemma-keys s" Nat.zero_add" rec-of simp-lemma-keys sth-keys= -> false }T
+\ A perm lemma (none in Init; this one marked by hand): unsupported (acLt).
+: add0-perm ( -- a-addr ) add0-i ssl ssl-perm ;
+true add0-perm !
+T{ add0-i lf-simp-data-entry drop ' lf-simp-thm-usable thrown1 -> outcome-unsupported }T
+false add0-perm !
+\ A record whose proof the Meta layer cannot read (a number no
+\ declaration has, set by hand): no theorem record, the outcome passed on.
+: add0-proof ( -- a-addr ) add0-i ssl ssl-proof ;
+add0-proof @ constant add0-d   -1 add0-proof !   simp-thms slab-count constant thms0
+T{ add0-i lf-simp-data-entry ok? swap -1 = simp-thms slab-count thms0 = -> false true true }T
+add0-d add0-proof !
 \ The simprocs: x = x has a post one (reduceCtorEq, keyed on every Eq),
 \ none pre; a free variable none: their guard answers unsupported where
 \ one may fire, nothing for a set without simprocs.
@@ -177,6 +189,22 @@ T{ x=x ' simp thrown -> outcome-unsupported }T
 T{ s" Eq.ndrec" lf-mk-const0 sm-unfold? lf-simp-set-new s" Eq.ndrec" lf-mk-const0 sm-unfold?
    -> true false }T
 T{ with-add0 x=x true ' ds-guard thrown2 -> outcome-ok }T
+\ And in the walk: namedPattern Nat x x rfl, its head a definition the
+\ set unfolds, is refused at reduceStep.
+: named-x ( -- e )
+  s" namedPattern" nat lf-level! lf-mk-const1 nat lf-mk-app x0 lf-mk-app x0 lf-mk-app
+  x0 lf-mk-eq-refl lf-mk-app ;
+lf-simp-default
+T{ named-x ' simp thrown -> outcome-unsupported }T
+
+\ ---- Every heap allocation of a default-set run refused in turn (its
+\ roots, the theorem records made as a root is built): full or the
+\ answer, x + 0 = x closed by eq_self.
+: set-anew ( -- ) slabs-anew simp-thms sweep-slab-anew ;
+: default-pass ( e -- e' outcome ) lf-simp-default simp-pass ;
+' set-anew sweep-slabs-xt !
+T{ x+0 ' default-pass heap-sweep nip -> 0 }T
+' noop sweep-slabs-xt !
 
 \ ---- 5. by-simp through its text (tests/support/tactic-text.fs): closed
 \ (True; True ∧ True by and_self; a + 0 = a by Nat.add_zero and

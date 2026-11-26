@@ -83,6 +83,7 @@ begin-structure /sts  field: sts-default  end-structure
 : lf-simp-set-data! ( pre-kind post-kind -- )
   simp-post-tree lf-rix-kind! simp-pre-tree lf-rix-kind! true sts sts-default ! ;
 : lf-simp-default? ( -- flag ) sts sts-default @ ;
+: lf-simp-post-tree ( -- tree ) simp-post-tree ;   \ as it is, its roots not made
 : sth-rooted ( tree -- tree ) dup lf-rix-roots lf-must ;
 : lf-simp-pre ( -- tree ) simp-pre-tree sth-rooted ;
 : lf-simp-post ( -- tree ) simp-post-tree sth-rooted ;

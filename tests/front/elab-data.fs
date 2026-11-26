@@ -312,8 +312,10 @@ T{ 0 ed-message s" none" compare 1 ed-message s" file missing or unreadable" com
    45 ed-message s" an annotation this reader does not know" compare
    46 ed-message s" binder kinds named twice" compare
    48 ed-message s" congruence lemmas out of their function's order" compare
-   49 ed-message s" a function's realized congruence theorem given twice" compare 50 ed-message nip
-   -> 0 0 0 0 0 0 0 0 }T
+   49 ed-message s" a function's realized congruence theorem given twice" compare
+   50 ed-message s" a simp lemma's rfl flag not its proof's defeq tag" compare
+   52 ed-message s" a simp set other than the default one, or given twice" compare 53 ed-message nip
+   -> 0 0 0 0 0 0 0 0 0 0 }T
 T{ 16 ed-message s" a default instance of two classes" compare -> 0 }T
 \ elab-unhashed: error 26 at line 0, the outcome kept, nothing loaded.
 T{ good lib digest elab-read outcome-full elab-unhashed elab-error-code elab-error-line

@@ -140,6 +140,12 @@ which SD-a's reader refuses as another version (error 7), never misreads.
 `congr_simp`, `arg_kinds`: the kinds `congrKindsExt` holds, which simp compares with those it computes); no
 statement member, since the theorem is the export's own and the kernel checks it. The other kinds of the table
 below are still to come ([ELABORATION_DATA.md](../programming/ELABORATION_DATA.md), "Format 4.1").
+*Format 4.1, simp group 4 (2026-11-26):* the default sets alone, written by `scripts/export_simp.lean` and
+finished by `scripts/export_simp.py`: `simp_set`, `simp` (written `simp_lemma`), `simp_left_out` (with the origin
+and proof names the export lacks), `simp_unfold` (name only, read to answer unsupported) and one `simproc` record
+per entry of the default simproc set (its declaration's keys, phase, rank and `dsimproc`), in place of the two
+kinds `simproc` and `simproc_entry` below ([ELABORATION_DATA.md](../programming/ELABORATION_DATA.md), "Format 4.1:
+the default simp set").
 
 | Kind | Members | From |
 | --- | --- | --- |

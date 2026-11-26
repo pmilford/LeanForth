@@ -245,7 +245,8 @@ defer sc-try ( -- ... )
 : sc-closed? ( e' h -- flag ) lf-meta-has-assignable? swap lf-meta-has-assignable? or 0= ;
 : sc-synthesized? ( -- flag ) sc-mvar-cells sm-xs lf-simp-synthesize ;
 : sc-answer ( -- e' h true | x x false )
-  sc-live? if sc-synthesized? if sc-result 2dup sc-closed? exit then then 0 0 false ;
+  sc-live? if sc-synthesized? else false then
+  if sc-result 2dup sc-closed? else 0 0 false then ;
 : sc-hyps-done ( -- ... )
   sc-answer if sc-close sc-pop sm-pop sm-done else 2drop sc-fail then ;
 defer sc-next-hyp ( -- ... )

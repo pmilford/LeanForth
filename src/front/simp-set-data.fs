@@ -144,7 +144,7 @@ ssl-form ' ssl-clear s" simp_lemma" elab-add-kind41 constant simp-lemma-kind
 \ library's (error 51).
 : ss-known ( index -- flag outcome )   \ true: a declaration has the name
   dup elab-name-shape ok-then? 0= if false swap exit then
-  elab-name ok-then? if elab-has? outcome-ok else false swap then ;
+  elab-name dup ok? if drop elab-has? outcome-ok then ;   \ a failed lookup: -1 and why
 : ss-member-known ( value c-addr -- flag outcome ) elab-member ss-known ;
 : ss-both-known ( value -- flag outcome )
   dup c" origin" ss-member-known ok-then? 0= if nip false swap exit then
