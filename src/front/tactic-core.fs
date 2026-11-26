@@ -256,6 +256,7 @@ end-structure
 \ ---- liftMetaTactic, liftMetaTactic1: xt on the main goal, its goals
 \ (one goal: [goal']) in the main goal's place.
 : lf-goals1 ( goal -- goals ) run-one lf-tac-must ;
+: lf-goals0/1 ( goal | 0 -- goals ) ?dup if lf-goals1 else 0 then ;   \ 0: closed, none
 : lf-goals2 ( goal1 goal2 -- goals ) swap lf-goals1 swap run-push lf-tac-must ;
 : tcr-main ( i*x xt i -- j*x ) drop tb tb-goal @ swap execute ;
 : tcr-lifted ( i*x xt i -- ) tcr-main lf-replace-main lf-tac-must ;

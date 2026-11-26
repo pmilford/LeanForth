@@ -1,0 +1,8 @@
+\ Lean: theorem w_no_progress : False := by simp
+\ Refused as Lean refuses it (error 500): the default set rewrites
+\ nothing in False.
+theorem w_no_progress
+  False
+:= by
+  by-simp
+end w_no_progress

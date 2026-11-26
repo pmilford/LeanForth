@@ -149,9 +149,11 @@ defer lf-simp-discharge ( x type -- flag )
   srt srt-n ! dup srt srt-thm ! swap srt srt-e ! ['] sr-go lf-with-new-depth ;
 
 : sr-skip? ( rfl-only t -- flag ) lf-simp-thm-rfl? 0= and ;
+\ A candidate passed over (rfl-only), else checked before it is tried
+\ (theorems.fs's lf-simp-thm-usable: one the library lacks unsupported).
 : sr-candidate ( e rfl-only i -- e rfl-only e' h true | e rfl-only false )
   sr-pair >r 2dup sr-skip? if r> 2drop false exit then
-  >r over r> r> sr-try ;
+  dup lf-simp-thm-usable >r over r> r> sr-try ;
 : sr-first ( e rfl-only n -- e' h true | false )
   0 ?do i sr-candidate if 2swap 2drop true unloop exit then loop 2drop false ;
 : sr-rewrite ( e tree rfl-only -- e' h true | false )

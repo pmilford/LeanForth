@@ -40,6 +40,11 @@
 \ skipped: a projection or let node, a raw natural literal, a head that a
 \ structure's projection function, a recursor, a quotient's, a matcher
 \ or an auxiliary definition is (iota and unfold?, which simpMatch shares).
+\ A head the set unfolds (theorems.fs's lf-simp-unfold?: unfold?) is
+\ unsupported. The set's simprocs: the hook lf-simp-procs ( e post? -- ),
+\ asked at the pre step after rewritePre and at the post step after
+\ rewritePost fail, and by the dsimp guard; none (2drop) until
+\ simp/default-set.fs plugs its guard.
 \ simpStep: an application by congr; a constant by reduce; a sort or
 \ literal as it is; a metavariable instantiated; a free variable as it is
 \ (a let one unsupported: reduceFVar's implementation-detail rule); a
@@ -149,10 +154,18 @@ end-structure
 lf-tag-let lf-tag-let-nondep lf-tag-projection lf-tag-annotation lf-tag-lit 5 lf-tags
   constant sm-odd-tags
 : sm-odd-tag? ( tag -- flag ) sm-odd-tags lf-tag-in? ;
+\ unfold? (Main.lean): a head the set unfolds (simp/theorems.fs's
+\ lf-simp-unfold?, the default set's simp_unfold records) is unfolded,
+\ not ported: unsupported.
+: sm-data-head ( e -- d true | false )
+  lf-meta-head dup lf-term-const?
+  if lf-const-name lf-menv-data-decl else drop false then ;
+: sm-unfold? ( e -- flag ) sm-data-head if lf-simp-unfold? else false then ;
 : sm-reduce-step ( e -- e' )
   dup lf-meta-head dup lf-mvar? if drop lf-instantiate! exit then
   lf-term-lam? if lf-meta-head-beta lf-must exit then
-  dup lf-term-tag@ sm-odd-tag? if lf-unported then dup sm-head-check ;
+  dup lf-term-tag@ sm-odd-tag? if lf-unported then dup sm-head-check
+  dup sm-unfold? if lf-unported then ;
 
 \ ---- isOfNatNatLit, isOfScientificLit, isCharLit (Main.lean:39-64).
 : sm-raw? ( e -- flag ) lf-tag-lit lf-term-tag? ;
@@ -168,15 +181,25 @@ lf-tag-let lf-tag-let-nondep lf-tag-projection lf-tag-annotation lf-tag-lit 5 lf
   dup sm-of-nat? if drop true exit then
   dup sm-char? if drop true exit then sm-scientific? ;
 
+\ ---- The set's simprocs (Lean's userPreSimprocs, userPostSimprocs and
+\ their dsimprocs in dsimp): lf-simp-procs ( e post? -- ), plugged by
+\ simp/default-set.fs (unsupported where one may fire); none for a set
+\ without simprocs (simp only).
+defer lf-simp-procs ( e post? -- )
+' 2drop is lf-simp-procs
+
 \ ---- The dsimp guard.
-: sm-plain-const? ( c -- flag ) lf-const-name lf-menv-find lf-must sm-struct-proj? 0= ;
+: sm-plain-const? ( c -- flag )
+  dup sm-unfold? 0= swap lf-const-name lf-menv-find lf-must sm-struct-proj? 0= and ;
 : sm-stable-node? ( a -- flag )
   dup lf-sort? if drop true exit then
   dup lf-term-tag@ case lf-tag-constant of sm-plain-const? endof
     lf-tag-fvar of lf-fvar-let? 0= endof nip false swap endcase ;
 : sm-rfl-free? ( a -- flag )
   dup lf-simp-pre lf-simp-rfl-match? swap lf-simp-post lf-simp-rfl-match? or 0= ;
-: sm-kept? ( a -- flag ) dup sm-stable-node? 0= if drop false exit then sm-rfl-free? ;
+: sm-kept? ( a -- flag )
+  dup sm-stable-node? 0= if drop false exit then
+  dup false lf-simp-procs dup true lf-simp-procs sm-rfl-free? ;
 : sm-dsimp ( a -- a ) dup sm-kept? 0= if lf-unported then ;
 
 \ ---- simpAppUsingCongr (Types.lean:732): the head, then each argument.
@@ -287,8 +310,9 @@ defer sm-loop-call ( e cont -- e frames xt )
 : sm-post-continue ( e3 h3 -- ... )
   over sm-act-e lf-eqv! if sm-finish else sm-again then ;
 : sm-joined ( e2 h2 e3 h3 -- e3 h ) 2>r nip 2r> lf-simp-trans ;
-: sm-post ( e2 h2 -- ... )
-  over lf-simp-post false lf-simp-rewrite? if sm-joined then sm-post-continue ;
+: sm-post ( e2 h2 -- ... )   \ rewritePost, then the post simprocs
+  over lf-simp-post false lf-simp-rewrite? if sm-joined else over true lf-simp-procs then
+  sm-post-continue ;
 : sm-stepped ( e2 h2 frames -- ... ) sm-joined-h sm-post ;
 : sm-step-call ( e -- e frames xt ) ['] sm-stepped ['] sm-step sm-call ;
 : sm-pre-continue ( e1 h1 -- ... )
@@ -296,9 +320,11 @@ defer sm-loop-call ( e cont -- e frames xt )
   if drop sm-step-call else nip ['] sm-trans-cache sm-loop-call then ;
 : sm-pre ( e -- e1 h1 true | e false )
   dup lf-simp-pre false lf-simp-rewrite? if rot drop true else false then ;
+\ pre: rewritePre, simpMatch (a matcher refused by reduceStep's check),
+\ then the pre simprocs.
 : sm-loop ( e frames -- ... )
-  drop sm-cached if sm-done exit then
-  sm-count dup sm-push sm-pre if sm-again else lf-simp-none sm-pre-continue then ;
+  drop sm-cached if sm-done exit then sm-count dup sm-push
+  sm-pre if sm-again else dup false lf-simp-procs lf-simp-none sm-pre-continue then ;
 :noname ( e cont -- e frames xt ) ['] sm-loop sm-call ; is sm-loop-call
 : sm-proof? ( e -- flag )
   dup lf-meta-proof-quick lf-must dup lf-lb-undef =

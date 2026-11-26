@@ -36,7 +36,8 @@
 \ simp_left_out record j (v = j invert): simp-lemmas# ( post -- n ) and
 \ simp-lemma-value ( k post -- v ) the values of one tree in file order,
 \ simp-lemma-keys ( v -- k n ), simp-lemma-rank ( v -- rank ),
-\ simp-lemma-prio ( v -- p ); of a record i: simp-lemma-proof ( i -- d ),
+\ simp-lemma-prio ( v -- p ), simp-lemma-post? ( v -- flag ); of a record
+\ i: simp-lemma-proof ( i -- d ),
 \ simp-lemma-rfl? and simp-lemma-perm? ( i -- flag ); simp-lemma-count
 \ ( -- n ). A simproc p: simp-procs# ( post -- n ), simp-proc-value ( k
 \ post -- p ), simp-proc-keys ( p -- k n ), simp-proc-rank ( p -- rank ),
@@ -201,6 +202,7 @@ ssp-form ' ssp-clear s" simproc" elab-add-kind41 constant simp-proc-kind
 : simp-lemma-keys ( v -- k n ) ss-lemma ssl-value elab-value-keys ;
 : simp-lemma-rank ( v -- rank ) ss-lemma ssl-value elab-value-rank@ ;
 : simp-lemma-prio ( v -- p ) ss-lemma ssl-prio @ ;
+: simp-lemma-post? ( v -- flag ) ss-lemma ssl-post @ ;
 : simp-lemma-proof ( i -- d ) ssl ssl-proof @ ;
 : simp-lemma-rfl? ( i -- flag ) ssl ssl-rfl @ ;
 : simp-lemma-perm? ( i -- flag ) ssl ssl-perm @ ;

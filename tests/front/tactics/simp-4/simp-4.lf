@@ -1,0 +1,43 @@
+\ by-simp with Lean's default simp set (simp group 4, pass 1): goals whose
+\ steps meet no simproc candidate, no lemma the slice lacks and no
+\ conditional lemma, so that LeanForth takes Lean's route node for node
+\ (tests/front/tactics/simp-4/check.py; Lean twins in simp-4.lean).
+\ Lean: theorem simp_true : True := by simp
+theorem simp_true
+  True
+:= by
+  by-simp
+end simp_true
+\ Lean: theorem simp_true_and : True ∧ True := by simp   (and_self)
+theorem simp_true_and
+  True True ∧
+:= by
+  by-simp
+end simp_true_and
+\ Lean: theorem simp_add_zero (a : Nat) : a + 0 = a := by simp
+\ Nat.add_zero is an rfl lemma (no proof step), then eq_self.
+theorem simp_add_zero
+  Nat explicit: a  a 0 + a =
+:= by
+  by-simp
+end simp_add_zero
+\ Lean: theorem simp_or_true : False ∨ True := by simp   (or_true)
+theorem simp_or_true
+  False True ∨
+:= by
+  by-simp
+end simp_or_true
+\ Lean: theorem simp_not_not (a : Nat) : ¬¬(a = a) := by simp
+\ The inner a = a first (eq_self), then not_true_eq_false and
+\ not_false_eq_true, glued by congrArg Not.
+theorem simp_not_not
+  Nat explicit: a  a a = Not Not
+:= by
+  by-simp
+end simp_not_not
+\ Lean: theorem simp_mul_one (a : Nat) : a * 1 + 0 = a := by simp
+theorem simp_mul_one
+  Nat explicit: a  a 1 * 0 + a =
+:= by
+  by-simp
+end simp_mul_one

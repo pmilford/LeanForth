@@ -1997,6 +1997,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `]` | `( r1 ... rn -- )` | ordinary | read: the n values become the block's rules (or terms), in order; closes it | Ends the list of `by-rw[`, `by-rewrite[`, `by-rwa[`, `by-simp-only[`, `by-exacts[` or `by-exists[`; with none open, error 83; with a `<<` open inside the list, 458 at `<<` (its `>>` is missing). | `]` |
 | `<-` | `( r -- )` (top: the rule just written) | ordinary; only inside `by-rw[`, `by-rewrite[`, `by-rwa[` or `by-simp-only[` (83 elsewhere), after a rule (86) | read: the values so far become the bracket's rules, the last one marked right to left | Rewrites with r from right to left. | `← r` |
 | `by-rwa[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: as `by-rw[`. Run: rewrites with each rule, then `rfl` (reducible) or else `assumption` | Rewrites, then closes the goal; neither closes it: 381; `rfl` failing on a goal that is no `=` (a `≤`, a negation) falls to the hypothesis, as Lean's. With `at[ h ]`, rewrites h and closes the goal with it (456 when its type differs). | `rwa [` |
+| `by-simp` | `( -- )` | ordinary | read: a step. Run: simplifies the main goal's target with Lean's default simp set (format 4.1's data; see [D.12](#d12-by-simp-simp-with-the-default-set)) | Closes the goal when it becomes `True`; nothing changed: 500; a simproc that could fire, a lemma the export lacks, a side condition, a definition to unfold: 99. | `simp` |
 | `by-simp-only[` | `( -- )` | ordinary; opens a rule block that `]` closes | read: a block step. Run: simplifies the main goal's target, or the hypotheses of a trailing `at[ ]` (`at[ * ]`: every hypothesis nothing depends on, and the target), with the rules, `eq_self` and `iff_self` (see [D.10](#d10-by-simp-only--simp-only)) | Rewrites the goal with the equations given (and those `↔`, `¬`, `≠`, `∧` and `∀` hypotheses give) until none applies; closes it when it becomes `True` (or a hypothesis `False`); nothing changed: 500; a variable that is no proposition: 501; `<-` on a rule to `True`: 502, to `False` (a `¬` or `≠`): 503; a case not ported yet: 99. | `simp only [` |
 | `at[ HYP-NAME ... ]` | `( -- )` | parsing: names up to `]`, over lines (458 at `at[` when a LeanForth word other than `_` and `*`, or the text's end, comes first); right after `by-rw[ ]`, `by-rewrite[ ]`, `by-rwa[ ]`, `by-change`, `by-symm`, `by-delta` (453 elsewhere) | read: the names (and `\|-` or `⊢` for the goal, or `*` alone) become the step's location | Runs the tactic at each hypothesis named, then at the goal when named (455 unknown name, reported at the tactic's word; `*`: 99; no name, `_`, `*` among names: 454). | `at h ⊢` |
 | `by-intro[ HYP-NAME ... ]` | `( -- )` | parsing: names up to `]`, over lines (458 at `by-intro[` when a LeanForth word other than `_` and `*`, or the text's end, comes first), `_` an inaccessible one, none allowed | read: a step; each name a hypothesis word. Run: `by-intro:`'s step for each name in turn; none: one inaccessible | Introduces the goal's first binders as the names; too many: 94; `rfl`: 99; `*`: 84. | `intro a b c` |
@@ -3070,6 +3071,51 @@ prints `funext`, and `x.succ = x.succ` (field notation) where LeanForth
 prints `Nat.succ x = Nat.succ x`; `IntCast Nat` where LeanForth prints
 `@IntCast Nat` (125; likewise `HAdd Nat Nat Bool`), and the goal's type
 under 110, which LeanForth leaves out.
+
+### D.12 `by-simp`: simp with the default set
+
+`by-simp` is Lean's plain `simp` on the main goal's target: the same
+walk as `by-simp-only[ ]`, but with Lean's default simp set (every lemma
+marked `@[simp]` in the library: 10,296 in Init) and its simprocs, read
+from the library's elaboration data of format 4.1 (`leanforth check
+--elab-data`, written by `ELAB_FORMAT=4.1 scripts/export-elab.sh`). It
+closes the goal when it becomes `True`; nothing changed is Lean's error
+500 "`simp` made no progress"; a goal left (`¬True` becomes `False`) stays
+open, so the theorem ends with its unsolved goal.
+
+| Form | Example |
+|---|---|
+| Mathematics | $\neg\neg(a = a)$ |
+| LeanForth | `Nat explicit: a  a a = Not Not` proved by `by-simp` |
+| Lean | `theorem t (a : Nat) : ¬¬(a = a) := by simp` |
+
+```
+theorem simp_not_not
+  Nat explicit: a  a a = Not Not
+:= by
+  by-simp
+end simp_not_not
+```
+
+`a = a` becomes `True` (`eq_self`), then `¬True` becomes `False`
+(`not_true_eq_false`) and `¬False` becomes `True` (`not_false_eq_true`);
+Lean's term is the same node for node
+(`tests/front/tactics/simp-4/check.py`).
+
+Not supported yet (error 99, exit 2), never another route than Lean's:
+- any step at which a simproc of the default set could fire (Lean's
+  built-in procedures such as `reduceCtorEq`, keyed on every `_ = _`, or
+  `Nat.reduceAdd`): simprocs are not ported yet, so `a = 0` inside a goal
+  answers 99 when no lemma rewrites it first;
+- a lemma the library's export lacks (a `_simp_N` helper, or a lemma of
+  a module the export leaves out) reached in Lean's candidate order before
+  the lemma that rewrites;
+- a lemma with a side condition (the discharger is not ported), a lemma
+  whose recorded index keys are not its statement's (Lean's `no_index`),
+  a definition the set unfolds (`simp_unfold`);
+- data without the default set (format 4, or none).
+`by-simp[ ]`, `by-simp at[ ]` and the rest of the simp family are not
+built yet (`**` in the tables above).
 
 ---
 

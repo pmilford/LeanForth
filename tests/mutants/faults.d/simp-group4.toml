@@ -188,3 +188,59 @@ old = '''    return all(name in decls for name, _ in ee.key_names(keys[:1]))'''
 new = '''    return True'''
 test = "GFORTH=$GFORTH python3 tests/front/test_simp_data.py"
 reason = "a lemma or simproc under a root the export lacks is kept: the reader refuses its root key's unknown name"
+
+[[fault]]
+id = "left-out-skipped"
+file = "src/front/simp/theorems.fs"
+old = '''  dup sth sth-data @ dup 0< if lf-unported then'''
+new = '''  dup sth sth-data @ dup 0< if 2drop exit then'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "a lemma the library lacks is passed over in candidate order: True or False closes by true_or, where Lean takes or_false"
+
+[[fault]]
+id = "bracket-before-root"
+file = "src/front/simp/theorems.fs"
+old = ''': sth-forced ( k post -- ) sth-tree lf-rix-force lf-must ;'''
+new = ''': sth-forced ( k post -- ) 2drop ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "a bracket lemma claims its record before its root is built: or_self gets a second record beside the data's, not replaced in place"
+
+[[fault]]
+id = "simproc-skipped"
+file = "src/front/simp/default-set.fs"
+old = '''  lf-simp-default? 0= if 2drop exit then ds-any? if lf-unported then ;'''
+new = '''  2drop ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "an unported simproc's match treated as continue: a = 0 and True iff a = 0 closes without reduceCtorEq's and Nat.reduceEqDiff's steps"
+
+[[fault]]
+id = "pre-simprocs-unasked"
+file = "src/front/simp/main.fs"
+old = '''  sm-pre if sm-again else dup false lf-simp-procs lf-simp-none sm-pre-continue then ;'''
+new = '''  sm-pre if sm-again else lf-simp-none sm-pre-continue then ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "the pre simprocs never asked: if True then x else x is rewritten by ite_self at the post step, where Lean's reduceIte fires first"
+
+[[fault]]
+id = "post-simprocs-unasked"
+file = "src/front/simp/main.fs"
+old = '''  over lf-simp-post false lf-simp-rewrite? if sm-joined else over true lf-simp-procs then'''
+new = '''  over lf-simp-post false lf-simp-rewrite? if sm-joined then'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "the post simprocs never asked: a goal whose a = 0 only simprocs could change is closed"
+
+[[fault]]
+id = "unfold-head-ignored"
+file = "src/front/simp/main.fs"
+old = ''': sm-unfold? ( e -- flag ) sm-data-head if lf-simp-unfold? else false then ;'''
+new = ''': sm-unfold? ( e -- flag ) drop false ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "a head the default set unfolds (Eq.ndrec) is not refused: reduceStep would unfold it in Lean"
+
+[[fault]]
+id = "data-keys-unchecked"
+file = "src/front/simp/theorems.fs"
+old = '''  0= if lf-unported then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "a data lemma whose recorded keys are not its statement's is tried: the tampered Nat.add_zero record is used"

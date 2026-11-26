@@ -1,0 +1,9 @@
+\ Lean: theorem u_left_out : True ∨ False := by simp   (or_false)
+\ Not supported yet (99): or_false, which the simp slice's export lacks,
+\ comes in candidate order before true_or, so LeanForth cannot tell
+\ which lemma Lean uses.
+theorem u_left_out
+  True False ∨
+:= by
+  by-simp
+end u_left_out

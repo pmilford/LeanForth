@@ -30,7 +30,8 @@
 \ - lf-rix-roots ( rix -- outcome ): once until lf-rix-free: the tree
 \   made with its builder, a zero status cell per record (lib/slab.fs's
 \   slab-zeroed) and every value's root key declared, a root with no trie
-\   yet; ok, or why not (full), nothing counted as done.
+\   yet; ok, or why not (full), nothing counted as done. An index of kind
+\   0 is a plain tree (values inserted by lf-dtree-insert alone): ok.
 \ - The builder, at a root's first query (or lf-rix-force): every value
 \   whose root key is the root's placed at its rank; their number must
 \   fill every rank (the reader refuses two values of one rank; a gap is
@@ -155,7 +156,7 @@ end-structure
 : rix-roots-made ( rix -- outcome ) dup rix-values# ['] rix-value-root ok-each nip ;
 : rix-made! ( rix outcome -- outcome ) ok-then? if true swap rix-made ! outcome-ok then ;
 : lf-rix-roots ( rix -- outcome )
-  dup rix-made @ if drop outcome-ok exit then
+  dup rix-kind @ 0= over rix-made @ or if drop outcome-ok exit then
   dup dup rix-slabs-ready ['] rix-tree-ready ok-with ['] rix-status-ready ok-with
   ['] rix-roots-made ok-with nip rix-made! ;
 

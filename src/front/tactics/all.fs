@@ -42,6 +42,7 @@ require ./right.fs
 require ./rintro.fs
 require ./rwa.fs
 require ./simp-only.fs
+require ./simp.fs
 require ./skip.fs
 require ./specialize.fs
 require ./subst.fs
