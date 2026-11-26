@@ -122,3 +122,35 @@ old = '''  2dup lf-defeq! if nip lf-mk-eq-refl else st-hinted-refl then ;'''
 new = '''  nip lf-mk-eq-refl ;'''
 test = "$GFORTH tests/front/tactics/simp-3/test.fs"
 reason = "review M2: Result.getProof' (Types.lean:569) gives mkExpectedTypeHint (Eq.refl e) (src = e) when src and e are not definitionally equal in the settings in force"
+
+[[fault]]
+id = "unscope-locals-kept"
+file = "src/front/simp/main.fs"
+old = ''': sm-unscope ( -- ) sa sa-scope 2@ lf-locals-back sa sa-xs @ sm-xs slab-cut ;'''
+new = ''': sm-unscope ( -- ) sa sa-scope 2@ 2drop sa sa-xs @ sm-xs slab-cut ;'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "review M1 (R3): a binder visit's withLocalDecl ends with its locals dropped and the view put back; kept, the next binder's terms see a variable not in scope"
+
+[[fault]]
+id = "hyp-close-locals-kept"
+file = "src/front/simp/congr.fs"
+old = ''': sc-hyp-close ( -- ) sa sa-scope 2@ lf-locals-back sc sc-hxs @ sm-xs slab-cut ;'''
+new = ''': sc-hyp-close ( -- ) sa sa-scope 2@ 2drop sc sc-hxs @ sm-xs slab-cut ;'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "review M1 (R4): processCongrHypothesis's forallTelescopeReducing (Main.lean:553) ends with the hypothesis's locals dropped"
+
+[[fault]]
+id = "congr-mvars-kept"
+file = "src/front/simp/congr.fs"
+old = ''': sc-close ( -- ) sc sc-scope @ }lf-mctx-depth lf-must sa sa-xs @ sm-xs slab-cut ;'''
+new = ''': sc-close ( -- ) sc sc-scope @ }lf-mctx-depth lf-must ;'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "review M1 (R14): a congruence lemma's metavariables leave simp's binder cells when it ends; kept, an enclosing binder's funext and forall_congr close over them (an if under a ∀ unsupported)"
+
+[[fault]]
+id = "hyp-modified-by-proof-only"
+file = "src/front/simp/congr.fs"
+old = '''  lf-simp-none? 0= swap sc sc-lhs @ lf-eqv! 0= sc-hxs-n nip 0> and or ;'''
+new = '''  lf-simp-none? 0= nip ;'''
+test = "$GFORTH tests/front/tactics/simp-3/test.fs"
+reason = "review M1 (R11): processCongrHypothesis (Main.lean:552) counts a hypothesis modified when its left side has a proof or, under its locals, changed by definition (xs.size > 0 && lhs != r.expr)"

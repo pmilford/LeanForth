@@ -20,7 +20,8 @@ ENV = tactic_check.Env("tests/front/simp-slice.ndjson", "tests/front/simp-slice.
 FUNEXT = "=propext, Quot.sound"   # forall_congr's axioms
 FILES = [(D + "simp-binders.lf", ["simp_binder_arrow", "simp_binder_forall" + FUNEXT,
                                   "simp_binder_forall_hyp" + FUNEXT, "simp_binder_nested"]),
-         (D + "simp-congr.lf", ["simp_ite=propext", "simp_ite_branch=propext"]),   # ite_congr's
+         (D + "simp-congr.lf", ["simp_ite=propext", "simp_ite_branch=propext",   # ite_congr's
+                                 "simp_ite_forall" + FUNEXT, "simp_ite_nested=propext"]),
          (D + "simp-decide.lf", ["simp_decide=propext"])]
 MISMATCH = "  Nat.add_zero a\nhas type\n  a + 0 = a\nbut is expected to have type\n  True"
 NO_PROGRESS = "`simp` made no progress"

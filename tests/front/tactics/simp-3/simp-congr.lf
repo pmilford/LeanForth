@@ -25,3 +25,30 @@ theorem simp_ite_branch
 := by
   by-simp-only[ ' h ]
 end simp_ite_branch
+
+\ Lean: theorem simp_ite_forall (a b : Nat) (h : a = b) (c : Nat) :
+\         (if c = 0 then a else 1) = (if c = 0 then b else 1) := by
+\         revert c; simp only [h]; intro c; exact True.intro
+\ An if under a ∀ (forall_congr around ite_congr): the lemma's
+\ metavariables are cut from simp's binder cells when it closes, so the
+\ enclosing binder's funext and forall_congr see only their own variable.
+theorem simp_ite_forall
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  Nat explicit: c
+  c 0 = a 1 ite c 0 = b 1 ite =
+:= by
+  ' c by-revert
+  by-simp-only[ ' h ]
+  by-intro: c
+  ' True.intro by-exact
+end simp_ite_forall
+
+\ Lean: theorem simp_ite_nested (a b c : Nat) (h : a = b) :
+\         (if c = 0 then (if a = 0 then 1 else 2) else 3)
+\           = (if c = 0 then (if b = 0 then 1 else 2) else 3) := by simp only [h]
+\ An if in an if's branch: ite_congr inside ite_congr's hypothesis.
+theorem simp_ite_nested
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  a b = explicit: h
+  c 0 = a 0 = 1 2 ite 3 ite c 0 = b 0 = 1 2 ite 3 ite =
+:= by
+  by-simp-only[ ' h ]
+end simp_ite_nested

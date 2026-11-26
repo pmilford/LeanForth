@@ -36,6 +36,16 @@ theorem simp_ite_branch (a b c : Nat) (h : a = b) :
   simp only [h]
 theorem simp_decide (a b : Nat) (h : a = b) : decide (a = 0) = decide (b = 0) := by
   simp only [h]
+theorem simp_ite_forall (a b : Nat) (h : a = b) (c : Nat) :
+    (if c = 0 then a else 1) = (if c = 0 then b else 1) := by
+  revert c
+  simp only [h]
+  intro c
+  exact True.intro
+theorem simp_ite_nested (a b c : Nat) (h : a = b) :
+    (if c = 0 then (if a = 0 then 1 else 2) else 3)
+      = (if c = 0 then (if b = 0 then 1 else 2) else 3) := by
+  simp only [h]
 
 def pl (l : Level) : String := match l.toNat with
   | some n => toString n
@@ -61,5 +71,6 @@ def dump (n : Name) : MetaM Unit := do
 
 #eval do
   for n in [``simp_binder_arrow, ``simp_binder_forall, ``simp_binder_forall_hyp,
-      ``simp_binder_nested, ``simp_ite, ``simp_ite_branch, ``simp_decide] do
+      ``simp_binder_nested, ``simp_ite, ``simp_ite_branch, ``simp_decide,
+      ``simp_ite_forall, ``simp_ite_nested] do
     dump n

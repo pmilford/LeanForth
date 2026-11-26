@@ -220,6 +220,32 @@ nat x0 s" l" lfa-intern false lf-let-decl-new lf-mctx-view! constant l0
 : lam-l ( -- e ) l0 x-cell 1 lf-mk-lambda-fvars ;
 : run-let ( -- ) with-self lam-l simp 2drop ;
 T{ scope@ ' run-let scope-kept? -> true outcome-unsupported }T
+\ Each scope's own end, on an activation of its own (the whole walk's
+\ lf-with-new-locals would hide a leak): a binder local opened after the
+\ mark, then sm-unscope (a binder visit), sc-hyp-close (a congruence
+\ hypothesis) or sc-close (the lemma's metavariables): the view, the
+\ local context and sm-xs as before.
+: open-x ( -- ) all-x=a nat sm-local drop ;
+: unscope-run ( -- ) lam-x sm-push sm-scope open-x sm-unscope sm-pop ;
+: hyp-close-run ( -- )
+  lam-x sm-push 0 1 sc-push lf-locals-mark sa sa-scope 2!
+  sm-xs slab-count sc sc-hxs ! open-x sc-hyp-close sc-pop sm-pop ;
+: close-run ( -- )
+  lam-x sm-push 0 1 sc-push sc-open x0 sm-xs slab-push lf-must sc-close sc-pop sm-pop ;
+: xs-kept? ( xt -- flag outcome flag' )
+  sm-xs slab-count >r scope@ rot scope-kept? sm-xs slab-count r> = ;
+T{ ' unscope-run xs-kept? ' hyp-close-run xs-kept? ' close-run xs-kept?
+   -> true outcome-ok true true outcome-ok true true outcome-ok true }T
+\ processCongrHypothesis's modified (Main.lean:552, sc-modified?): a
+\ proof, or a left side changed by definition under the hypothesis's
+\ locals; a change by definition with no local, or none, is not.
+: hyp-open ( lhs n -- )
+  lam-x sm-push 0 1 sc-push sm-xs slab-count sc sc-hxs !
+  0 ?do x0 sm-xs slab-push lf-must loop sc sc-lhs ! ;
+: hyp-end ( -- ) sc sc-hxs @ sm-xs slab-cut sc-pop sm-pop ;
+: modified? ( lhs n e' h -- flag ) 2>r hyp-open 2r> sc-modified? hyp-end ;
+T{ b+0 1 b0 lf-simp-none modified? b+0 0 b0 lf-simp-none modified? -> true false }T
+T{ b+0 1 b+0 lf-simp-none modified? b+0 0 b0 h0 modified? -> false true }T
 
 \ ---- 3. The binder walks of fun x => x = a with h (a proof) and of
 \ fun x y => x + 0 (two variables): sm-xs limited in turn (the answer
