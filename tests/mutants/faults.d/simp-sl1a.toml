@@ -162,7 +162,7 @@ reason = "SL1a-2: preprocess (SimpTheorems.lean:338) with inv makes Eq.symm h; i
 [[fault]]
 id = "prop-shapes-taken"
 file = "src/front/simp/preprocess.fs"
-old = '''  dup spp-and? if spp-split false exit then spp-leaf-of true ;'''
+old = '''  dup lf-and-app? if spp-split false exit then spp-leaf-of true ;'''
 new = '''  spp-leaf-of true ;'''
 test = "$GFORTH tests/front/tactics/simp-2/test.fs"
 reason = "SL1b (was SL1a-2's refusal): preprocess (SimpTheorems.lean:380) splits an And hypothesis into h.1 and h.2; taken as (p ∧ q) = True, h : a ≤ b ∧ b ≤ a no longer rewrites b ≤ a"

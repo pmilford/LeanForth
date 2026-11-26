@@ -566,7 +566,7 @@ reason = "9.4.8l-I C3 MVarId.rewrite: a pattern headed by a metavariable is abst
 [[fault]]
 id = "lib-rw-iff-taken"
 file = "src/front/meta-tactic/rewrite.fs"
-old = '''  mrw mrw-htype @ dup mrw-iff? if lfa-e-tac-form lf-tac-stop then'''
+old = '''  mrw mrw-htype @ dup lf-iff-app? if lfa-e-tac-form lf-tac-stop then'''
 new = '''  mrw mrw-htype @'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l-I C3 MVarId.rewrite: an Iff rule is not refused (99) though propext is not ported, and answers 218"

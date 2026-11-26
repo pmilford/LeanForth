@@ -35,7 +35,9 @@
 \   lf-meta-nth-arg ( t i n -- a ): argument i, the first 0, of such a t;
 \   lf-meta-app-arg ( t i -- a ): the same, n t's own count (getArg!:
 \   unchecked, i below the count);
-\   lf-meta-succ? ( t -- flag ): t is Nat.succ x.
+\   lf-meta-succ? ( t -- flag ): t is Nat.succ x; lf-and-app?, lf-iff-app?
+\   lf-not-app? ( t -- flag ): t is And p q, Iff p q, Not p (Lean's and?,
+\   iff?, not?).
 \ - Type annotations (Expr.lean:1716-1745): lf-meta-opt-auto? ( t -- flag )
 \   t is optParam a b or autoParam a b (isOptParam, isAutoParam);
 \   lf-meta-out-param? ( t -- flag ) t is outParam a or semiOutParam a;
@@ -154,6 +156,9 @@ lf-tag-lam lf-tag-pi lf-tag-let lf-tag-let-nondep 4 lf-tags constant eq-named-ta
 \ Nat.succ x (Lean's match_expr Nat.succ _): toNatLit?, isOffset,
 \ evalNat and getFunInfo's shapes.
 : lf-meta-succ? ( t -- flag ) 1 s" Nat.succ" lf-meta-app-of? ;
+: lf-and-app? ( t -- flag ) 2 s" And" lf-meta-app-of? ;
+: lf-iff-app? ( t -- flag ) 2 s" Iff" lf-meta-app-of? ;
+: lf-not-app? ( t -- flag ) 1 s" Not" lf-meta-app-of? ;
 : lf-meta-opt-auto? ( t -- flag )
   dup 2 s" optParam" lf-meta-app-of? swap 2 s" autoParam" lf-meta-app-of? or ;
 : lf-meta-out-param? ( t -- flag )

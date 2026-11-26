@@ -252,9 +252,9 @@ s" Std.le_refl._simp_1" set-of
 T{ n<=n unsupported? -> true }T
 \ preprocess's shapes (simp/preprocess.fs, SL1b): And, Iff and Not by
 \ their heads and arity; p (a variable) is none of them.
-T{ p0 p0 s" And" lf-mk-const0 -rot 2 lf-mk-app-n spp-and? p0 spp-and? -> true false }T
-T{ p0 p0 s" Iff" lf-mk-const0 -rot 2 lf-mk-app-n spp-iff? p0 lf-mk-not spp-not? -> true true }T
-T{ p0 spp-iff? p0 spp-not? -> false false }T
+T{ p0 p0 s" And" lf-mk-const0 -rot 2 lf-mk-app-n lf-and-app? p0 lf-and-app? -> true false }T
+T{ p0 p0 s" Iff" lf-mk-const0 -rot 2 lf-mk-app-n lf-iff-app? p0 lf-mk-not lf-not-app? -> true true }T
+T{ p0 lf-iff-app? p0 lf-not-app? -> false false }T
 \ isClass?: Nat is no class, Decidable p is one (synth-class-quick).
 T{ nat sr-class? s" Decidable" lf-mk-const0 p0 lf-mk-app sr-class? -> false true }T
 \ The dsimp guard's question: an rfl theorem among the candidates.

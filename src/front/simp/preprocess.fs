@@ -94,16 +94,13 @@ begin-structure /spp  field: spp-inv  field: spp-n  end-structure
   lf-meta-head lf-const-name 2dup 1 spp-proj 0 spp-proj ;
 
 \ ---- preprocess's go: one term of the worklist.
-: spp-and? ( t -- flag ) 2 s" And" lf-meta-app-of? ;
-: spp-iff? ( t -- flag ) 2 s" Iff" lf-meta-app-of? ;
-: spp-not? ( t -- flag ) 1 s" Not" lf-meta-app-of? ;
 : spp-leaf-of ( e t -- p )   \ an Eq, an Iff, a Not or anything else
   dup lf-eq-app? if drop spp-eq exit then
-  dup spp-iff? if drop spp-iff exit then
-  dup spp-not? if lf-term-second@ spp-not exit then spp-true ;
+  dup lf-iff-app? if drop spp-iff exit then
+  dup lf-not-app? if lf-term-second@ spp-not exit then spp-true ;
 : spp-shaped ( e t -- p true | false )
   dup lf-term-pi? if spp-open false exit then
-  dup spp-and? if spp-split false exit then spp-leaf-of true ;
+  dup lf-and-app? if spp-split false exit then spp-leaf-of true ;
 : spp-type ( e -- t ) lf-infer! lf-instantiate! lf-whnf-r! ;
 : spp-go ( e n -- true outcome )
   dup spp spp-n ! spp-xs slab-cut dup spp-type spp-shaped if spp-leaf then

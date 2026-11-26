@@ -25,9 +25,9 @@ tac-shape-plain lf-tactic: by-and-intros constant tac-k-and-intros
 s" and_intros" tac-k-and-intros lf-tactic-lean!
 
 \ ---- refine And.intro ?_ ?_ on one goal.
-: tai-and? ( t -- flag ) 2 s" And" lf-meta-app-of? ;
 : tai-and ( goal -- a b true | false )
-  lf-goal-target drop lf-whnf! dup tai-and? if lf-meta-args2 true else drop false then ;
+  lf-goal-target drop lf-whnf! dup lf-and-app?
+  if lf-meta-args2 true else drop false then ;
 \ An anonymous hole of type t in goal's context; the two, ?l made first.
 : tai-hole ( goal t -- goal g ) over lf-goal-view 0 swap lf-goal-new lf-must ;
 : tai-split ( goal a b -- goal l r ) >r tai-hole r> swap >r tai-hole r> swap ;

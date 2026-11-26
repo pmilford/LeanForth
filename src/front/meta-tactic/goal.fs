@@ -203,21 +203,20 @@ require ../telescope.fs
 : lf-local-detail-at? ( k -- flag ) lf-mctx-view swap lf-view-local lf-local-detail? ;
 \ getNondepPropHyps: local k a candidate (a proposition, no let, no
 \ detail); fvar c used by local k (no detail) or by the target.
-: mtg-k-fvar ( k -- fvar ) lf-mctx-view swap lf-view-fvar ;
 : mtg-prop? ( fvar -- flag ) lf-fvar-type lf-meta-is-prop lf-must ;
 : mtg-candidate? ( k -- flag )
   dup lf-local-detail-at? if drop false exit then
-  mtg-k-fvar dup lf-fvar-let? if drop false exit then mtg-prop? ;
+  lf-mctx-fvar dup lf-fvar-let? if drop false exit then mtg-prop? ;
 : mtg-uses? ( c k -- c flag )
   dup lf-local-detail-at? if drop false exit then
-  mtg-k-fvar over lf-local-depends-on? lf-must ;
+  lf-mctx-fvar over lf-local-depends-on? lf-must ;
 : mtg-used? ( goal c -- flag )
   lf-mctx-view lf-view-count 0 ?do i mtg-uses? if 2drop true unloop exit then loop
   swap lf-goal-type lf-instantiate! swap lf-depends-on? lf-must ;
 \ A candidate pushed, then taken back when it is used.
 : mtg-hyp ( goal run k -- goal run' )
   dup mtg-candidate? 0= if drop exit then
-  mtg-k-fvar lf-run+ 2dup run-last mtg-used? if run-drop-last lf-must then ;
+  lf-mctx-fvar lf-run+ 2dup run-last mtg-used? if run-drop-last lf-must then ;
 : mtg-nondep ( goal -- fvars ) 0 lf-mctx-view lf-view-count 0 ?do i mtg-hyp loop nip ;
 : lf-goal-nondep-prop-hyps ( goal -- fvars ) dup ['] mtg-nondep lf-with-goal ;
 : mtg-eq ( goal goal' -- eq ) lf-goal-type swap lf-goal-type swap lf-mk-eq ;

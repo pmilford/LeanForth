@@ -113,7 +113,7 @@ reason = "SL1b: preprocess (SimpTheorems.lean:352) makes propext h of an Iff; h 
 [[fault]]
 id = "not-as-true"
 file = "src/front/simp/preprocess.fs"
-old = '''  dup spp-not? if lf-term-second@ spp-not exit then spp-true ;'''
+old = '''  dup lf-not-app? if lf-term-second@ spp-not exit then spp-true ;'''
 new = '''  spp-true ;'''
 test = "$GFORTH tests/front/tactics/simp-2/test.fs"
 reason = "SL1b: preprocess (SimpTheorems.lean:377) makes eq_false h of a Not; taken as (¬ p) = True, k : p no longer becomes False"
@@ -204,7 +204,7 @@ reason = "SL1b: getNondepPropHyps skips implementation details (Util.lean:109); 
 [[fault]]
 id = "nondep-let-candidate"
 file = "src/front/meta-tactic/goal.fs"
-old = '''  mtg-k-fvar dup lf-fvar-let? if drop false exit then mtg-prop? ;'''
-new = '''  mtg-k-fvar mtg-prop? ;'''
+old = '''  lf-mctx-fvar dup lf-fvar-let? if drop false exit then mtg-prop? ;'''
+new = '''  lf-mctx-fvar mtg-prop? ;'''
 test = "$GFORTH tests/front/tactics/simp-2/test.fs"
 reason = "SL1b: a let has a value, so getNondepPropHyps (Util.lean:114) never takes it; taken, simp at * would rewrite a let's type"

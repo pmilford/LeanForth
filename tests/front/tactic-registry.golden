@@ -199,9 +199,10 @@
 387	1	lean	Tactic `right` failed: target is not an inductive datatype
 388	1	lean	Tactic `right` failed: right tactic works for inductive types with exactly 2 constructors
 456	1	lean	Type mismatch: The rewritten hypothesis
+502	1	lean	Invalid `←` modifier: Cannot be applied to a rule that rewrites to `True`
+503	1	lean	Invalid `←` modifier: Cannot be applied to simp theorems of the form `¬ P`
 500	1	lean	`simp` made no progress
 501	1	lean	Invalid argument: Variable
-502	1	lean	Invalid `←` modifier: Cannot be applied to a rule that rewrites to `True`
 447	1	lean	'specialize' requires a term of the form `h x_1 .. x_n` where `h` appears in the local context
 446	1	lean	goal index `2` is out of bounds
 451	1	lean	Symmetry lemmas only apply to binary relations, not

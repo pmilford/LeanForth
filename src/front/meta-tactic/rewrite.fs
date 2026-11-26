@@ -92,7 +92,6 @@ end-structure
   lf-forall-meta-telescope-reducing mrw mrw-htype ! mrw mrw-heq ! ;
 
 \ ---- matchEq? (an Iff refused, 99), else 218 with Lean's text.
-: mrw-iff? ( t -- flag ) 2 s" Iff" lf-meta-app-of? ;
 : mrw-prop? ( -- flag ) mrw mrw-htype @ lf-get-level ok-then? if 0= else drop false then ;
 : mrw-descr ( -- c-addr u )
   mrw-prop? if s"  is a proof of" else s"  is a value of type" then ;
@@ -104,7 +103,7 @@ end-structure
 : mrw-typed-stop ( xt code -- )
   >r 0 swap lf-tac-inline 0 ['] mrw-htype. lf-tac-detail r> lf-tac-stop ;
 : mrw-matched ( -- )
-  mrw mrw-htype @ dup mrw-iff? if lfa-e-tac-form lf-tac-stop then
+  mrw mrw-htype @ dup lf-iff-app? if lfa-e-tac-form lf-tac-stop then
   lf-match-eq? 0= if ['] mrw-value. lfa-e-tac-not-eq mrw-typed-stop then
   mrw mrw-rhs ! mrw mrw-lhs ! mrw mrw-alpha ! ;
 \ symm (Rewrite.lean:93-97): heq made Eq.symm heq (mkEqSymm), its type
