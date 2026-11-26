@@ -389,6 +389,14 @@ under 4). The input decoding's record words are `lf-tin-record` 2.26 and `lf-tin
 `lf-tin-code` 1.98, `lf-tin-at` 1.58), and `hash-fmix` is 1.93 (it calls nothing now; before 4.42 inclusive with
 its two helpers). The largest word is now the hash table's slot load `htab@` (4.77), the hashing group's work.
 
+**Measured again on main** (2026-11-25 16:49-17:04, main 2eafd6c5, the same command, one run each, no other
+heavy run on the machine). `--jobs 1`: check phase 656.5 s (CPU 656.4 s), total 670.4 s (load 4.0 at the
+start, 1.0 at the end), against 779.5 s on main before the fused reads (13:24 the same day): 123 s, 15.8
+points; about 17.1 times Lean. `--jobs 4`: check phase 182.1 s wall (716.1 s CPU), total 199.6 s (load 1.9
+at the start, 4.0 at the end), against 246.6 s. The two one-worker pairs put the fused reads' gain between
+7.5 and 16 points (measured, single runs at different loads). From the morning's 952.7 s the two steps of
+the day take 296 s, 31 points.
+
 So: the algorithm changes (1, 2, 5, 6, 7) take 23-30 points, 666-732 s, **17 to 19 times Lean**; with 3
 and 4 as Forth macros 557-652 s, **14.5 to 17 times**; native hashing and probe 535-630 s, 14 to 16.4
 times. The first version (14-16, 11-14 and 10-13.5 times) counted 25-32 points for candidate 1. The
