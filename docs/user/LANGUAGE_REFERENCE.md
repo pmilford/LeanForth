@@ -2645,7 +2645,7 @@ pattern's walk (no test meets a pending problem there).
 
 `by-simp-only[ r1 ... rn ]` is Lean's `simp only [r1, ..., rn]`
 (`src/front/tactics/simp-only.fs` over `src/front/simp/`, plan row FE9,
-slices SL1a-1, SL1a-2 and part of SL1b of `docs/design/TACTIC_SIMP.md`). It rewrites the
+slices SL1a-1, SL1a-2 and parts of SL1b and SL2 of `docs/design/TACTIC_SIMP.md`). It rewrites the
 main goal's target (or, with `at[ ]` below, hypotheses) with the equations
 given, everywhere and again and again, until
 none applies, the way Lean's simplifier does: the same rules in the same
@@ -2794,6 +2794,54 @@ term is `fun a b h => h`). With `h : a = b` and `k : a + 0 = c`,
 `by-simp-only[ ' h ' Nat.add_zero ] at[ k |- ]` turns `k` into `b = c`
 and the target `b + 0 = c` into `b = c` (`simp-at.lf`'s `simp_at_goal`).
 
+**Below binders** (simp group 3, slice SL1b; `src/front/simp/main.fs`;
+twins in `tests/front/tactics/simp-3/`): a target with an arrow, a `∀`
+or a `fun` is simplified on both sides of the arrow (Lean's
+`implies_congr`), under the `∀`'s variable (`forall_congr`) and in the
+`fun`'s body (`funext`). LeanForth's statements cannot write `→` or `∀`
+yet, so such a goal is made with `by-revert`:
+
+| Form | Example |
+| --- | --- |
+| mathematics | for every natural number $a$: $a + 0 = a$, simplified under the "for every" to "true" |
+| LeanForth | the statement `a 0 + a =` with `Nat explicit: a`, proved by `' a by-revert by-simp-only[ ' Nat.add_zero ]`, then `by-intro: a ' True.intro by-exact` |
+| Lean | `theorem simp_binder_forall (a : Nat) : a + 0 = a := by revert a; simp only [Nat.add_zero]; intro a; exact True.intro` |
+
+```text
+\ tests/front/tactics/simp-3/simp-binders.lf: accepted, its term equal to Lean's
+theorem simp_binder_arrow
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a c = explicit: h2  a b = explicit: h
+  c b =
+:= by
+  ' h by-revert
+  by-simp-only[ ' h2 ]
+  by-intro: h
+  ' h by-exact
+end simp_binder_arrow
+```
+
+After `' h by-revert` the goal is `a = b → c = b`; `h2` rewrites its
+left side, so the goal becomes `c = b → c = b` (Lean's term uses
+`implies_congr`).
+
+**Through `if` and other congruence lemmas** (slice SL2;
+`src/front/simp/congr.fs`): `c t e ite` is Lean's `if c then t else e`.
+A function with Lean's `@[congr]` lemmas (here `ite_congr`) is simplified
+through them as Lean does: the condition, and each branch under its
+hypothesis; an argument Lean keeps as it is (a `Decidable` instance) is
+kept, and an instance the lemma needs is found as Lean finds it.
+
+| Form | Example |
+| --- | --- |
+| mathematics | if $a = b$ then (1 if $a = 0$, else 2) equals (1 if $b = 0$, else 2) |
+| LeanForth | `a b = explicit: h` and `a 0 = 1 2 ite b 0 = 1 2 ite =`, proved by `by-simp-only[ ' h ]` |
+| Lean | `theorem simp_ite (a b : Nat) (h : a = b) : (if a = 0 then 1 else 2) = (if b = 0 then 1 else 2) := by simp only [h]` |
+
+`ite_congr` rewrites the first condition to `b = 0`; the two sides are
+then the same and `eq_self` closes the goal (`simp-congr.lf`, both
+terms equal to Lean's).
+
 **Running it.** The theorems `by-simp-only[ ]` can use are those of the
 library the file is checked against. The test library is
 `tests/front/simp-slice.ndjson`, cut from Lean's `Init` from the roots in
@@ -2842,13 +2890,21 @@ each):
   as `True = True`, or `Nat.add_comm`: Lean's permutation rules);
 - a definition to unfold (`' Nat.add`), a term in `<< >>`, a theorem
   declared earlier in the same LeanForth text;
-- a library theorem that needs a side condition proved or an instance
-  found;
+- a library theorem that needs a side condition proved (Lean's
+  discharger; an instance it needs is found, as Lean finds it);
 - unification Lean does that LeanForth's does not yet (`6` against
   `2 * 3`);
-- the goal's parts below a `∀`, `fun`, `let` or `match`, an `if`
-  (congruence lemmas), and a rewrite inside an argument other terms
-  depend on.
+- the goal's parts below a `let` or a `match`; a `∀` whose domain, a
+  proposition, is rewritten with a proof (Lean's
+  `forall_prop_domain_congr`); a `fun` of two or more variables whose
+  body is rewritten with a proof; a `∀` that is no proposition; a
+  rewrite inside an argument other terms depend on (Lean's `dsimp`);
+- a rewrite Lean proves with an automatic congruence theorem, as
+  `decide (a = 0) = decide (b = 0)` from `' h` (Lean's
+  `Decidable.decide.congr_simp`, `tests/front/tactics/simp-3/u-decide.lf`);
+  a congruence lemma that is an `↔`, or whose hypothesis's right side
+  has arguments (`dite_congr`), or an `if` applied to more arguments;
+  a function rewritten with a proof at the head of its arguments.
 
 Also error 99 (exit 2) where Lean refuses with an error of its own: a
 rule set that loops (`h : a = a + 0` used at `a`: Lean stops with its
