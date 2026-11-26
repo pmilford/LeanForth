@@ -61,11 +61,11 @@ texts-end constant spc-names
   2>r spc-cond if 2r> >r + r> execute else 2r> 2drop lf-simp-pass then ;
 : spc-reduce-ite ( e x -- e' h step ) ['] spc-ite spc-decided ;
 : spc-reduce-dite ( e x -- e' h step ) ['] spc-dite spc-decided ;
-: spc-outside-dsimp ( e x -- e h step ) drop lf-simp-pass ;
 
 ' spc-reduce-ite 0 5 true false lf-simproc: ite reduceIte
 ' spc-reduce-dite 2 5 true false lf-simproc: dite reduceDIte
-' spc-outside-dsimp 0 5 true true lf-simproc: ite dreduceIte
-' spc-outside-dsimp 0 5 true true lf-simproc: dite dreduceDIte
+\ Outside dsimp continue: main.fs's answer of no simproc.
+' lf-simp-no-procs 0 5 true true lf-simproc: ite dreduceIte
+' lf-simp-no-procs 0 5 true true lf-simproc: dite dreduceDIte
 
 base !   \ the BASE this file was loaded with

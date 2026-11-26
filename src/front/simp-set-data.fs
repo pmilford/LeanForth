@@ -201,7 +201,8 @@ ssu-form ' ssu-clear s" simp_unfold" elab-add-kind41 constant simp-unfold-kind
 : ssn-rec ( -- addr ) ss-procs slab-last ;
 \ A part's text, after a dot when a part came before, in one claim.
 : ssn-sep ( -- n ) ssn-rec ssp-name-u @ 0<> 1 and ;
-: ssn-put ( c-addr u addr -- ) ssn-sep if [char] . over c! char+ then swap move ;
+: ssn-dot ( addr -- addr' ) s" ." rot 2dup + >r swap move r> ;
+: ssn-put ( c-addr u addr -- ) ssn-sep if ssn-dot then swap move ;
 : ssn-move ( c-addr u i -- outcome )
   ss-names slab-at over ssn-sep + >r ssn-put r> ssn-rec ssp-name-u +! outcome-ok ;
 : ssn-bytes ( c-addr u -- outcome )

@@ -172,7 +172,8 @@ add0-d add0-proof !
 : cands# ( e post? -- n ) ds-cands >r ds-out slab-cut drop r> ;
 lf-simp-default
 T{ x=x true cands# 0> x=x false cands# x0 true cands# -> true 0 0 }T
-T{ x=x dup true lf-simp-procs >r >r = r> r> -> true lf-simp-none lf-simp-continue }T
+: passed? ( e e' h step -- flag ) lf-simp-continue = swap lf-simp-none? and -rot = and ;
+T{ x=x dup true lf-simp-procs passed? -> true }T
 \ The walk asks at the pre step: if True then x else x is x by reduceIte
 \ (True is True with no proof, so Eq.refl True), before ite_self could
 \ rewrite it at the post step.
