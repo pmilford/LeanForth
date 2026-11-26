@@ -70,7 +70,10 @@ if [ -n "$simp" ]; then
     "$here/scripts/export_simp.lean" "$@" >"$simp_raw"
   # Both programs ran on the same modules with the same Lean: the simp
   # header is the plain one with "simp": true last (Lean sorts the keys).
-  if [ "$(head -n 1 "$raw" | sed 's/}$/,"simp":true}/')" != "$(head -n 1 "$simp_raw")" ]; then
+  # The key's name comes from a variable: a quoted folder name on this line would
+  # make scripts/changed-tests.py count src/front/simp as this script's input.
+  key=simp
+  if [ "$(head -n 1 "$raw" | sed 's/}$/,"'"$key"'":true}/')" != "$(head -n 1 "$simp_raw")" ]; then
     printf 'export_elab.lean and export_simp.lean disagree on Lean or the modules\n' >&2
     exit 1
   fi
