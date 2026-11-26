@@ -675,4 +675,11 @@ T{ 55 fk ' lam-beta room-sweep swept? -> 55 true }T
   induct-at @ >r nowhere induct-at ! prod-mk de-induct-nonrec? r> induct-at ! ;
 T{ prod-mk de-induct-nonrec? nonrec-nowhere? prod-mk de-induct-nonrec? -> true false true }T
 
+\ isDefEqBinding's saved term mark and view (de-bind-save, lf-term-mark)
+\ refused at each room of the machine's cells (slab-sweep): fun x => x
+\ against fun x => (fun y => y) x, true, or full, never another answer.
+: bind-pass ( s -- flag outcome ) nat 0 bv lam swap dq ;
+' de-cells sweep-slab-xt !
+T{ nat nat 0 bv lam 0 bv app lam ' bind-pass slab-sweep swept? -> true }T
+
 bye
