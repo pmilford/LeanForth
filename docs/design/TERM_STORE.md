@@ -365,3 +365,60 @@ From the independent review, [2026-11-25-term-store.md](../development/design-re
    and 4 with the memo cut), and the walker with universe substitution on it (slices 2 and 3). Slice 5 is
    dropped as a slice.
 
+
+## As landed (group kernel-speed-3, 2026-11-26)
+
+The prototype's four changes, landed as reviewed-quality code on branch `kernel-speed-3` (plan 9.4.8z7; owner
+2026-11-25, "Speed land the prototypes. Do 2b."), behaviour-preserving with the one exception below.
+
+- **P2, stored hashes** (`src/lib/htab.fs`): a slot is two 32-bit fields, the entry number plus one and the low
+  32 bits of its hash. A find asks the owner's `same` only of an entry whose stored hash equals the probe's;
+  growth and Algorithm R move the stored hash and never call the rehash hook. Probe order, growth at 3/4 and
+  the statistics (every occupied slot met is counted) are unchanged, so every table holds the same entries in
+  the same slots. Unlike the prototype, no hash of a last missing find is guessed inside the table:
+  `htab-put ( n i h htab -- )` takes the hash from every caller; `htab-enter ( n i htab -- )` asks the owner's
+  rehash, for owners whose record is in place and cheap to hash (one word per call site, the two `src/front`
+  files included); the term store and levels keep the hash in their sought record, `memo.fs` in the memo's
+  probe, `cons.fs` in the set (its candidate's text may not be in place at the commit). `htab-sound?` checks
+  every stored hash against rehash (tests); `htab-bytes` counts the 8-byte slots (`memo-bytes`,
+  `cons-allocated`, `cons-used`).
+- **P1, the memo's cut** (`src/kernel/replace-memo.fs`): an unstamped call keeps its entries in a scratch memo
+  keyed by the call's number (negative, in the stamp's place), so no other call finds them whether it ended,
+  failed or threw; the scratch memo is emptied in one step, its numbering begun again, when a call begins with
+  more than 512 entries in it. Stamped calls keep the table, its cap and its rules. The record holds values
+  only.
+- **P3, the lean walk** (`src/kernel/open-walk.fs`, used by `mixed-open.fs` for instantiate, instantiate_rev
+  and the scope mode; abstract keeps the frame machine). The root is admitted by `frame-call` as before; inside
+  its visit the walk tests each child inline, charging its unit at the moment its frame visit would have begun
+  and after the same test (no fuel left is exhausted); only a node to rebuild takes room, two cells; the
+  binder check (in the pass's look, as `lf-open-visit` makes it) comes before any child is charged; the second
+  child is charged only after the first child's subtree returns; every per-leaf test stays (unknown tag,
+  well-formed bound variable, live free variable, a node the pass may not read). A closed root (a binary node
+  whose data word shows no loose bound variable and no free variable) comes back for its one unit after the
+  pass's own checks of the substitution (`lf-open-ready`, as before) and the checks its visit would make (the
+  stores' counts, the frames sound, fuel left), its data word read first; the scope mode makes its memo call as
+  the pass would (a crowded memo is emptied at the same call).
+- **P4, input leaf entries without a probe: left out.** No form reachable by one load exists without a new
+  per-node array (the tier's records are the snapshot's expressions; the feed keeps no per-expression cells),
+  and Init's peak resident memory with P2 alone is 732.8 MB, 13.5% over main's 645.5 MB, past the 5% the owner
+  allowed for P4 before the dense array (49 MB) is even added. The leaf lookup that refuses a leaf without an
+  entry is unchanged.
+
+**The declared exception.** A closed root and a kept child take no frame room, and a rebuilt node takes two
+cells where a frame visit took up to eleven: the room numbers (cells in use, capacity) in a "full" diagnostic
+of a frame stack the heap refused, and the step at which such a refusal lands, may differ; when a refusal lands
+at another step, the fuel left at that failure may differ with it. Nothing else differs: fuel, verdicts,
+diagnostics and JSON are identical whenever the heap grants what is asked. Tests changed for it, in
+`tests/core/mixed-instantiate.fs`: "a growth the heap refuses is full" now expects the closed chain
+`deep 1 rev` to come back ok for its one unit (999 fuel left, the refusal unused), and adds an open chain that
+is still full under the refusal, and walked on one unit a node without it. The only other existing
+expectations changed are P2's byte counts: `tests/lib/memo.fs`'s two `memo-bytes` checks count 16 slots of 8
+bytes, not 4.
+
+**Measured** (one run each, gforth-fast, 2026-11-26, [KERNEL_SPEED.md](../development/KERNEL_SPEED.md) section
+0): Init's check phase 656.5 s -> 620.6 s at one thread (whole run 670.4 s -> 634.8 s, 20.5 times Lean's 31.0
+s), 182.1 s -> 175.1 s at four (199.6 s -> 191.6 s, 19.8 times nanoda's 9.7 s); stored hashes alone 650.9 s.
+Peak resident memory 645.5 MB -> 729.7 MB at one thread and 901.4 MB -> 1,019.5 MB at four (the 8-byte
+slots). Reports identical to main's outside `measured`, `settings` and `run`; the decide slice identical after
+each change (1,290 accepted, fuel 2,649,895); the planted faulty check (`lf-env-limit 1 = if 1+ then` at the
+head of `lf-check-declaration`) exits 5 at `--jobs 1`, `--jobs 2` and the default.

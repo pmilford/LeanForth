@@ -2052,3 +2052,23 @@ version is chosen".
   reverse Polish".
 - **In reports**: LeanForth text is shown as LeanForth (postfix); Lean's notation is labelled as Lean's.
 
+
+### The prototype's four speed changes land; then a pure-Forth redesign (2026-11-25)
+
+A throwaway prototype of instantiation (the corrections after the review of
+[TERM_STORE.md](../design/TERM_STORE.md)) took Init's check phase at one thread from 656.5 s to 575.4 s
+with identical reports, by four changes: P1, an unstamped replace call's memo entries thrown away whole;
+P2, stored hashes in `lib/htab.fs`'s slots; P3, a lean walker for instantiation with closed roots given
+back at once; P4, input leaf entries without a hash probe. The owner, 2026-11-25: "Speed land the
+prototypes. Do 2b."
+
+- **Decision: land the prototype's four changes** as reviewed-quality code, behaviour-preserving refactoring
+  of kernel, core and library code under "The kernel is code like any other" (2026-11-19): verdicts, exit
+  codes, diagnostics, fuel and JSON identical on every export and malformed input, one exception declared in
+  TERM_STORE.md ("As landed": a closed root and a kept child take no frame room, so the room numbers of a
+  "full" diagnostic and the step at which a heap refusal lands may differ). P4's dense array only if Init's
+  peak memory stays within 5% of main's (the owner has not approved more memory).
+- **Then (2b): a pure-Forth redesign** for fewer table lookups, aiming at 7-10 times Lean; native code only
+  as a later proposal.
+- Carried out on branch `kernel-speed-3` (plan 9.4.8z7, 2026-11-26: written and tested, not reviewed, not
+  merged).
