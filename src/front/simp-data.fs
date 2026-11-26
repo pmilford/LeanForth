@@ -105,8 +105,8 @@ end-structure
 : sd-new-lemma ( d -- d outcome )
   dup sd-lemma-role sd-index memo-at
   if elab-e-congr-twice elab-refuse else outcome-ok then ;
-: sd-lemma ( index -- d outcome )
-  elab-decl dup ok? if drop kind-thm elab-of-kind then dup ok? if drop sd-new-lemma then ;
+: sd-theorem ( index -- d outcome ) elab-decl dup ok? if drop kind-thm elab-of-kind then ;
+: sd-lemma ( index -- d outcome ) sd-theorem dup ok? if drop sd-new-lemma then ;
 \ A record's member read into its field at a-addr: its lemma (a theorem
 \ named once), its function (a declaration).
 : sd-at! ( a-addr x outcome -- outcome ) ['] noop elab-put ;
@@ -190,7 +190,9 @@ begin-structure /simp-real
 end-structure
 /simp-real context-slab: simp-reals
 : sdr ( r -- addr ) simp-reals slab-at ;
-: sdr-name! ( value r -- outcome ) sdr sdr-decl sd-name! ;
+\ A realized theorem's name: a theorem; that it is fun's (sdr-fit) says the rest.
+: sdr-name! ( value r -- outcome )
+  sdr sdr-decl swap c" name" elab-member sd-theorem sd-at! ;
 : sdr-fun! ( value r -- outcome ) sdr sdr-fun sd-fun! ;
 : sdr-kind ( value r -- outcome )
   drop c" kind" elab-member s" congr_simp" elab-text= 0= if elab-malformed exit then
@@ -203,6 +205,10 @@ end-structure
 : sdr-kinds-ok ( value r -- outcome )
   nip simp-realized-kinds ['] sd-bad-kind? find-index
   if drop elab-malformed else outcome-ok then ;
+\ A kind for each of fun's leading binders at least (Lean counts them
+\ through a reducing telescope, so more may come): else error 37.
+: sdr-arity ( value r -- outcome )
+  nip dup sdr sdr-fun @ elab-type-pis swap simp-realized-kinds nip > 0= sd-fit ;
 \ name is fun's congr_simp (Lean's reserved name, CongrTheorems.lean:399).
 : sd-congr-simp-of ( f -- name )
   elab-decl-name s" congr_simp" elab-tier name-seek-str drop ;
@@ -210,11 +216,11 @@ end-structure
   nip sdr dup sdr-fun @ sd-congr-simp-of swap sdr-decl @ elab-decl-name = sd-fit ;
 : sdr-index ( value r -- outcome )
   nip dup sdr sdr-fun @ sd-real-role 2dup sd-index memo-at
-  if 2drop drop elab-e-congr-twice elab-refuse exit then sd-index memo! elab-roomed ;
+  if 2drop drop elab-e-real-twice elab-refuse exit then sd-index memo! elab-roomed ;
 : sdr-clear ( -- ) simp-reals slab-clear ;
 create sdr-form  0 , ' simp-reals ,
   ' sdc-ready , ' sdr-name! , ' sdr-fun! , ' sdr-kind , ' sdr-kinds! , ' sdr-kinds-ok ,
-  ' sdr-fit , ' sdr-index , 0 ,
+  ' sdr-arity , ' sdr-fit , ' sdr-index , 0 ,
 sdr-form elab-keys-here
   s" arg_kinds" counted, s" fun" counted, s" kind" counted, s" name" counted, 0 0 counted,
 sdr-form ' sdr-clear s" realized" elab-add-kind41 constant simp-realized-kind

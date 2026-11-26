@@ -106,7 +106,13 @@ T{ fixture real-other refused -> outcome-invalid 6 37 0 }T
 T{ fixture real-kind refused -> outcome-invalid 6 10 0 }T
 T{ fixture real-kinds-big refused -> outcome-invalid 6 10 0 }T
 T{ fixture real-kinds-text refused -> outcome-invalid 6 10 0 }T
-T{ fixture real-twice refused -> outcome-invalid 8 47 0 }T
+T{ fixture real-twice refused -> outcome-invalid 8 49 0 }T
+\ A @[congr] lemma's name for a realized theorem: not fun's congr_simp
+\ (37, not 47); fewer kinds than ite's five leading binders (37), more
+\ accepted (Lean counts them through a reducing telescope).
+T{ fixture real-congr-name refused -> outcome-invalid 6 37 0 }T
+T{ fixture real-kinds-short refused -> outcome-invalid 6 37 0 }T
+T{ fixture real-kinds-long refused -> outcome-ok 0 0 5 }T
 T{ fixture real-def refused -> outcome-invalid 6 14 0 }T
 T{ fixture real-unknown refused -> outcome-invalid 6 12 0 }T
 T{ fixture unknown-kind refused -> outcome-invalid 6 11 0 }T

@@ -13,10 +13,10 @@ reason = "SD-a: a congruence lemma named by two records is read (error 47 never 
 [[fault]]
 id = "sd-lemma-any-kind"
 file = "src/front/simp-data.fs"
-old = '''  elab-decl dup ok? if drop kind-thm elab-of-kind then dup ok? if drop sd-new-lemma then ;'''
-new = '''  elab-decl dup ok? if drop sd-new-lemma then ;'''
+old = ''': sd-theorem ( index -- d outcome ) elab-decl dup ok? if drop kind-thm elab-of-kind then ;'''
+new = ''': sd-theorem ( index -- d outcome ) elab-decl ;'''
 test = "$GFORTH tests/front/simp-data.fs"
-reason = "SD-a: a definition is read as a congruence lemma (error 14 never given)"
+reason = "SD-a: a definition is read as a congruence lemma or a realized theorem (error 14 never given)"
 
 [[fault]]
 id = "sd-hyps-unchecked"
@@ -327,7 +327,7 @@ reason = "SD-b: a realized record's kind is congr_simp alone (simp_helper is pla
 [[fault]]
 id = "realized-twice"
 file = "src/front/simp-data.fs"
-old = '''  if 2drop drop elab-e-congr-twice elab-refuse exit then sd-index memo! elab-roomed ;'''
+old = '''  if 2drop drop elab-e-real-twice elab-refuse exit then sd-index memo! elab-roomed ;'''
 new = '''  drop sd-index memo! elab-roomed ;'''
 test = "$GFORTH tests/front/simp-data.fs"
 reason = "SD-b: a function's second realized record replaces the first instead of refusing the file"
@@ -339,3 +339,11 @@ old = '''  ." , " simp-realized-count .decimal ."  realized congruence theorems"
 new = '''  ;'''
 test = "$GFORTH tests/front/elab-check-lf.fs"
 reason = "SD-b: the check's elaboration-data line leaves out the realized congruence theorems"
+
+[[fault]]
+id = "realized-arity-unchecked"
+file = "src/front/simp-data.fs"
+old = '''  nip dup sdr sdr-fun @ elab-type-pis swap simp-realized-kinds nip > 0= sd-fit ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "review L2: a realized record with fewer argument kinds than its function's leading binders is refused (error 37)"

@@ -446,6 +446,7 @@ printed with its text (`at line 2 (error 12): unknown name`):
 | 46 | `binder kinds named twice` | invalid | two `binder_kinds` records of one declaration (format 3.2) |
 | 47 | `a congruence lemma named twice` | invalid | two `congr` records of one lemma (format 4; `src/front/simp-data.fs`) |
 | 48 | `congruence lemmas out of their function's order` | invalid | a function's `congr` records not one run of lines ranked 0, 1, 2, ... in file order: a run that starts at a rank other than 0, skips a rank, or is split by another function's (format 4) |
+| 49 | `a function's realized congruence theorem given twice` | invalid | two `realized` records of one function (format 4.1; `src/front/simp-data.fs`). A realized record named other than its function's `congr_simp` (a `@[congr]` lemma's name among them), or with fewer `arg_kinds` than the function's leading binders, is error 37 |
 
 Misuse is refused before anything runs:
 

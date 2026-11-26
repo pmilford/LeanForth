@@ -427,6 +427,7 @@ create ed-added  /ed-added allot  ed-added /ed-added erase
 42 constant ed-e-order   43 constant ed-e-loose   44 constant ed-e-params
 45 constant ed-e-annotation   46 constant ed-e-binders
 47 constant elab-e-congr-twice   48 constant elab-e-congr-order   \ front/simp-data.fs's
+49 constant elab-e-real-twice   \ its realized theorems (format 4.1)
 create ed-messages
   s" none" counted,
   s" file missing or unreadable" counted,
@@ -477,6 +478,7 @@ create ed-messages
   s" binder kinds named twice" counted,
   s" a congruence lemma named twice" counted,
   s" congruence lemmas out of their function's order" counted,
+  s" a function's realized congruence theorem given twice" counted,
   0 0 counted,
 : ed-message ( code -- c-addr u ) ed-messages swap counted-nth count ;
 : ed-line ( -- n ) elab elab-reader reader-line# ;
