@@ -1,5 +1,5 @@
 # Planted faults of the fused term reads (docs/design/KERNEL_TERM_READS.md, its
-# binding changes after the review; branch kernel-reads-1, 2026-11-25, plan 9.4.8z2):
+# binding changes after the review; branch kernel-reads-1, 2026-11-25, plan 9.4.8z3):
 # lf-term-base and lf-tin-at read the view with one fetch of the context
 # (lib/context.fs's context-offset), lf-term-at and lf-term-id-at a store record and
 # its identity from the term store's block and capacity, the field reads and checked

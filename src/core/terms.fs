@@ -170,7 +170,7 @@ store-header context-record: lf-terms
 ' lf-terms-make context-setup
 :noname ( -- ) lf-terms store-heap-free ; context-teardown
 \ The store's header from the context in one fetch (lib/context.fs's
-\ context-offset: one literal), for the reads below (plan 9.4.8z2).
+\ context-offset: one literal), for the reads below (plan 9.4.8z3).
 lf-terms context-offset constant lf-terms-at
 \ A record's address from its store index r (its term number less
 \ lf-term-base) and its identity cell's: from the block and capacity of
@@ -455,7 +455,7 @@ create lf-tbind-hooks /htab-hooks allot
 \ a corrupted shape, seal or generation is refused at the root, never
 \ found by a read; a corrupted count still refuses every read.
 \ Each read below fetches lf-term-base once: an index below it is an
-\ input node, else index - base is the store's (plan 9.4.8z2).
+\ input node, else index - base is the store's (plan 9.4.8z3).
 : lf-term-count-valid? ( -- flag ) lf-terms store-count-valid? ;
 : lf-term-valid? ( index -- flag )
   lf-term-base 2dup u< if drop lf-tin-valid? exit then - lf-terms store-at? ;

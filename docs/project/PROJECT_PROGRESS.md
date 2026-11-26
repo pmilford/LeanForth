@@ -388,7 +388,7 @@ status changes when this date is older than them. Stages are those of the
      re-checks removed (2026-11-25: slice 1 of [KERNEL_VALIDITY_CHECKS.md](../design/KERNEL_VALIDITY_CHECKS.md),
      the checked-environment stamp, plan 9.4.8z1, **done on main 297c7a56** (2026-11-25; done check
      [2026-11-25-kernel-validity-1-done.md](../development/done-checks/2026-11-25-kernel-validity-1-done.md):
-     Init's check phase 952.7 s -> 779.5 s at one worker, 246.6 s at four, same verdicts; then the fused term reads of [KERNEL_TERM_READS.md](../design/KERNEL_TERM_READS.md), plan 9.4.8z2, written and tested on branch `kernel-reads-1`, not reviewed, not merged); the owner's approval as behaviour-preserving kernel refactoring is in
+     Init's check phase 952.7 s -> 779.5 s at one worker, 246.6 s at four, same verdicts; then the fused term reads of [KERNEL_TERM_READS.md](../design/KERNEL_TERM_READS.md), plan 9.4.8z3, written and tested on branch `kernel-reads-1`, not reviewed, not merged); the owner's approval as behaviour-preserving kernel refactoring is in
      OWNER_DECISIONS.md's last section), the cache with a 3.7% hit rate compared with Lean's, and instantiation and universe
      substitution skipped wherever Lean skips them (no loose variables, no universe parameters); (c) lowest: native
      primitives, for now measured only (which two or three would pay, and how much), not built.

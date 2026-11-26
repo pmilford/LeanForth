@@ -107,7 +107,7 @@ T{ c-rec c-terms < c-terms c-levels < -> true true }T
 T{ c-levels c-walk < c-walk c-pairs < -> true true }T
 T{ c-pairs 3 walk2-size + lf-context @ context-bytes + > -> false }T
 T{ c-rec lf-context @ - /context-header < c-rec aligned c-rec = -> false true }T
-\ context-offset (plan 9.4.8z2): the offset of a cell inside a member (a
+\ context-offset (plan 9.4.8z3): the offset of a cell inside a member (a
 \ record's second cell, a store header's count) from the context's start;
 \ a word adding it to lf-context @ reaches that cell in the current
 \ context, after the main context moved and in a new context (below).

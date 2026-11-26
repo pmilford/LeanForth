@@ -38,7 +38,7 @@ $811C 16 lshift $9DC5 or constant fnv-basis
 lf-lib set-current
 \ Murmur3's finaliser: h is 0 .. 2^32-1, and so is the result. Each step
 \ h xor (h >> n), or h * m masked to 32 bits as hash-mul does, written out
-\ in one definition: it runs for every hash (plan 9.4.8z2).
+\ in one definition: it runs for every hash (plan 9.4.8z3).
 : hash-fmix ( h -- h' )
   dup 16 rshift xor hash-m1 * u32-mask and dup 13 rshift xor
   hash-m2 * u32-mask and dup 16 rshift xor ;

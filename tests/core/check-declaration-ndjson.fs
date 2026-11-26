@@ -559,7 +559,7 @@ T{ plant-run -> true }T
 T{ leaves-paged -> true true }T
 
 \ ---------------------------------------------------------------------------
-\ The fused reads (plan 9.4.8z2, docs/design/KERNEL_TERM_READS.md): every
+\ The fused reads (plan 9.4.8z3, docs/design/KERNEL_TERM_READS.md): every
 \ term number from -2 to past the store's last record, input and store
 \ nodes, and some far numbers, read by core/terms.fs's words and by the
 \ chains they replaced, kept here as they were: the same validity,

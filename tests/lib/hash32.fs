@@ -27,7 +27,7 @@ variable hash-seed  20261103 hash-seed !
   bytes256 hash-rnd 256 mod hash-bytes in-range? and loop ;
 T{ ranges? -> true }T
 T{ 5 ' hash-fmix rs-checked s" ab" ' hash-bytes rs-checked drop -> 5 hash-fmix }T
-\ hash-fmix written out in one definition (plan 9.4.8z2) gives what the
+\ hash-fmix written out in one definition (plan 9.4.8z3) gives what the
 \ chain of helpers it replaced gives, kept here as it was: on 0, -1, 2^k
 \ and its neighbours for every bit k of a cell, 100,000 random 32-bit
 \ values and 100,000 random cells (all 64 bits on a 64-bit host, whose

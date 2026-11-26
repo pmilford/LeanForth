@@ -938,7 +938,7 @@
    "src/core/terms.fs:lf-term-first@",
    "src/core/terms.fs:lf-term-second@"
   ],
-  "reason": "accepted: the term store's two field readers, from the input tier or the own slot, the base fetched once (plan 9.4.8z2, the same pair as before); they are the checker's hottest words, and a shared word taking the field would cost every read a call",
+  "reason": "accepted: the term store's two field readers, from the input tier or the own slot, the base fetched once (plan 9.4.8z3, the same pair as before); they are the checker's hottest words, and a shared word taking the field would cost every read a call",
   "tokens": 13
  },
  "7c73ccf93620": {

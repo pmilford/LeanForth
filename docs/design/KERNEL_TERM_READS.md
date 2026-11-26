@@ -1,7 +1,7 @@
 # Leaner reads of term nodes
 
 Status (2026-11-25): **designed and reviewed (approve with changes; the last section is binding); its
-one slice written and tested on branch `kernel-reads-1` (plan 9.4.8z2), not reviewed, not merged, not
+one slice written and tested on branch `kernel-reads-1` (plan 9.4.8z3), not reviewed, not merged, not
 done.** The next kernel speed step after the
 environment stamp ([KERNEL_VALIDITY_CHECKS.md](KERNEL_VALIDITY_CHECKS.md)), candidate 3 of the speed
 measurement ([KERNEL_SPEED.md](../development/KERNEL_SPEED.md), sections 9 and 10: "node field reads
