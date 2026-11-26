@@ -33,6 +33,7 @@ import tempfile
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 import export_elab  # noqa: E402
+import export_simp  # noqa: E402
 
 SLICE = ROOT / "tests/front/simp-slice.ndjson"
 DATA = ROOT / "tests/front/simp-slice.elab.ndjson"
@@ -77,13 +78,36 @@ R_DECIDE = realized(["Decidable", "decide"], [1, 3])
 R_ITE = realized(["ite"], [0, 1, 3, 1, 1])
 GOOD = [C_DITE, C_ITE, C_SUB, T_ADD]
 GOOD41 = GOOD + [R_DECIDE, R_ITE]
+# The default simp set (format 4.1, simp group 4), records as scripts/export_simp.py writes
+# them for the slice: the set, Nat.add_zero (an rfl lemma, rank 33 under HAdd.hAdd's root),
+# imp_not_self's left-out lemma (its _simp_1 helper not in the slice), Eq.ndrec to unfold and
+# Char.isValue (a pre dsimproc). Each damaged copy is refused at its line (2-7 are GOOD41's).
+S_SET = '{"simp_set":{"name":["simp"],"simprocs":["simprocAttr"]}}'
+S_ADD0 = ('{"simp_lemma":{"backward_rfl":true,"inv":false,"keys":[{"arity":6,"const":["HAdd",'
+          '"hAdd"]},{"arity":0,"const":["Nat"]},{"arity":0,"const":["Nat"]},{"arity":0,'
+          '"const":["Nat"]},"star","star",{"lit":"0"}],"origin":["Nat","add_zero"],"perm":false,'
+          '"post":true,"priority":1000,"proof":["Nat","add_zero"],"rank":33,"rfl":true,'
+          '"set":["simp"]}}')
+S_LEFT = ('{"simp_left_out":{"keys":["arrow","star"],"origin":["imp_not_self"],"post":true,'
+          '"priority":1000,"proof":["imp_not_self","_simp_1"],"rank":0,'
+          '"reason":"not_exported","set":["simp"]}}')
+S_UNFOLD = '{"simp_unfold":{"name":["Eq","ndrec"],"set":["simp"]}}'
+S_PROC = ('{"simproc":{"dsimproc":true,"keys":[{"arity":1,"const":["Char","ofNat"]},"star"],'
+          '"name":["Char","isValue"],"post":false,"rank":0}}')
+SET41 = GOOD41 + [S_SET, S_ADD0, S_LEFT, S_UNFOLD, S_PROC]
+
+
+def set41(old, new):
+    return assemble([new if r == old else r for r in SET41], "4.1")
 
 
 def assemble(lines, version=4, drop=None, **counted):
     """A file for the simp slice holding lines, its header counting them."""
     body = "".join(r + "\n" for r in lines)
     counts = dict.fromkeys(export_elab.KINDS, 0)
-    if version != "4.1":
+    if version == "4.1":   # format 4.1 counts the default simp set's kinds too
+        counts.update(dict.fromkeys(export_simp.SET_KINDS, 0))
+    else:
         del counts["realized"]
     if version not in (4, "4.1"):
         del counts["congr"]
@@ -177,6 +201,36 @@ CASES = {
     "tag-unknown": (assemble(GOOD + [T_ADD.replace('"defeq"', '"defeqs"')]), "invalid", 6, 10),
     "count-missing": (assemble(GOOD, drop="congr"), "invalid", 1, 10),
     "count-wrong": (assemble(GOOD, congr=2), "invalid", 5, 20),
+    "set41": (assemble(SET41, "4.1"), "ok", 0, 0),
+    "set-twice": (assemble(SET41 + [S_SET], "4.1"), "invalid", 13, 52),
+    "set-other": (set41(S_SET, S_SET.replace('"name":["simp"]', '"name":["seval"]')),
+                  "invalid", 8, 52),
+    "set-procs": (set41(S_SET, S_SET.replace("simprocAttr", "sevalprocAttr")), "invalid", 8, 52),
+    "set-name-long": (set41(S_SET, S_SET.replace('"name":["simp"]', '"name":["simp","x"]')),
+                      "invalid", 8, 52),
+    "lemma-set": (set41(S_ADD0, S_ADD0.replace('"set":["simp"]', '"set":["seval"]')),
+                  "invalid", 9, 52),
+    "lemma-rfl": (set41(S_ADD0, S_ADD0.replace('"rfl":true', '"rfl":false')), "invalid", 9, 50),
+    "lemma-proof-def": (set41(S_ADD0, S_ADD0.replace('"proof":["Nat","add_zero"]',
+                                                     '"proof":["Nat","add"]')), "invalid", 9, 14),
+    "lemma-unknown": (set41(S_ADD0, S_ADD0.replace('"origin":["Nat","add_zero"]',
+                                                   '"origin":["no_such"]')), "invalid", 9, 12),
+    "lemma-keys-cut": (set41(S_ADD0, S_ADD0.replace(',{"lit":"0"}', '')), "invalid", 9, 30),
+    "lemma-bool": (set41(S_ADD0, S_ADD0.replace('"perm":false', '"perm":0')), "invalid", 9, 10),
+    "lemma-inv": (set41(S_ADD0, S_ADD0.replace('"inv":false', '"inv":"no"')), "invalid", 9, 10),
+    "left-known": (set41(S_LEFT, S_LEFT.replace('["imp_not_self","_simp_1"]',
+                                                '["Nat","add_zero"]').replace(
+                                                    '["imp_not_self"]', '["Nat","add_zero"]')),
+                   "invalid", 10, 51),
+    "left-reason": (set41(S_LEFT, S_LEFT.replace("not_exported", "erased")), "invalid", 10, 10),
+    "left-name": (set41(S_LEFT, S_LEFT.replace('"origin":["imp_not_self"]', '"origin":"x"')),
+                  "invalid", 10, 10),
+    "unfold-unknown": (set41(S_UNFOLD, S_UNFOLD.replace('["Eq","ndrec"]', '["no_such"]')),
+                       "invalid", 11, 12),
+    "proc-name": (set41(S_PROC, S_PROC.replace('["Char","isValue"]', '[]')), "invalid", 12, 10),
+    "proc-keys-cut": (set41(S_PROC, S_PROC.replace(',"star"', '')), "invalid", 12, 30),
+    "v4-lemma": (assemble(GOOD + [S_ADD0]), "invalid", 6, 11),
+    "set41-uncounted": (assemble(SET41, "4.1", drop="simp_lemma"), "invalid", 1, 10),
 }
 
 
@@ -260,6 +314,52 @@ def writer_cases(work):
         fail(f"the finisher's format 4 with realized records: {status} {said}")
 
 
+def set_finish(work, lines, form):
+    raw = work / "raw.txt"
+    raw.write_text(RAW_HEAD + "\n" + "".join(r + "\n" for r in lines))
+    out = work / "set.elab.ndjson"
+    done = subprocess.run([sys.executable, str(ROOT / "scripts/export_simp.py"), str(raw),
+                           str(work / "slice.ndjson"), str(out), "--format", str(form)],
+                          capture_output=True, text=True, timeout=LIMIT)
+    return done.returncode, done.stdout + done.stderr, out
+
+
+def set_finisher_cases(work):
+    """scripts/export_simp.py on hand-made RAW against the simp slice: a lemma kept, one whose
+    proof the slice lacks left out (its rank kept), one under a root the slice lacks dropped;
+    the same for definitions to unfold and simprocs; format 4 drops them all, byte for byte
+    export_elab.py's; refused: a rank gap, a proof that is no theorem, a malformed record."""
+    add0 = S_ADD0.replace('"rank":33', '"rank":0')
+    helper = add0.replace('"proof":["Nat","add_zero"]', '"proof":["Nat","add_zero","_simp_9"]'
+                          ).replace('"rank":0', '"rank":1')
+    far = ('{"simp_lemma":{"backward_rfl":false,"inv":false,"keys":[{"arity":0,"const":["No",'
+           '"such"]}],"origin":["No","such_eq"],"perm":false,"post":true,"priority":1000,'
+           '"proof":["No","such_eq"],"rank":0,"rfl":false,"set":["simp"]}}')
+    gone = S_UNFOLD.replace('["Eq","ndrec"]', '["No","such"]')
+    far_proc = S_PROC.replace('["Char","ofNat"]', '["No","such"]')
+    raw = [C_ITE, T_ADD, S_SET, add0, helper, far, S_UNFOLD, gone, S_PROC, far_proc]
+    status, said, out = set_finish(work, raw, "4.1")
+    lines = out.read_text().split("\n") if status == 0 else []
+    counts = json.loads(lines[0])["elab_data"]["records"] if lines else {}
+    left = json.loads(lines[-4])["simp_left_out"] if len(lines) > 4 else {}
+    if status or [counts.get(k) for k in export_simp.SET_KINDS] != [1, 1, 1, 1, 1] \
+            or left.get("proof") != ["Nat", "add_zero", "_simp_9"] or left.get("rank") != 1 \
+            or "3 default-set records left out or dropped" not in said:
+        fail(f"export_simp.py's format 4.1: {status} {said} {lines[-6:]}")
+    status, said, out = set_finish(work, raw, 4)
+    plain = finish(work, [C_ITE, T_ADD], 4)[2].read_text()
+    if status or out.read_text() != plain:
+        fail(f"export_simp.py's format 4 is not export_elab.py's: {status} {said}")
+    bad = {"a rank gap": [S_ADD0], "a proof that is no theorem":
+           [add0.replace('"proof":["Nat","add_zero"]', '"proof":["Nat","add"]')],
+           "a lemma without its rank": [add0.replace(',"rank":0', "")]}
+    whys = ["are not 0, 1, 2", "its proof is no theorem", "not a simp_lemma record"]
+    for (name, lines), why in zip(bad.items(), whys):
+        status, said, _ = set_finish(work, [S_SET] + lines, "4.1")
+        if status != 1 or why not in said:
+            fail(f"export_simp.py on {name}: {status} {said}")
+
+
 def check(env, data):
     done = subprocess.run([str(LEANFORTH), "check", "--env", str(env), "--elab-data", str(data),
                            str(TEXT)], stdin=subprocess.DEVNULL, capture_output=True,
@@ -299,6 +399,7 @@ def main(argv):
         del manifest["elab_records_sha256"]   # the fixtures are not the bound data
         (work / "slice.ndjson.manifest.json").write_text(json.dumps(manifest, indent=2))
         writer_cases(work)
+        set_finisher_cases(work)
         check_cases(work)
     print(f"simp data (formats 4 and 4.1): all tests passed ({len(CASES)} fixtures, 14 finisher "
           "runs, 11 checks)")

@@ -102,9 +102,102 @@ def realizedRecords (env : Environment) : MetaM (Array Json) := do
            ("arg_kinds", toJson kinds)]
   return out
 
+/-! ## Format 4.1: the default simp set and its simprocs (simp group 4)
+
+Ported by hand from branch simp-data-tool, commit 84b76124 (export_elab.lean
+there), for the default set alone. -/
+
+/-- A key as export_elab.lean's keyJson writes it (that file's digest keys
+the Mathlib slice's cache, so it is not imported or changed here). -/
+def keyJson : DiscrTree.Key → MetaM Json
+  | .star => pure "star"
+  | .other => pure "other"
+  | .arrow => pure "arrow"
+  | .const n a => pure <| Json.mkObj [("const", nameJson n), ("arity", toJson a)]
+  | .proj s i a => pure <| Json.mkObj [("proj", nameJson s), ("idx", toJson i), ("arity", toJson a)]
+  | .lit (.natVal n) => pure <| Json.mkObj [("lit", Json.str (toString n))]
+  | .lit (.strVal s) => pure <| Json.mkObj [("lit_str", Json.str s)]
+  | .fvar f _ => throwError "an fvar key {f.name} in a global simp set"
+
+def keysJson (keys : Array DiscrTree.Key) : MetaM Json := do
+  return Json.arr (← keys.mapM keyJson)
+
+/-- The values of a trie depth first: a node's own values, then its
+children's in their stored order (export_elab.lean's walk, probe p6). -/
+partial def trieValues {α} : DiscrTree.Trie α → Array α → Array α
+  | .node vs cs, acc => cs.foldl (fun acc (_, c) => trieValues c acc) (acc ++ vs)
+
+/-- Every value of a tree with its root key and its rank, its place in
+the depth-first walk of its root key's trie. -/
+def rankedValues {α} (t : DiscrTree α) : Array (DiscrTree.Key × Nat × α) := Id.run do
+  let mut out := #[]
+  for (root, trie) in t.root.toList do
+    let values := trieValues trie #[]
+    for h : rank in [0:values.size] do
+      out := out.push (root, rank, values[rank])
+  return out
+
+/-- A lemma of the default set, the value at `rank` under `root` of its
+`post` (or pre) tree; it stops on what the format cannot say. -/
+def simpRecord (s : SimpTheorems) (post : Bool) (root : DiscrTree.Key) (rank : Nat)
+    (t : SimpTheorem) : MetaM Json := do
+  let .decl origin _ inv := t.origin
+    | throwError "the default simp set: a lemma whose origin is not a declaration"
+  unless s.lemmaNames.contains t.origin do
+    throwError "simp lemma {origin}: in the tree but not among the set's lemma names"
+  unless t.levelParams.isEmpty do throwError "simp lemma {origin}: universe parameters of its own"
+  let some proof := t.proof.constName?
+    | throwError "simp lemma {origin}: its proof is not a constant"
+  unless t.keys[0]? == some root do throwError "simp lemma {origin}: its first key is not its root"
+  unless t.post == post do throwError "simp lemma {origin}: in the other phase's tree"
+  return record "simp_lemma"
+    [("set", nameJson `simp), ("origin", nameJson origin), ("inv", toJson inv),
+     ("post", toJson post), ("proof", nameJson proof), ("priority", toJson t.priority),
+     ("perm", toJson t.perm), ("rfl", toJson t.rfl), ("backward_rfl", toJson t.backwardRfl),
+     ("keys", ← keysJson t.keys), ("rank", toJson rank)]
+
+/-- The default set's records: the set (its simproc set), its lemmas of
+both trees and its definitions to unfold. -/
+def defaultSetRecords (env : Environment) : MetaM (Array Json) := do
+  let s := simpExtension.getState env
+  unless s.erased.toList.isEmpty do throwError "the default simp set: erased lemmas"
+  let mut out := #[record "simp_set"
+    [("name", nameJson `simp), ("simprocs", nameJson (Simp.simpAttrNameToSimprocAttrName `simp))]]
+  for (tree, post) in [(s.pre, false), (s.post, true)] do
+    for (root, rank, t) in rankedValues tree do
+      out := out.push (← simpRecord s post root rank t)
+  for n in s.toUnfold.toList do
+    out := out.push <| record "simp_unfold" [("set", nameJson `simp), ("name", nameJson n)]
+  return out
+
+/-- The default simproc set's entries (simprocExtension, attribute
+simprocAttr), each with its declaration's keys, its phase, its rank under
+its root key and whether it is a dsimproc (no proof term). -/
+def simprocRecords (env : Environment) : MetaM (Array Json) := do
+  let s := Simp.simprocExtension.getState env
+  unless s.erased.toList.isEmpty do throwError "the default simproc set: erased simprocs"
+  let builtin ← Simp.builtinSimprocDeclsRef.get
+  let mut out := #[]
+  for (tree, post) in [(s.pre, false), (s.post, true)] do
+    for (root, rank, e) in rankedValues tree do
+      unless e.keys[0]? == some root && e.post == post && s.simprocNames.contains e.declName do
+        throwError "simproc {e.declName}: not where the set's tree has it"
+      let proofless ← match builtin.procs[e.declName]? with
+        | some (.inr _) => pure true
+        | some (.inl _) => pure false
+        | none => match ((env.find? e.declName).map (·.type) : Option Expr) with
+          | some (.const ``Simp.DSimproc _) => pure true
+          | some (.const ``Simp.Simproc _) => pure false
+          | _ => throwError "simproc {e.declName}: neither a Simproc nor a DSimproc"
+      out := out.push <| record "simproc"
+        [("name", nameJson e.declName), ("keys", ← keysJson e.keys), ("post", toJson post),
+         ("rank", toJson rank), ("dsimproc", toJson proofless)]
+  return out
+
 def allRecords : MetaM (Array Json) := do
   let env ← getEnv
   return defeqRecords env ++ (← congrRecords env) ++ (← realizedRecords env)
+    ++ (← defaultSetRecords env) ++ (← simprocRecords env)
 
 def main (args : List String) : IO UInt32 := do
   if args.isEmpty then

@@ -206,7 +206,7 @@ require ./elab-keys.fs
 4 constant elab-tag-cases-on   5 constant elab-tag-rec-on   6 constant elab-tag-brec-on
 7 constant elab-tag-match-pattern   \ Lean's @[match_pattern] (hasMatchPatternAttribute)
 8 constant elab-tag-defeq           \ Lean's @[defeq] (defeqAttr; format 4)
-16 constant elab-kinds-most         \ kinds with those other files add
+24 constant elab-kinds-most         \ kinds with those other files add
 \ Why a value of the instance tree is no instance record.
 0 constant elab-erased   1 constant elab-not-exported
 \ A smart-unfolding body's nodes (Lean's Expr; fields a, b, c, d) and levels.
@@ -428,6 +428,8 @@ create ed-added  /ed-added allot  ed-added /ed-added erase
 45 constant ed-e-annotation   46 constant ed-e-binders
 47 constant elab-e-congr-twice   48 constant elab-e-congr-order   \ front/simp-data.fs's
 49 constant elab-e-real-twice   \ its realized theorems (format 4.1)
+50 constant elab-e-simp-rfl   51 constant elab-e-simp-left   \ front/simp-set-data.fs's
+52 constant elab-e-simp-set   \ (format 4.1: the default simp set)
 create ed-messages
   s" none" counted,
   s" file missing or unreadable" counted,
@@ -479,6 +481,9 @@ create ed-messages
   s" a congruence lemma named twice" counted,
   s" congruence lemmas out of their function's order" counted,
   s" a function's realized congruence theorem given twice" counted,
+  s" a simp lemma's rfl flag not its proof's defeq tag" counted,
+  s" a left-out simp lemma the library has" counted,
+  s" a simp set other than the default one, or given twice" counted,
   0 0 counted,
 : ed-message ( code -- c-addr u ) ed-messages swap counted-nth count ;
 : ed-line ( -- n ) elab elab-reader reader-line# ;
@@ -1795,6 +1800,20 @@ synonym elab-span@ ed-span@              ( span -- addr n )
 synonym elab-text= ed-text=              ( index c-addr u -- flag )
 synonym elab-tier ed-tier                ( -- tier ) \ the stage's names and terms
 synonym elab-type@ ed-type@              ( d -- e )
+synonym elab-bool ed-bool                ( index -- flag outcome )
+synonym elab-name ed-name                ( index -- n outcome ) \ -1: not the tier's
+synonym elab-name-shape ed-name-shape    ( index -- outcome )
+synonym elab-has? ed-has?                ( n -- flag ) \ name n has a declaration
+/ed-value constant /elab-value           \ keys, their count, a rank: elab-keys-read's
+synonym elab-value-keys ed-keys@         ( value -- k n )
+synonym elab-value-rank! ed-value-rank!  ( value index -- outcome )
+: elab-value-rank@ ( value -- rank ) ed-value-rank @ ;
+: elab-items# ( index -- n true | false ) json-array ed-view json-items-of ;
+\ A value's keys read into the record at value (one term; with foreign?
+\ a constant no declaration has is a foreign key, as a left-out
+\ instance's).
+: elab-keys-read ( value index foreign? -- outcome )
+  elab elab-foreign ! ed-keys-read false elab elab-foreign ! ;
 : elab-format4? ( -- flag ) elab-loaded? ed-v4? and ;
 : elab-format41? ( -- flag ) elab-format4? ed-v41? and ;
 : ed-tagged-at? ( tag d -- tag flag ) over elab-tagged? ;

@@ -15,8 +15,10 @@ require ../../src/front/simp-data.fs
 T{ context-sealed? s" congr" add-kind s" tag" add-kind s" realized" add-kind41 ed-added#
    -> false -2 -2 -2 2 }T
 T{ s" a" add-kind s" a" ed-kind-index ed-added# ed-added-v4# -> -2 false 2 1 }T
-T{ s" a" add-kind41 s" b" add-kind41 s" c" add-kind41 -> 0 0 0 }T
-T{ s" d" add-kind41 s" d" ed-kind-index ed-added# -> -2 false elab-kinds-most elab-kinds - }T
-T{ s" c" ed-kind-index s" congr" ed-kind-index -> elab-kinds-most 1- true simp-congr-kind true }T
-T{ elab-kinds-most 1- ed-kind-name count s" c" compare -> 0 }T
+T{ s" a" add-kind41 s" b" add-kind41 s" c" add-kind41 s" d" add-kind41 -> 0 0 0 0 }T
+T{ s" e" add-kind41 s" f" add-kind41 s" g" add-kind41 s" h" add-kind41 -> 0 0 0 0 }T
+T{ s" i" add-kind41 s" j" add-kind41 s" k" add-kind41 -> 0 0 0 }T
+T{ s" l" add-kind41 s" l" ed-kind-index ed-added# -> -2 false elab-kinds-most elab-kinds - }T
+T{ s" k" ed-kind-index s" congr" ed-kind-index -> elab-kinds-most 1- true simp-congr-kind true }T
+T{ elab-kinds-most 1- ed-kind-name count s" k" compare -> 0 }T
 bye

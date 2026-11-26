@@ -116,3 +116,75 @@ old = '''  begin 2dup slab-count > while -1 over slab-push dup ok? 0= if nip nip
 new = '''  begin 2dup slab-count > while 0 over slab-push dup ok? 0= if nip nip exit then drop'''
 test = "$GFORTH tests/lib/slab.fs"
 reason = "the cells grown before the one set read as 0, a value, not -1 (none): a gap in a root's ranks would read as record 0"
+
+[[fault]]
+id = "simp-rfl-tag-unchecked"
+file = "src/front/simp-set-data.fs"
+old = '''  nip dup ssl-tagged? swap ssl ssl-rfl @ = elab-e-simp-rfl ss-or ;'''
+new = '''  2drop outcome-ok ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "a lemma's rfl flag taken as written: a lemma not tagged defeq would leave no proof step (the kernel, not the reader, would then refuse)"
+
+[[fault]]
+id = "simp-left-out-kept-known"
+file = "src/front/simp-set-data.fs"
+old = '''  drop ss-both-known ok-then? if 0= elab-e-simp-left ss-or then ;'''
+new = '''  drop ss-both-known ok-then? if drop outcome-ok then ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "a left-out lemma whose origin and proof the library has is read: simp would answer unsupported where it could try the lemma, a sign of data for another export"
+
+[[fault]]
+id = "simp-set-twice-read"
+file = "src/front/simp-set-data.fs"
+old = ''': sss-ready ( value i -- outcome ) 2drop ss ss-set-read @ 0= elab-e-simp-set ss-or ;'''
+new = ''': sss-ready ( value i -- outcome ) 2drop outcome-ok ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "a second simp_set record is read instead of refused (52)"
+
+[[fault]]
+id = "simp-set-any-name"
+file = "src/front/simp-set-data.fs"
+old = ''': ss-part-is ( item c-addr u -- outcome ) elab-text= elab-e-simp-set ss-or ;'''
+new = ''': ss-part-is ( item c-addr u -- outcome ) 2drop drop outcome-ok ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "another simp set (seval's) or simproc set read as the default one"
+
+[[fault]]
+id = "simp-left-keys-local"
+file = "src/front/simp-set-data.fs"
+old = ''': ssj-keys! ( value j -- outcome ) ssj ssl-value true ss-keys ;'''
+new = ''': ssj-keys! ( value j -- outcome ) ssj ssl-value false ss-keys ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "a left-out lemma's keys may not name a constant the library lacks: the slice's own data (imp_not_self's helper and many more) is refused"
+
+[[fault]]
+id = "simp-phase-swapped"
+file = "src/front/simp-set-data.fs"
+old = ''': ss-phase ( v post -- outcome ) if ss-post else ss-pre then slab-push elab-roomed ;'''
+new = ''': ss-phase ( v post -- outcome ) if ss-pre else ss-post then slab-push elab-roomed ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "post lemmas filed in the pre tree: simp would try them before visiting the subterms"
+
+[[fault]]
+id = "simp-unfold-ignored"
+file = "src/front/simp-set-data.fs"
+old = ''': simp-unfold? ( d -- flag ) ss-unfolds slab-data cells-has? ;'''
+new = ''': simp-unfold? ( d -- flag ) drop false ;'''
+test = "$GFORTH tests/front/simp-data.fs"
+reason = "a definition the default set unfolds reads as none: simp would not answer unsupported where Lean's reduceStep unfolds it"
+
+[[fault]]
+id = "set-finisher-left-out-kept"
+file = "scripts/export_simp.py"
+old = '''    if origin in decls and proof in decls:'''
+new = '''    if origin in decls:'''
+test = "GFORTH=$GFORTH python3 tests/front/test_simp_data.py"
+reason = "a lemma whose proof (a _simp_N helper) the export lacks written as kept: the reader refuses its proof, and the slice's data no longer reads"
+
+[[fault]]
+id = "set-finisher-root-kept"
+file = "scripts/export_simp.py"
+old = '''    return all(name in decls for name, _ in ee.key_names(keys[:1]))'''
+new = '''    return True'''
+test = "GFORTH=$GFORTH python3 tests/front/test_simp_data.py"
+reason = "a lemma or simproc under a root the export lacks is kept: the reader refuses its root key's unknown name"

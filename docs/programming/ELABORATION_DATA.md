@@ -449,6 +449,9 @@ printed with its text (`at line 2 (error 12): unknown name`):
 | 47 | `a congruence lemma named twice` | invalid | two `congr` records of one lemma (format 4; `src/front/simp-data.fs`) |
 | 48 | `congruence lemmas out of their function's order` | invalid | a function's `congr` records not one run of lines ranked 0, 1, 2, ... in file order: a run that starts at a rank other than 0, skips a rank, or is split by another function's (format 4) |
 | 49 | `a function's realized congruence theorem given twice` | invalid | two `realized` records of one function (format 4.1; `src/front/simp-data.fs`). A realized record named other than its function's `congr_simp` (a `@[congr]` lemma's name among them), or with fewer `arg_kinds` than the function's leading binders, is error 37 |
+| 50 | `a simp lemma's rfl flag not its proof's defeq tag` | invalid | a `simp_lemma` whose `rfl` differs from its proof's `defeq` tag (format 4.1; `src/front/simp-set-data.fs`) |
+| 51 | `a left-out simp lemma the library has` | invalid | a `simp_left_out` record whose `origin` and `proof` are both declarations of the library (format 4.1) |
+| 52 | `a simp set other than the default one, or given twice` | invalid | a `simp_set` record other than `{"name":["simp"],"simprocs":["simprocAttr"]}`, a second one, or a lemma, left-out lemma or definition to unfold of another `set` (format 4.1) |
 
 Misuse is refused before anything runs:
 
@@ -879,6 +882,41 @@ realized theorems (`Decidable.decide.congr_simp` and `ite.congr_simp` among them
 rest): the `simp` and `simp_left_out` records, `simp_set`, `simp_unfold`, simprocs, `backward_defeq`, the
 `coe_decl` tag, the `refl` and `symm` sets, the `simp_helper` kind of `realized` (Init's `._simp_N` helpers, with
 EX), the `reference-elab-data` comparisons of plan task SD-b.6 (b) and (c).
+
+## Format 4.1: the default simp set (simp group 4)
+
+Simp group 4 (plain `by-simp`; plan `.claude/work/briefs/simp-group-4-architect.md`) adds to format 4.1 the
+default simp set and its simprocs, as `simp` (not `simp only`) reads them. `scripts/export_simp.lean` writes them
+(nothing is added to `export_elab.lean`, whose digest keys the Mathlib slice's cache); `scripts/export_simp.py`
+finishes formats 4 and 4.1 in place of `export_elab.py` (which it imports, unchanged: format 4 comes out byte for
+byte as before) and `scripts/export-elab.sh` runs it for `ELAB_FORMAT=4` and `4.1`. A 4.1 file counts every kind
+below in its header; one written before this (format 4.1 with `realized` alone) is refused as malformed (error 10).
+
+| Record | Members | From |
+| --- | --- | --- |
+| `simp_set` | `name` `["simp"]`, `simprocs` `["simprocAttr"]` (the default sets only; error 52 otherwise or twice) | `simpExtension`, `simpAttrNameToSimprocAttrName` |
+| `simp_lemma` | `set`, `origin` (a declaration), `inv`, `post`, `proof` (a theorem: the lemma or its `_simp_N` helper), `priority`, `perm`, `rfl` (its proof's `defeq` tag, error 50), `backward_rfl`, `keys`, `rank` | the default set's `pre` and `post` trees, `SimpTheorem` (SimpTheorems.lean:155) |
+| `simp_left_out` | `set`, `post`, `keys` (foreign constants allowed), `rank`, `priority`, `origin`, `proof` (names, not both the library's: error 51), `reason` (`not_exported`) | a tree value whose origin or proof the export lacks |
+| `simp_unfold` | `set`, `name` (a declaration) | `toUnfold` |
+| `simproc` | `name` (a Lean function: a well-formed name, kept whatever the export holds), `keys` (foreign constants allowed), `post`, `rank`, `dsimproc` | `simprocExtension`'s trees, `builtinSimprocDeclsRef` |
+
+The lemma record is SIMP_DATA.md's `simp`, written `simp_lemma` so that no record kind is a folder name of the
+checkout. The finisher keeps a lemma when the export has its origin and its proof (else `simp_left_out`, its rank
+kept), a definition to unfold when the export has it, and drops a lemma or simproc with its whole root when its root
+key names what the export lacks (no term of the export reaches it); it refuses a kept lemma whose proof is no theorem
+and ranks under a root, per phase, that are not 0, 1, 2, .... `Init` (2026-11-26, 2 s of pinned Lean): 10,296
+lemmas (1 pre: `binderNameHint.eq_1`), 1,917 of them through a `_simp_N` helper, 898 with `rfl` (each its proof's
+`defeq` tag), 31 definitions to unfold, 341 simprocs (5 pre, 244 dsimprocs); 4.29 MB of raw records. The simp slice
+(`tests/front/simp-slice`): 194 lemmas kept, 4,203 left out, 2 definitions to unfold, 207 simprocs; its data grew
+from 0.43 to 2.18 MB.
+
+**Read** by `src/front/simp-set-data.fs`, kinds added with `elab-add-kind41`: members as for every kind (errors
+10-14, 19, 22), keys one term (30), the checks of the table. Ranks are checked when a root is built
+(`src/front/data-index.fs`: a gap or two values of one rank answer invalid there), not when the file is read.
+`simp-default? ( -- flag )` is true only for 4.1 data holding the `simp_set` record; `by-simp` answers unsupported
+without it. Tests: `tests/front/simp-data.fs` (the slice's data, 21 fixtures of `tests/front/simp-data/`, a heap
+sweep), `tests/front/test_simp_data.py` (the fixtures; `export_simp.py` kept, left-out and dropped records, format 4
+byte for byte, three refusals); faults in `tests/mutants/faults.d/simp-group4.toml`.
 
 ## Unification hints: not in the data
 

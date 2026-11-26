@@ -80,5 +80,14 @@ if [ -n "$simp" ]; then
   { head -n 1 "$simp_raw"; tail -n +2 "$raw"; tail -n +2 "$simp_raw"; } >"$joined"
   cp "$joined" "$raw"
 fi
-python3 "$here/scripts/export_elab.py" "$raw" "$export_file" "$output" --bind \
-  --format "${ELAB_FORMAT:-3}"
+# Formats 4 and 4.1 are finished by export_simp.py, which hands every record
+# but the default simp set's to export_elab.py's finish() and, for 4.1, adds
+# the default set's (export_elab.py itself is not changed: its digest keys the
+# Mathlib slice's data step).
+if [ -n "$simp" ]; then
+  python3 "$here/scripts/export_simp.py" "$raw" "$export_file" "$output" --bind \
+    --format "$ELAB_FORMAT"
+else
+  python3 "$here/scripts/export_elab.py" "$raw" "$export_file" "$output" --bind \
+    --format "${ELAB_FORMAT:-3}"
+fi

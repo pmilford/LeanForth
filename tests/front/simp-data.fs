@@ -17,8 +17,9 @@ include ../support/tester.fs
 include ../support/heap-watch.fs
 include ../support/meta-sweeps.fs
 hex require ../../src/front/simp-data.fs base @ decimal constant base-after-load
+require ../../src/front/simp-set-data.fs   \ format 4.1's other kinds, which the slice's data holds
 T{ base-after-load simp-congr-kind simp-realized-kind elab-kinds-most elab-tag-defeq
-   -> 16 11 12 16 8 }T
+   -> 16 11 12 24 8 }T
 
 create lib /stage allot
 : digest ( -- sha ) lib stage-manifest manifest-digest ;
@@ -141,6 +142,48 @@ T{ fixture defeq-twice refused -> outcome-invalid 6 29 0 }T
 T{ fixture tag-unknown refused -> outcome-invalid 6 10 0 }T
 T{ fixture count-missing refused -> outcome-invalid 1 10 0 }T
 T{ fixture count-wrong refused -> outcome-invalid 5 20 0 }T
+
+\ Format 4.1's default simp set (simp group 4, front/simp-set-data.fs):
+\ the slice's own data from the writer (194 lemmas kept, 4,203 left out,
+\ 2 definitions to unfold, 207 simprocs); a good file of one record of
+\ each kind, its questions answered; each damaged copy refused at its
+\ line with its code, nothing kept; 4.1 data without the set: no
+\ default set (simp answers unsupported).
+: set-kept ( -- n )
+  simp-lemma-count simp-proc-count + true simp-lemmas# + false simp-lemmas# + ;
+: set-refused ( c-addr u -- outcome line code kept ) fx elab-error-line elab-error-code set-kept ;
+T{ s" tests/front/simp-slice.elab.ndjson" set-refused simp-default? simp-lemma-count
+   true simp-lemmas# false simp-lemmas# simp-proc-count
+   -> outcome-ok 0 0 4798 true 194 4397 0 207 }T
+T{ fixture set41 set-refused simp-default? -> outcome-ok 0 0 4 true }T
+T{ 0 simp-lemma-rank 0 simp-lemma-prio 0 simp-lemma-rfl? 0 simp-lemma-perm? 0 simp-lemma-keys nip
+   -> 33 1000 true false 7 }T
+T{ 0 simp-lemma-proof s" add_zero" nat = 0 true simp-lemma-value 1 true simp-lemma-value
+   -> true 0 -1 }T
+T{ -1 simp-lemma-rank -1 simp-lemma-prio -1 simp-lemma-keys nip false simp-lemmas# -> 0 1000 2 0 }T
+T{ s" Eq" s" ndrec" two simp-unfold? s" add_zero" nat simp-unfold? -> true false }T
+T{ false simp-procs# true simp-procs# 0 false simp-proc-value dup simp-proc-dsimproc? swap
+   simp-proc-rank 0 simp-proc-keys nip -> 1 0 true 0 2 }T
+T{ fixture good41 set-refused simp-default? -> outcome-ok 0 0 0 false }T
+T{ fixture set-twice set-refused -> outcome-invalid 13 52 0 }T
+T{ fixture set-other set-refused -> outcome-invalid 8 52 0 }T
+T{ fixture set-procs set-refused -> outcome-invalid 8 52 0 }T
+T{ fixture set-name-long set-refused -> outcome-invalid 8 52 0 }T
+T{ fixture lemma-set set-refused -> outcome-invalid 9 52 0 }T
+T{ fixture lemma-rfl set-refused -> outcome-invalid 9 50 0 }T
+T{ fixture lemma-proof-def set-refused -> outcome-invalid 9 14 0 }T
+T{ fixture lemma-unknown set-refused -> outcome-invalid 9 12 0 }T
+T{ fixture lemma-keys-cut set-refused -> outcome-invalid 9 30 0 }T
+T{ fixture lemma-bool set-refused -> outcome-invalid 9 10 0 }T
+T{ fixture lemma-inv set-refused -> outcome-invalid 9 10 0 }T
+T{ fixture left-known set-refused -> outcome-invalid 10 51 0 }T
+T{ fixture left-reason set-refused -> outcome-invalid 10 10 0 }T
+T{ fixture left-name set-refused -> outcome-invalid 10 10 0 }T
+T{ fixture unfold-unknown set-refused -> outcome-invalid 11 12 0 }T
+T{ fixture proc-name set-refused -> outcome-invalid 12 10 0 }T
+T{ fixture proc-keys-cut set-refused -> outcome-invalid 12 30 0 }T
+T{ fixture v4-lemma set-refused -> outcome-invalid 6 11 0 }T
+T{ fixture set41-uncounted set-refused -> outcome-invalid 1 10 0 }T
 \ After a refusal, simp-data? is false and the next read works again.
 T{ simp-data? good simp-congr-count -> false outcome-ok 3 }T
 \ Format 4 has no realized records: unsupported, never "none"; 4.1 has.
@@ -154,12 +197,21 @@ T{ s" tests/front/simp-data/plain32.elab.ndjson" fx dec simp-realized rot drop
 \ The heap: every allocation of a read of the good file refused in turn
 \ (the kind's slabs and memo given back before each run, so that each
 \ first claim allocates): full or the same three lemmas, never another.
+\ (Format 4.1's default simp set, front/simp-set-data.fs, below.)
 : anew ( -- )
   simp-congrs sweep-slab-anew simp-reals sweep-slab-anew elab-orders sweep-slab-anew
   sd-index memo-free ;
 ' anew sweep-slabs-xt !
 : read-good ( e -- x outcome ) drop good41 simp-congr-count simp-realized-count + swap ;
 T{ 0 ' read-good heap-sweep swap 0> -> 0 true }T
+\ The same for the default set's records: full or the same four values.
+: set-anew ( -- )
+  anew ss-lemmas sweep-slab-anew ss-lefts sweep-slab-anew ss-procs sweep-slab-anew
+  ss-unfolds sweep-slab-anew ss-sets sweep-slab-anew ss-pre sweep-slab-anew
+  ss-post sweep-slab-anew ss-proc-pre sweep-slab-anew ss-proc-post sweep-slab-anew ;
+' set-anew sweep-slabs-xt !
+: read-set ( e -- x outcome ) drop s" tests/front/simp-data/set41.elab.ndjson" fx set-kept swap ;
+T{ 0 ' read-set heap-sweep swap 0> -> 0 true }T
 ' noop sweep-slabs-xt !
 \ A context's memo and slabs go with it: no heap block kept.
 : in-fresh ( -- ) context-new throw dup context-use good drop context-main context-use
