@@ -1,0 +1,15 @@
+\ A wrong twin (plan row 9.4.8z12, small tactics 2; batch-small-2-wrong.lean):
+\ no Trans instance chains And with And, Lean's "invalid 'calc' step,
+\ failed to synthesize `Trans` instance" (510). The first line alone is
+\ compared: the type sought holds a metavariable, which Lean and
+\ LeanForth name differently.
+\ Lean: theorem w_calc_trans (a b c : Nat) (h1 : a = b ∧ b = c) (h2 : b = c ∧ c = a) :
+\           a = b ∧ c = a := by
+\         calc a = b ∧ b = c := h1
+\           _ ∧ c = a := h2
+theorem w_calc_trans
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = b c = /\ explicit: h1  b c = c a = /\ explicit: h2  a b = c a = /\
+:= by
+  by-calc[ a b = b c = /\ ' h1  _ c a = /\ ' h2 ]
+end w_calc_trans

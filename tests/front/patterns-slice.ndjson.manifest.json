@@ -1,6 +1,6 @@
 {
-  "bytes": 3586242,
-  "elab_records_sha256": "47653838fd735d5f78b1b3ec50fde72b1f78dce823a9dc49a12c3deefeb982d8",
+  "bytes": 3595949,
+  "elab_records_sha256": "43b049e4067016e0aca8f2ba1c955342d7d6688f39f7bc5bbbbdaa541bc632cd",
   "export_format": "3.1.0",
   "exporter": "lean4export",
   "exporter_version": "3.1.0",
@@ -8,20 +8,20 @@
   "format_version": 1,
   "lean_githash": "eb6cafb7290e8bd5f2937522d8d804f58f02bafc",
   "lean_version": "4.35.0",
-  "lines": 67044,
+  "lines": 67235,
   "mathlib_commit": null,
   "records": {
     "decl.axiom": 3,
-    "decl.def": 584,
+    "decl.def": 589,
     "decl.inductive": 112,
     "decl.opaque": 2,
     "decl.quot": 4,
     "decl.thm": 368,
-    "expr.app": 40333,
+    "expr.app": 40399,
     "expr.bvar": 60,
-    "expr.const": 1891,
-    "expr.forallE": 6855,
-    "expr.lam": 9226,
+    "expr.const": 1896,
+    "expr.forallE": 6858,
+    "expr.lam": 9250,
     "expr.letE": 101,
     "expr.mdata": 0,
     "expr.natVal": 51,
@@ -36,8 +36,8 @@
     "level.param": 11,
     "level.succ": 17,
     "meta": 1,
-    "name.num": 2500,
-    "name.str": 4588
+    "name.num": 2538,
+    "name.str": 4638
   },
-  "sha256": "ade176ae905c66697bfdc62749de727616b2b5576c730b687d251bc2c6157c8f"
+  "sha256": "94a62cb4b32cfc88a22d5797bca87c8fd8e42ff31e614f4dd279d7cc3df87bee"
 }

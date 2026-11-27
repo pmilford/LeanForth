@@ -9,6 +9,7 @@ require ./assumption.fs
 require ./blocks.fs
 require ./by-cases.fs
 require ./by-contra.fs
+require ./calc.fs
 require ./case.fs
 require ./change.fs
 require ./clear.fs

@@ -212,7 +212,10 @@ end-structure
 \ error (registerMVarErrorHoleInfo: elab-app.fs's lf-elab-hole+). A NAME
 \ some metavariable has already (findUserName?, which Lean reuses,
 \ assigns or refuses by the contexts) is not ported (139), nor a hole
-\ applied to arguments (139).
+\ applied to arguments (139). A hole calc ascribed a type to (syntax.fs's
+\ syn-ascribed?: Lean's (_ : T) of annotateFirstHoleWithType, a binop
+\ tree's leaf, elaborated with no expected type) is elabTypeAscription's:
+\ the hole elaborated against T, whose ensureHasType T then holds.
 : et-sort-mvar ( -- sort outcome )   \ Sort ?u, a new level metavariable
   lf-level-mvar-new lf-elab-meta ok-then? 0= if no-result exit then
   lf-term-symbolic-sort room-result ;
@@ -221,8 +224,10 @@ end-structure
   drop et-sort-mvar ok-then? if mv-natural lf-mvar-new lf-elab-meta else no-result then ;
 : et-natural? ( node -- flag ) syn-kind@ syn-k-hole = lf-holes-opaque? 0= and ;
 : et-hole-kind ( node -- kind ) et-natural? if mv-natural else mv-opaque then ;
+: et-ascribed ( node expected -- node expected' )
+  dup 0< if over syn-ascribed? if nip then then ;
 : et-hole-new ( node expected -- node mvar outcome )
-  et-hole-type ok-then? 0= if no-result exit then
+  et-ascribed et-hole-type ok-then? 0= if no-result exit then
   over et-hole-kind lf-mvar-new lf-elab-meta ;
 \ (The metavariable just made is live, so its tag is never refused:
 \ lf-must throws only on a fault.)

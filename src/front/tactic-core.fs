@@ -119,7 +119,14 @@
 \       (filterOldMVars and logUnassignedAndAbort: error 95), then closes
 \       the goal (meta-tactic/goal.fs's lf-goal-checked-assign) and leaves
 \       the list (since batch 3b the check is new-goals.fs's: a hole left
-\       open is Lean's placeholder error, 461)
+\       open is Lean's placeholder error, 461); lf-close-main-goal-unchecked
+\       the same with checkNewUnassigned := false (calc's: xt makes its
+\       new goals itself, with lf-tac-new-goals)
+\   lf-tac-new-goals ( e allow? -- goals )  withCollectingNewGoalsFrom's
+\       goals of a term elaborated already (ElabTerm.lean:171-182): e's
+\       new metavariables still open (numbered from tb-from), oldest
+\       first, a natural one among them refused unless allow? (as
+\       lf-tac-elab-holes'), to be tagged with lf-tac-tag-new
 \   lf-tac-intro1 ( name kind i -- )  liftMetaTactic1 of introN 1
 \       (meta-tactic/goal.fs's lf-goal-intro-n): step i's main goal's
 \       first binder introduced, named name (0: its own, inaccessible), of
@@ -356,11 +363,11 @@ end-structure
   dup 0< if false lf-tac-elab-term else lf-tac-elab-ensuring then ;
 : tcr-holes-elab ( node expected allow? -- e )
   if ['] tcr-ensuring lf-with-holes-as-goals else tcr-ensuring then ;
-: tcr-goals ( e allow? -- goals )
+: lf-tac-new-goals ( e allow? -- goals )
   swap tb tb-from @ lf-fresh-mvars swap if exit then
   dup lf-natural-mvars lf-tac-log-unassigned ;
 : lf-tac-elab-holes ( node expected allow? -- e goals )
-  dup >r tcr-holes-elab dup r> tcr-goals ;
+  dup >r tcr-holes-elab dup r> lf-tac-new-goals ;
 : lf-tac-tag-new ( goals suffix -- goals )
   over swap lf-tac-main lf-goal-tag lf-tag-untagged ;
 \ refineCore stx `refine false (ElabTerm.lean:209-222), refine's and the
@@ -376,10 +383,15 @@ end-structure
 \ tb-from) that the term leaves unassigned, logUnassignedAndAbort's
 \ (new-goals.fs).
 : tcr-fresh-free ( e -- e ) dup tb tb-from @ lf-fresh-mvars lf-tac-log-unassigned ;
-: tcr-closing ( i*x xt i -- )
-  drop tb tb-want @ swap tb tb-goal @ lf-goal-tag swap execute lf-instantiate!
-  tcr-fresh-free tb tb-goal @ swap lf-goal-checked-assign lf-tac-pop-main ;
+: tcr-using ( i*x xt -- e )
+  tb tb-want @ swap tb tb-goal @ lf-goal-tag swap execute lf-instantiate! ;
+: tcr-assigned ( e -- ) tb tb-goal @ swap lf-goal-checked-assign lf-tac-pop-main ;
+: tcr-closing ( i*x xt i -- ) drop tcr-using tcr-fresh-free tcr-assigned ;
 : lf-close-main-goal-using ( i*x i xt -- ) swap ['] tcr-closing lf-tac-step-run ;
+\ checkNewUnassigned := false: the term's open metavariables are xt's own.
+: tcr-closing-unchecked ( i*x xt i -- ) drop tcr-using tcr-assigned ;
+: lf-close-main-goal-unchecked ( i*x i xt -- )
+  swap ['] tcr-closing-unchecked lf-tac-step-run ;
 
 \ ---- elabTermForApply, with mayPostpone given.
 : tcr-ident ( node postpone? -- e ) drop lf-elab-ident lf-tac-must ;

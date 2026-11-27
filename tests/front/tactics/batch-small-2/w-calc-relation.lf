@@ -1,0 +1,10 @@
+\ A wrong twin (plan row 9.4.8z12, small tactics 2; batch-small-2-wrong.lean):
+\ a step that is no relation, Lean's "invalid 'calc' step, relation
+\ expected" (512) with it.
+\ Lean: theorem w_calc_relation (a b : Nat) (h : a = b) : a = b := by
+\         calc True := trivial
+theorem w_calc_relation
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  a b =
+:= by
+  by-calc[ True ' trivial ]
+end w_calc_relation

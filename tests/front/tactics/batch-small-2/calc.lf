@@ -1,0 +1,154 @@
+\ by-calc[ T1 e1 T2 e2 .. ], Lean's calc T1 := e1 T2 := e2 .. (plan row
+\ 9.4.8z12, small tactics 2; src/front/tactics/calc.fs over
+\ src/front/elab-calc.fs): the steps chained by Trans.trans, the instance
+\ found for each pair of relations. Lean twins in batch-small-2.lean.
+\ Lean: theorem cc_eq (a b c : Nat) (h1 : a = b) (h2 : b = c) : a = c := by
+\         calc a = b := h1
+\           _ = c := h2
+theorem cc_eq
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h1  b c = explicit: h2  a c =
+:= by
+  by-calc[ a b = ' h1  _ c = ' h2 ]
+end cc_eq
+
+\ A later step's left side written out: isDefEq with the right side
+\ before it (b and b + 0), the chain's middle term b + 0.
+\ Lean: theorem cc_explicit (a b : Nat) (h1 : a = b + 0) (h2 : b = a) : a = a := by
+\         calc a = b + 0 := h1
+\           b = a := h2
+theorem cc_explicit
+  Nat explicit: a  Nat explicit: b  a b 0 + = explicit: h1  b a = explicit: h2  a a =
+:= by
+  by-calc[ a b 0 + = ' h1  b a = ' h2 ]
+end cc_explicit
+
+\ One step: its proof alone.
+\ Lean: theorem cc_one (a b : Nat) (h1 : a = b) : a = b := by
+\         calc a = b := h1
+theorem cc_one
+  Nat explicit: a  Nat explicit: b  a b = explicit: h1  a b =
+:= by
+  by-calc[ a b = ' h1 ]
+end cc_one
+
+\ <= then <=: Nat.instTransLe (Std.instTransLeOfIsPreorder, tried after
+\ it, is never reached).
+\ Lean: theorem cc_le (a b c : Nat) (h1 : a ≤ b) (h2 : b ≤ c) : a ≤ c := by
+\         calc a ≤ b := h1
+\           _ ≤ c := h2
+theorem cc_le
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b <= explicit: h1  b c <= explicit: h2  a c <=
+:= by
+  by-calc[ a b <= ' h1  _ c <= ' h2 ]
+end cc_le
+
+\ < then <: Nat.instTransLt.
+\ Lean: theorem cc_lt (a b c : Nat) (h1 : a < b) (h2 : b < c) : a < c := by
+\         calc a < b := h1
+\           _ < c := h2
+theorem cc_lt
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b < explicit: h1  b c < explicit: h2  a c <
+:= by
+  by-calc[ a b < ' h1  _ c < ' h2 ]
+end cc_lt
+
+\ = then <= then <: instTransEq, then Nat.instTransLeLt.
+\ Lean: theorem cc_mix (a b c d : Nat) (h1 : a = b) (h2 : b ≤ c) (h3 : c < d) : a < d := by
+\         calc a = b := h1
+\           _ ≤ c := h2
+\           _ < d := h3
+theorem cc_mix
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  Nat explicit: d
+  a b = explicit: h1  b c <= explicit: h2  c d < explicit: h3  a d <
+:= by
+  by-calc[ a b = ' h1  _ c <= ' h2  _ d < ' h3 ]
+end cc_mix
+
+\ < then <=: Nat.instTransLtLe.
+\ Lean: theorem cc_ltle (a b c : Nat) (h1 : a < b) (h2 : b ≤ c) : a < c := by
+\         calc a < b := h1
+\           _ ≤ c := h2
+theorem cc_ltle
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b < explicit: h1  b c <= explicit: h2  a c <
+:= by
+  by-calc[ a b < ' h1  _ c <= ' h2 ]
+end cc_ltle
+
+\ <= then =: instTransEq_1.
+\ Lean: theorem cc_leeq (a b c : Nat) (h1 : a ≤ b) (h2 : b = c) : a ≤ c := by
+\         calc a ≤ b := h1
+\           _ = c := h2
+theorem cc_leeq
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b <= explicit: h1  b c = explicit: h2  a c <=
+:= by
+  by-calc[ a b <= ' h1  _ c = ' h2 ]
+end cc_leeq
+
+\ The chain a = b for the goal a = c: extended by a new goal b = c
+\ (tagged calc.step), which exact closes.
+\ Lean: theorem cc_ext (a b c : Nat) (h1 : a = b) (h2 : b = c) : a = c := by
+\         calc a = b := h1;
+\         exact h2
+theorem cc_ext
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h1  b c = explicit: h2  a c =
+:= by
+  by-calc[ a b = ' h1 ]
+  ' h2 by-exact
+end cc_ext
+
+\ The same for the goal a < c: the new goal b < c.
+\ Lean: theorem cc_ext_lt (a b c : Nat) (h1 : a = b) (h2 : b < c) : a < c := by
+\         calc a = b := h1;
+\         exact h2
+theorem cc_ext_lt
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h1  b c < explicit: h2  a c <
+:= by
+  by-calc[ a b = ' h1 ]
+  ' h2 by-exact
+end cc_ext_lt
+
+\ A ?_ for a proof: a new goal after the others, untagged.
+\ Lean: theorem cc_hole (a b c : Nat) (h1 : a = b) (h2 : b = c) : a = c := by
+\         calc a = b := ?_
+\           _ = c := h2;
+\         exact h1
+theorem cc_hole
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h1  b c = explicit: h2  a c =
+:= by
+  by-calc[ a b = ?_  _ c = ' h2 ]
+  ' h1 by-exact
+end cc_hole
+
+\ Two: tagged calc_1 and calc_2, in order.
+\ Lean: theorem cc_holes (a b c : Nat) (h1 : a = b) (h2 : b = c) : a = c := by
+\         calc a = b := ?_
+\           _ = c := ?_;
+\         case calc_2 => exact h2
+\         exact h1
+theorem cc_holes
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h1  b c = explicit: h2  a c =
+:= by
+  by-calc[ a b = ?_  _ c = ?_ ]
+  by-case: calc_2 => ' h2 by-exact by-end
+  ' h1 by-exact
+end cc_holes
+
+\ Numerals: the hole of the second step ascribed Nat, 1 + 1 elaborated
+\ at that type.
+\ Lean: theorem cc_num (a b : Nat) (h1 : a = b) (h2 : b = 1 + 1) : a = 1 + 1 := by
+\         calc a = b := h1
+\           _ = 1 + 1 := h2
+theorem cc_num
+  Nat explicit: a  Nat explicit: b  a b = explicit: h1  b 1 1 + = explicit: h2  a 1 1 + =
+:= by
+  by-calc[ a b = ' h1  _ 1 1 + = ' h2 ]
+end cc_num

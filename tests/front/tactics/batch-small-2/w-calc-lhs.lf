@@ -1,0 +1,12 @@
+\ A wrong twin (plan row 9.4.8z12, small tactics 2; batch-small-2-wrong.lean):
+\ a later step whose left side is not the right side before it, Lean's
+\ "invalid 'calc' step, left-hand side is" (513) with both sides.
+\ Lean: theorem w_calc_lhs (a b c : Nat) (h1 : a = b) (h2 : a = c) : a = c := by
+\         calc a = b := h1
+\           a = c := h2
+theorem w_calc_lhs
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h1  a c = explicit: h2  a c =
+:= by
+  by-calc[ a b = ' h1  a c = ' h2 ]
+end w_calc_lhs

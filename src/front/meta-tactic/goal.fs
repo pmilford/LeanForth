@@ -107,9 +107,11 @@
 \   lf-goal-checked-assign ( goal e -- )  MVarId.checkedAssign
 \       (ExprDefEq.lean:1341) as closeMainGoal calls it: a free variable
 \       of e outside goal's context, or an assignment refused, is error 98
-\       with e, Lean's occurs-check line and the goal; an unassigned
-\       metavariable in e answers 93 (Lean's checkAssignment would
-\       restrict it, not ported)
+\       with e, Lean's occurs-check line and the goal; with an unassigned
+\       metavariable in e (calc's new goals, plan row 9.4.8z12) the whole
+\       check is checkAssignment's (assign-check.fs: a metavariable of
+\       the goal's scope or a prefix of it kept; one Lean would restrict
+\       answers 93, not supported yet)
 \   lf-goal-refl ( goal -- )  the rfl macro's last two rules (Init/
 \       Tactics.lean:477-480; tactics/rfl.fs tries exact Iff.rfl and
 \       exact HEq.rfl first): eq_refl, MVarId.refl (Refl.lean:25) under
@@ -431,7 +433,15 @@ end-structure
 : mtg-assigned ( goal e -- )
   2dup lf-mvar-assign dup outcome-invalid = if drop mtg-unassignable exit then
   lf-must 2drop ;
-: lf-goal-checked-assign ( goal e -- ) lf-open-mvar-free mtg-in-scope mtg-assigned ;
+\ An open metavariable in e (calc's new goals): checkAssignment goal #[] e
+\ (assign-check.fs, in the elaborator's flags, as TermElabM runs; its
+\ unsupported cases thrown), false the occurs-check error with e.
+: mtg-check ( e -- e' flag outcome )
+  ['] lf-meta-check-assignment lf-defeq-flags lf-defeq-elab or lf-defeq-mode lf-meta-with ;
+: mtg-checked ( goal e -- goal e' )
+  over 0 0 lf-meta-pattern! dup mtg-check lf-must if nip else drop mtg-unassignable then ;
+: lf-goal-checked-assign ( goal e -- )
+  dup lf-has-open-mvar? if mtg-checked else mtg-in-scope then mtg-assigned ;
 
 \ ---- The rfl macro on an equation (Init/Tactics.lean:477-482): its
 \ alternatives exact Iff.rfl and exact HEq.rfl fail on a goal whose type

@@ -126,3 +126,9 @@ Nat.le.casesOn
 List.Mem.casesOn
 HEq.casesOn
 Eq.casesOn
+Trans.trans
+instTransEq_1
+Nat.instTransLe
+Nat.instTransLt
+Nat.instTransLeLt
+Nat.instTransLtLe

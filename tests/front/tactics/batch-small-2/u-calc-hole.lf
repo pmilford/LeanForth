@@ -1,0 +1,9 @@
+\ Not supported (plan row 9.4.8z12, small tactics 2): a later step that
+\ is _ alone, which Lean ascribes the type before it ((_ : Nat), then no
+\ type): 99 (exit 2), never accepted. Lean rejects it too
+\ (batch-small-2-wrong.lean's u_calc_hole).
+theorem u_calc_hole
+  Nat explicit: a  Nat explicit: b  a b = explicit: h1  a b =
+:= by
+  by-calc[ a b = ' h1  _ ' h1 ]
+end u_calc_hole

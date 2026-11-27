@@ -1,0 +1,8 @@
+\ Not supported (plan row 9.4.8z12, small tactics 2): an odd count of
+\ terms. Lean's first step may be a term alone (calc a, meaning a = _ :=
+\ rfl), which has no LeanForth form: 99 (exit 2), never accepted.
+theorem u_calc_odd
+  Nat explicit: a  Nat explicit: b  a b = explicit: h1  a b =
+:= by
+  by-calc[ a  a b = ' h1 ]
+end u_calc_odd

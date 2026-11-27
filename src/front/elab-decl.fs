@@ -52,7 +52,9 @@
 \ - Each declaration and each #check starts with the elaborator's state
 \   empty and the budget full (meta-config.fs, --elab-fuel); elaboration
 \   runs in the elaborator's Meta configuration (foApprox and ctxApprox,
-\   default transparency), the configuration before it given back after.
+\   default transparency), the configuration before it given back after:
+\   lf-elab-configured ( i*x xt -- j*x ) runs xt so (also the tactics'
+\   own Term elaboration: elab-calc.fs's calc steps).
 \ Errors stop the run (author/errors.fs) at end NAME, at the tactic's
 \ word or at #check: the elaborator's recorded error (125-139, the Meta
 \ layer's 100, 60) with the position it was at, else by outcome (no room
@@ -105,7 +107,7 @@ action-of lfa-run-fresh constant edc-run-before
 \ the caller's holesAsSyntheticOpaque and assignSyntheticOpaque kept
 \ (tactic-core.fs's elabTermWithHoles sets both around Tactic.elabTerm).
 : edc-kept ( -- flags ) lf-defeq-flags lf-holes-opaque lf-defeq-opaque or and ;
-: edc-configured ( i*x xt -- j*x ) edc-kept lf-defeq-elab or lf-tr-default lf-meta-with ;
+: lf-elab-configured ( i*x xt -- j*x ) edc-kept lf-defeq-elab or lf-tr-default lf-meta-with ;
 
 \ ---- Errors: the run stops at the current token (end NAME, #check).
 \ (A failure no step recorded, a print's, has no second position: -1.)
@@ -143,7 +145,7 @@ action-of lfa-run-fresh constant edc-run-before
   lf-front-statement lf-elab-type ok-then? 0= if no-result exit then
   lf-postpone-no edc-finish ['] edc-holes ok-apply ;
 : edc-header ( -- type ) edc-binders edc-must edc-statement edc-must ;
-: edc-by-statement ( -- type ) ['] edc-header edc-configured ;
+: edc-by-statement ( -- type ) ['] edc-header lf-elab-configured ;
 ' edc-by-statement is lf-front-by-statement
 
 \ ---- A term proof (elabFunValues), or an axiom's statement alone.
@@ -154,7 +156,7 @@ action-of lfa-run-fresh constant edc-run-before
 : edc-whole ( -- type value )
   edc-header edc-axiom? if lf-front-close-type -1 exit then
   dup edc-value edc-must lf-front-close ;
-: edc-elaborate ( -- type value ) ['] edc-whole edc-configured ;
+: edc-elaborate ( -- type value ) ['] edc-whole lf-elab-configured ;
 ' edc-elaborate is lf-front-elaborate
 
 \ ---- The tactics' hook (Tactic.elabTerm).
@@ -166,7 +168,7 @@ action-of lfa-run-fresh constant edc-run-before
 : edc-tac-run ( node expected postpone? -- term outcome )
   dup >r edc-elab ok-then? 0= if r> drop no-result exit then r> edc-mode edc-finish ;
 : edc-tac-with ( i*x xt -- term outcome )
-  edc-configured dup ok? 0= if lf-tac-elab-fail then ;
+  lf-elab-configured dup ok? 0= if lf-tac-elab-fail then ;
 : edc-tac-elab ( node expected postpone? -- term outcome ) ['] edc-tac-run edc-tac-with ;
 ' edc-tac-elab is lf-tac-elab
 \ Term.elabType, then synthesis with postpone := .partial (have's type).
@@ -195,7 +197,7 @@ action-of lfa-run-fresh constant edc-run-before
   dup edc-signature? if syn-at@ lfa-e-elab-print lfa-fail-see exit then
   dup syn-at@ lf-elab-at! edc-check-term edc-must edc-check-type edc-must edc-check-line ;
 : edc-w-check ( value -- )
-  lf-elab-reset 1 edc edc-checks +! lfn>syntax ['] edc-checked edc-configured ;
+  lf-elab-reset 1 edc edc-checks +! lfn>syntax ['] edc-checked lf-elab-configured ;
 \ Inside a list (author/scopes.fs's brackets: a command is never an item)
 \ 458 at the list's word; inside a declaration: in its tactic block
 \ (after by) 141, else 140.

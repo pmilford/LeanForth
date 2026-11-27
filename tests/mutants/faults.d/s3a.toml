@@ -81,7 +81,7 @@ reason = "S3a C1: the runner maps a carried failed to synthesize to AppBuilder f
 [[fault]]
 id = "s3a-lean-detail-no-hint"
 file = "src/front/tactic-msg.fs"
-old = '''  swap lf-tac-indented. swap lfa-e-synth-failed = if ['] tmg-diagnostics. ok-and then ;'''
+old = '''  swap lf-tac-indented. swap lfa-e-synth-failed = if ['] lf-tac-diagnostics. ok-and then ;'''
 new = '''  swap lf-tac-indented. nip ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "S3a C1: failed to synthesize printed without Lean's useDiagnosticMsg hint"

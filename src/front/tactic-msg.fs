@@ -45,6 +45,8 @@
 \   lf-tac-type-mismatch ( e type expected code -- )  an error at the
 \       step running whose detail is lf-has-type-but-expected.'s (exact's
 \       Type mismatch 96, setMotiveArg's 212)
+\   lf-tac-diagnostics. ( -- outcome )  useDiagnosticMsg's hint after a
+\       blank line (CoreM.lean:67: synthInstance's 122, calc's 510)
 \ (lf-tac-lean-error? and lf-tac-forget-lean, the gate of try and
 \ observing?, are tactic-run.fs's since plan row TB2, blocks slice 1: its
 \ loop takes errors back by them.)
@@ -125,10 +127,10 @@ require ./meta-must.fs
 \ A Lean error's detail (tactic-run.fs's lf-tac-lean-detail): its term
 \ indented, then for synthInstance's (122) useDiagnosticMsg's hint
 \ (CoreM.lean:67).
-: tmg-diagnostics. ( -- outcome )
+: lf-tac-diagnostics. ( -- outcome )
   s\" \n\nHint: Additional diagnostic information may be available " lf-pp-emit
   s" using the `set_option diagnostics true` command." lf-pp-emit outcome-ok ;
 : tmg-lean-detail ( term code -- outcome )
-  swap lf-tac-indented. swap lfa-e-synth-failed = if ['] tmg-diagnostics. ok-and then ;
+  swap lf-tac-indented. swap lfa-e-synth-failed = if ['] lf-tac-diagnostics. ok-and then ;
 ' tmg-lean-detail is lf-tac-lean-detail
 base !   \ the BASE this file was loaded with

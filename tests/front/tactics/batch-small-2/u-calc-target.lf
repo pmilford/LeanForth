@@ -1,0 +1,11 @@
+\ Not supported (plan row 9.4.8z12, small tactics 2): a chain a = c for
+\ the goal c = a, which no last step extends. Lean then looks for a
+\ coercion and, finding none, reports throwCalcFailure's sides; neither
+\ is ported: 131 (exit 2), never accepted. Lean rejects it too
+\ (batch-small-2-wrong.lean's u_calc_target).
+theorem u_calc_target
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h1  b c = explicit: h2  c a =
+:= by
+  by-calc[ a b = ' h1  _ c = ' h2 ]
+end u_calc_target
