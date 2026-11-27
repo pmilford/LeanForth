@@ -226,12 +226,13 @@ AI review does not replace the required human review.
 All probe and fault files are in the reviewer's scratch directory (`p/` and `m/`); a copy is kept outside the repository, in the main checkout's untracked `.claude/work/small-tactics-2-probes/`.
 ## Resolution (fix round, 2026-11-26, branch `small-tactics-2-fix`)
 
-The branch was rebased on main `6febe59b` (simp group 4 had landed); the reviewed commits
-`b892c993..7975f210` are `35faa71d..f99c75bc` there (the registry golden written again with
-`check_registry.py --write`), the fixes are `4608e3b2` (code, tests, faults, reference) and
-`05115e69` (plan row 9.4.8z12), and calc's reference section is D.13 (simp's took D.12).
+The branch was rebased on main `c8c8a04b` (simp group 4 had landed); the reviewed commits
+`b892c993..7975f210` are `778a340a..df773359` there (the registry golden written again with
+`check_registry.py --write`), the fixes are `95cf7f93` (code, tests, faults, reference),
+`50e79bbc` (plan row 9.4.8z12) and `95ee1d6a` (S5 taken back), and calc's reference section is
+D.13 (simp's took D.12).
 
-- **B1 fixed** (`4608e3b2`). Pinned Lean's `trace_state` after `constructor` and a calc with three
+- **B1 fixed** (`95cf7f93`). Pinned Lean's `trace_state` after `constructor` and a calc with three
   `?_` and a last step gives `left.calc_1`, `left.calc_2`, `left.calc_3`, `left.calc.step`,
   `right`: the `?_` goals in order, `calc.step` last, all in front of the other goals.
   `goals.fs` gains `lf-goals-push` (pushGoals; no word did it before: the other pushers are
@@ -242,7 +243,7 @@ The branch was rebased on main `6febe59b` (simp group 4 had landed); the reviewe
   accepted twin with `right` open beside the calc, its term equal to Lean's node for node and its
   step log in Lean's order. calc.fs's header and the `by-calc[` row are fixed. Faults
   `sm2-calc-goals-appended`, `sm2-calc-pushed-before-pop`, `sm2-goals-push-appends`.
-- **B2 fixed** (`4608e3b2`), the review's first option: `meta-must.fs`'s `lf-tac-at ( i*x xt mode
+- **B2 fixed** (`95cf7f93`), the review's first option: `meta-must.fs`'s `lf-tac-at ( i*x xt mode
   -- j*x )` sets the tactics' transparency (the top frame's, through the hook
   `lf-tac-transparency-to`, which `tactic-run.fs` sets) and the one in force, both put back by
   CATCH and THROW; `lf-tac-rfl-reducible` runs rfl's row in it. `w-rw-iff.lf` (`gap_iff`) and
@@ -263,7 +264,7 @@ The branch was rebased on main `6febe59b` (simp group 4 had landed); the reviewe
   the style ratchet, fixed after, passed). Of the review's probes: `gap_iff` and `gap_all` accepted
   before, 89 now (Lean: "unsolved goals"); `gap_eq` 89 and `gap_heq` 93 unchanged; batch-d's `rwa`
   case accepted before and now (Lean accepts it).
-- **B3 fixed** (`4608e3b2`) by the second option: `ecl-each` is gone; `ecl-types` and `ecl-sorts`
+- **B3 fixed** (`95cf7f93`) by the second option: `ecl-each` is gone; `ecl-types` and `ecl-sorts`
   read the three fields each, in Lean's order (inferType a, b, c, then getLevel α, β, γ; the
   tri-map applied its word to the third value first). A library `tri@` was the other way: no
   library file has room for it in the style ratchet (`bounds.fs` is at its baseline of
@@ -296,7 +297,7 @@ The branch was rebased on main `6febe59b` (simp group 4 had landed); the reviewe
   rtype step stype -- x y true | x code false )`, faults `sm2-calc-result-not-checked` and
   `sm2-calc-goals-dropped` follow the new text); S3 planned (9.4.8z12 (k): calc.fs's baseline
   allows no deep shuffle, so passing the target down waits for a reshaping of the extension's
-  words); S4 fixed (`lf-calc-rel?` public, `tcx-extend` uses it); S5 fixed (`twr-tactic`); S6
+  words); S4 fixed (`lf-calc-rel?` public, `tcx-extend` uses it); S5 not taken: `scripts/check-tactic-plugins.py` reads each row setter's kind where it is written, so a shared registration word fails it (the reviewed head's `7975f210` had unrolled one for that reason; `95cf7f93` tried `twr-tactic`, `95ee1d6a` took it back); S6
   fixed (`ecl-sided`, then `ecl-next` in one line, no return stack). The reuse note:
   `edc-tac-with` is now `lf-elab-configured dup lf-tac-elab-must`.
 - **Unchecked list**: TACTIC_INVENTORY.md's calc row points at D.13.
