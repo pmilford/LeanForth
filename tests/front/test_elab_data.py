@@ -448,7 +448,10 @@ ERRORS = ["file missing or unreadable", "no line, or a line without its line fee
           "universe parameters other than the definition's",
           "an annotation this reader does not know", "binder kinds named twice",
           "a congruence lemma named twice", "congruence lemmas out of their function's order",
-          "a function's realized congruence theorem given twice"]
+          "a function's realized congruence theorem given twice",
+          "a simp lemma's rfl flag not its proof's defeq tag",
+          "a left-out simp lemma the library has",
+          "a simp set other than the default one, or given twice"]
 
 
 def refusal(line, reason):
