@@ -211,9 +211,12 @@ defer lf-simp-dprocs? ( e post? -- flag )   ' lf-simp-no-dprocs is lf-simp-dproc
 \ is folded by dsimpReduce (foldRawNatLit), a string literal has no key
 \ here (discr-keys.fs), and any other node (a binder, let, projection,
 \ annotation) would be visited: unsupported. The nodes to scan wait on
-\ the data stack under their count, at most sm-scan-most (more
-\ unsupported).
+\ sm-scan, a context slab, above the count it held when the scan began
+\ (a nested walk's scan works above it and cuts back), at most
+\ sm-scan-most (more unsupported; review of simp group 4, M3: the data
+\ stack held them, beyond Forth-2012's 32 cells).
 64 constant sm-scan-most
+1 cells context-slab: sm-scan
 : sm-plain-const? ( c -- flag )
   dup sm-unfold? 0= swap lf-const-name lf-menv-find lf-must sm-struct-proj? 0= and ;
 : sm-iota-of? ( c -- flag ) lf-const-name lf-menv-find lf-must sm-decl-iota? ;
@@ -232,14 +235,18 @@ lf-tag-sort lf-tag-symbolic-sort 2 lf-tags constant sm-still-tags
   dup sm-shape-ok? 0= if drop false exit then
   dup sm-dprocs? if drop false else sm-rfl-free? then ;
 : sm-parts? ( s -- flag ) dup lf-term-app? swap sm-literal? 0= and ;
-: sm-parts ( c s -- f a c' ) dup lf-term-first@ swap lf-term-second@ rot 2 + ;
-\ One node off the list ( s1 .. sk k ): true when it is not kept or the
-\ list grew too long.
-: sm-scan-step ( s* c -- s* c' flag )
-  1- swap dup sm-node-kept? 0= if drop true exit then
-  dup sm-parts? if sm-parts else drop then dup sm-scan-most > ;
+: sm-scan+ ( s -- ) sm-scan slab-push lf-must ;
+: sm-parts ( s -- ) dup lf-term-first@ sm-scan+ lf-term-second@ sm-scan+ ;
+\ One node off the list above base: true when it is not kept or the list
+\ grew too long.
+: sm-scan-step ( base -- base flag )
+  sm-scan slab-pop dup sm-node-kept? 0= if drop true exit then
+  dup sm-parts? if sm-parts else drop then dup sm-scan slab-since sm-scan-most > ;
+: sm-scan-more? ( base -- base flag ) dup sm-scan slab-count < ;
+: sm-scan-all ( base -- base flag )
+  begin sm-scan-more? while sm-scan-step if false exit then repeat true ;
 : sm-kept? ( a -- flag )
-  1 begin dup while sm-scan-step if ndrop false exit then repeat drop true ;
+  sm-scan slab-count swap sm-scan+ sm-scan-all swap sm-scan slab-cut ;
 : sm-dsimp ( a -- a ) dup sm-kept? 0= if lf-unported then ;
 
 \ ---- simpAppUsingCongr (Types.lean:732): the head, then each argument.

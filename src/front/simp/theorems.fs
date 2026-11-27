@@ -183,9 +183,11 @@ lf-tag-sort lf-tag-symbolic-sort lf-tag-constant lf-tag-fvar lf-tag-mvar lf-tag-
 \ statement once, which must be its record's (a recorded star where the
 \ statement gives a term, Lean's no_index, is not supported yet); a perm
 \ lemma unsupported (acLt, slice SL3d).
+\ Two key sequences (k, n keys; k', n') equal key for key (review L2: on
+\ lib/outcome.fs's all?).
+: sth-key-at= ( k k' i -- k k' flag ) >r 2dup r@ + swap r> + elab-key= ;
 : sth-keys= ( k n k' n' -- flag )
-  rot over <> if 2drop drop false exit then
-  0 ?do over i + over i + elab-key= 0= if 2drop false unloop exit then loop 2drop true ;
+  rot over <> if 2drop drop false exit then ['] sth-key-at= all? nip nip ;
 : sth-record ( t -- i ) sth sth-data @ 1- ;
 : sth-same-keys ( t -- )
   dup sth-record simp-lemma-keys rot lf-simp-thm-proof sth-decl-keys sth-keys=

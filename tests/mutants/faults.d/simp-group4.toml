@@ -432,8 +432,8 @@ reason = "by-simp at[ h ] simplifies the target alone: h : ¬True is never False
 [[fault]]
 id = "dsimp-scan-top-only"
 file = "src/front/simp/main.fs"
-old = '''  dup sm-parts? if sm-parts else drop then dup sm-scan-most > ;'''
-new = '''  drop dup sm-scan-most > ;'''
+old = '''  dup sm-parts? if sm-parts else drop then dup sm-scan slab-since sm-scan-most > ;'''
+new = '''  drop dup sm-scan slab-since sm-scan-most > ;'''
 test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
 reason = "the dsimp scan looks at the argument's top node alone: f (2 + 3) is kept, though dsimp's Nat.reduceAdd would change its part"
 
@@ -448,7 +448,7 @@ reason = "a numeral's raw literal scanned (doNotVisitOfNat ignored): the numeral
 [[fault]]
 id = "dsimp-scan-unbounded"
 file = "src/front/simp/main.fs"
-old = '''  dup sm-parts? if sm-parts else drop then dup sm-scan-most > ;'''
+old = '''  dup sm-parts? if sm-parts else drop then dup sm-scan slab-since sm-scan-most > ;'''
 new = '''  dup sm-parts? if sm-parts else drop then false ;'''
 test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
 reason = "the scan's list on the data stack has no bound: a term of seventy nested applications is scanned whole"
