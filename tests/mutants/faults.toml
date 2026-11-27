@@ -20121,8 +20121,8 @@ reason = "review reuse-out-2 rc3 B2: only the first of the number-start characte
 [[fault]]
 id = "r4-cli-quote-at-past"
 file = "src/cli/leanforth.fs"
-old = ''': cli-quote-at ( c-addr u -- n ) [char] " bytes-before ;'''
-new = ''': cli-quote-at ( c-addr u -- n ) [char] " bytes-before 1+ ;'''
+old = ''': cli-quote-at ( c-addr u -- n ) [char] " byte-index ;'''
+new = ''': cli-quote-at ( c-addr u -- n ) [char] " byte-index 1+ ;'''
 test = "GFORTH=$GFORTH python3 tests/cli/test_leanforth.py Snapshots.test_commit_not_plain"
 reason = "review reuse-out-2 rc3 B2: the commit read back from a snapshot's information takes its closing quote too, so a plain commit shows as unknown"
 

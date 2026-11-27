@@ -1465,6 +1465,9 @@ T{ cli-info-build + 1- c@ cli-info-build s" cellBits" search nip nip -> char } t
 T{ s" --fuel" cli-option-table cli-entry-find cli-entry-first @ -> takes-fuel }T
 T{ s" --fue" cli-option-table cli-entry-find s" checks" cli-commands cli-entry-find -> 0 0 }T
 T{ s" print" cli-commands cli-entry-find dup cli-entry-second @ swap cli-entry-first @ -> print-set 1 }T
+\ The commit read from a snapshot's information ends at its closing quote
+\ (lib/bytes.fs's byte-index; review of simp group 4, B4); no quote, all.
+T{ s\" abc\",\"x" cli-quote-at s" abc" cli-quote-at -> 3 3 }T
 
 cases-done
 bye

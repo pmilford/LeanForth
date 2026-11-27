@@ -581,6 +581,7 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 503 | invalid | Invalid `←` modifier: Cannot be applied to simp theorems of the form `¬ P` |
 | 500 | invalid | `simp` made no progress |
 | 501 | invalid | Invalid argument: Variable |
+| 504 | invalid | elaboration data refused: two simp records of a root key with one rank, or a gap |
 | 447 | invalid | 'specialize' requires a term of the form `h x_1 .. x_n` where `h` appears in the local context |
 | 446 | invalid | goal index `2` is out of bounds |
 | 451 | invalid | Symmetry lemmas only apply to binary relations, not |

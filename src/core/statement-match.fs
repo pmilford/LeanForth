@@ -85,7 +85,7 @@ end-structure
 \ Texts: the next token, up to a space, each costing one unit of fuel.
 : lf-stmt-text ( -- c-addr u ) lf-stmt-state lf-stmt-left 2@ ;
 : lf-stmt-text! ( c-addr u -- ) lf-stmt-state lf-stmt-left 2! ;
-: lf-stmt-span ( c-addr u -- n ) bl bytes-before ;
+: lf-stmt-span ( c-addr u -- n ) bl byte-index ;
 : lf-stmt-token ( -- c-addr u )
   -1 lf-stmt-fuel +!
   lf-stmt-text 2dup lf-stmt-span >r 2dup r@ 1+ over min /string lf-stmt-text! drop r> ;
@@ -289,7 +289,7 @@ end-structure
 : lf-stmt-put ( node identity true | false -- flag ) dup if drop lf-stmt-push2 true then ;
 
 \ A dotted name, part by part from the first.
-: lf-stmt-part ( c-addr u -- n ) [char] . bytes-before ;
+: lf-stmt-part ( c-addr u -- n ) [char] . byte-index ;
 : lf-stmt-after ( c-addr u n -- c-addr' u' ) 1+ over min /string ;
 : lf-stmt-next-part ( prefix c-addr u -- id c-addr' u' flag )
   2dup lf-stmt-part >r rot 2 pick r@ lf-name-str

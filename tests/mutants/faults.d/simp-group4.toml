@@ -534,10 +534,10 @@ reason = "review B3: a simproc row laid after a context is made, while runs read
 [[fault]]
 id = "sg4r-bytes-before-past"
 file = "src/lib/bytes.fs"
-old = ''': bytes-before ( addr u char -- n ) >r tuck r> byte-scan nip - ;'''
-new = ''': bytes-before ( addr u char -- n ) >r tuck r> byte-scan nip - 1+ ;'''
+old = ''': byte-index ( addr u char -- n ) >r tuck r> byte-scan nip - ;'''
+new = ''': byte-index ( addr u char -- n ) >r tuck r> byte-scan nip - 1+ ;'''
 test = "$GFORTH tests/lib/bytes.fs"
-reason = "review B4: bytes-before counts the delimiter too"
+reason = "review B4: byte-index counts the delimiter too"
 
 # The review's surviving faults and the bracket rule's priority (M1).
 

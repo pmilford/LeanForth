@@ -617,6 +617,16 @@
   "reason": "false positive: the guarded test `dup a? if b else drop true then`, each store's own two tests (terms, levels, references)",
   "tokens": 8
  },
+ "559df7caca39": {
+  "copies": 2,
+  "kind": "shape",
+  "members": [
+   "src/front/simp/args.fs:lf-simp-args",
+   "src/front/tactics/funext.fs:tfx-names"
+  ],
+  "reason": "planned: 9.4.8z12 (b), one lf-tac-args-each for the per-argument loops (funext's tfx-names, generalize's tgz-names, simp's lf-simp-args and the older copies), once branch small-tactics-2's edits of tactic-run.fs have landed (both copies met on main's merge of small tactics 1 with simp group 4)",
+  "tokens": 9
+ },
  "56076e76423f": {
   "copies": 2,
   "kind": "shape",

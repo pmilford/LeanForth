@@ -239,6 +239,13 @@ T{ s" True" ran s" True True ∧" ran s" Nat explicit: a a 0 + a =" ran s" False
    -> 0 0 0 0 }T
 T{ s" False" ran s" True Not" ran s" True False ∨" ran -> 500 89 99 }T
 T{ s" Nat explicit: a a 0 = True ∧ a 0 = ↔" ran -> 99 }T
+\ Data with two records of one root key and rank (and_true at and_self's
+\ rank 0; review B2): error 504, the data refused, whatever the walk made
+\ of it; with the data's own rank back, and_self again.
+s" and_true" rec-of ssl ssl-value ed-value-rank dup @ swap 0 over !
+T{ s" True True ∧" ran -> 504 }T
+!
+T{ s" True True ∧" ran -> 0 }T
 \ by-simp[ ] and at[ ] (pass 3, simp/args.fs's rules and locations, simp
 \ only's): a hypothesis, forwards and with <-, and a lemma the set holds
 \ closed; Lean's 501 (a variable that is no proposition); not supported

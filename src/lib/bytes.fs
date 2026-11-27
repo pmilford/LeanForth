@@ -47,7 +47,7 @@
 \ Interface: /reader reader: reader-init reader-rules! reader-text
 \ reader-strict reader-final-lf reader-keep-cr reader-keep-bom reader-free
 \ reader-attach reader-open reader-close reader-line reader-more?
-\ reader-position reader-line# byte-scan bytes-before text-framed utf8-length utf8-valid?
+\ reader-position reader-line# byte-scan byte-index text-framed utf8-length utf8-valid?
 \ utf8-decode utf8-size utf8-put counted, counted-next counted-nth counted-or-empty
 \ fnv-step bytes-mix. Requires portability.fs, bounds.fs (between?),
 \ outcome.fs, store.fs (store-zeroed,), blocks.fs (heap-claim and
@@ -145,7 +145,7 @@ s" gforth" environment? [if] 2drop
 \ The number of bytes of addr u before the first byte char, u when there
 \ is none: a token's length up to its delimiter (a name's first part,
 \ a word up to a space, a text up to its closing quote).
-: bytes-before ( addr u char -- n ) >r tuck r> byte-scan nip - ;
+: byte-index ( addr u char -- n ) >r tuck r> byte-scan nip - ;
 lf-lib-private set-current
 \ The number of bytes before the first line feed, if there is one.
 : lf-index ( addr u -- n true | false )
