@@ -1,0 +1,10 @@
+\ Lean (pinned 4.35.0, Init): theorem pb_shr_at (x : BitVec 8)
+\   (h : (x >>> 2) >>> 3 = x) : x >>> 5 = x := by simp at h; exact h
+\ (review of simp group 4, B1). Not supported yet (99): never "`simp` made
+\ no progress" (500).
+theorem pb_shr_at
+  8 BitVec explicit: x  x 2 HShiftRight.hShiftRight 3 HShiftRight.hShiftRight x = explicit: h  x 5 HShiftRight.hShiftRight x =
+:= by
+  by-simp at[ h ]
+  ' h by-exact
+end pb_shr_at

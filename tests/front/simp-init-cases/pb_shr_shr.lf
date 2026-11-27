@@ -1,0 +1,9 @@
+\ Lean (pinned 4.35.0, Init): theorem pb_shr_shr (x : BitVec 8) :
+\   (x >>> 2) >>> 3 = x >>> 5 ∨ True := by simp
+\ (BitVec.reduceShiftRightShiftRight, then eq_self and or_self; review of
+\ simp group 4, B1). Not supported yet (99): never accepted with or_true.
+theorem pb_shr_shr
+  8 BitVec explicit: x  x 2 HShiftRight.hShiftRight 3 HShiftRight.hShiftRight x 5 HShiftRight.hShiftRight = True ∨
+:= by
+  by-simp
+end pb_shr_shr

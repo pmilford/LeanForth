@@ -22,14 +22,21 @@ WORK a folder for the texts and the runs.
 4. Each theorem the kernel accepted is compared with Lean's: its type with Lean's statement
    and its value with Lean's re-run term, node for node. K counts those equal to both.
 
+5. The fixed cases of tests/front/simp-init-cases/ (each file's Lean twin in its first lines,
+   which pinned Lean proves: the review of simp group 4's B1 probes) run in step 2 beside the
+   texts; each must stop with error 99 (not supported yet), never be accepted with another
+   term nor refused with Lean's error. And DATA's simproc records must be
+   tests/front/simp-data/init-simprocs.fs's (each a row of simp/simprocs/guards.fs's table or
+   a port): a new Lean's simproc fails the run.
+
 The report says K of N; U, the theorems not supported (error 99) by reason, the reason
 the word that refused (the backtrace's first frame outside meta-must.fs); the other
-errors by code; the theorems that cannot be written by why. Two counts must be 0, else the
-run fails and names them (a BUG): accepted with a term other than Lean's, and accepted where
-Lean's re-run fails. A theorem whose statement LeanForth elaborates differently from Lean's
-(the dumped types differ) is counted apart, never in K: the text was printed from Lean's
-term, so the difference is the printing's or the elaborator's, which a differential check
-of the elaborator covers. The report goes to WORK/report.json and standard output.
+errors by code; the theorems that cannot be written by why. Three counts must be 0, else
+the run fails and names them (a BUG): accepted with a term other than Lean's, accepted where
+Lean's re-run fails, and accepted with a statement LeanForth elaborates differently from
+Lean's (the dumped types differ): simp-init.lean writes a text only when pinned Lean reads
+its Lean twin as the theorem's own statement (review of simp group 4, M2), so a difference
+is LeanForth's elaborator's. The report goes to WORK/report.json and standard output.
 """
 import collections
 import json
@@ -128,6 +135,36 @@ def group(why):
         if any(k in why for k in keys):
             return name
     return "other"
+
+
+CASES = ROOT / "tests/front/simp-init-cases"
+SIMPROCS = ROOT / "tests/front/simp-data/init-simprocs.fs"
+
+
+def add_cases(work):
+    """The fixed cases, written beside the texts and added to the list: their names."""
+    names = []
+    for path in sorted(CASES.glob("*.lf")):
+        name = f"case_{path.stem}"
+        (work / "lf" / f"{name}.lf").write_text(path.read_text(encoding="utf-8"), encoding="utf-8")
+        names.append(name)
+    with open(work / "list.txt", "a", encoding="utf-8") as out:
+        out.writelines(f"{work / 'lf' / n}.lf\n" for n in names)
+    return names
+
+
+def simprocs_listed(data):
+    """DATA's simproc records against the committed list: the differences, as text."""
+    listed = {tuple(line.split()[1:4]) for line in SIMPROCS.read_text(encoding="utf-8").splitlines()
+              if line.startswith("init-simproc: ")}
+    found = set()
+    for line in open(data, encoding="utf-8"):
+        if line.startswith('{"simproc"'):
+            r = json.loads(line)["simproc"]
+            name = ".".join(str(p) for p in r["name"]).split("._@.")[0]
+            found.add((name, "post" if r["post"] else "pre", "d" if r["dsimproc"] else "s"))
+    return sorted(f"{' '.join(t)} ({'not listed' if t in found else 'not in the data'})"
+                  for t in found ^ listed)
 
 
 def lean_rows(path):
@@ -229,6 +266,7 @@ def main(argv):
         keep = set(argv[argv.index("--only") + 1].split(","))
         names = {n: r for n, r in names.items() if n in keep}
         (work / "list.txt").write_text("".join(f"{work / 'lf' / n}.lf\n" for n in names))
+    cases = add_cases(work)
     ran1 = phase1(export, data, work)
     ran = [n for n in names if ran1.get(n, (-3,))[0] == 0]
     checked, stopped = phase2(names, ran, snapshot, data, work)
@@ -252,6 +290,7 @@ def main(argv):
             elif typ != row.get("type"):
                 other_statement.append(n)
                 detail[n] = "statement elaborated differently"
+                bugs.append(f"{n} {row['name']}: accepted with a statement other than Lean's")
             elif value != row.get("term"):
                 bugs.append(f"{n} {row['name']}: accepted with a term other than Lean's")
             else:
@@ -269,6 +308,10 @@ def main(argv):
             where = "by-simp" if line == by_simp else "statement"
             errors[f"error {code} at the {where}"] += 1
             detail.setdefault(n, f"error {code} at the {where}")
+    for n in cases:
+        if ran1.get(n, (-3,))[0] != 99:
+            bugs.append(f"{n}: error {ran1.get(n, (-3,))[0]}, expected 99 (not supported yet)")
+    bugs += [f"simproc record {d}" for d in simprocs_listed(data)]
     lean_closed = sum(1 for r in rows if r.get("closed"))
     groups = collections.Counter()
     for why, count in unsupported.items():
@@ -277,6 +320,7 @@ def main(argv):
                   unsupported=sum(unsupported.values()), unsupported_by_reason=dict(unsupported.most_common()),
                   unsupported_groups=dict(groups.most_common()), errors=dict(errors.most_common()),
                   statement_differs=len(other_statement), not_accepted=not_accepted,
+                  cases={n: ran1.get(n, (-3,))[0] for n in cases},
                   unwritten=dict(unwritten.most_common()), accepted=k, detail=detail)
     (work / "report.json").write_text(json.dumps(report, indent=1, ensure_ascii=False) + "\n",
                                       encoding="utf-8")
@@ -290,7 +334,7 @@ def main(argv):
     for what, count in errors.most_common():
         print(f"  {count:4d}  {what}")
     print(f"  {len(other_statement)} accepted with a statement LeanForth elaborates differently "
-          f"(not counted); {len(not_accepted)} not accepted by the kernel")
+          f"(a BUG); {len(not_accepted)} not accepted by the kernel")
     for why, count in unwritten.most_common():
         print(f"  {count:4d}  cannot be written: {why}")
     print(f"  {sum(1 for b in bugs if 'other than' in b)} accepted with a different term; "

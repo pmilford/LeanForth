@@ -141,9 +141,12 @@ def Lean.Expr.lambdaCount : Expr → Nat
 -- reversed one). Anything else (a binder, fun, let or projection in the
 -- statement, a sort, a raw or string literal, a private or escaped name,
 -- universe parameters, a `*`, term, erased or ↓/↑ item) cannot be written:
--- lf_why names it. The statement LeanForth elaborates is compared with
--- Lean's (the dumped types), so a printing Lean's elaborator and
--- LeanForth's read differently is found, never counted.
+-- lf_why names it. The statement is printed a second time in Lean's
+-- syntax, with the same arguments (lnTerm), and Lean elaborates it: a
+-- statement Lean reads otherwise than its own is a printing loss (an
+-- implicit argument only the dropped text fixed) and is not written
+-- (review of simp group 4, M2). The statement LeanForth elaborates is then
+-- compared with Lean's (the dumped types): a difference is LeanForth's.
 abbrev LfM := ExceptT String MetaM
 
 def lfOps : List (Name × Nat × String) :=
@@ -238,6 +241,63 @@ partial def lfLocal (names : FVarId → Option String) (id : FVarId) (args : Arr
   return lfJoin ([s!"' {s}"] ++ exps.map (· ++ " $"))
 end
 
+-- The same statement in Lean's syntax: every application in brackets, its
+-- explicit arguments only, as lfTerm prints them.
+mutual
+partial def lnTerm (names : FVarId → Option String) (e : Expr) : LfM String := do
+  match e with
+  | .fvar id => lnLocal names id #[]
+  | .mdata _ b => lnTerm names b
+  | .const n _ => lnApp names n #[]
+  | .app .. => match e.getAppFn with
+    | .const n _ => lnApp names n e.getAppArgs
+    | .fvar id => lnLocal names id e.getAppArgs
+    | _ => throwThe String "an application of no constant or variable"
+  | _ => throwThe String "a node lfTerm refuses"
+
+partial def lnArgs (names : FVarId → Option String) (bis : Array BinderInfo) (args : Array Expr) :
+    LfM (List String) := do
+  let mut out := #[]
+  for h : j in [0 : args.size] do
+    if bis.getD j .default == .default then out := out.push (← lnTerm names args[j])
+  return out.toList
+
+partial def lnApp (names : FVarId → Option String) (n : Name) (args : Array Expr) : LfM String := do
+  if n == ``OfNat.ofNat && args.size == 3 then
+    match args[1]! with
+    | .lit (.natVal k) => return toString k
+    | _ => throwThe String "OfNat.ofNat of no literal"
+  if n == ``Not && args.size == 1 then return s!"(¬ {← lnTerm names args[0]!})"
+  for (op, ar, w) in lfOps do
+    if n == op && args.size == ar then
+      return s!"({← lnTerm names args[ar-2]!} {w} {← lnTerm names args[ar-1]!})"
+  let some ci := (← getEnv).find? n | throwThe String "an unknown constant"
+  let (bis, _) := lfTele (← getEnv) ci.type #[]
+  return "(" ++ " ".intercalate ((← lfName n) :: (← lnArgs names bis args)) ++ ")"
+
+partial def lnLocal (names : FVarId → Option String) (id : FVarId) (args : Array Expr) :
+    LfM String := do
+  let some s := names id | throwThe String "a free variable of no binder"
+  let (bis, _) := lfTele (← getEnv) (← instantiateMVars (← id.getType)) #[]
+  return "(" ++ " ".intercalate (s :: (← lnArgs names bis args)) ++ ")"
+end
+
+def lnBinder (bi : BinderInfo) (v t : String) : String := match bi with
+  | .implicit => "{" ++ v ++ " : " ++ t ++ "}" | .strictImplicit => s!"⦃{v} : {t}⦄"
+  | .instImplicit => s!"[{v} : {t}]" | .default => s!"({v} : {t})"
+
+-- Whether Lean elaborates the Lean text of the statement to the theorem's own type.
+def lnReadsSame (text : String) (type : Expr) : TermElabM Bool := do
+  match Parser.runParserCategory (← getEnv) `term text with
+  | .error _ => return false
+  | .ok stx =>
+    try
+      let e ← Term.elabTerm stx none
+      Term.synthesizeSyntheticMVarsNoPostponing
+      let e ← instantiateMVars e
+      return !e.hasMVar && e == type
+    catch _ => return false
+
 def lfBinderWord : BinderInfo → String
   | .default => "explicit:" | .implicit => "implicit:"
   | .strictImplicit => "strict-implicit:" | .instImplicit => "instance:"
@@ -278,14 +338,24 @@ def lfText (i : TheoremVal) (name tac : String) (fvars : Array FVarId) (g : MVar
   let names : FVarId → Option String := fun id =>
     (fvars.idxOf? id).map (fun j => s!"v{j + 1}")
   let mut lines := #[s!"theorem {name}"]
+  let mut lean := ""
   for h : j in [0 : fvars.size] do
     let d ← fvars[j].getDecl
     if d.isLet then return .error "a let binder"
     match ← (lfTerm names (← instantiateMVars d.type)).run with
     | .ok s => lines := lines ++ ((lfLines s!"{s} {lfBinderWord d.binderInfo} v{j + 1}").map ("  " ++ ·)).toArray
     | .error w => return .error s!"binder type: {w}"
+    match ← (lnTerm names (← instantiateMVars d.type)).run with
+    | .ok s => lean := lean ++ lnBinder d.binderInfo s!"v{j + 1}" s ++ " "
+    | .error w => return .error s!"binder type: {w}"
   match ← (lfTerm names (← instantiateMVars (← g.getType))).run with
   | .ok s => lines := lines ++ ((lfLines s).map ("  " ++ ·)).toArray
+  | .error w => return .error s!"statement: {w}"
+  match ← (lnTerm names (← instantiateMVars (← g.getType))).run with
+  | .ok s =>
+    let text := if fvars.isEmpty then s else s!"∀ {lean}, {s}"
+    unless ← lnReadsSame text i.type do
+      return .error "a printing Lean reads as another statement (an implicit argument the text drops)"
   | .error w => return .error s!"statement: {w}"
   let mut items := #[]
   if let [_, rest] := tac.splitOn "[" then

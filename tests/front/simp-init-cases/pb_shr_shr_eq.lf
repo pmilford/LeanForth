@@ -1,0 +1,9 @@
+\ Lean (pinned 4.35.0, Init): theorem pb_shr_shr_eq (x : BitVec 8) :
+\   (x >>> 2) >>> 3 = x >>> 5 := by simp
+\ (review of simp group 4, B1). Not supported yet (99): never "`simp` made
+\ no progress" (500).
+theorem pb_shr_shr_eq
+  8 BitVec explicit: x  x 2 HShiftRight.hShiftRight 3 HShiftRight.hShiftRight x 5 HShiftRight.hShiftRight =
+:= by
+  by-simp
+end pb_shr_shr_eq
