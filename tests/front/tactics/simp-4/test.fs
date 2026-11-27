@@ -142,6 +142,14 @@ T{ lf-simp-thms# 0> lf-simp-post or-key over lf-dtree-root drop swap lf-dtree-ro
 lf-simp-default
 T{ s" or_self" decl true lf-simp-add-decl or-root 0< lf-simp-thms# lf-simp-post lf-dtree-vals#
    -> false 10 10 }T
+\ The rule's priority is Lean's default (mkSimpTheoremFromConst's eval_prio
+\ default, 1000; Elab/Tactic/Simp.lean:274), whatever the data gave the
+\ lemma (here 2000; review M1).
+: prios-1000? ( -- flag ) true lf-simp-thms# 0 ?do i lf-simp-thm-prio 1000 = and loop ;
+s" or_self" rec-of ssl ssl-prio dup @ swap 2000 over !   lf-simp-default
+T{ or-key lf-simp-post lf-rix-force drop prios-1000? -> false }T
+T{ s" or_self" decl true lf-simp-add-decl prios-1000? -> true }T
+!   \ the data's priority back
 \ A left-out lemma reached in candidate order: unsupported (True ∨ False:
 \ or_false, which the slice lacks, comes before true_or); one the library
 \ has the record of, keys tampered with: unsupported, its record put back.

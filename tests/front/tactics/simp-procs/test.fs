@@ -210,18 +210,44 @@ create h-cell 0 ,
 : not-tt ( -- e ) s" Not" lf-mk-const0 true-c lf-mk-app ;
 : dite-x ( -- e ) dite-tt true-c x0 k-of lf-mk-app not-tt y0 k-of lf-mk-app ;
 T{ dite-x simp s" dite_eq_left_of_eq_true" head? -> x0 true }T
+\ Its False branch (review M1): (fun h => y) (of_eq_false False pr), y, by
+\ dite_eq_right_of_eq_false.
+: dite-ff ( -- e ) s" dite" nat lf-level! lf-mk-const1 nat lf-mk-app false-c lf-mk-app
+  s" instDecidableFalse" lf-mk-const0 lf-mk-app ;
+: not-ff ( -- e ) s" Not" lf-mk-const0 false-c lf-mk-app ;
+: dite-y ( -- e ) dite-ff false-c x0 k-of lf-mk-app not-ff y0 k-of lf-mk-app ;
+T{ dite-y simp s" dite_eq_right_of_eq_false" head? -> y0 true }T
+\ A branch that uses its hypothesis (dite Prop False _ (fun h => True)
+\ (fun h => h = h)): reduceDIte gives h = h at h := of_eq_false False pr,
+\ which the walk does not simplify yet (congruence over a proof): not
+\ supported (review M1; plan 9.4.8z14).
+: prop-t ( -- t ) 0 lf-term-sort lf-made! ;
+not-ff s" hn" binder constant hn0
+not-ff prop-t lf-term-pi lf-made! s" q" binder constant q0
+: lam1 ( body fvar -- lam ) h-cell ! h-cell 1 lf-mk-lambda-fvars ;
+: level1 ( -- u ) 0 lf-level-succ 0= abort" level" ;
+: dite-p ( -- e ) s" dite" level1 lf-mk-const1 prop-t lf-mk-app false-c lf-mk-app
+  s" instDecidableFalse" lf-mk-const0 lf-mk-app false-c true-c k-of lf-mk-app
+  hn0 hn0 lf-mk-eq hn0 lam1 lf-mk-app ;
+T{ dite-p ' simp thrown -> outcome-unsupported }T
 
 \ ---- 2. Guards. Nat's Diff family: both sides offsets (a literal, an
 \ addition of one, Nat.succ) unsupported; else continue.
 : diff ( a b -- outcome ) lf-mk-eq s" Nat.reduceEqDiff" proc 0 tried ;
 T{ x0 1 lit# +n 3 lit# diff x0 3 lit# diff x0 y0 +n 3 lit# diff 2 lit# 3 lit# diff
    -> outcome-unsupported outcome-ok outcome-ok outcome-unsupported }T
+\ Nat.succ x is an offset too (NatOffset.fromExpr?, Nat.lean:168; review M1).
+T{ s" Nat.succ" c0 x0 lf-mk-app 3 lit# diff -> outcome-unsupported }T
 \ reduceCtorEq: constructors of different names unsupported; the same,
 \ or a side with none, continue.
 : ctor ( a b -- outcome ) lf-mk-eq s" reduceCtorEq" proc 0 tried ;
 T{ x0 1 lit# +n 0 raw ctor x0 0 lit# ctor x0 1 lit# +n y0 1 lit# +n ctor 0 raw 0 raw ctor
    -> outcome-unsupported outcome-ok outcome-ok outcome-ok }T
 T{ 2 lit# 3 lit# ctor 1 raw 0 raw ctor -> outcome-unsupported outcome-unsupported }T
+\ A side whose head is no constructor but whose whnf is one (constructorApp'?'s
+\ whnf, CtorRecognizer.lean:97; review M1): (fun h => Nat.zero) x beside an
+\ offset, unsupported.
+T{ x0 1 lit# +n nat s" Nat.zero" c0 k-of x0 lf-mk-app ctor -> outcome-unsupported }T
 \ A constructor at the head: Nat.zero beside an offset (unsupported),
 \ Nat.succ itself on both sides, Bool's two constructors (unsupported).
 T{ s" Nat.zero" c0 x0 1 lit# +n ctor s" Nat.succ" c0 dup ctor s" Bool.true" c0 s" Bool.false" c0 ctor
@@ -300,6 +326,14 @@ lf-simp-default
 ' slabs-anew sweep-slabs-xt !
 T{ cond5 x0 y0 ite ' procs-pass heap-sweep nip -> 0 }T
 ' noop sweep-slabs-xt !
+
+\ ---- The dsimp scan's tests and a rewrite's cut (review M1): a node a
+\ post rfl lemma matches (Nat.add_zero, rfl and post) is not free of rfl
+\ candidates; a left-out lemma may be rfl (its proof is not known); a
+\ rule's metavariables (sr-xs) are cut back once its rewrite is done.
+lf-simp-default
+T{ x0 0 lit# +n sm-rfl-free? -1 sth-v-rfl -> false true }T
+T{ x0 0 lit# +n simp 2drop sr-xs slab-count -> 0 }T
 
 \ ---- 5. Sealed (review B3), last, as a context made seals the table
 \ for the rest of the run: a row then aborts, the table unchanged (as

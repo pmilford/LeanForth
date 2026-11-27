@@ -16646,8 +16646,8 @@ reason = "the §4 check accepts an instance recorded under another class"
 [[fault]]
 id = "fe-inst-rank-ignored"
 file = "src/front/data-index.fs"
-old = ''': rix-place ( v rix -- outcome ) 2dup rix-rank swap rix-ranked slab-cell-put ;'''
-new = ''': rix-place ( v rix -- outcome ) 2dup rix-rank 0 max 0 min swap rix-ranked slab-cell-put ;'''
+old = '''  2dup rix-rank swap 2dup rix-free? if rix-put else nip nip rix-refuse then ;'''
+new = '''  2dup rix-rank 0 max 0 min swap 2dup rix-free? if rix-put else nip nip rix-refuse then ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "a root's values are not placed by rank (the tree loses Lean's child order and values)"
 
@@ -17338,8 +17338,8 @@ reason = "s1-synth re-check L3': the checks, trees and refusal of one read of th
 [[fault]]
 id = "fe-inst-rank-gap-read"
 file = "src/front/data-index.fs"
-old = '''  -rot ok-then? if swap rix-ranked slab-count = flag>outcome else nip then ;'''
-new = '''  -rot ok-then? if 2drop outcome-ok else nip then ;'''
+old = '''  tuck rix-ranked slab-count = if drop outcome-ok else rix-refuse then ;'''
+new = '''  2drop outcome-ok ;'''
 test = "$GFORTH tests/front/instances.fs"
 reason = "s1-synth re-check L2': a root whose values leave a rank empty is built, the hole read as left-out 0"
 

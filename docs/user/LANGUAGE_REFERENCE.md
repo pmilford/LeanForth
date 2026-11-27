@@ -3138,10 +3138,15 @@ Not supported yet (error 99, exit 2), never another route than Lean's:
   fire: `reduceCtorEq` (`x + 1 = 0` would become `False`), Nat's
   `reduceEqDiff` family (`x + 2 = 5`), `Nat.reduceDvd`, `Nat.reduceLog2`,
   and the Int, Fin, Char, String, BitVec, fixed-width integer (`UInt8`
-  ... `ISize`), List and Array simprocs. Each answers 99 only where Lean's
-  procedure may change the term (for the number families: every operand
-  written as a literal); elsewhere (`a = 0`, `x + y` on Int) simp goes on
-  as Lean does;
+  ... `ISize`), List and Array simprocs. Every simproc of Init's default
+  set has a row by its name in `src/front/simp/simprocs/guards.fs` (or is
+  a port or a named guard), each read against Lean's body: a simproc that
+  computes on literals answers 99 where every operand is written as a
+  literal, and goes on as Lean does elsewhere (`a = 0`, `x + y` on Int);
+  one that may fire on other operands answers 99 wherever its pattern
+  matches (BitVec's `(x >>> i) >>> j` and `x <<< (i : BitVec n)`,
+  `List.replicate`, the Array simprocs, `default : Char`); a simproc of
+  another Lean, with no row, answers 99 wherever its pattern matches;
 - a proof through extra arguments (`(if True then f else g) x`), which
   needs `congrFun`'s general form;
 - a lemma the library's export lacks (a `_simp_N` helper, or a lemma of

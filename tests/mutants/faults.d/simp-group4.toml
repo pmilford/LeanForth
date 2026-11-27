@@ -112,8 +112,8 @@ reason = "a table claimed on a slab used before keeps the old bytes: its status 
 [[fault]]
 id = "slab-cell-put-unfilled"
 file = "src/lib/slab.fs"
-old = '''  begin 2dup slab-count > while -1 over slab-push dup ok? 0= if nip nip exit then drop'''
-new = '''  begin 2dup slab-count > while 0 over slab-push dup ok? 0= if nip nip exit then drop'''
+old = ''': slab-cell-put ( x i slab -- outcome ) -1 swap slab-cell-put-with ;'''
+new = ''': slab-cell-put ( x i slab -- outcome ) 0 swap slab-cell-put-with ;'''
 test = "$GFORTH tests/lib/slab.fs"
 reason = "the cells grown before the one set read as 0, a value, not -1 (none): a gap in a root's ranks would read as record 0"
 
@@ -538,3 +538,53 @@ old = ''': bytes-before ( addr u char -- n ) >r tuck r> byte-scan nip - ;'''
 new = ''': bytes-before ( addr u char -- n ) >r tuck r> byte-scan nip - 1+ ;'''
 test = "$GFORTH tests/lib/bytes.fs"
 reason = "review B4: bytes-before counts the delimiter too"
+
+# The review's surviving faults and the bracket rule's priority (M1).
+
+[[fault]]
+id = "sg4r-ctor-no-whnf"
+file = "src/front/simp/simprocs.fs"
+old = '''  sp-offset if nip exit then dup sp-head-ctor ?dup if nip exit then sp-whnf-ctor ;'''
+new = '''  sp-offset if nip exit then dup sp-head-ctor ?dup if nip exit then drop 0 ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "review M1: reduceCtorEq's guard reads no constructor through whnf, so (fun h => Nat.zero) x = x + 1 continues where Lean's constructorApp'? fires"
+
+[[fault]]
+id = "sg4r-dite-then-always"
+file = "src/front/simp/simprocs/core.fs"
+old = '''  2dup spc-branch -rot spc-of-eq lf-mk-app lf-meta-head-beta lf-must ;'''
+new = '''  2dup -2 and spc-branch -rot spc-of-eq lf-mk-app lf-meta-head-beta lf-must ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "review M1: reduceDIte's False branch takes the then branch: dite False _ (fun h => x) (fun h => y) gives x"
+
+[[fault]]
+id = "sg4r-rfl-pre-only"
+file = "src/front/simp/main.fs"
+old = '''  dup lf-simp-pre lf-simp-rfl-match? swap lf-simp-post lf-simp-rfl-match? or 0= ;'''
+new = '''  lf-simp-pre lf-simp-rfl-match? 0= ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "review M1: the dsimp scan looks for rfl candidates in the pre tree only, where Lean's rfl lemmas are post"
+
+[[fault]]
+id = "sg4r-left-out-not-rfl"
+file = "src/front/simp/theorems.fs"
+old = ''': sth-v-rfl ( v -- flag ) dup 0< if drop true else simp-lemma-rfl? then ;'''
+new = ''': sth-v-rfl ( v -- flag ) dup 0< if drop false else simp-lemma-rfl? then ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "review M1: a left-out lemma, whose proof is not known, taken for one that is no rfl lemma"
+
+[[fault]]
+id = "sg4r-rewrite-xs-not-cut"
+file = "src/front/simp/rewrite.fs"
+old = '''  srt srt-xs @ sr-xs slab-cut  srt srt-cands @ sr-cands slab-cut  sr-frames slab-drop ;'''
+new = '''  srt srt-cands @ sr-cands slab-cut  sr-frames slab-drop ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "review M1: a rewrite's metavariables left on sr-xs after it"
+
+[[fault]]
+id = "sg4r-bracket-prio-kept"
+file = "src/front/simp/theorems.fs"
+old = '''  dup >r sth tuck sth-rfl ! tuck sth-post ! lf-simp-default-prio swap sth-prio ! r> ;'''
+new = '''  dup >r sth tuck sth-rfl ! sth-post ! r> ;'''
+test = "$GFORTH tests/front/tactics/simp-4/test.fs"
+reason = "review M1: a default lemma given again as a bracket rule keeps the data's priority, where Lean's mkSimpTheoremFromConst gives it eval_prio default (1000)"

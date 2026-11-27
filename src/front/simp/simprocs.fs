@@ -147,7 +147,7 @@ lf-tag-lit lf-tag-str lf-tag-mvar lf-tag-annotation 4 lf-tags constant sp-lit-ta
 : sp-add-of-lit? ( a -- flag )
   dup sp-addition? if lf-term-second@ sp-may-lit? else drop false then ;
 : sp-offset? ( a -- flag )
-  dup sp-may-lit? over lf-meta-succ? or if drop true else sp-add-of-lit? then ;
+  dup sp-may-lit? if drop true else sp-add-of-lit? then ;   \ (Nat.succ: a literal's head)
 : sp-diff-guard ( e x -- e h step )
   drop dup lf-meta-args2 sp-offset? swap sp-offset? and if lf-unported then lf-simp-pass ;
 
