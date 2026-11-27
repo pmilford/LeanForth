@@ -88,7 +88,7 @@ goals, the last step extended by a `calc.step` goal) and `with_reducible`,
 `with_reducible_and_instances`, `with_unfolding_all` (`by-with-reducible ... by-end` and its
 two siblings: blocks whose steps run at their transparency, put back however a step ends).
 Left: `subst_eqs` and `haveI`/`letI` (as above), and calc's `throwCalcFailure` messages
-(131 after a coercion is not found); limits in the language reference's section D.12.
+(131 after a coercion is not found); limits in the language reference's section D.13.
 
 ## The table (keywords with 100 uses or more)
 
