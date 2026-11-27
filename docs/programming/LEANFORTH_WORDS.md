@@ -561,6 +561,10 @@ internal fault of LeanForth, exit 5 (review N1 of 2026-11-18).
 | 470 | invalid | Tactic `rcases` failed: |
 | 471 | invalid | Tactic `rcases` failed: |
 | 450 | invalid | The main goal is |
+| 510 | invalid | invalid 'calc' step, failed to synthesize `Trans` instance |
+| 511 | invalid | invalid 'calc' step, step result is not a relation |
+| 512 | invalid | invalid 'calc' step, relation expected |
+| 513 | invalid | invalid 'calc' step, left-hand side is |
 | 443 | invalid | 'change' tactic failed, pattern |
 | 444 | invalid | 'show' tactic failed, pattern |
 | 445 | invalid | 'show' tactic failed, no goals unify with the given pattern. |

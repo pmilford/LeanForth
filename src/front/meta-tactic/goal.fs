@@ -437,7 +437,8 @@ end-structure
 \ (assign-check.fs, in the elaborator's flags, as TermElabM runs; its
 \ unsupported cases thrown), false the occurs-check error with e.
 : mtg-elab-flags ( -- flags mode ) lf-defeq-flags lf-defeq-elab or lf-defeq-mode ;
-: mtg-check ( e -- e' flag outcome ) ['] lf-meta-check-assignment mtg-elab-flags lf-meta-with ;
+: mtg-check ( e -- e' flag outcome )
+  ['] lf-meta-check-assignment mtg-elab-flags lf-meta-with ;
 : mtg-checked ( goal e -- goal e' )
   over 0 0 lf-meta-pattern! dup mtg-check lf-must
   if nip else drop mtg-unassignable then ;

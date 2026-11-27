@@ -184,6 +184,10 @@
 470	1	lean	Tactic `rcases` failed:
 471	1	lean	Tactic `rcases` failed:
 450	1	lean	The main goal is
+510	1	lean	invalid 'calc' step, failed to synthesize `Trans` instance
+511	1	lean	invalid 'calc' step, step result is not a relation
+512	1	lean	invalid 'calc' step, relation expected
+513	1	lean	invalid 'calc' step, left-hand side is
 443	1	lean	'change' tactic failed, pattern
 444	1	lean	'show' tactic failed, pattern
 445	1	lean	'show' tactic failed, no goals unify with the given pattern.
@@ -323,6 +327,7 @@ reserved by-contra-core word
 reserved by-contra: word
 reserved by-contra word
 reserved by-contra[ word
+reserved by-calc[ word
 reserved by-change word
 reserved by-show word
 reserved by-clear word
@@ -366,6 +371,9 @@ reserved by-subst[ word
 reserved by-subst-vars word
 reserved by-swap word
 reserved by-symm word
+reserved by-with-reducible word
+reserved by-with-reducible-and-instances word
+reserved by-with-unfolding-all word
 kind 1 by 0 by run
 kind 2 by-rfl 0 rfl run
 kind 3 by-exact 0 exact run
@@ -401,46 +409,50 @@ kind 32 by-contra-core 0 by_contra_core run
 kind 33 by-contra: 0 by_contra run
 kind 34 by-contra 0 by_contra run
 kind 35 by-contra[ 0 by_contra run
-kind 36 by-change 0 change run
-kind 37 by-show 0 show run
-kind 38 by-clear 0 clear run
-kind 39 by-clear[ 0 clear run
-kind 40 by-constructor 0 constructor run
-kind 41 by-contradiction 0 contradiction run
-kind 42 by-decide 0 decide run
-kind 43 by-native-decide 0 native_decide run
-kind 44 by-delta 0 delta run
-kind 45 by-done 0 done run
-kind 46 by-exacts[ 0 exacts run
-kind 47 by-exfalso 0 exfalso run
-kind 48 by-trivial 0 trivial run
-kind 49 by-exists[ 0 exists run
-kind 50 by-funext 0 funext run
-kind 51 by-funext[ 0 funext run
-kind 52 by-generalize: 0 generalize run
-kind 53 by-generalize-eq: 0 generalize run
-kind 54 by-infer-instance 0 infer_instance run
-kind 55 by-intro[ 0 intro run
-kind 56 by-intros 0 intros run
-kind 57 by-iterate 0 iterate run
-kind 58 by-left 0 left run
-kind 59 by-obtain[ 0 obtain run
-kind 60 by-rcases[ 0 rcases run
-kind 61 by-refine 0 refine run
-kind 62 by-rename-i[ 0 rename_i run
-kind 63 by-rename: 0 rename run
-kind 64 by-replace: 0 replace run
-kind 65 by-revert 0 revert run
-kind 66 by-revert[ 0 revert run
-kind 67 by-right 0 right run
-kind 68 by-rwa[ 0 rwa run
-kind 69 by-simp-only[ 0 simp run
-kind 70 by-simp 0 simp run
-kind 71 by-simp[ 0 simp run
-kind 72 by-skip 0 skip run
-kind 73 by-specialize 0 specialize run
-kind 74 by-subst 0 subst run
-kind 75 by-subst[ 0 subst run
-kind 76 by-subst-vars 0 subst_vars run
-kind 77 by-swap 0 swap run
-kind 78 by-symm 0 symm run
+kind 36 by-calc[ 0 calc run
+kind 37 by-change 0 change run
+kind 38 by-show 0 show run
+kind 39 by-clear 0 clear run
+kind 40 by-clear[ 0 clear run
+kind 41 by-constructor 0 constructor run
+kind 42 by-contradiction 0 contradiction run
+kind 43 by-decide 0 decide run
+kind 44 by-native-decide 0 native_decide run
+kind 45 by-delta 0 delta run
+kind 46 by-done 0 done run
+kind 47 by-exacts[ 0 exacts run
+kind 48 by-exfalso 0 exfalso run
+kind 49 by-trivial 0 trivial run
+kind 50 by-exists[ 0 exists run
+kind 51 by-funext 0 funext run
+kind 52 by-funext[ 0 funext run
+kind 53 by-generalize: 0 generalize run
+kind 54 by-generalize-eq: 0 generalize run
+kind 55 by-infer-instance 0 infer_instance run
+kind 56 by-intro[ 0 intro run
+kind 57 by-intros 0 intros run
+kind 58 by-iterate 0 iterate run
+kind 59 by-left 0 left run
+kind 60 by-obtain[ 0 obtain run
+kind 61 by-rcases[ 0 rcases run
+kind 62 by-refine 0 refine run
+kind 63 by-rename-i[ 0 rename_i run
+kind 64 by-rename: 0 rename run
+kind 65 by-replace: 0 replace run
+kind 66 by-revert 0 revert run
+kind 67 by-revert[ 0 revert run
+kind 68 by-right 0 right run
+kind 69 by-rwa[ 0 rwa run
+kind 70 by-simp-only[ 0 simp run
+kind 71 by-simp 0 simp run
+kind 72 by-simp[ 0 simp run
+kind 73 by-skip 0 skip run
+kind 74 by-specialize 0 specialize run
+kind 75 by-subst 0 subst run
+kind 76 by-subst[ 0 subst run
+kind 77 by-subst-vars 0 subst_vars run
+kind 78 by-swap 0 swap run
+kind 79 by-symm 0 symm run
+kind 80 by-with-reducible 0 with_reducible run
+kind 81 by-with-reducible-and-instances 0 with_reducible_and_instances run
+kind 82 by-with-unfolding-all 0 with_unfolding_all run

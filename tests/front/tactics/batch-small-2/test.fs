@@ -72,7 +72,9 @@ nat s" c" binder constant fc
 s" True" lf-mk-const0 constant ttrue
 fa fb lf-mk-eq constant eab
 fb fc lf-mk-eq constant ebc
-T{ eab lf-calc-relation? >r fb eqv? >r fa eqv? >r eab lf-calc-rel eqv? r> r> r> -> true true true true }T
+: rel-parts? ( e -- r? a? b? flag )
+  lf-calc-relation? >r fb eqv? >r fa eqv? >r eab lf-calc-rel eqv? r> r> r> ;
+T{ eab rel-parts? -> true true true true }T
 T{ eab lf-calc-lhs fa eqv? eab lf-calc-rhs fb eqv? -> true true }T
 T{ ttrue lf-calc-relation? s" Nat.succ" lf-mk-const0 fa lf-mk-app lf-calc-relation? -> false false }T
 T{ ttrue ' ecl-relation code1 -> thrown-invalid }T    \ one the caller made sure of
