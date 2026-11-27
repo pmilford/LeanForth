@@ -2014,6 +2014,10 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-skip` | `( -- )` | ordinary | read: a step. Run: nothing | Does nothing, with goals or none. | `skip` |
 | `by-done` | `( -- )` | ordinary | read: a step. Run: no goal may be left | Checks the proof is finished at that point; goals left: 89 at `by-done` (inside `by-try` taken back). | `done` |
 | `by-iterate` | `( n -- )` (n a numeral) | ordinary; opens a block that `by-end` closes; names given inside it stay | read: a block step holding n. Run: the block's tactics n times over, each pass on the goals of its moment, no focus and no save (0: none at all) | Repeats a tactic block an exact number of times; a pass's error is that step's (90 no goal, 383, ...); n no numeral: 99; open blocks weighing more than 240 (an iterate its count and 2, the proof's `by` 4: a count up to 234 alone; [D.2](#d2-by-by-end-and-the-block-words)): 99, as Lean's recursion depth runs out at 252; names inside are resolved when the text is read, so `0 by-iterate ' nonexistent by-exact by-end` is error 1 where Lean accepts it. | `iterate n tacs` |
+| `by-calc[ T1 e1 T2 e2 .. ]` | `( -- )` | parsing: a list of terms up to `]`, in pairs (a relation, then its proof) | read: a step holding the terms. Run: each relation elaborated as a type (a later one's first `_` given the type of the right side before it), its left side defeq the right side before it, its proof against it, the chain joined by `Trans.trans` with the instance found for each pair of relations; the main goal closed by the chain, or, when the goal is `x ~ y` and the chain `x ~ b`, by the chain and a new goal `b ~ y` tagged `calc.step`; `?_` proofs are new goals after the others (see [D.12](#d12-by-calc-by-with-reducible-and-its-siblings)) | Proves a relation by a chain of steps; 512 no relation, 513 a left side not the right side before it, 510 no `Trans` instance; a chain that is not the goal and cannot be extended: 131 (Lean then reports `throwCalcFailure`'s sides, not ported); an odd count or a later step `_` alone: 99; an empty list 460. | `calc T1 := e1` `T2 := e2` .. |
+| `by-with-reducible` | `( -- )` | ordinary; opens a block that `by-end` closes; names given inside it stay | read: a block step. Run: the block's tactics on the goals as they are, no focus and no save, each at reducible transparency (their elaboration and isDefEq too), the transparency before it back however a step ends | Runs tactics unfolding only reducible definitions; the errors are the tactics'; nesting past 118 (2 units of the 240 each; Lean's limit 167): 99. | `with_reducible tacs` |
+| `by-with-reducible-and-instances` | `( -- )` | as `by-with-reducible` | as `by-with-reducible`, at instances transparency | As `by-with-reducible`, instances unfolding too; an elaboration that needs an instance unfolded there: 139 (not supported yet). | `with_reducible_and_instances tacs` |
+| `by-with-unfolding-all` | `( -- )` | as `by-with-reducible` | as `by-with-reducible`, at all transparency | As `by-with-reducible`, every definition unfolding. | `with_unfolding_all tacs` |
 | `by-refine` | `( t -- )` (top: t) | ordinary | read: a step holding t. Run: elaborates t against the goal, assigns it, its `?_` and `?: NAME` new goals in its place, tagged as Lean's | Closes the goal with t up to its holes; a `_` left open: 461 (99 as an argument); an implicit argument left: 95; a mismatch: 96; a NAME taken: 139. | `refine t` |
 | `_` | `( -- t )` | ordinary (kernel form: 52) | read: a hole node | A hole unification fills (or a goal where the tactic allows one: `by-specialize`). | `_` |
 | `?_` | `( -- t )` | ordinary (kernel form: 52) | read: a synthetic hole node | A new goal of `by-refine`; elsewhere left open (461 in `by-exact`). | `?_` |
@@ -3218,6 +3222,92 @@ rest answer 99 for the reasons above, the largest a bracket theorem with
 `<-` ([measurement](../development/measurements/simp-init-2026-11-26/README.md#the-harness-make-reference-simp-init-simp-group-4-pass-3)).
 `simp only`'s and `simp`'s options (`config[ ]`, `-'`, `'*`), `simp_all`,
 `simpa`, `simp_rw` and `dsimp` are not built yet (`**` in the tables above).
+
+---
+
+### D.12 `by-calc[ ]`, `by-with-reducible` and its siblings
+
+Small tactics 2 (plan row 9.4.8z12; `src/front/elab-calc.fs`, `src/front/tactics/calc.fs`,
+`src/front/tactics/with-reducible.fs`). Every example below is a theorem of
+`tests/front/tactics/batch-small-2/calc.lf` or `with-reducible.lf`, copied whole; `check.py`
+there checks each one's term node for node against pinned Lean's twin
+(`batch-small-2.lean`), so the files are the runnable form of this section.
+
+**calc.** In mathematics, a = b = c gives a = c, and a = b ≤ c < d gives a < d: each link
+is a relation, each one's left side the right side before it, and transitivity joins them.
+Lean writes `calc a = b := h1` then `_ = c := h2`; LeanForth writes the pairs in one list,
+the relation then its proof, `_` standing for the right side before it:
+
+```text
+theorem cc_mix
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  Nat explicit: d
+  a b = explicit: h1  b c <= explicit: h2  c d < explicit: h3  a d <
+:= by
+  by-calc[ a b = ' h1  _ c <= ' h2  _ d < ' h3 ]
+end cc_mix
+```
+
+```lean
+theorem cc_mix (a b c d : Nat) (h1 : a = b) (h2 : b ≤ c) (h3 : c < d) : a < d := by
+  calc a = b := h1
+    _ ≤ c := h2
+    _ < d := h3
+```
+
+The proof term is `Trans.trans` of the chain so far and each step, with the instance Lean's
+search finds for each pair (here `instTransEq`, then `Nat.instTransLeLt`). The instances
+searched are those of the elaboration data: the patterns slice holds `instTransEq`,
+`instTransEq_1` and Nat's `Nat.instTransLe`, `Nat.instTransLt`, `Nat.instTransLeLt`,
+`Nat.instTransLtLe`; another library's are its own data's. A chain shorter than the goal is
+finished by a new goal (Lean's "extend with `_ ~ y`"), tagged `calc.step`:
+
+```text
+theorem cc_ext
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h1  b c = explicit: h2  a c =
+:= by
+  by-calc[ a b = ' h1 ]
+  ' h2 by-exact
+end cc_ext
+```
+
+A proof `?_` is a new goal too (one alone keeps the main goal's tag; several are `calc_1`,
+`calc_2`, ..). Limits: a first step written alone (Lean's `calc a` for `a = _ := rfl`) has
+no form, so an odd count is 99; a later step that is `_` alone is 99; a chain whose type is
+not the goal's and cannot be extended is 131 (Lean looks for a coercion, then reports both
+sides: not ported); a proof whose type is not its step's is the elaborator's 131 (a
+coercion) where Lean says "type mismatch". Steps are a loop, not nested: 300 steps check in
+22 s (2026-11-26), and Lean takes 1,000.
+
+**with_reducible.** Definitional unfolding at a chosen transparency: `by-with-reducible ...
+by-end` runs its tactics unfolding only reducible definitions, so `Nat.pred (Nat.succ a) =
+b` no longer fits the goal `a = b` (Lean's "Type mismatch", 96), which `exact` at the
+default transparency accepts:
+
+```text
+theorem wr_try
+  Nat explicit: a  Nat explicit: b  a Nat.succ Nat.pred b = explicit: h  a b =
+:= by
+  by-try by-with-reducible ' h by-exact by-end by-end
+  ' h by-exact
+end wr_try
+```
+
+```lean
+theorem wr_try (a b : Nat) (h : Nat.pred (Nat.succ a) = b) : a = b := by
+  try with_reducible exact h
+  exact h
+```
+
+The block runs on the goals as they are (no focus, no `done`); a block inside it inherits
+its transparency; when a step fails, the transparency before the block is back, so the
+`exact` after `try` above runs at the default again. `by-with-reducible-and-instances`
+(instances unfold too) and `by-with-unfolding-all` (every definition) are the same blocks
+at another transparency; at instances transparency an elaboration that needs an instance
+unfolded is not supported yet (139, `u-wr-inst.lf`). Inside rw's own closing `rfl`
+LeanForth elaborates at the default transparency where Lean is at reducible (plan row
+9.4.8z12). Depth: each block weighs 2 units of the 240 (D.2): 118 nested are supported,
+Lean takes 167.
 
 ---
 

@@ -1109,7 +1109,9 @@ checkout's `.claude/work/IM/init.ndjson`), each cut from a roots file in the
 repository: `tests/front/decide-slice` (from `decide-slice.roots`, grown
 for plan slice ops-c1) and `tests/front/patterns-slice` (from
 `patterns-slice.roots`: decide's roots and the declarations the case
-pattern slices need, TACTIC_PATTERNS.md section 5; 1,073 declarations).
+pattern slices need, TACTIC_PATTERNS.md section 5, and since small tactics 2 the Trans
+instances calc needs: Trans.trans, instTransEq_1, Nat.instTransLe, -Lt, -LeLt, -LtLe; 1,078
+declarations).
 Each is made by four commands, from the repository root (shown for the
 patterns slice; the decide slice is the same with its own names):
 

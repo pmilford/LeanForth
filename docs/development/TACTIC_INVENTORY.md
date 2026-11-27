@@ -80,6 +80,16 @@ runner's block loop cannot put back when an error leaves the block), `subst_eqs`
 each `Eq` hypothesis, an indexed family's case split, slice E4), `haveI`/`letI` (the term
 elaborator's zeta let, not ported).
 
+Small tactics 2 (2026-11-26, branch `small-tactics-2`; tests in
+`tests/front/tactics/batch-small-2/`, each term node for node pinned Lean's, on the patterns
+slice, which gained Nat's `Trans` instances): `calc` (`by-calc[ T1 e1 T2 e2 .. ]`: `=`, `≤`,
+`<` chains mixed, a later step's first `_` ascribed the type before it, `?_` proofs as new
+goals, the last step extended by a `calc.step` goal) and `with_reducible`,
+`with_reducible_and_instances`, `with_unfolding_all` (`by-with-reducible ... by-end` and its
+two siblings: blocks whose steps run at their transparency, put back however a step ends).
+Left: `subst_eqs` and `haveI`/`letI` (as above), and calc's `throwCalcFailure` messages
+(131 after a coercion is not found); limits in the language reference's section D.12.
+
 ## The table (keywords with 100 uses or more)
 
 | # | Tactic | Uses | Running share | Class | Declared in |
