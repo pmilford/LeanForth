@@ -113,9 +113,11 @@ end-structure
 \ A constant at the six levels, applied to the first n arguments.
 : ecl-levels ( -- u v w u1 u2 u3 ) ecf ecf-u 6 0 do dup i cells + @ swap loop drop ;
 : ecl-applied ( c-addr u n -- e ) >r ecl-levels 6 lf-mk-const ecf ecf-alpha r> lf-mk-app-cells ;
+: ecl-relation-result ( e type -- x y code )
+  dup ecl-rel? if 0 else nip -1 lfa-e-calc-not-rel then ;
 : ecl-result ( -- x y code )
   s" Trans.trans" 12 ecl-applied dup lf-infer! lf-instantiate! lf-meta-head-beta lf-must
-  dup ecl-rel? if 0 else nip -1 lfa-e-calc-not-rel then ;
+  ecl-relation-result ;
 : ecl-synth ( -- x y code )
   s" Trans" 6 ecl-applied dup lf-try-synth lf-must lf-synth-some =
   if ecf ecf-self ! drop ecl-result else drop -1 lfa-e-calc-trans then ;

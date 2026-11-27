@@ -21,3 +21,7 @@ theorem u_calc_target (a b c : Nat) (h1 : a = b) (h2 : b = c) : c = a := by
 theorem u_calc_hole (a b : Nat) (h1 : a = b) : a = b := by
   calc a = b := h1
     _ := h1
+theorem w_wr_exact (a b : Nat) (h : Nat.pred (Nat.succ a) = b) : a = b := by
+  with_reducible exact h
+theorem w_wr_rfl (a : Nat) : a + 0 = a := by
+  with_reducible rfl

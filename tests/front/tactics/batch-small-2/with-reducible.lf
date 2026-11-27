@@ -1,0 +1,85 @@
+\ by-with-reducible tacs by-end, by-with-reducible-and-instances tacs by-end
+\ and by-with-unfolding-all tacs by-end: Lean's with_reducible,
+\ with_reducible_and_instances and with_unfolding_all (plan row 9.4.8z12,
+\ small tactics 2; src/front/tactics/with-reducible.fs): the block's
+\ tactics at reducible, instances or all transparency. Lean twins in
+\ batch-small-2.lean.
+\ Lean: theorem wr_ok (a : Nat) : a = a := by
+\         with_reducible rfl
+theorem wr_ok
+  Nat explicit: a  a a =
+:= by
+  by-with-reducible by-rfl by-end
+end wr_ok
+
+\ At instances transparency (where instHAdd would unfold: u-wr-inst.lf,
+\ not supported yet).
+\ Lean: theorem wr_inst (a b : Nat) (h : a + b = b) : a + b = b := by
+\         with_reducible_and_instances exact h
+theorem wr_inst
+  Nat explicit: a  Nat explicit: b  a b + b = explicit: h  a b + b =
+:= by
+  by-with-reducible-and-instances ' h by-exact by-end
+end wr_inst
+
+\ Lean: theorem wr_all (a : Nat) : a + 0 = a := by
+\         with_unfolding_all rfl
+theorem wr_all
+  Nat explicit: a  a 0 + a =
+:= by
+  by-with-unfolding-all by-rfl by-end
+end wr_all
+
+\ exact at default transparency: Nat.pred (Nat.succ a) is a.
+\ Lean: theorem wr_exact_dflt (a b : Nat) (h : Nat.pred (Nat.succ a) = b) : a = b := by
+\         exact h
+theorem wr_exact_dflt
+  Nat explicit: a  Nat explicit: b  a Nat.succ Nat.pred b = explicit: h  a b =
+:= by
+  ' h by-exact
+end wr_exact_dflt
+
+\ exact fails at reducible transparency inside try, which takes the
+\ error back: the transparency is default again for the exact after it.
+\ Lean: theorem wr_try (a b : Nat) (h : Nat.pred (Nat.succ a) = b) : a = b := by
+\         try with_reducible exact h
+\         exact h
+theorem wr_try
+  Nat explicit: a  Nat explicit: b  a Nat.succ Nat.pred b = explicit: h  a b =
+:= by
+  by-try by-with-reducible ' h by-exact by-end by-end
+  ' h by-exact
+end wr_try
+
+\ Lean: theorem wr_all_exact (a b : Nat) (h : Nat.pred (Nat.succ a) = b) : a = b := by
+\         with_unfolding_all exact h
+theorem wr_all_exact
+  Nat explicit: a  Nat explicit: b  a Nat.succ Nat.pred b = explicit: h  a b =
+:= by
+  by-with-unfolding-all ' h by-exact by-end
+end wr_all_exact
+
+\ The block runs on the goals as they are, no focus: the second goal
+\ after it, closed at default.
+\ Lean: theorem wr_two (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+\         constructor
+\         with_reducible exact h
+\         exact k
+theorem wr_two
+  Nat explicit: a  Nat explicit: b  a b = explicit: h  b a = explicit: k  a b = b a = /\
+:= by
+  by-constructor
+  by-with-reducible ' h by-exact by-end
+  ' k by-exact
+end wr_two
+
+\ A name given inside the block stays after it.
+\ Lean: theorem wr_have (a : Nat) : a = a := by
+\         with_reducible have k : a = a := rfl
+\         exact k
+theorem wr_have
+  Nat explicit: a  a a =
+:= by
+  by-with-reducible a a = ' rfl by-have: k by-end
+  ' k by-exact
+end wr_have

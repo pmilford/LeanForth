@@ -208,6 +208,7 @@ begin-structure /tfr      \ an open block
   field: tfr-acc          \ and the goals its passes left (a run)
   field: tfr-sorry        \ Lean's errToSorry inside it (slice 3)
   field: tfr-won          \ true once a pass ended well (by-any-goals)
+  field: tfr-transp       \ the transparency its steps run at (lfr-advance-at)
 end-structure
 \ An iterate's passes left (tactics/iterate.fs), in the place field, which
 \ no iterate frame uses for a place.
@@ -283,7 +284,7 @@ end-structure
 \ dictionary while the modules load, through a table of lfr-kinds cells
 \ (0: no row), and read-only afterwards.
 1024 constant lfr-kinds
-24 constant lfr-room              \ characters of a spelling or a Lean name
+32 constant lfr-room              \ characters of a spelling or a Lean name
 begin-structure /trow
   field: trow-run
   field: trow-plan                \ with the action: lfr-set
@@ -608,8 +609,15 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 : lfr-flagged ( recover sorry addr -- addr ) tuck tfr-sorry ! tuck tfr-recover ! ;
 : lfr-moded ( mode addr -- addr ) -1 over tfr-save ! -1 over tfr-held ! tuck tfr-mode ! ;
 : lfr-claim ( -- addr ) 1 trun-frames slab-claim lfr-must lfr-frame ;
+\ The transparency a new frame's steps run at (plan row 9.4.8z12): the
+\ frame's below it, the configuration's in force below the first; a
+\ mode's open may set another (lf-tac-transparency!, with_reducible's).
+: lfr-transp-below ( -- mode )
+  lfr-depth 2 - dup 0< if drop lf-defeq-mode else lfr-frame tfr-transp @ then ;
+: lfr-transped ( addr -- addr ) lfr-transp-below over tfr-transp ! ;
+: lf-tac-transparency! ( mode frame -- ) tfr-transp ! ;
 : lfr-push ( mode -- addr )
-  dup lfr-recover-in over lfr-sorry-in lfr-claim lfr-flagged lfr-moded ;
+  dup lfr-recover-in over lfr-sorry-in lfr-claim lfr-flagged lfr-moded lfr-transped ;
 : lfr-frame! ( i rest addr -- addr )
   trun trun-entry @ over tfr-log ! tuck tfr-rest ! over 1+ over tfr-next !
   tuck tfr-step ! ;
@@ -985,6 +993,11 @@ lfr-states# 2* 0 xt-table: lfr-states
 : lfr-end-block ( -- )
   lfr-top dup tfr-mode @ mode-end @ execute lfr-more? 0= if lfr-pop then ;
 : lfr-advance ( -- ) lfr-top lfr-next if lfr-go else lfr-end-block then ;
+\ The same at the top frame's transparency (Lean's withTransparency over
+\ the block's evalTactic), the one in force before put back however the
+\ step ends, a THROW to a handler below included (meta-config.fs's
+\ lf-meta-at), so that no block leaves its transparency behind.
+: lfr-advance-at ( -- ) ['] lfr-advance lfr-top tfr-transp @ lf-meta-at ;
 \ try (Init/Tactics.lean:445, first | tacs | skip): withoutRecover, kept
 \ at its end; at an error, the state back and the block closed.
 ' drop ' lfr-keep ' lfr-skip lfr-no-recover lfr-saving or lf-block-mode
@@ -1068,7 +1081,7 @@ lfr-states# 2* 0 xt-table: lfr-states
 : lfr-failed ( base code -- )
   dup lf-tac-lean-error? 0= if nip throw then swap lfr-taker if lfr-take else throw then ;
 : lfr-loop-from ( base -- )
-  begin lfr-depth over > while ['] lfr-advance catch ?dup if over swap lfr-failed then
+  begin lfr-depth over > while ['] lfr-advance-at catch ?dup if over swap lfr-failed then
   repeat drop ;
 
 \ ---- The run: the root goal, the steps, the end.

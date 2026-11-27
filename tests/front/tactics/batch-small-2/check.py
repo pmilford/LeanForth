@@ -23,16 +23,20 @@ ENV = tactic_check.Env("tests/front/patterns-slice.ndjson",
                        "tests/front/patterns-slice.elab.ndjson", "patterns-dump")
 FILES = [(D + "calc.lf", ["cc_eq", "cc_explicit", "cc_one", "cc_le", "cc_lt", "cc_mix",
                           "cc_ltle", "cc_leeq", "cc_ext", "cc_ext_lt", "cc_hole", "cc_holes",
-                          "cc_num"])]
+                          "cc_num"]),
+         (D + "with-reducible.lf", ["wr_ok", "wr_inst", "wr_all", "wr_exact_dflt", "wr_try",
+                                    "wr_all_exact", "wr_two", "wr_have"])]
 
 WRONG = [(D + "w-calc-lhs.lf", 513, "invalid 'calc' step, left-hand side is",
           "  a : Nat\nbut previous right-hand side is\n  b : Nat"),
          (D + "w-calc-trans.lf", 510,
           "invalid 'calc' step, failed to synthesize `Trans` instance", ""),
-         (D + "w-calc-relation.lf", 512, "invalid 'calc' step, relation expected", "  True")]
+         (D + "w-calc-relation.lf", 512, "invalid 'calc' step, relation expected", "  True"),
+         (D + "w-wr-rfl.lf", 97, "Tactic `rfl` failed: The left-hand side", "  a + 0"),
+         (D + "w-wr-exact.lf", 96, "Type mismatch", "  h")]
 NOT_YET = "not supported yet"
 UNSUPPORTED = [(D + "u-calc-target.lf", 131, NOT_YET), (D + "u-calc-odd.lf", 99, NOT_YET),
-               (D + "u-calc-hole.lf", 99, NOT_YET)]
+               (D + "u-calc-hole.lf", 99, NOT_YET), (D + "u-wr-inst.lf", 139, NOT_YET)]
 
 if __name__ == "__main__":
     tactic_check.main("batch-small-2", FILES, WRONG, UNSUPPORTED, env=ENV,

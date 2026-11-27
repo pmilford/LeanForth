@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """The runner's bound on Lean's recursion depth, end to end (re-check of the Forth review of
 small-tactics-1, finding 1; src/front/tactic-run.fs's lf-tac-depth-most). Plain: u-rd-try.lf
-(36 by-try around 126 by-iterate) and u-rd-have.lf (40 nested by-have-by:, no iterate) through
-bin/leanforth check against decide's slice of Init: exit 2, error 99, never accepted (the
+(36 by-try around 126 by-iterate), u-rd-have.lf (40 nested by-have-by:, no iterate) and
+u-rd-wr.lf (119 nested by-with-reducible) through bin/leanforth check against decide's slice
+of Init: exit 2, error 99, never accepted (the
 harness of tests/front/tactics/tactic_check.py). With --lean: pinned Lean accepts every
 theorem of rec-depth.lean, the deepest nesting of each block it takes, and refuses every
 theorem of rec-depth-wrong.lean, one level deeper, with "maximum recursion depth has been
@@ -23,7 +24,8 @@ D = "tests/front/tactics/rec-depth/"
 ENV = tactic_check.Env("tests/front/decide-slice.ndjson", "tests/front/decide-slice.elab.ndjson",
                        "decide-dump")
 UNSUPPORTED = [(D + "u-rd-try.lf", 99, "not supported yet"),
-               (D + "u-rd-have.lf", 99, "not supported yet")]
+               (D + "u-rd-have.lf", 99, "not supported yet"),
+               (D + "u-rd-wr.lf", 99, "not supported yet")]
 DEPTH = "maximum recursion depth has been reached"
 
 

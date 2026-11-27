@@ -49,6 +49,26 @@ theorem cc_holes (a b c : Nat) (h1 : a = b) (h2 : b = c) : a = c := by
 theorem cc_num (a b : Nat) (h1 : a = b) (h2 : b = 1 + 1) : a = 1 + 1 := by
   calc a = b := h1
     _ = 1 + 1 := h2
+theorem wr_ok (a : Nat) : a = a := by
+  with_reducible rfl
+theorem wr_inst (a b : Nat) (h : a + b = b) : a + b = b := by
+  with_reducible_and_instances exact h
+theorem wr_all (a : Nat) : a + 0 = a := by
+  with_unfolding_all rfl
+theorem wr_exact_dflt (a b : Nat) (h : Nat.pred (Nat.succ a) = b) : a = b := by
+  exact h
+theorem wr_try (a b : Nat) (h : Nat.pred (Nat.succ a) = b) : a = b := by
+  try with_reducible exact h
+  exact h
+theorem wr_all_exact (a b : Nat) (h : Nat.pred (Nat.succ a) = b) : a = b := by
+  with_unfolding_all exact h
+theorem wr_two (a b : Nat) (h : a = b) (k : b = a) : a = b ∧ b = a := by
+  constructor
+  with_reducible exact h
+  exact k
+theorem wr_have (a : Nat) : a = a := by
+  with_reducible have k : a = a := rfl
+  exact k
 
 def pl (l : Level) : String := match l.toNat with
   | some n => toString n
@@ -73,5 +93,7 @@ def dump (n : Name) : MetaM Unit := do
 
 #eval do
   for n in [``cc_eq, ``cc_explicit, ``cc_one, ``cc_le, ``cc_lt, ``cc_mix, ``cc_ltle,
-            ``cc_leeq, ``cc_ext, ``cc_ext_lt, ``cc_hole, ``cc_holes, ``cc_num] do
+            ``cc_leeq, ``cc_ext, ``cc_ext_lt, ``cc_hole, ``cc_holes, ``cc_num, ``wr_ok,
+            ``wr_inst, ``wr_all, ``wr_exact_dflt, ``wr_try, ``wr_all_exact, ``wr_two,
+            ``wr_have] do
     dump n

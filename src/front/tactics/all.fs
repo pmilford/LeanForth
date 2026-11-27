@@ -50,3 +50,4 @@ require ./subst.fs
 require ./swap.fs
 require ./symm.fs
 require ./trivial.fs
+require ./with-reducible.fs

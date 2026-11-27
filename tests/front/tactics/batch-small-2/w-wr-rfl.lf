@@ -1,0 +1,10 @@
+\ A wrong twin (plan row 9.4.8z12, small tactics 2; batch-small-2-wrong.lean):
+\ at reducible transparency a + 0 does not unfold to a: Lean's "Tactic
+\ `rfl` failed: The left-hand side", with the two sides and the goal.
+\ Lean: theorem w_wr_rfl (a : Nat) : a + 0 = a := by
+\         with_reducible rfl
+theorem w_wr_rfl
+  Nat explicit: a  a 0 + a =
+:= by
+  by-with-reducible by-rfl by-end
+end w_wr_rfl

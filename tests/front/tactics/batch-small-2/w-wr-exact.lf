@@ -1,0 +1,11 @@
+\ A wrong twin (plan row 9.4.8z12, small tactics 2; batch-small-2-wrong.lean):
+\ at reducible transparency Nat.pred (Nat.succ a) does not unfold, so h's
+\ type is not the goal's: Lean's "Type mismatch" (96), where exact at
+\ default transparency accepts it (with-reducible.lf's wr_exact_dflt).
+\ Lean: theorem w_wr_exact (a b : Nat) (h : Nat.pred (Nat.succ a) = b) : a = b := by
+\         with_reducible exact h
+theorem w_wr_exact
+  Nat explicit: a  Nat explicit: b  a Nat.succ Nat.pred b = explicit: h  a b =
+:= by
+  by-with-reducible ' h by-exact by-end
+end w_wr_exact

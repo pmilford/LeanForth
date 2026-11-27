@@ -1,0 +1,12 @@
+\ Not supported (plan row 9.4.8z12, small tactics 2): exact at instances
+\ transparency where instHAdd and instAddNat must unfold (a + b against
+\ Nat.add a b): the elaborator's comparison at that transparency answers
+\ 139 (exit 2), never accepted. Pinned Lean accepts it:
+\ theorem u_wr_inst (a b c : Nat) (h : a + b = c) : Nat.add a b = c := by
+\   with_reducible_and_instances exact h
+theorem u_wr_inst
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  a b + c = explicit: h
+  a b Nat.add c =
+:= by
+  by-with-reducible-and-instances ' h by-exact by-end
+end u_wr_inst

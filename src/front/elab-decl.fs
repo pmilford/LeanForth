@@ -105,9 +105,12 @@ action-of lfa-run-fresh constant edc-run-before
 
 \ ---- The elaborator's configuration while xt runs, given back after;
 \ the caller's holesAsSyntheticOpaque and assignSyntheticOpaque kept
-\ (tactic-core.fs's elabTermWithHoles sets both around Tactic.elabTerm).
+\ (tactic-core.fs's elabTermWithHoles sets both around Tactic.elabTerm);
+\ the transparency in force kept (default, but inside a with_reducible
+\ block the runner's frame's, as Lean's elaborator reads it; plan row
+\ 9.4.8z12).
 : edc-kept ( -- flags ) lf-defeq-flags lf-holes-opaque lf-defeq-opaque or and ;
-: lf-elab-configured ( i*x xt -- j*x ) edc-kept lf-defeq-elab or lf-tr-default lf-meta-with ;
+: lf-elab-configured ( i*x xt -- j*x ) edc-kept lf-defeq-elab or lf-defeq-mode lf-meta-with ;
 
 \ ---- Errors: the run stops at the current token (end NAME, #check).
 \ (A failure no step recorded, a print's, has no second position: -1.)
