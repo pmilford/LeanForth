@@ -452,3 +452,89 @@ old = '''  dup sm-parts? if sm-parts else drop then dup sm-scan-most > ;'''
 new = '''  dup sm-parts? if sm-parts else drop then false ;'''
 test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
 reason = "the scan's list on the data stack has no bound: a term of seventy nested applications is scanned whole"
+
+# The review of simp group 4 (docs/development/forth-reviews/2026-11-26-simp-group-4.md):
+# B1 every simproc by its row, B2 a rank taken twice or a gap refused, B3 the rows sealed,
+# B4 bytes-before.
+
+[[fault]]
+id = "sg4r-shift-shift-lit"
+file = "src/front/simp/simprocs.fs"
+old = '''' sp-crude-port 0 6 false false
+lf-simproc: HShiftRight.hShiftRight BitVec.reduceShiftRightShiftRight'''
+new = '''' sp-lit-port 0 6 false false
+lf-simproc: HShiftRight.hShiftRight BitVec.reduceShiftRightShiftRight'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "review B1: BitVec.reduceShiftRightShiftRight given the literal guard, which continues on (x >>> 2) >>> 3 where Lean rewrites any x: by-simp proves pb_shr_shr with or_true, not Lean's shiftRight_add term"
+
+[[fault]]
+id = "sg4r-no-row-lit"
+file = "src/front/simp/simprocs.fs"
+old = '''  dup sp-entry ?dup if sp-fitting sp-call else drop sp-crude then ;'''
+new = '''  dup sp-entry ?dup if sp-fitting sp-call else drop sp-lit-guard then ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "review B1: a simproc with no row (another Lean's) given the literal guard, which continues on x + 3 whatever its body does"
+
+[[fault]]
+id = "sg4r-table-row-missing"
+file = "src/front/simp/simprocs/guards.fs"
+old = '''sp-lit-d: UInt8.reduceAdd'''
+new = '''\ sp-lit-d: UInt8.reduceAdd'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "review B1: an Init simproc without a row in the table, which the audit test must find"
+
+[[fault]]
+id = "sg4r-rank-twice-kept"
+file = "src/front/data-index.fs"
+old = '''  2dup rix-rank swap 2dup rix-free? if rix-put else nip nip rix-refuse then ;'''
+new = '''  2dup rix-rank swap 2dup rix-free? drop rix-put ;'''
+test = "$GFORTH tests/front/data-index.fs"
+reason = "review B2: a second value of one rank overwrites the first: and_true placed over and_self, which drops out of the set silently"
+
+[[fault]]
+id = "sg4r-rank-fill-none"
+file = "src/front/data-index.fs"
+old = ''': rix-put ( v r rix -- outcome ) rix-ranked rix-none swap slab-cell-put-with ;'''
+new = ''': rix-put ( v r rix -- outcome ) rix-ranked -1 swap slab-cell-put-with ;'''
+test = "$GFORTH tests/front/data-index.fs"
+reason = "review B2: cells no value took filled with -1, the left-out record 0's value: a free rank reads as taken"
+
+[[fault]]
+id = "sg4r-refusal-unmarked"
+file = "src/front/data-index.fs"
+old = ''': rix-refuse ( rix -- outcome ) true swap rix-refused ! outcome-invalid ;'''
+new = ''': rix-refuse ( rix -- outcome ) drop outcome-invalid ;'''
+test = "$GFORTH tests/front/data-index.fs"
+reason = "review B2: a refused root leaves no mark, so by-simp reports the walk's own error (93, exit 2), not the data's"
+
+[[fault]]
+id = "sg4r-ranks-not-reported"
+file = "src/front/tactics/simp.fs"
+old = ''': tsm-refused ( code flag -- code ) if drop lfa-e-simp-ranks lf-tac-stop then ;'''
+new = ''': tsm-refused ( code flag -- code ) drop ;'''
+test = "GFORTH=$GFORTH python3 tests/front/test_simp_data.py"
+reason = "review B2 and L4: data with a rank taken twice or a gap answer error 93 (exit 2) instead of error 504 (exit 4)"
+
+[[fault]]
+id = "sg4r-cell-fill-ignored"
+file = "src/lib/slab.fs"
+old = '''    2dup slab-push dup ok? 0= if nip nip unloop exit then drop'''
+new = '''    -1 over slab-push dup ok? 0= if nip nip unloop exit then drop'''
+test = "$GFORTH tests/lib/slab.fs"
+reason = "review B2: slab-cell-put-with fills with -1 whatever fill it is given"
+
+[[fault]]
+id = "sg4r-rows-unsealed"
+file = "src/front/simp/simprocs.fs"
+old = ''': sp-open ( -- ) context-sealed? abort" simprocs: a port after context-new" ;'''
+new = ''': sp-open ( -- ) ;'''
+test = "$GFORTH tests/front/tactics/simp-procs/test.fs"
+reason = "review B3: a simproc row laid after a context is made, while runs read the table in place"
+
+[[fault]]
+id = "sg4r-bytes-before-past"
+file = "src/lib/bytes.fs"
+old = ''': bytes-before ( addr u char -- n ) >r tuck r> byte-scan nip - ;'''
+new = ''': bytes-before ( addr u char -- n ) >r tuck r> byte-scan nip - 1+ ;'''
+test = "$GFORTH tests/lib/bytes.fs"
+reason = "review B4: bytes-before counts the delimiter too"

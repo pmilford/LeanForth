@@ -73,7 +73,7 @@
 \ Interface: /slab slab-init slab-free slab-live? slab-valid? slab-count slab-since
 \ slab-capacity slab-limit slab-unit slab-at slab-base slab-data slab-top slab-room
 \ slab-reserve slab-hold slab-claim slab-claim-one slab-commit slab-cut slab-remove
-\ slab-bad-cut slab-trim slab-zeroed slab-cell-put
+\ slab-bad-cut slab-trim slab-zeroed slab-cell-put slab-cell-put-with
 \ slab-clear slabs-clear slab-bytes slab-used-bytes slab-limit-max slab-offset
 \ slab-push slab-pop slab-2push slab-2pop slab-last slab-drop
 \ slab-keep slab-restore slab-forget slab-kept
@@ -208,7 +208,7 @@ lf-lib-private set-current
 \ double the old capacity, slab-min-units, and never past the limit.
 \ Doubling adds the smaller of the capacity and the room left, so it
 \ cannot overflow.
-: slab-doubled ( slab -- units ) dup slab-capacity dup rot slab-limit over - min + ;
+: slab-doubled ( slab -- units ) dup slab-limit swap slab-capacity tuck - over min + ;
 : slab-target ( n slab -- units )
   tuck slab-count + over slab-doubled max slab-min-units max swap slab-limit min ;
 \ Whether n more units fit the capacity, and the limit; n >= 0.
@@ -286,17 +286,21 @@ lf-lib set-current
   cell swap slab-claim-wide ok-store ;
 : slab-2push ( x1 x2 slab -- outcome )
   2 cells swap slab-claim-wide ok-then? if 2! outcome-ok else nip nip then ;
-\ A slab of cells used as an array by index: x stored in cell i, the slab
-\ first grown to i + 1 cells, the cells it adds set to -1 (none). ok, or
-\ slab-push's outcome, x not stored (the cells added before stay, -1); i
-\ must not be negative.
+\ A slab of cells used as an array by index: slab-cell-put-with stores x
+\ in cell i, the slab first grown to i + 1 cells, the cells it adds set
+\ to fill (a value no stored x has, so that a reader tells a cell never
+\ stored from one stored); slab-cell-put fills with -1 (none). ok, or
+\ slab-push's outcome, x not stored (the cells added before stay, fill);
+\ i must not be negative.
 lf-lib-private set-current
-: slab-cells-to ( n slab -- outcome )
-  begin 2dup slab-count > while -1 over slab-push dup ok? 0= if nip nip exit then drop
-  repeat 2drop outcome-ok ;
+: slab-cells-to ( fill slab n -- outcome )
+  over slab-count - 0 max 0 ?do
+    2dup slab-push dup ok? 0= if nip nip unloop exit then drop
+  loop 2drop outcome-ok ;
 lf-lib set-current
-: slab-cell-put ( x i slab -- outcome )
-  over 1+ over slab-cells-to ok-then? 0= if nip nip exit then slab-at ! outcome-ok ;
+: slab-cell-put-with ( x i fill slab -- outcome )
+  swap over 3 pick 1+ slab-cells-to ok-then? if slab-at ! outcome-ok else nip nip then ;
+: slab-cell-put ( x i slab -- outcome ) -1 swap slab-cell-put-with ;
 \ Pop the newest cell or pair; slab-drop gives the newest unit back and
 \ slab-last is its address. An empty slab, one whose count is past its
 \ capacity or one too narrow throws slab-underflow, nothing changed:

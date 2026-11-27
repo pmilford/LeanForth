@@ -47,7 +47,7 @@
 \ Interface: /reader reader: reader-init reader-rules! reader-text
 \ reader-strict reader-final-lf reader-keep-cr reader-keep-bom reader-free
 \ reader-attach reader-open reader-close reader-line reader-more?
-\ reader-position reader-line# byte-scan text-framed utf8-length utf8-valid?
+\ reader-position reader-line# byte-scan bytes-before text-framed utf8-length utf8-valid?
 \ utf8-decode utf8-size utf8-put counted, counted-next counted-nth counted-or-empty
 \ fnv-step bytes-mix. Requires portability.fs, bounds.fs (between?),
 \ outcome.fs, store.fs (store-zeroed,), blocks.fs (heap-claim and
@@ -142,6 +142,10 @@ s" gforth" environment? [if] 2drop
 [else]
 : byte-scan ( addr u char -- addr' u' ) byte-scan-portable ;
 [then]
+\ The number of bytes of addr u before the first byte char, u when there
+\ is none: a token's length up to its delimiter (a name's first part,
+\ a word up to a space, a text up to its closing quote).
+: bytes-before ( addr u char -- n ) >r tuck r> byte-scan nip - ;
 lf-lib-private set-current
 \ The number of bytes before the first line feed, if there is one.
 : lf-index ( addr u -- n true | false )
@@ -180,7 +184,7 @@ lf-lib-private set-current
 \ buffer, adding the bytes before them to reader-base. A full buffer grows
 \ to twice its size, but never past the limit plus one byte for the line
 \ feed; a buffer already beyond the limit cannot grow (full).
-: reader-base+ ( n reader -- ) reader-base dup >r 2@ rot m+ r> 2! ;
+: reader-base+ ( n reader -- ) reader-base tuck 2@ rot m+ rot 2! ;
 : reader-shift ( reader -- )
   >r r@ reader-unread tuck r@ reader-buffer @ swap move
   r@ reader-start @ r@ reader-base+ r@ reader-end ! 0 r> reader-start ! ;
@@ -283,7 +287,7 @@ $f0 $f0 6 utf8-class!  $f1 $f3 7 utf8-class!  $f4 $f4 8 utf8-class!
 
 : utf8-row ( byte -- row ) utf8-classes + c@ /utf8-row * utf8-rows + ;
 : continuation? ( byte -- flag ) $80 $bf between? ;
-: utf8-second? ( addr row -- flag ) swap 1+ c@ over row-lo @ rot row-hi @ between? ;
+: utf8-second? ( addr row -- flag ) swap 1+ c@ swap dup row-lo @ swap row-hi @ between? ;
 \ Bytes three and four of a sequence are plain continuation bytes.
 : utf8-tail? ( addr n -- flag )
   true -rot 2 ?do dup i + c@ continuation? rot and swap loop drop ;

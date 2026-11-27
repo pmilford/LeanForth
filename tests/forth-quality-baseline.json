@@ -791,6 +791,14 @@
   "shuffles": 2,
   "words": 53
  },
+ "src/front/simp/simprocs.fs": {
+  "globals": 1,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 24,
+  "shuffles": 7,
+  "words": 49
+ },
  "src/front/syntax.fs": {
   "globals": 0,
   "long lines": 0,
@@ -1126,6 +1134,14 @@
   "rstack": 0,
   "shuffles": 1,
   "words": 16
+ },
+ "src/front/tactics/simp.fs": {
+  "globals": 2,
+  "long lines": 0,
+  "long words": 0,
+  "rstack": 3,
+  "shuffles": 0,
+  "words": 6
  },
  "src/front/tactics/skip.fs": {
   "globals": 1,

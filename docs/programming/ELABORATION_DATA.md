@@ -912,7 +912,18 @@ from 0.43 to 2.18 MB.
 
 **Read** by `src/front/simp-set-data.fs`, kinds added with `elab-add-kind41`: members as for every kind (errors
 10-14, 19, 22), keys one term (30), the checks of the table. Ranks are checked when a root is built
-(`src/front/data-index.fs`: a gap or two values of one rank answer invalid there), not when the file is read.
+(`src/front/data-index.fs`), not when the file is read: two records of one root key with one rank, or a rank no
+record of the root has (a gap), refuse the index, and `by-simp` stops with error 504 (exit 4: "elaboration data
+refused"), whatever the walk had made of it (review of simp group 4, B2; `tests/front/test_simp_data.py` part 4).
+
+What the data are trusted for (review of simp group 4, L3). The records' SHA-256 in the header and the export's
+manifest bind the data to the export, so a changed record without a new digest is refused (error 21). Within data
+whose digest is right, the checks above refuse malformed records, but several changes are read as Lean's own
+choice and change which lemma `by-simp` uses, never what the kernel accepts: a lemma's priority (and_true at 1001
+is tried before and_self), a lemma's post flag, its keys moved under another root key of the same shape, two ranks
+of one root swapped, and a simproc's keys. The kernel checks every proof a lemma or simproc gives, so such data
+can make `by-simp` prove a goal with another term than Lean's, or not prove it; it cannot make a false statement
+accepted. The data are as trusted as the export that wrote them (`scripts/export-elab.sh`, pinned Lean).
 `simp-default? ( -- flag )` is true only for 4.1 data holding the `simp_set` record; `by-simp` answers unsupported
 without it. The check's data line ends with ", N default simp lemmas, N left out, N simprocs, N definitions to unfold" for such data (`cli-elab-simp-set`). Tests: `tests/front/simp-data.fs` (the slice's data, 21 fixtures of `tests/front/simp-data/`, a heap
 sweep), `tests/front/test_simp_data.py` (the fixtures; `export_simp.py` kept, left-out and dropped records, format 4

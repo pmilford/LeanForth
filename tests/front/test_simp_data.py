@@ -21,6 +21,10 @@ the writer's congr records and defeq tags, and the check reading them.
    SL1a-1 grew the slice) accepts
    tests/front/simp-data/sd-id.lf; with the good fixture too (the export's manifest copied
    without its binding); damaged fixtures refused with their codes and lines.
+4. The real format-4.1 data of the simp slice with and_true's rank under And made and_self's
+   (0: two records of one rank) or 99 (a gap), its digest made again: by-simp on
+   True ∧ True refused with error 504, exit 4 (review of simp group 4, B2: the reader
+   leaves the simp records' ranks to the index built at a root's first query).
 """
 import hashlib
 import json
@@ -399,6 +403,36 @@ def check_cases(work):
             fail(f"check with {name}: {status} {said[-300:]}")
 
 
+def ranked(work, name, rank):
+    """DATA with and_true's rank set, its records' digest made again."""
+    head, *body = DATA.read_text(encoding="utf-8").split("\n")
+    for i, line in enumerate(body):
+        if line.startswith('{"simp_lemma"') and '"origin":["and_true"]' in line:
+            record = json.loads(line)
+            record["simp_lemma"]["rank"] = rank
+            body[i] = json.dumps(record, separators=(",", ":"), sort_keys=True)
+    text = "\n".join(body)
+    header = json.loads(head)
+    header["elab_data"]["records_sha256"] = hashlib.sha256(text.encode()).hexdigest()
+    path = work / f"{name}.elab.ndjson"
+    path.write_text(json.dumps(header, separators=(",", ":"), sort_keys=True) + "\n" + text,
+                    encoding="utf-8")
+    return path
+
+
+def rank_cases(work):
+    lf = work / "rank.lf"
+    lf.write_text("theorem rk\n  True True ∧\n:= by\n  by-simp\nend rk\n", encoding="utf-8")
+    for name, rank in (("rank-twice", 0), ("rank-gap", 99)):
+        done = subprocess.run([str(LEANFORTH), "check", "--env", str(work / "slice.ndjson"),
+                               "--elab-data", str(ranked(work, name, rank)), str(lf)],
+                              stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                              timeout=LIMIT)
+        said = done.stdout + done.stderr
+        if done.returncode != 4 or "error 504 at" not in said:
+            fail(f"by-simp with {name}: exit {done.returncode} {said[-300:]}")
+
+
 def main(argv):
     fixtures("--write-fixtures" in argv)
     with tempfile.TemporaryDirectory() as tmp:
@@ -410,8 +444,9 @@ def main(argv):
         writer_cases(work)
         set_finisher_cases(work)
         check_cases(work)
+        rank_cases(work)
     print(f"simp data (formats 4 and 4.1): all tests passed ({len(CASES)} fixtures, 14 finisher "
-          "runs, 11 checks)")
+          "runs, 13 checks)")
 
 
 if __name__ == "__main__":

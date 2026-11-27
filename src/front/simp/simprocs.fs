@@ -23,27 +23,32 @@
 \   eq_false_of_decide p d (Eq.refl b), d mkDecide p's instance.
 \ - Guards, for a simproc whose action is not ported: unsupported exactly
 \   where Lean's simproc may fire, else continue, never a step of its own.
-\   A family's, by the name's first part: Nat, Int, Fin, Char, String,
-\   BitVec and the fixed-width integers compute on literals only (their
-\   fromExpr?: getNatValue?, getOfNatValue?, getIntValue?, getFinValue?,
-\   getBitVecValue?, getCharValue?, getStringValue?, getListLitOf?;
-\   Meta/LitValues.lean), so sp-lit-guard: unsupported when every
-\   explicit argument that is no proof has a literal's form (sp-may-lit?:
-\   a raw literal, a metavariable or annotation, or a literal's head
-\   constant), else continue; any other family (List, Array,
-\   Lean.Meta.Grind) unsupported whenever its keys match. By name:
-\   reduceCtorEq (Core.lean:88, sp-ctor-guard) and Nat's Diff family
-\   (Nat.lean:268-365, sp-diff-guard); Char's two digit simprocs
-\   (Char.lean) unsupported whenever their keys match.
+\   Every simproc of Init's default set has a row by its name (review of
+\   simp group 4, B1): a port (simprocs/core.fs, simprocs/nat.fs), a
+\   named guard below (reduceCtorEq, Core.lean:88, sp-ctor-guard; Nat's
+\   Diff family, Nat.lean:268-365, sp-diff-guard; crude ports for Char's
+\   two digit simprocs and BitVec's two shift-shift and two
+\   shift-by-literal simprocs, which fire on any operand), or a row of
+\   simprocs/guards.fs's table, each citing Lean's declaration: sp-lit-
+\   rows (sp-lit-guard) for a simproc whose body answers .continue unless
+\   every explicit operand passes its fromExpr? (getNatValue?,
+\   getOfNatValue?, getIntValue?, getFinValue?, getBitVecValue?,
+\   getCharValue?, getStringValue?; Meta/LitValues.lean): unsupported
+\   when every explicit argument that is no proof has a literal's form
+\   (sp-may-lit?: a raw literal, a metavariable or annotation, or a
+\   literal's head constant), else continue; sp-crude- rows (sp-crude)
+\   unsupported whenever its keys match. A name with no row (another
+\   Lean's simproc) is unsupported whenever its keys match.
 \ Throws as meta-must.fs's words do. Untrusted: a simproc only proposes
 \ a step whose proof the kernel checks. State: none of its own; the
-\ port table sp-ports is laid while loading.
+\ port table sp-ports is laid while loading, before any context is made
+\ (lib/context.fs's context-sealed?), and only read after.
 \ Loads in decimal whatever BASE is, then restores it.
 
 base @ decimal   \ the numbers below are decimal; the BASE kept here returns at the end
 require ../../lib/lib.fs
-require ../../lib/bytes.fs
 require ../../lib/name-table.fs
+require ../../lib/context.fs
 require ../../lib/texts.fs
 require ../../core/terms.fs
 require ../../core/input.fs
@@ -60,8 +65,14 @@ end-structure
 name-table: sp-ports
 : sp-laid ( xt x n pre? dsimproc? -- )
   2>r rot , swap , , 2r> swap , , ;
-: lf-simproc: ( xt x n pre? dsimproc? "decl" "name" -- )
-  parse-name parse-name sp-ports name-entry 2>r sp-laid 2r> counted, ;
+\ Rows are laid only while the modules load (review B3), as the tactic
+\ registry's (tactic-run.fs's lfr-open): runs read them in place.
+: sp-open ( -- ) context-sealed? abort" simprocs: a port after context-new" ;
+: sp-row ( xt x n pre? dsimproc? c-addr u "name" -- )
+  sp-open parse-name sp-ports name-entry 2>r sp-laid 2r> counted, ;
+: lf-simproc: ( xt x n pre? dsimproc? "decl" "name" -- ) parse-name sp-row ;
+\ A guard's row: any head (n -1, no decl), its xt ( e x -- e h step ).
+: sp-guard-row ( xt pre? dsimproc? "name" -- ) 2>r 0 -1 2r> 0 0 sp-row ;
 : sp-data ( entry -- addr ) name-entry-data ;
 : sp-decl ( entry -- c-addr u ) sp-data /sp + count ;
 \ The record's phase and kind are the port's.
@@ -69,7 +80,9 @@ name-table: sp-ports
 : sp-kind? ( p entry -- flag ) sp-data sp-dsimp @ swap simp-proc-dsimproc? = ;
 : sp-fitting ( p entry -- entry )
   2dup sp-phase? >r tuck sp-kind? r> and 0= if lf-unported then ;
-: sp-shaped? ( e entry -- flag ) dup sp-data sp-n @ swap sp-decl lf-meta-app-of? ;
+: sp-any? ( entry -- flag ) sp-data sp-n @ 0< ;
+: sp-shaped? ( e entry -- flag )
+  dup sp-any? if 2drop true exit then dup sp-data sp-n @ swap sp-decl lf-meta-app-of? ;
 : sp-call ( e entry -- e' h step )
   2dup sp-shaped? 0= if drop lf-simp-pass exit then
   sp-data dup sp-x @ swap sp-xt @ execute ;
@@ -96,21 +109,19 @@ lf-tag-lit lf-tag-str lf-tag-mvar lf-tag-annotation 4 lf-tags constant sp-lit-ta
   over lf-meta-args# ['] sp-arg-lit? all? nip nip ;
 : sp-lit-guard ( e -- e h step ) dup sp-lits? if lf-unported then lf-simp-pass ;
 : sp-crude ( e -- e h step ) lf-unported lf-simp-pass ;
-\ The family of record p: its name's first part, one of the literal
-\ families or none.
-texts-begin texts+ Nat Int Fin Char String BitVec UInt8 UInt16 UInt32 UInt64 USize
-texts+ Int8 Int16 Int32 Int64 ISize
-texts-end constant sp-lit-families
-: sp-first-part ( c-addr u -- c-addr u' ) 2dup [char] . byte-scan nip - ;
-: sp-family? ( p c-addr u -- flag ) rot simp-proc-name sp-first-part compare 0= ;
-: sp-family ( p -- xt )
-  ['] sp-family? sp-lit-families texts-index 0<
-  if ['] sp-crude else ['] sp-lit-guard then ;
+: sp-lit-port ( e x -- e h step ) drop sp-lit-guard ;
+: sp-crude-port ( e x -- e h step ) drop sp-crude ;
+\ The table's rows (simprocs/guards.fs), by phase and kind: post
+\ dsimprocs, post simprocs, a pre dsimproc.
+: sp-lit-d: ( "name" -- ) ['] sp-lit-port false true sp-guard-row ;
+: sp-lit-s: ( "name" -- ) ['] sp-lit-port false false sp-guard-row ;
+: sp-lit-d-pre: ( "name" -- ) ['] sp-lit-port true true sp-guard-row ;
+: sp-crude-d: ( "name" -- ) ['] sp-crude-port false true sp-guard-row ;
 
 \ ---- SimprocEntry.try.
 : sp-entry ( p -- entry | 0 ) simp-proc-name sp-ports name-table-find ;
 : sp-apply ( e p -- e' h step )
-  dup sp-entry ?dup if sp-fitting sp-call else sp-family execute then ;
+  dup sp-entry ?dup if sp-fitting sp-call else drop sp-crude then ;
 : sp-run ( e p extra -- e extra e0' h step ) swap >r 2dup lf-term-fns r> sp-apply ;
 : sp-extra ( e extra e0' h step -- e' h step )
   dup lf-simp-continue = if 2drop 2drop lf-simp-pass exit then >r lf-simp-extra-args r> ;
@@ -170,7 +181,6 @@ texts-end constant sp-lit-families
 : sp-ctor-guard ( e x -- e h step )
   drop dup lf-meta-args2 sp-ctor-of swap sp-ctor-of sp-ctors-fire? if lf-unported then
   lf-simp-pass ;
-: sp-crude-port ( e x -- e h step ) drop sp-crude ;
 
 ' sp-ctor-guard 0 3 false false lf-simproc: Eq reduceCtorEq
 ' sp-diff-guard 0 3 false false lf-simproc: Eq Nat.reduceEqDiff
@@ -180,5 +190,16 @@ texts-end constant sp-lit-families
 ' sp-diff-guard 0 6 false false lf-simproc: HSub.hSub Nat.reduceSubDiff
 ' sp-crude-port 0 3 false false lf-simproc: Eq Char.Nat.reduceDigitCharEq
 ' sp-crude-port 0 3 false false lf-simproc: Eq Char.Nat.reduceEqDigitChar
+\ BitVec.lean:447-465 (reduceShiftShift: (x <<< i) <<< j to x <<< (i + j)
+\ for any x) and :94-98, :221-230 (reduceShiftWithBitVecLit: x <<< i, i a
+\ literal, for any x).
+' sp-crude-port 0 6 false false
+lf-simproc: HShiftLeft.hShiftLeft BitVec.reduceShiftLeftShiftLeft
+' sp-crude-port 0 6 false false
+lf-simproc: HShiftRight.hShiftRight BitVec.reduceShiftRightShiftRight
+' sp-crude-port 0 6 false true
+lf-simproc: HShiftLeft.hShiftLeft BitVec.reduceHShiftLeft'
+' sp-crude-port 0 6 false true
+lf-simproc: HShiftRight.hShiftRight BitVec.reduceHShiftRight'
 
 base !   \ the BASE this file was loaded with

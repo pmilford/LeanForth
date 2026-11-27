@@ -78,6 +78,18 @@ T{ 5 1 s3 slab-cell-put s3 slab-count 1 s3 slab-at @ -> outcome-ok 3 5 }T
 \ Beyond the limit: full, x not stored, the cells added up to the limit
 \ kept (-1).
 T{ 9 8 s3 slab-cell-put s3 slab-count 7 s3 slab-at @ -> outcome-full 8 -1 }T
+\ slab-cell-put-with: the cells added hold the fill given (here -7, a
+\ value no stored cell has), the cell put x; a cell within the count is
+\ overwritten, the others kept; beyond the limit full, x not stored, the
+\ cells added up to the limit hold the fill.
+s3 slab-clear
+T{ 4 3 -7 s3 slab-cell-put-with s3 slab-count 0 s3 slab-at @ 2 s3 slab-at @ 3 s3 slab-at @
+   -> outcome-ok 4 -7 -7 4 }T
+T{ 6 0 -9 s3 slab-cell-put-with s3 slab-count 0 s3 slab-at @ 1 s3 slab-at @
+   -> outcome-ok 4 6 -7 }T
+s3 slab-clear
+T{ 9 8 -5 s3 slab-cell-put-with s3 slab-count 0 s3 slab-at @ 7 s3 slab-at @
+   -> outcome-full 8 -5 -5 }T
 s3 slab-free
 
 \ Clearing: count 0, generation + 1; at max-n the slab is poisoned.

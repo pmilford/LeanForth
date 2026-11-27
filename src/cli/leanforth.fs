@@ -851,7 +851,7 @@ here cli-plain-chars - 2 cells / constant cli-plain-chars#
 \ text that is not plain (a line feed in it could forge a report line;
 \ review rvSN3 m1).
 : cli-commit-key ( -- c-addr u ) s\" \"commit\":\"" ;
-: cli-quote-at ( c-addr u -- n ) tuck [char] " byte-scan nip - ;
+: cli-quote-at ( c-addr u -- n ) [char] " bytes-before ;
 : cli-shown-commit ( c-addr u -- c-addr' u' )
   2dup cli-plain? over 0<> and 0= if 2drop s" unknown" then ;
 : cli-written-by ( -- c-addr u )

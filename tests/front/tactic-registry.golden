@@ -204,6 +204,7 @@
 503	1	lean	Invalid `←` modifier: Cannot be applied to simp theorems of the form `¬ P`
 500	1	lean	`simp` made no progress
 501	1	lean	Invalid argument: Variable
+504	1	-	elaboration data refused: two simp records of a root key with one rank, or a gap
 447	1	lean	'specialize' requires a term of the form `h x_1 .. x_n` where `h` appears in the local context
 446	1	lean	goal index `2` is out of bounds
 451	1	lean	Symmetry lemmas only apply to binary relations, not

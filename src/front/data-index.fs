@@ -34,11 +34,16 @@
 \   yet; ok, or why not (full), nothing counted as done. An index of kind
 \   0 is a plain tree (values inserted by lf-dtree-insert alone): ok.
 \ - The builder, at a root's first query (or lf-rix-force): every value
-\   whose root key is the root's placed at its rank; their number must
-\   fill every rank (the reader refuses two values of one rank; a gap is
-\   invalid here); then the kind's checks; then each value's entry
-\   inserted in rank order (lf-dtree-insert). A failure keeps nothing of
-\   the root (discr-tree.fs's rule): its next query builds it anew.
+\   whose root key is the root's placed at its rank; a second value of
+\   one rank, or a rank no value has (a gap), is invalid and marks the
+\   index refused (lf-rix-refused?: the data are, as the instance
+\   reader's ranks table refuses them at read time; the simp kinds'
+\   records are first placed here, review of simp group 4 B2); then the
+\   kind's checks; then each value's entry inserted in rank order
+\   (lf-dtree-insert). A failure keeps nothing of the root (discr-tree.fs's
+\   rule): its next query builds it anew.
+\ - lf-rix-refused? ( rix -- flag ): a root's data refused since
+\   lf-rix-free.
 \ - lf-rix-force ( k rix -- outcome ): root key k's trie built now when it
 \   has a root and no trie (a value inserted later goes after the root's
 \   data values, as Lean's insertion into a full tree does); ok for a key
@@ -89,13 +94,15 @@ begin-structure /rix
   field: rix-kind          \ its kind's table
   field: rix-root          \ the root key being built
   field: rix-made          \ true once lf-rix-roots has made the roots
+  field: rix-refused       \ true once a root's ranks were refused
 end-structure
 : lf-rix-tree ( rix -- tree ) ;
 : lf-rix-left-out? ( v -- flag ) 0< ;
 : lf-rix-kind! ( kind rix -- ) rix-kind ! ;
 : lf-rix-free ( rix -- )
   dup lf-dtree-free dup rix-ranked slab-free dup rix-status slab-free
-  false swap rix-made ! ;
+  false over rix-refused ! false swap rix-made ! ;
+: lf-rix-refused? ( rix -- flag ) rix-refused @ ;
 
 \ ---- The kind's hooks.
 : rk@ ( rix field -- xt ) swap rix-kind @ + @ ;
@@ -112,17 +119,26 @@ end-structure
 : lf-rix-status ( v rix -- s ) lf-rix-status-at @ ;
 : lf-rix-record? ( v rix -- flag ) rix-status slab-count index? ;
 
-\ ---- A root's values placed by rank (rix-ranked), counted; their number
-\ must be the ranks' (a gap would read as a left-out value, -1).
+\ ---- A root's values placed by rank (rix-ranked), counted: a rank taken
+\ twice is refused, and their number must be the ranks' (no gap). A cell
+\ no value took holds rix-none, which no value is (a left-out value k is
+\ -1 - k).
+0 invert 1 rshift invert constant rix-none   \ the least cell
 : rix-ranked@ ( r rix -- v ) rix-ranked slab-at @ ;
-: rix-place ( v rix -- outcome ) 2dup rix-rank swap rix-ranked slab-cell-put ;
+: rix-refuse ( rix -- outcome ) true swap rix-refused ! outcome-invalid ;
+: rix-free? ( r rix -- flag )
+  rix-ranked 2dup slab-count < if slab-at @ rix-none = else 2drop true then ;
+: rix-put ( v r rix -- outcome ) rix-ranked rix-none swap slab-cell-put-with ;
+: rix-place ( v rix -- outcome )
+  2dup rix-rank swap 2dup rix-free? if rix-put else nip nip rix-refuse then ;
 : rix-under? ( v rix -- flag ) tuck rix-keys drop swap rix-root @ elab-key= ;
 : rix-counted ( n outcome -- n' outcome ) dup ok? if swap 1+ swap then ;
 : rix-gathered ( n k rix -- n' outcome )
   tuck rix-value swap 2dup rix-under?
   if rix-place rix-counted else 2drop outcome-ok then ;
-: rix-gapless ( n outcome rix -- outcome )
-  -rot ok-then? if swap rix-ranked slab-count = flag>outcome else nip then ;
+: rix-whole ( n rix -- outcome )
+  tuck rix-ranked slab-count = if drop outcome-ok else rix-refuse then ;
+: rix-gapless ( n outcome rix -- outcome ) -rot ok-then? if swap rix-whole else nip then ;
 : rix-gather ( rix -- outcome )
   dup rix-ranked slab-clear >r 0 r@ rix-values# r@ ['] rix-gathered ok-fold
   r> rix-gapless ;

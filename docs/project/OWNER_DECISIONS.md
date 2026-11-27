@@ -2090,3 +2090,11 @@ the earlier tactic files are. `tests/forth-quality-baseline.json` gets new entri
 commit, for the new files only, at exactly the counts the check reports: `src/front/tactics/done.fs` globals
 **1**, `funext.fs` **2**, `generalize.fs` **2**, `infer-instance.fs` **1**, `skip.fs` **1** (their other counts
 as the check measures them); no existing entry is raised.
+
+The coordinator applied this decision to simp group 4's fix round (2026-11-26, review
+[simp group 4](../development/forth-reviews/2026-11-26-simp-group-4.md) B3): `src/front/tactics/simp.fs` globals
+**2** (the `lf-tactic:` rows of `by-simp` and `by-simp[`) and `src/front/simp/simprocs.fs` globals **1**, its
+simproc port table `sp-ports`. That table is the same kind of state: its rows (one per simproc of Init's default
+set, a port's or a guard's) are laid only while the modules load, the writer refuses a row once a context exists
+(`context-sealed?`, as `lfr-open` does), and runs only read it, so it is re-entrant. Their other counts are a new
+file's allowance (0.15 shuffles and 0.5 return-stack operations a word); no existing entry is raised.

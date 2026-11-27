@@ -37,6 +37,9 @@ require ../simp/goal.fs
 require ../simp/args.fs
 require ../simp/default-set.fs
 
+504 outcome-invalid
+  s" elaboration data refused: two simp records of a root key with one rank, or a gap"
+  lfa-code: lfa-e-simp-ranks
 tac-shape-plain-at lf-tactic: by-simp constant tac-k-simp
 s" simp" tac-k-simp lf-tactic-lean!
 
@@ -45,7 +48,11 @@ s" simp" tac-k-simp lf-tactic-lean!
 : tsm-tac ( i goal -- goals ) ['] tsm-inner lf-dt-scoped ;
 : tsm-lifted ( i -- ) dup ['] tsm-tac lf-lift-meta-tactic ;
 : tsm-ported ( i -- ) ['] tsm-lifted lf-tac-ported ;
-: tsm-run ( i -- ) ['] tsm-ported catch lf-simp-set-new throw ;
+\ The data refused while the tactic ran: error 504 in place of its own
+\ outcome (exit 4), the set made new first.
+: tsm-refused ( code flag -- code ) if drop lfa-e-simp-ranks lf-tac-stop then ;
+: tsm-run ( i -- )
+  ['] tsm-ported catch lf-simp-data-refused? lf-simp-set-new tsm-refused throw ;
 ' tsm-run tac-k-simp lf-tactic-action!
 
 tac-shape-rules lf-tactic: by-simp[ constant tac-k-simp-rules

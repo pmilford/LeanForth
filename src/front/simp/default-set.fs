@@ -47,6 +47,7 @@ require ./main.fs
 require ./simprocs.fs
 require ./simprocs/core.fs
 require ./simprocs/nat.fs
+require ./simprocs/guards.fs
 
 \ ---- The kinds' values: an index's list of the data (simp-set-data.fs's
 \ simp-value), a tree's lemmas or a phase's simprocs.
@@ -72,6 +73,13 @@ require ./simprocs/nat.fs
   ds-proc-pre lf-rix-free ds-proc-post lf-rix-free
   ds-proc-kind ds-proc-pre lf-rix-kind! ds-proc-kind ds-proc-post lf-rix-kind! ;
 
+\ A root of the default set's data refused (data-index.fs's
+\ lf-rix-refused?: two records of one root key with one rank, or a gap
+\ in a root key's ranks; review of simp group 4, B2): the data are
+\ invalid, whatever the walk made of the refusal.
+: lf-simp-data-refused? ( -- flag )
+  simp-pre-tree lf-rix-refused? simp-post-tree lf-rix-refused? or
+  ds-proc-pre lf-rix-refused? or ds-proc-post lf-rix-refused? or ;
 : lf-simp-default ( -- )
   simp-default? 0= if lf-unported then ds-out slab-clear
   lf-simp-set-new ds-kind ds-kind lf-simp-set-data! ds-procs-new ;

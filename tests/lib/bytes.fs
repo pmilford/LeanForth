@@ -110,6 +110,10 @@ T{ all-decode? s\" \xe2\x80\xae" drop 3 utf8-decode -> true $202e }T
 \ byte-scan agrees with the portable loop; lf-index finds the first line feed.
 T{ s" abcabc" char c byte-scan nip -> 4 }T
 T{ s" abcabc" char z byte-scan nip -> 0 }T
+\ bytes-before: the bytes before the first char, all of them without one,
+\ none when the text starts with it or is empty.
+T{ s" Nat.reduceAdd" char . bytes-before s" Nat" char . bytes-before -> 3 3 }T
+T{ s" .x" char . bytes-before s" " char . bytes-before -> 0 0 }T
 T{ s" " char a byte-scan nip -> 0 }T
 T{ s" abcabc" char c byte-scan-portable nip s" abcabc" char c byte-scan nip -> 4 4 }T
 : scans-agree? ( addr u -- flag )

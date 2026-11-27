@@ -29,7 +29,8 @@
 \   (foreign constants allowed), post, rank, dsimproc.
 \ Members, names and numbers are checked as elab-data.fs checks them
 \ (errors 10-14, 19; 22 for no room). Ranks are checked when a root is
-\ built (front/data-index.fs: a gap or two values of one rank invalid).
+\ built (front/data-index.fs: two values of one rank, or a gap, refuse
+\ the index; by-simp then stops with error 504, exit 4).
 \
 \ simp-default? ( -- flag ): data of format 4.1 holding the simp_set
 \ record, so the default set is Lean's; else simp answers unsupported.

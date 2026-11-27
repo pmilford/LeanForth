@@ -6,10 +6,12 @@
 \ nat.fs) and the default set's candidate loop (simp/default-set.fs),
 \ over the simp slice and its format-4.1 data, by the classes of
 \ docs/development/TEST_COVERAGE_REVIEW.md:
-\ 1. interfaces: every port's name the data's, a slice simproc without a
-\    port given its family's guard, a record whose phase or kind is not
-\    its port's refused, a term of another head continue (reduceGT given
-\    an LT.lt);
+\ 1. interfaces: every simproc of the slice and of Init's default set
+\    (tests/front/simp-data/init-simprocs.fs) one row of its phase and
+\    kind (a port, a named guard, or simprocs/guards.fs's table), a name
+\    with no row unsupported, a record whose phase or kind is not its
+\    row's refused, a term of another head continue (reduceGT given an
+\    LT.lt);
 \ 2. outcomes: each port's done, visit and continue; each guard's
 \    unsupported and continue; extra arguments put back;
 \ 3. state: a nested walk (reduceIte's condition) inside a running
@@ -70,16 +72,31 @@ s" Decidable" lf-mk-const0 p0 lf-mk-app s" hp" binder constant hp0
 : cands# ( e post? -- n ) ds-cands >r ds-out slab-cut drop r> ;
 lf-simp-default
 
-\ ---- 1. Interfaces. The ports' names are the data's (each found); a
-\ simproc without one gets its family's guard (the literal families' or,
-\ for others, unsupported wherever its keys match).
+\ ---- 1. Interfaces. Every simproc has a row by its name (review B1):
+\ the slice's, and each of Init's 341 with its phase and kind, and no
+\ row for another name.
 : port? ( p -- flag ) sp-entry 0<> ;
 : ported# ( -- n ) 0 simp-proc-count 0 do i port? - loop ;
 T{ s" reduceIte" proc port? s" Nat.reduceAdd" proc port? s" Nat.reduceEqDiff" proc port?
-   s" reduceCtorEq" proc port? s" Int.reduceAdd" proc port? -> true true true true false }T
-T{ s" Int.reduceAdd" proc sp-family ' sp-lit-guard = s" Array.reduceGetElem" proc sp-family
-   ' sp-crude = s" UInt8.reduceEq" proc sp-family ' sp-lit-guard = -> true true true }T
-T{ ported# -> 22 }T
+   s" reduceCtorEq" proc port? s" Int.reduceAdd" proc port? -> true true true true true }T
+T{ ported# -> simp-proc-count }T
+: row-xt ( c-addr u -- xt ) sp-ports name-table-find sp-data sp-xt @ ;
+T{ s" Int.reduceAdd" row-xt ' sp-lit-port = s" Array.reduceGetElem" row-xt ' sp-crude-port =
+   s" UInt8.reduceEq" row-xt ' sp-lit-port = s" List.reduceReplicate" row-xt ' sp-crude-port =
+   -> true true true true }T
+T{ s" BitVec.reduceShiftLeftShiftLeft" row-xt s" BitVec.reduceShiftRightShiftRight" row-xt
+   s" BitVec.reduceHShiftLeft'" row-xt s" BitVec.reduceHShiftRight'" row-xt
+   -> ' sp-crude-port dup 2dup }T
+variable rows-seen  variable rows-bad  variable rows-laid
+: row-fits? ( entry c-addr u c-addr2 u2 -- flag )   \ the phase and kind as written
+  s" d" compare 0= >r s" pre" compare 0= swap sp-data dup sp-pre @ rot = swap sp-dsimp @ r> = and ;
+: init-simproc: ( "name" "phase" "kind" -- )
+  1 rows-seen +!  parse-name sp-ports name-table-find parse-name parse-name 2>r 2>r
+  ?dup if 2r> 2r> row-fits? else 2r> 2r> 2drop 2drop false then 0= negate rows-bad +! ;
+include ../../simp-data/init-simprocs.fs
+: laid+ ( entry -- ) drop 1 rows-laid +! ;
+sp-ports ' laid+ name-table-each
+T{ rows-bad @ rows-seen @ rows-laid @ -> 0 341 341 }T
 \ A record whose phase or kind is not its port's: unsupported (data of
 \ another Lean); its flags put back.
 : add-p ( -- p ) s" Nat.reduceAdd" proc ;
@@ -90,6 +107,12 @@ true add-p ssp ssp-post !  false add-p ssp ssp-dsimproc !
 T{ two+three add-p 0 tried -> outcome-unsupported }T
 true add-p ssp ssp-dsimproc !
 T{ two+three add-p 0 lf-simproc-try rot drop -> lf-simp-none lf-simp-done }T
+\ A name with no row (another Lean's simproc): unsupported wherever its
+\ keys match (Nat.reduceAdd's record read as Nat.reduceAd).
+add-p constant add-r   -1 add-r ssp ssp-name-u +!
+T{ add-r simp-proc-name s" Nat.reduceAd" compare x0 3 lit# +n add-r 0 tried
+   -> 0 outcome-unsupported }T
+1 add-r ssp ssp-name-u +!
 \ Another head than the port's continues: Nat.reduceGT given 2 < 3 (an
 \ LT.lt term, as GT.gt's keys are LT.lt's).
 : 2<3 ( -- e ) 2 lit# 3 lit# s" LT.lt" lt-like ;
@@ -277,6 +300,15 @@ lf-simp-default
 ' slabs-anew sweep-slabs-xt !
 T{ cond5 x0 y0 ite ' procs-pass heap-sweep nip -> 0 }T
 ' noop sweep-slabs-xt !
+
+\ ---- 5. Sealed (review B3), last, as a context made seals the table
+\ for the rest of the run: a row then aborts, the table unchanged (as
+\ the tactic registry's rows, tactic-run.fs's lfr-open).
+: late-row ( -- ior ) s" sp-lit-d: Late.simproc" ['] evaluate catch dup if nip nip then ;
+context-new throw constant sealed-context
+0 rows-laid !  sp-ports ' laid+ name-table-each
+T{ context-sealed? late-row s" Late.simproc" sp-ports name-table-find rows-laid @
+   -> true -2 0 341 }T
 
 .( simp-procs test.fs: all tests passed) cr
 bye

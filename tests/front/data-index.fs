@@ -55,6 +55,14 @@ variable checks-out   outcome-ok checks-out !   variable entry-out   outcome-ok 
 \ The same, v1 at rank 3: Add's ranks 1, 2, 3, a gap at 0.
 : t-rank-gap ( v -- rank ) dup 1 = if drop 3 else t-rank then ;
 ' t-count ' t-value ' t-records ' t-keys ' t-rank-gap ' t-checks ' t-entry rix-kind, constant gap-kind
+\ The same, v1 at rank 2: Add's ranks 1, 2, 2, rank 2 twice (and rank 0
+\ no value's), and v1 at rank 1: the left-out value -1's rank too.
+: t-rank-twice ( v -- rank ) dup 1 = if drop 2 else t-rank then ;
+' t-count ' t-value ' t-records ' t-keys ' t-rank-twice ' t-checks ' t-entry rix-kind,
+constant twice-kind
+: t-rank-left ( v -- rank ) dup 1 = if drop 1 else t-rank then ;
+' t-count ' t-value ' t-records ' t-keys ' t-rank-left ' t-checks ' t-entry rix-kind,
+constant left-kind
 
 create rix /rix allot   rix /rix erase
 : fresh ( kind -- ) rix lf-rix-free rix /rix erase rix lf-rix-kind! log slab-clear ;
@@ -82,8 +90,17 @@ T{ nat mul0 unify 0 v@ nat add keys drop rix lf-rix-force -> 1 outcome-ok 102 ou
 T{ nat mul0 rix outs dup slab-clear lf-rix-match outs slab-count 0 v@ 1 v@ -> outcome-ok 2 102 0 }T
 \ A gap in Add's ranks: invalid, nothing of Add's root kept.
 gap-kind fresh
-T{ rix lf-rix-roots nat add0 unify nip add-key trie-of rix lf-dtree-vals#
-   -> outcome-ok outcome-invalid -1 0 }T
+T{ rix lf-rix-roots rix lf-rix-refused? nat add0 unify nip add-key trie-of rix lf-dtree-vals#
+   rix lf-rix-refused? -> outcome-ok false outcome-invalid -1 0 true }T
+\ Two values of one rank (review of simp group 4, B2): invalid, the index
+\ refused, whether the rank's first value is a record or the left-out
+\ value -1 (rix-none, never -1, marks a cell no value took); Mul's root,
+\ whose ranks are whole, still built; lf-rix-free forgets the refusal.
+twice-kind fresh
+T{ nat add0 unify nip rix lf-rix-refused? nat mul0 unify nip -> outcome-invalid true outcome-ok }T
+left-kind fresh
+T{ nat add0 unify nip rix lf-rix-refused? -> outcome-invalid true }T
+T{ rix lf-rix-free rix lf-rix-refused? -> false }T
 \ A failed check (full): nothing kept; the next query builds the root.
 t-kind fresh   outcome-full checks-out !
 T{ nat add0 unify nip add-key trie-of rix lf-dtree-nodes# -> outcome-full -1 0 }T
