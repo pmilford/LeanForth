@@ -35,7 +35,8 @@ require ../tactic-api.fs
 : twr-instances ( frame -- ) lf-tr-instances swap lf-tac-transparency! ;
 : twr-all ( frame -- ) lf-tr-all swap lf-tac-transparency! ;
 : twr-weight ( frame -- w ) drop 2 ;
-: twr-mode ( open-xt -- mode ) ['] drop 0 0 lf-block-mode ['] twr-weight over lf-mode-weight! ;
+: twr-mode ( open-xt -- mode )
+  ['] drop 0 0 lf-block-mode ['] twr-weight over lf-mode-weight! ;
 ' twr-reducible twr-mode constant twr-mode-reducible
 ' twr-instances twr-mode constant twr-mode-instances
 ' twr-all twr-mode constant twr-mode-all

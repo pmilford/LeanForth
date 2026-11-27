@@ -610,11 +610,11 @@ lf-mode-nested tac-k-by lf-tactic-mode!
 : lfr-moded ( mode addr -- addr ) -1 over tfr-save ! -1 over tfr-held ! tuck tfr-mode ! ;
 : lfr-claim ( -- addr ) 1 trun-frames slab-claim lfr-must lfr-frame ;
 \ The transparency a new frame's steps run at (plan row 9.4.8z12): the
-\ frame's below it, the configuration's in force below the first; a
-\ mode's open may set another (lf-tac-transparency!, with_reducible's).
-: lfr-transp-below ( -- mode )
-  lfr-depth 2 - dup 0< if drop lf-defeq-mode else lfr-frame tfr-transp @ then ;
-: lfr-transped ( addr -- addr ) lfr-transp-below over tfr-transp ! ;
+\ one in force as it opens, the frame's below it (every block opens in a
+\ step, which runs at its frame's: lfr-advance-at), the run's
+\ configuration's for the first; a mode's open may set another
+\ (lf-tac-transparency!, with_reducible's).
+: lfr-transped ( addr -- addr ) lf-defeq-mode over tfr-transp ! ;
 : lf-tac-transparency! ( mode frame -- ) tfr-transp ! ;
 : lfr-push ( mode -- addr )
   dup lfr-recover-in over lfr-sorry-in lfr-claim lfr-flagged lfr-moded lfr-transped ;

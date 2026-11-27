@@ -40,7 +40,11 @@ s" calc" tac-k-calc lf-tactic-lean!
 \ ---- The steps: the terms in pairs.
 : tcx-steps ( i -- i n ) dup lf-tac-args# dup 1 and if lf-tac-unported then 2/ ;
 
-\ ---- Not the target's type: 131 (a coercion, then throwCalcFailure).
+\ ---- The target (the main goal's type instantiated) and tag, the step
+\ record's (tactic-core.fs's tb: closeMainGoalUsing's type and tag).
+: tcx-target ( -- target ) tb tb-want @ lf-instantiate! ;
+: tcx-tag ( -- tag ) tb tb-goal @ lf-goal-tag ;
+\ Not the target's type: 131 (a coercion, then throwCalcFailure).
 : tcx-mismatch ( -- ) lfa-e-elab-coercion lf-tac-stop ;
 \ The goal x' ~ y and the chain x ~ b: x defeq x', b's type x''s.
 : tcx-fits? ( vtype target -- flag )
@@ -50,24 +54,24 @@ s" calc" tac-k-calc lf-tactic-lean!
 : tcx-last ( vtype target -- stype )
   tuck lf-calc-rel swap lf-calc-rhs lf-mk-app swap lf-calc-rhs lf-mk-app ;
 : tcx-step-tag ( tag -- tag' ) s" calc.step" lfa-intern lf-name-append-tag ;
-: tcx-goal ( stype tag -- stype goal )
-  over swap tcx-step-tag lf-mctx-view lf-goal-new lf-must ;
+: tcx-goal ( stype -- stype goal )
+  dup tcx-tag tcx-step-tag lf-mctx-view lf-goal-new lf-must ;
 : tcx-tried ( val vtype goal stype -- val' vtype' ) lf-calc-trans if tcx-mismatch then ;
-: tcx-extended ( val vtype target stype goal -- val' )
-  rot >r swap ['] tcx-tried 4 2 lf-meta-try 0= if tcx-mismatch then
-  r> lf-defeq! 0= if tcx-mismatch then ;
-: tcx-extend ( val vtype target tag -- val' )
-  over lf-calc-relation? 0= if tcx-mismatch then 2drop drop
-  >r 2dup tcx-fits? 0= if tcx-mismatch then 2dup tcx-last r> tcx-goal tcx-extended ;
+: tcx-extended ( val vtype stype goal -- val' )
+  swap ['] tcx-tried 4 2 lf-meta-try 0= if tcx-mismatch then
+  tcx-target lf-defeq! 0= if tcx-mismatch then ;
+: tcx-extend ( val vtype -- val' )
+  tcx-target lf-calc-relation? 0= if tcx-mismatch then 2drop drop
+  dup tcx-target tcx-fits? 0= if tcx-mismatch then
+  dup tcx-target tcx-last tcx-goal tcx-extended ;
 \ The chain, when its type is the target, else extended.
-: tcx-fit ( val vtype target tag -- val' )
-  2 pick 2 pick lf-defeq! if 2drop drop exit then tcx-extend ;
-: tcx-chain ( i target tag -- val ) >r swap tcx-steps lf-elab-calc-steps rot r> tcx-fit ;
-: tcx-elab ( i target tag -- val ) ['] tcx-chain lf-elab-configured ;
+: tcx-fit ( val vtype -- val' ) dup tcx-target lf-defeq! if drop exit then tcx-extend ;
+: tcx-chain ( i -- val ) tcx-steps lf-elab-calc-steps tcx-fit ;
+: tcx-elab ( i -- val ) ['] tcx-chain lf-elab-configured ;
 
 \ ---- closeMainGoalUsing's body: the chain, its new goals pushed.
 : tcx-goals ( val -- val )
   dup false lf-tac-new-goals c" calc" lf-tac-tag-new lf-goals-append lf-tac-must ;
-: tcx-calc ( i type tag -- val ) >r lf-instantiate! r> ['] tcx-elab lf-tac-with-synth tcx-goals ;
+: tcx-calc ( i type tag -- val ) 2drop ['] tcx-elab lf-tac-with-synth tcx-goals ;
 : tcx-run ( i -- ) dup ['] tcx-calc lf-close-main-goal-unchecked ;
 ' tcx-run tac-k-calc lf-tactic-action!

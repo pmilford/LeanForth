@@ -1,0 +1,86 @@
+# Planted faults of small tactics 2 (plan row 9.4.8z12: elab-calc.fs, tactics/calc.fs,
+# tactics/with-reducible.fs, the runner's frame transparency in tactic-run.fs, the transparency
+# in force of meta-must.fs's lf-tac-defeq and elab-decl.fs's lf-elab-configured, and
+# meta-tactic/goal.fs's checkedAssign of a value with an open metavariable), read with
+# faults.toml as one list (scripts/mutants.py). Each is caught by the test it names
+# (tests/front/tactics/batch-small-2/test.fs).
+
+[[fault]]
+id = "sm2-calc-lhs-unchecked"
+file = "src/front/elab-calc.fs"
+old = '''  ecs ecs-prev @ 2dup lf-meta-defeq-guarded lf-must if 2drop else ecl-lhs-fail then ;'''
+new = '''  drop ;'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "small tactics 2: a later calc step's left side is not compared with the right side before it, so a broken chain reaches Trans.trans instead of Lean's 513 (test.fs's left-hand side twin)"
+
+[[fault]]
+id = "sm2-calc-result-not-checked"
+file = "src/front/elab-calc.fs"
+old = '''  dup ecl-rel? if 0 else nip -1 lfa-e-calc-not-rel then ;'''
+new = '''  0 ;'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "small tactics 2: mkCalcTrans keeps a chain whose type is no relation, where Lean refuses it with 511 (test.fs's ecl-relation-result of True)"
+
+[[fault]]
+id = "sm2-calc-step-untagged"
+file = "src/front/tactics/calc.fs"
+old = ''': tcx-step-tag ( tag -- tag' ) s" calc.step" lfa-intern lf-name-append-tag ;'''
+new = ''': tcx-step-tag ( tag -- tag' ) ;'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "small tactics 2: the last step's goal keeps the main goal's tag, where Lean tags it calc.step (test.fs's case calc.step)"
+
+[[fault]]
+id = "sm2-calc-goals-dropped"
+file = "src/front/tactics/calc.fs"
+old = '''  dup false lf-tac-new-goals c" calc" lf-tac-tag-new lf-goals-append lf-tac-must ;'''
+new = '''  dup false lf-tac-new-goals drop ;'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "small tactics 2: calc's new goals (a ?_ proof, the last step) are not pushed, so the proof ends with them open where Lean's pushGoals keeps them (test.fs's ?_ and last-step texts)"
+
+[[fault]]
+id = "sm2-wr-not-reducible"
+file = "src/front/tactics/with-reducible.fs"
+old = ''': twr-reducible ( frame -- ) lf-tr-reducible swap lf-tac-transparency! ;'''
+new = ''': twr-reducible ( frame -- ) drop ;'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "small tactics 2: with_reducible's block keeps the transparency below it, so exact accepts at default what Lean refuses at reducible (test.fs's 96 and the probe's mode)"
+
+[[fault]]
+id = "sm2-wr-not-inherited"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-transped ( addr -- addr ) lf-defeq-mode over tfr-transp ! ;'''
+new = ''': lfr-transped ( addr -- addr ) lf-tr-default over tfr-transp ! ;'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "small tactics 2: a block inside a with_reducible block runs at default transparency, where Lean's withReducible covers it (test.fs's probes inside by-iterate and by-first)"
+
+[[fault]]
+id = "sm2-wr-advance-default"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-advance-at ( -- ) ['] lfr-advance lfr-top tfr-transp @ lf-meta-at ;'''
+new = ''': lfr-advance-at ( -- ) lfr-advance ;'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "small tactics 2: the runner never runs a step at its frame's transparency, so with_reducible changes nothing (test.fs's probes and 96, 97)"
+
+[[fault]]
+id = "sm2-tac-defeq-default"
+file = "src/front/meta-must.fs"
+old = ''': lf-tac-defeq ( t s -- flag outcome ) lf-defeq-mode lf-defeq-elab-at ;'''
+new = ''': lf-tac-defeq ( t s -- flag outcome ) lf-tr-default lf-defeq-elab-at ;'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "small tactics 2: a tactic's isDefEq forces default transparency inside with_reducible, so exact h is accepted where Lean's Type mismatch refuses it (test.fs's 96)"
+
+[[fault]]
+id = "sm2-elab-configured-default"
+file = "src/front/elab-decl.fs"
+old = ''': lf-elab-configured ( i*x xt -- j*x ) edc-kept lf-defeq-elab or lf-defeq-mode lf-meta-with ;'''
+new = ''': lf-elab-configured ( i*x xt -- j*x ) edc-kept lf-defeq-elab or lf-tr-default lf-meta-with ;'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "small tactics 2: the elaborator forces default transparency inside with_reducible, so calc's proof is accepted where Lean refuses it (test.fs's calc inside by-with-reducible)"
+
+[[fault]]
+id = "sm2-checked-assign-open-refused"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  dup lf-has-open-mvar? if mtg-checked else mtg-in-scope then mtg-assigned ;'''
+new = '''  lf-open-mvar-free mtg-in-scope mtg-assigned ;'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "small tactics 2: checkedAssign refuses every value with an open metavariable (93), so calc's new goals never close the main goal, where Lean's checkAssignment keeps those of its scope (test.fs's checked assignment and calc texts)"

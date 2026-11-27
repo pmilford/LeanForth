@@ -436,10 +436,11 @@ end-structure
 \ An open metavariable in e (calc's new goals): checkAssignment goal #[] e
 \ (assign-check.fs, in the elaborator's flags, as TermElabM runs; its
 \ unsupported cases thrown), false the occurs-check error with e.
-: mtg-check ( e -- e' flag outcome )
-  ['] lf-meta-check-assignment lf-defeq-flags lf-defeq-elab or lf-defeq-mode lf-meta-with ;
+: mtg-elab-flags ( -- flags mode ) lf-defeq-flags lf-defeq-elab or lf-defeq-mode ;
+: mtg-check ( e -- e' flag outcome ) ['] lf-meta-check-assignment mtg-elab-flags lf-meta-with ;
 : mtg-checked ( goal e -- goal e' )
-  over 0 0 lf-meta-pattern! dup mtg-check lf-must if nip else drop mtg-unassignable then ;
+  over 0 0 lf-meta-pattern! dup mtg-check lf-must
+  if nip else drop mtg-unassignable then ;
 : lf-goal-checked-assign ( goal e -- )
   dup lf-has-open-mvar? if mtg-checked else mtg-in-scope then mtg-assigned ;
 

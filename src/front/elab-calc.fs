@@ -89,30 +89,38 @@ require ./tactic-api.fs
 
 \ ---- mkCalcTrans: a frame of the levels, then Trans.trans's arguments.
 begin-structure /ecf
-  field: ecf-u   field: ecf-v   field: ecf-w   field: ecf-u1  field: ecf-u2  field: ecf-u3
-  field: ecf-alpha  field: ecf-beta  field: ecf-gamma  field: ecf-r  field: ecf-s  field: ecf-t
-  field: ecf-self  field: ecf-a  field: ecf-b  field: ecf-c  field: ecf-result  field: ecf-step
+  field: ecf-u  field: ecf-v  field: ecf-w  field: ecf-u1  field: ecf-u2  field: ecf-u3
+  field: ecf-alpha  field: ecf-beta  field: ecf-gamma
+  field: ecf-r  field: ecf-s  field: ecf-t  field: ecf-self
+  field: ecf-a  field: ecf-b  field: ecf-c  field: ecf-result  field: ecf-step
 end-structure
 /ecf context-slab: ecl-trans-frames
 : ecf ( -- addr ) ecl-trans-frames slab-last ;
+: ecf! ( x xt -- ) ecf swap execute ! ;   \ xt a field of the frame
 : ecl-chain! ( result rtype -- )
-  dup lf-level! ecf ecf-u ! ecl-relation ecf ecf-a cell-pair! ecf ecf-r ! ecf ecf-result ! ;
+  dup lf-level! ['] ecf-u ecf! ecl-relation ecf ecf-a cell-pair! ['] ecf-r ecf!
+  ['] ecf-result ecf! ;
 : ecl-step! ( step stype -- )
-  lf-instantiate! dup lf-level! ecf ecf-v ! ecl-relation ecf ecf-c ! drop ecf ecf-s !
-  ecf ecf-step ! ;
+  lf-instantiate! dup lf-level! ['] ecf-v ecf! ecl-relation ['] ecf-c ecf! drop
+  ['] ecf-s ecf! ['] ecf-step ecf! ;
 \ α β γ the types of a b c, u1 u2 u3 their levels.
 : ecl-each ( x1 x2 x3 xt -- y1 y2 y3 ) >r r@ execute rot r@ execute rot r> execute rot ;
-: ecl-types! ( -- ) ecf ecf-a cell-triple@ ['] lf-infer! ecl-each ecf ecf-alpha cell-triple! ;
-: ecl-levels! ( -- ) ecf ecf-alpha cell-triple@ ['] lf-level! ecl-each ecf ecf-u1 cell-triple! ;
+: ecl-types! ( -- )
+  ecf ecf-a cell-triple@ ['] lf-infer! ecl-each ecf ecf-alpha cell-triple! ;
+: ecl-levels! ( -- )
+  ecf ecf-alpha cell-triple@ ['] lf-level! ecl-each ecf ecf-u1 cell-triple! ;
 \ w, then t : α → γ → Sort w.
 : ecl-arrow ( dom body -- pi ) lf-term-pi lf-made! ;
 : ecl-sort ( level -- sort ) lf-term-symbolic-sort lf-made! ;
-: ecl-t-type ( -- type ) ecf ecf-alpha @ ecf ecf-gamma @ ecf ecf-w @ ecl-sort ecl-arrow ecl-arrow ;
+: ecl-t-type ( -- type )
+  ecf ecf-alpha @ ecf ecf-gamma @ ecf ecf-w @ ecl-sort ecl-arrow ecl-arrow ;
 : ecl-fresh! ( -- )
-  lf-level-mvar-new lf-must ecf ecf-w ! ecl-t-type mv-natural lf-mvar-new lf-must ecf ecf-t ! ;
+  lf-level-mvar-new lf-must ['] ecf-w ecf! ecl-t-type mv-natural lf-mvar-new lf-must
+  ['] ecf-t ecf! ;
 \ A constant at the six levels, applied to the first n arguments.
 : ecl-levels ( -- u v w u1 u2 u3 ) ecf ecf-u 6 0 do dup i cells + @ swap loop drop ;
-: ecl-applied ( c-addr u n -- e ) >r ecl-levels 6 lf-mk-const ecf ecf-alpha r> lf-mk-app-cells ;
+: ecl-applied ( c-addr u n -- e )
+  >r ecl-levels 6 lf-mk-const ecf ecf-alpha r> lf-mk-app-cells ;
 : ecl-relation-result ( e type -- x y code )
   dup ecl-rel? if 0 else nip -1 lfa-e-calc-not-rel then ;
 : ecl-result ( -- x y code )
@@ -120,7 +128,7 @@ end-structure
   ecl-relation-result ;
 : ecl-synth ( -- x y code )
   s" Trans" 6 ecl-applied dup lf-try-synth lf-must lf-synth-some =
-  if ecf ecf-self ! drop ecl-result else drop -1 lfa-e-calc-trans then ;
+  if ['] ecf-self ecf! drop ecl-result else drop -1 lfa-e-calc-trans then ;
 : ecl-trans ( result rtype step stype -- x y code )
   ecl-step! ecl-chain! ecl-types! ecl-levels! ecl-fresh! ecl-synth ;
 : lf-calc-trans ( result rtype step stype -- x y code )
@@ -130,14 +138,17 @@ end-structure
 \ lf-calc-trans with its term (510's with useDiagnosticMsg's hint).
 : ecl-no-relation ( type -- )
   ['] lf-tac-indented. lf-tac-detail lfa-e-calc-relation lf-tac-stop ;
-: ecl-type-of. ( e -- outcome ) s"  : " lf-pp-emit lf-infer ok-then? if lf-tac-term. then ;
+: ecl-type-of. ( e -- outcome )
+  s"  : " lf-pp-emit lf-infer ok-then? if lf-tac-term. then ;
 : ecl-typed. ( e -- outcome ) dup lf-tac-indented. ['] ecl-type-of. ok-with nip ;
 : ecl-but. ( prev -- outcome )
   s\" \nbut previous right-hand side is\n" lf-pp-emit ecl-typed. ;
 : ecl-sides. ( lhs prev -- outcome ) swap ecl-typed. ['] ecl-but. ok-with nip ;
-: ecl-lhs-fail ( lhs prev -- ) 2 ['] ecl-sides. lf-tac-detail-n lfa-e-calc-lhs lf-tac-stop ;
+: ecl-lhs-fail ( lhs prev -- )
+  2 ['] ecl-sides. lf-tac-detail-n lfa-e-calc-lhs lf-tac-stop ;
 : ecl-hinted. ( term -- outcome ) lf-tac-indented. ['] lf-tac-diagnostics. ok-and ;
-: ecl-detail ( code -- xt ) lfa-e-calc-trans = if ['] ecl-hinted. else ['] lf-tac-indented. then ;
+: ecl-detail ( code -- xt )
+  lfa-e-calc-trans = if ['] ecl-hinted. else ['] lf-tac-indented. then ;
 : ecl-trans-fail ( term code -- ) tuck ecl-detail lf-tac-detail lf-tac-stop ;
 
 \ ---- The elaborator's words (lf-elab-calc-steps runs in its
