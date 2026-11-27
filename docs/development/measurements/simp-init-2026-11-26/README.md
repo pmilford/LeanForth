@@ -242,6 +242,39 @@ binder of a sort (`Prop`, `Type`) 39, numerals whose type only an ascription fix
 in the statement 13 and in a binder 4, the bracket item `*` 4, Lean's harness errors 4, an
 unresolved item 1, a string literal 1.
 
+### After the review's fixes (2026-11-26, branch `simp-group-4-fix`)
+
+The same command on the fix round's head (rebased on main `b892c993`; `INIT_EXPORT=.claude/work/IM/init.ndjson`,
+`INIT_SNAPSHOT=.claude/work/parallel-init/init-1.lfsn`, pinned Lean 4.35.0, Gforth 1.0.0; about 3 min wall). Two
+things changed in the harness (review of simp group 4, M2 and B1): `simp-init.lean` prints each statement a
+second time in Lean's syntax and elaborates it, so a text whose statement pinned Lean reads otherwise is not
+written; and a statement LeanForth elaborates differently is a BUG. Three fixed cases
+(`tests/front/simp-init-cases/`: `pb_shr_shr`, `pb_shr_shr_eq`, `pb_shr_at`, which pinned Lean proves with
+`BitVec.reduceShiftRightShiftRight`) run beside the texts and must answer 99; the data's 341 simproc records must
+be `tests/front/simp-data/init-simprocs.fs`'s.
+
+**K = 57 of N = 640** (L = 636), as before. **0 accepted with a different term, 0 accepted where Lean's re-run
+fails, 0 accepted with another statement**; the three cases 99.
+
+| | theorems |
+|---|---:|
+| N | 640 |
+| cannot be written as LeanForth text | 255 |
+| written | 385 |
+| K: accepted, term node for node Lean's | 57 |
+| U: not supported yet (error 99 at `by-simp`) | 316 |
+| refused before `by-simp` (errors 117 4, 131 4, 139 2, 73 1, 121 1) | 12 |
+| accepted, statement elaborated differently (a BUG) | 0 |
+
+U by reason: a bracket theorem with `<-` 145, a rule whose statement is no Eq 47, unification (isDefEq) 32, a
+perm lemma 21 and 3 perm tests of compound terms, a bracket definition or simproc 20, a simproc family's guard
+16 (20 before: their texts are now among those not written), congruence 16 (argument kinds 15, a refusal 1),
+the discharger 6, matcher, recursor or projection 5, dsimp of a dependent argument 2, a left-out helper 2, no_index
+keys 1. Cannot be written: universe parameters 161, a binder of a sort 39, numerals whose type only an ascription
+fixes 20, a `∀` or `→` in the statement 13 and in a binder 4, **a printing Lean reads as another statement 8**
+(new: `Int.Nonneg.natCast` and `Vector.range'_one`, the two the review found, and 6 that LeanForth refused or
+did not support before), the item `*` 4, Lean's harness errors 4, an unresolved item 1, a string literal 1.
+
 What this says for the next groups: the `<-` item on a theorem is the largest single blocker (Lean
 builds an auxiliary lemma at the call; LeanForth would declare it itself), then rules that need
 Lean's preprocessing into Eq helpers, then the defeq engine's own refusals. The left-out helpers
