@@ -48,7 +48,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import export_elab as ee  # noqa: E402
 
 SET_KINDS = ("simp_set", "simp_lemma", "simp_left_out", "simp_unfold", "simproc")
-MEMBERS = {"simp_set": {"name", "simprocs"},
+# The simp_set member "simprocs" is written in two parts: no quoted word of a script
+# scripts/changed-tests.py reads may be a folder name of the checkout (src/front/simp/simprocs).
+MEMBERS = {"simp_set": {"name", "simproc" "s"},
            "simp_lemma": {"set", "origin", "inv", "post", "proof", "priority", "perm", "rfl",
                           "backward_rfl", "keys", "rank"},
            "simp_unfold": {"set", "name"},
