@@ -25,3 +25,24 @@ theorem w_wr_exact (a b : Nat) (h : Nat.pred (Nat.succ a) = b) : a = b := by
   with_reducible exact h
 theorem w_wr_rfl (a : Nat) : a + 0 = a := by
   with_reducible rfl
+theorem w_calc_order (a b c : Nat) (h1 : a = b) (h2 : c = c) : a = b ∧ c = c := by
+  constructor
+  calc a = b := ?_;
+  exact h2
+  exact h1
+theorem w_calc_tagged (a b c : Nat) (h1 : a = b) (h2 : b = c) : a = c ∧ a = c := by
+  constructor
+  calc a = b := ?_
+    _ = c := ?_;
+  calc a = b := h1
+    _ = c := h2
+  case left.calc_2 => exact h2
+  exact h1
+theorem w_calc_natural (a b c : Nat) (h1 : a = b) (h2 : b = c) : a = c := by
+  calc a = b := _
+    _ = c := h2;
+  exact h1
+theorem w_rw_iff (a b : Nat) (h : a = b) : Nat.pred (Nat.succ a) = b ↔ b = b := by
+  rw [h]
+theorem w_rw_all (a b : Nat) (h : a = b) : Nat.pred (Nat.succ a) = b ↔ b = b := by
+  with_unfolding_all rw [h]

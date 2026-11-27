@@ -152,3 +152,27 @@ theorem cc_num
 := by
   by-calc[ a b = ' h1  _ 1 1 + = ' h2 ]
 end cc_num
+
+\ The new goals (the ?_ ones in order, then calc.step) in front of the
+\ goals open beside the main one, as Lean's pushGoals puts them (pinned
+\ Lean's trace_state: left.calc_1, left.calc_2, left.calc.step, right).
+\ Lean: theorem cc_order (a b c d : Nat) (h1 : a = b) (h2 : b = c) (h3 : c = d) :
+\           a = d ∧ d = d := by
+\         constructor
+\         calc a = b := ?_
+\           _ = c := ?_;
+\         exact h1
+\         exact h2
+\         exact h3
+\         exact rfl
+theorem cc_order
+  Nat explicit: a  Nat explicit: b  Nat explicit: c  Nat explicit: d
+  a b = explicit: h1  b c = explicit: h2  c d = explicit: h3  a d =  d d = /\
+:= by
+  by-constructor
+  by-calc[ a b = ?_  _ c = ?_ ]
+  ' h1 by-exact
+  ' h2 by-exact
+  ' h3 by-exact
+  ' rfl by-exact
+end cc_order

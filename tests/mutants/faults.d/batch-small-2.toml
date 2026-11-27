@@ -16,8 +16,8 @@ reason = "small tactics 2: a later calc step's left side is not compared with th
 [[fault]]
 id = "sm2-calc-result-not-checked"
 file = "src/front/elab-calc.fs"
-old = '''  dup ecl-rel? if 0 else nip -1 lfa-e-calc-not-rel then ;'''
-new = '''  0 ;'''
+old = '''  dup lf-calc-rel? if true else nip lfa-e-calc-not-rel false then ;'''
+new = '''  true ;'''
 test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
 reason = "small tactics 2: mkCalcTrans keeps a chain whose type is no relation, where Lean refuses it with 511 (test.fs's ecl-relation-result of True)"
 
@@ -32,8 +32,8 @@ reason = "small tactics 2: the last step's goal keeps the main goal's tag, where
 [[fault]]
 id = "sm2-calc-goals-dropped"
 file = "src/front/tactics/calc.fs"
-old = '''  dup false lf-tac-new-goals c" calc" lf-tac-tag-new lf-goals-append lf-tac-must ;'''
-new = '''  dup false lf-tac-new-goals drop ;'''
+old = ''': tcx-goals ( val -- val goals ) dup false lf-tac-new-goals c" calc" lf-tac-tag-new ;'''
+new = ''': tcx-goals ( val -- val goals ) dup false lf-tac-new-goals drop 0 ;'''
 test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
 reason = "small tactics 2: calc's new goals (a ?_ proof, the last step) are not pushed, so the proof ends with them open where Lean's pushGoals keeps them (test.fs's ?_ and last-step texts)"
 
@@ -90,5 +90,122 @@ id = "sm2-block-transp-in-force"
 file = "src/front/tactic-run.fs"
 old = ''': lfr-block-transp ( -- mode ) lfr-depth if lfr-top tfr-transp @ else lf-defeq-mode then ;'''
 new = ''': lfr-block-transp ( -- mode ) lf-defeq-mode ;'''
-test = "$GFORTH tests/front/tactics/batch-d/test.fs"
-reason = "small tactics 2: the tactics' isDefEq and elaboration read a LeanForth scope's reducible transparency (rw's closing rfl), not their block's, which rwa's run on a negated goal does not support yet (93 where main accepts, batch-d's rwa)"
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "small tactics 2: the tactics' isDefEq and elaboration read the transparency in force, so a LeanForth scope alone (lf-with-reducible) changes them, where only a block or lf-tac-at should (test.fs's by-probe-scope; since the review's B2 fix rw's closing rfl sets both, so batch-d's rwa no longer tells them apart)"
+
+# The Forth review of small tactics 2 (2026-11-26) and its fix round: B1 (calc's new goals in
+# front), B2 (rw's closing rfl at reducible, the tactics' transparency included; Init's hint
+# on a Not side), M1, M2, Low 1, Low 2.
+# Known gaps (the review's Low 3), planted by the reviewer and not caught, as no text reaches
+# them yet: rv-fits-rhs-type-skipped (calc.fs's tcx-fits?, the extension's condition that the
+# chain's right side has the goal's left side's type: every relation LeanForth can write is
+# homogeneous, so that type always agrees once the left sides do); rv-uv-swapped
+# (elab-calc.fs's ecl-chain!, Trans's u and v swapped: both are 0 for every relation in Prop,
+# and a relation valued in Type has no LeanForth form yet); rv-ascribed-always (elab-term.fs's
+# et-ascribed, the ascription taking the place of an expected type a hole was given: calc
+# elaborates T with no expected type, so no ascribed hole is ever given one; probably
+# equivalent).
+
+[[fault]]
+id = "sm2-calc-goals-appended"
+file = "src/front/tactic-core.fs"
+old = ''': tcr-pushed ( goals e -- ) lf-instantiate! tcr-assigned lf-goals-push lf-tac-must ;'''
+new = ''': tcr-pushed ( goals e -- ) lf-instantiate! tcr-assigned lf-goals-append lf-tac-must ;'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "review of small tactics 2, B1: calc's new goals go after the other goals, where Lean's pushGoals puts them in front, so a text Lean refuses is accepted (test.fs's w-calc-order text, 96)"
+
+[[fault]]
+id = "sm2-calc-pushed-before-pop"
+file = "src/front/tactic-core.fs"
+old = ''': tcr-closing-unchecked ( i*x xt i -- ) drop tcr-called swap tcr-pushed ;'''
+new = ''': tcr-closing-unchecked ( i*x xt i -- ) drop tcr-called lf-goals-push lf-tac-must lf-instantiate! tcr-assigned ;'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "review of small tactics 2, B1: the new goals pushed before the main goal is taken off, so popping it drops the first new goal instead (test.fs's probe of lf-close-main-goal-unchecked and the ?_ texts)"
+
+[[fault]]
+id = "sm2-goals-push-appends"
+file = "src/front/goals.fs"
+old = ''': lf-goals-push ( list -- outcome ) lf-goals run-cat gl-set-ok ;'''
+new = ''': lf-goals-push ( list -- outcome ) lf-goals swap run-cat gl-set-ok ;'''
+test = "$GFORTH tests/front/goals.fs"
+reason = "review of small tactics 2, B1: pushGoals puts the list after the goals, as appendGoals does (goals.fs's lf-goals-push order)"
+
+[[fault]]
+id = "sm2-rw-rfl-scope-only"
+file = "src/front/tactic-core.fs"
+old = ''': lf-tac-rfl-reducible ( -- ) tac-k-rfl ['] lf-tac-row lf-tr-reducible lf-tac-at ;'''
+new = ''': lf-tac-rfl-reducible ( -- ) tac-k-rfl ['] lf-tac-row lf-with-reducible ;'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "review of small tactics 2, B2: rw's closing rfl elaborates exact Iff.rfl at the block's transparency, not Lean's reducible, so a goal Lean leaves open is closed (test.fs's w-rw-iff and w-rw-all texts, 89)"
+
+[[fault]]
+id = "sm2-tac-at-unrestored"
+file = "src/front/meta-must.fs"
+old = '''  r> lf-tac-transparency-to throw ;'''
+new = '''  r> drop throw ;'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "review of small tactics 2, B2: lf-tac-at leaves the top frame at its mode, so the steps after rw run at reducible (test.fs's probe after by-rw[, which fails and which closes)"
+
+[[fault]]
+id = "sm2-tac-at-frame-unset"
+file = "src/front/meta-must.fs"
+old = '''  lf-tac-transparency >r dup lf-tac-transparency-to ['] lf-meta-at catch'''
+new = '''  lf-tac-transparency >r ['] lf-meta-at catch'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "review of small tactics 2, B2: lf-tac-at sets the transparency in force but not the tactics' (the top frame's), so exact Iff.rfl inside rw's rfl elaborates at default (test.fs's probe inside lf-tac-at and the w-rw-iff text)"
+
+[[fault]]
+id = "sm2-hint-not-rigid"
+file = "src/front/defeq.fs"
+old = ''': de-candidate ( s not? -- flag outcome ) if de-rhs-rigid else drop true outcome-ok then ;'''
+new = ''': de-candidate ( s not? -- flag outcome ) if drop false outcome-ok else drop true outcome-ok then ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review of small tactics 2, B2: a Not side against an Iff application at reducible answers not supported yet, where Init's hint fails at once and Lean answers false (defeq.fs's hint cases; batch-d's rwa on a negated goal)"
+
+[[fault]]
+id = "sm2-hint-other-side"
+file = "src/front/defeq.fs"
+old = ''': de-other ( t -- s ) de-t = if de-s else de-t then ;'''
+new = ''': de-other ( t -- s ) drop de-s ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review of small tactics 2, B2: the Not side's hint is checked against itself, not the side it is compared with, when it is the right side (defeq.fs's Iff against ¬, not supported yet instead of false)"
+
+[[fault]]
+id = "sm2-hint-rigid-pi"
+file = "src/front/defeq.fs"
+old = '''  lf-meta-head dup lf-kind-inductive de-kind? swap lf-kind-constructor de-kind? or ;'''
+new = '''  drop true ;'''
+test = "$GFORTH tests/front/defeq.fs"
+reason = "review of small tactics 2, B2: a Not side against a = b -> False taken as rigid, false where Lean's hint makes them equal (defeq.fs's hint cases: not supported yet)"
+
+[[fault]]
+id = "sm2-checked-assign-verdict-ignored"
+file = "src/front/meta-tactic/goal.fs"
+old = '''  if nip else drop mtg-unassignable then ;'''
+new = '''  2drop ;'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "review of small tactics 2, M1: checkAssignment's verdict ignored, so a value with an open metavariable and a local out of the goal's scope is assigned, where Lean's checkedAssign fails (test.fs's stray local, 98)"
+
+[[fault]]
+id = "sm2-calc-natural-goal"
+file = "src/front/tactics/calc.fs"
+old = ''': tcx-goals ( val -- val goals ) dup false lf-tac-new-goals c" calc" lf-tac-tag-new ;'''
+new = ''': tcx-goals ( val -- val goals ) dup true lf-tac-new-goals c" calc" lf-tac-tag-new ;'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "review of small tactics 2, M2: a natural hole left in the chain becomes a goal, so the next step closes it where Lean refuses with 461 (test.fs's w-calc-natural text)"
+
+[[fault]]
+id = "sm2-run-anew-keeps-frames"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-run-anew ( -- ) lfr-run-fresh trun-frames slab-clear ;'''
+new = ''': lfr-run-anew ( -- ) lfr-run-fresh ;'''
+test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
+reason = "review of small tactics 2, Low 1: a run that stopped inside a with_reducible block leaves its frames, so the next authoring run's term proof elaborates at reducible (test.fs's term proof after a stopped run)"
+
+[[fault]]
+id = "sm2-wr-weight-default"
+file = "src/front/tactics/with-reducible.fs"
+old = '''  ['] drop 0 0 lf-block-mode ['] twr-weight over lf-mode-weight! ;'''
+new = '''  ['] drop 0 0 lf-block-mode ;'''
+test = "$GFORTH tests/front/tactics/rec-depth/test.fs"
+reason = "review of small tactics 2, Low 2: the transparency blocks weigh the default, not 2, so 118 nested, which LeanForth supports, are refused (rec-depth test.fs's 118 and 119)"

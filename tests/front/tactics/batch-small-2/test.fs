@@ -16,9 +16,12 @@
 \    called directly and each tactic through its text
 \    (tests/support/meta-sweeps.fs): the answer or full;
 \ 6. state: the transparency inside a block, after it, after an error a
-\    try took back and after a run that stopped inside one; a block
-\    inside inherits it; the elaboration inside a block at its
-\    transparency.
+\    try took back and after a run that stopped inside one (no frame
+\    left to the next authoring run); a block inside inherits it; the
+\    elaboration inside a block at its transparency; lf-tac-at's mode
+\    inside, put back after (rw's closing rfl, which closes or fails),
+\    a LeanForth scope alone changing nothing; calc's new goals in
+\    front of the others (the Forth review's B1, B2, M1, M2, Low 1, 4).
 \ The terms are checked node for node with pinned Lean by check.py.
 \ Nothing here accepts a theorem: only the kernel's check does.
 require ../../../support/tester.fs
@@ -79,16 +82,16 @@ T{ eab lf-calc-lhs fa eqv? eab lf-calc-rhs fb eqv? -> true true }T
 T{ ttrue lf-calc-relation? s" Nat.succ" lf-mk-const0 fa lf-mk-app lf-calc-relation? -> false false }T
 T{ ttrue ' ecl-relation code1 -> thrown-invalid }T    \ one the caller made sure of
 \ mkCalcTrans' relation check: a type no relation is 511 with it.
-T{ fa ttrue ecl-relation-result -rot -1 = swap ttrue eqv? -> 511 true true }T
-T{ fa eab ecl-relation-result -rot eab eqv? swap fa eqv? -> 0 true true }T
+T{ fa ttrue ecl-relation-result swap rot ttrue eqv? -> false 511 true }T
+T{ fa eab ecl-relation-result -rot eab eqv? swap fa eqv? -> true true true }T
 
 \ ---- 4. mkCalcTrans: h1 : a = b, h2 : b = c chained, a = c.
 eab s" h1" binder constant fh1
 ebc s" h2" binder constant fh2
-fh1 eab fh2 ebc lf-calc-trans constant ct-code constant ct-type constant ct-val
+fh1 eab fh2 ebc lf-calc-trans constant ct-ok constant ct-type constant ct-val
 : head12 ( e -- f ) 12 0 do lf-term-first@ loop ;
-T{ ct-code ct-type fa fc lf-mk-eq eqv? ct-val head12 lf-const-name s" Trans.trans" nm lf-name-same?
-   -> 0 true true }T
+T{ ct-ok ct-type fa fc lf-mk-eq eqv? ct-val head12 lf-const-name s" Trans.trans" nm lf-name-same?
+   -> true true true }T
 T{ ct-val lf-infer! lf-instantiate! fa fc lf-mk-eq eqv? -> true }T
 \ No Trans instance for And with And: 510 and the type sought, Trans r s ?t.
 : and-of ( p q -- t ) s" And" 2swap 2 lf-mk-app-m ;
@@ -96,8 +99,8 @@ eab ebc and-of constant aab
 ebc fa fc lf-mk-eq and-of constant abc
 aab s" h3" binder constant fh3
 abc s" h4" binder constant fh4
-T{ fh3 aab fh4 abc lf-calc-trans -rot -1 = swap lf-meta-head lf-const-name s" Trans" nm
-   lf-name-same? -> 510 true true }T
+T{ fh3 aab fh4 abc lf-calc-trans swap rot lf-meta-head lf-const-name s" Trans" nm
+   lf-name-same? -> false 510 true }T
 
 \ ---- 4. checkedAssign of a value with an open metavariable of the goal's
 \ scope: assigned; the goal itself in it: 98 (the occurs check).
@@ -107,6 +110,27 @@ T{ gca fh1 eab gstep ebc lf-calc-trans drop drop lf-goal-checked-assign gca open
    -> false true }T
 fa fc lf-mk-eq goal constant gocc
 T{ gocc dup ' lf-goal-checked-assign catch nip nip authored -> 98 }T
+\ An open metavariable beside a local out of the goal's scope (review M1,
+\ U1): checkAssignment fails, 98, and the goal stays open.
+nat mv-natural lf-mvar-new made constant mopen
+nat lf-lctx-local made constant stray
+nat goal constant gstray
+: stray-val ( -- e ) s" Nat.add" lf-mk-const0 stray lf-mk-app mopen lf-mk-app ;
+T{ gstray stray-val ' lf-goal-checked-assign catch nip nip authored gstray open? -> 98 true }T
+
+\ ---- 4. The new public words' stack effects: lf-calc-rel?, the hole's
+\ ascription, lf-tac-at and lf-elab-configured outside a run (the mode
+\ in force set, and put back after a THROW).
+T{ eab lf-calc-rel? ttrue lf-calc-rel? -> true false }T
+syn-k-hole 0 syn-new drop constant hole-node
+T{ hole-node syn-ascribed? -> false }T
+T{ nat hole-node syn-ascribe! hole-node syn-ascribed? swap nat eqv? -> true true }T
+T{ ' lf-defeq-mode lf-tr-all lf-tac-at lf-defeq-mode -> lf-tr-all lf-tr-default }T
+T{ ' lf-defeq-mode lf-elab-configured -> lf-tr-default }T
+T{ ' lf-defeq-mode ' lf-elab-configured lf-tr-reducible lf-tac-at -> lf-tr-reducible }T
+T{ ' lf-defeq-flags lf-elab-configured lf-defeq-elab and 0<> -> true }T
+: throws7 ( -- ) 7 throw ;
+T{ ' throws7 lf-tr-all ' lf-tac-at catch nip nip lf-defeq-mode -> 7 lf-tr-default }T
 fresh
 
 \ ---- 1. The words through text: accepted, and Lean's errors.
@@ -133,7 +157,29 @@ T{ h3 s" by-calc[ a b = b c = /\ ' h1 ]" tactic-ran -> 131 }T
 lf-tac-forget
 : hand ( -- c-addr u )
   s" Nat explicit: a Nat explicit: b a b = a b = /\ explicit: h1 a b = a b = /\" ;
-T{ hand s" by-calc[ a b = a b = /\ ' h1 _ a b = /\ ' h1 ]" tactic-ran -> 510 }T
+: detail-has? ( c-addr u -- flag )
+  0 lfa-detail slab-at lfa-detail slab-count 2swap search nip nip ;
+T{ hand s" by-calc[ a b = a b = /\ ' h1 _ a b = /\ ' h1 ]" tactic-ran
+   s" set_option diagnostics true" detail-has? -> 510 true }T   \ lf-tac-diagnostics.'s hint
+lf-tac-forget
+\ The new goals in front of the others (review B1; Lean's pushGoals,
+\ pinned Lean's trace_state: left.calc_1, left.calc_2, left.calc.step,
+\ right): after by-constructor, h2 does not fit the ?_ goal (96).
+: hab ( -- c-addr u )
+  s" Nat explicit: a Nat explicit: b Nat explicit: c a b = explicit: h1 c c = explicit: h2 a b = c c = /\" ;
+T{ hab s" by-constructor by-calc[ a b = ?_ ] ' h2 by-exact ' h1 by-exact" tactic-ran
+   s" by-exact" token? -> 96 true }T
+lf-tac-forget
+T{ hab s" by-constructor by-calc[ a b = ?_ ] ' h1 by-exact ' h2 by-exact" tactic-ran -> 0 }T
+: hcc ( -- c-addr u )
+  s" Nat explicit: a Nat explicit: b Nat explicit: c a b = explicit: h1 b c = explicit: h2 a c = a c = /\" ;
+T{ hcc s" by-constructor by-calc[ a b = ?_ _ c = ?_ ] by-calc[ a b = ' h1 _ c = ' h2 ] by-case: left.calc_2 => ' h2 by-exact by-end ' h1 by-exact"
+   tactic-ran -> 96 }T   \ the second calc runs on left.calc_1
+lf-tac-forget
+T{ hcc s" by-constructor by-calc[ a b = ?_ _ c = ?_ ] ' h1 by-exact ' h2 by-exact by-calc[ a b = ' h1 _ c = ' h2 ]"
+   tactic-ran -> 0 }T
+\ A natural _ left in the chain (review M2): 461, the next step never runs.
+T{ h3 s" by-calc[ a b = _ _ c = ' h2 ] ' h1 by-exact" tactic-ran s" by-calc[" token? -> 461 true }T
 lf-tac-forget
 T{ h3 s" by-try by-calc[ a b = ' h1 a c = ' h2 ] by-end by-calc[ a b = ' h1 _ c = ' h2 ]"
    tactic-ran -> 0 }T   \ 513 is Lean's: try takes it back
@@ -187,6 +233,17 @@ lf-tac-forget
 T{ hp s" by-calc[ a b = ' h ]" tactic-ran -> 0 }T
 T{ hr s" by-with-reducible by-rfl" tactic-ran s" end" token? -> 82 true }T   \ never ended
 lf-tac-forget
+\ rw's closing rfl is with_reducible rfl (review B2): exact Iff.rfl at
+\ reducible leaves Nat.pred (Nat.succ b) = b ↔ b = b open (89), inside
+\ with_unfolding_all too; with a = b the goal closes as before.
+: hiff ( -- c-addr u )
+  s" Nat explicit: a Nat explicit: b a b = explicit: h a Nat.succ Nat.pred b = b b = ↔" ;
+T{ hiff s" by-rw[ ' h ]" tactic-ran -> 89 }T
+lf-tac-forget
+T{ hiff s" by-with-unfolding-all by-rw[ ' h ] by-end" tactic-ran -> 89 }T
+lf-tac-forget
+: hiff2 ( -- c-addr u ) s" Nat explicit: a Nat explicit: b a b = explicit: h a b = b b = ↔" ;
+T{ hiff2 s" by-rw[ ' h ]" tactic-ran -> 0 }T
 
 \ ---- 6. State: the transparency in force at each step.
 variable seen
@@ -212,6 +269,57 @@ T{ hp s" by-try by-with-reducible ' h by-exact by-end by-end by-probe-mode ' h b
    tactic-ran seen @ -> 0 lf-tr-default }T
 \ After a run that stopped inside a block: nothing left behind.
 T{ hp s" by-with-reducible ' h by-exact by-end" tactic-ran lf-defeq-mode -> 96 lf-tr-default }T
+lf-tac-forget
+\ ... nor any frame (review Low 1): the next authoring run's term proof
+\ elaborates at default.
+: term-ran ( c-addr u -- code ) lf-author-begin lf-author-text drop lf-author-code ;
+: hp-term ( -- c-addr u )
+  s" theorem t2 Nat explicit: a Nat explicit: b a Nat.succ Nat.pred b = explicit: h a b = := ' h end t2" ;
+T{ hp s" by-with-reducible ' h by-exact by-end" tactic-ran hp-term term-ran -> 96 0 }T
+\ lf-tac-at in a run (review B2): the tactics' transparency (the top
+\ frame's) is the mode inside, the block's again after, whether xt ends
+\ or fails; rw's closing rfl runs in it. lf-tac-transparency! sets a
+\ frame's for its later steps.
+: tac-seen ( -- ) lf-tac-transparency seen ! ;
+: probe-at ( i -- ) drop ['] tac-seen lf-tr-all lf-tac-at ;
+tac-shape-plain lf-tactic: by-probe-at constant tac-k-probe-at
+' probe-at tac-k-probe-at lf-tactic-action!
+: probe-tac ( i -- ) drop tac-seen ;
+tac-shape-plain lf-tactic: by-probe-tac constant tac-k-probe-tac
+' probe-tac tac-k-probe-tac lf-tactic-action!
+: probe-set ( i -- ) drop lf-tr-all lfr-top lf-tac-transparency! ;
+tac-shape-plain lf-tactic: by-probe-set constant tac-k-probe-set
+' probe-set tac-k-probe-set lf-tactic-action!
+T{ hr s" by-probe-at by-rfl" tactic-ran seen @ -> 0 lf-tr-all }T
+T{ hr s" by-probe-at by-probe-tac by-rfl" tactic-ran seen @ -> 0 lf-tr-default }T
+T{ hiff2 s" by-rw[ ' h ] by-probe-tac" tactic-ran seen @ -> 0 lf-tr-default }T
+T{ hiff s" by-rw[ ' h ] by-probe-tac" tactic-ran seen @ -> 89 lf-tr-default }T
+lf-tac-forget
+T{ hiff2 s" by-with-reducible by-rw[ ' h ] by-probe-tac by-end" tactic-ran seen @
+   -> 0 lf-tr-reducible }T
+T{ hr s" by-probe-set by-probe-mode by-rfl" tactic-ran seen @ -> 0 lf-tr-all }T
+\ A LeanForth scope alone (meta-config.fs's lf-with-reducible) changes the
+\ transparency in force, not the tactics'.
+: probe-scope ( i -- ) drop ['] tac-seen lf-with-reducible ;
+tac-shape-plain lf-tactic: by-probe-scope constant tac-k-probe-scope
+' probe-scope tac-k-probe-scope lf-tactic-action!
+T{ hr s" by-probe-scope by-rfl" tactic-ran seen @ -> 0 lf-tr-default }T
+\ lf-close-main-goal-unchecked: xt's value a new goal of the main goal's
+\ type, given as its new goal (lf-tac-new-goals), which comes in front of
+\ the others; a natural one with no hole behind it is refused
+\ (logUnassignedAndAbort's 95; a hole's is 461, the w-calc-natural text).
+: fresh-goal ( type tag -- e goals ) drop mv-opaque lf-mvar-new lf-tac-must dup false lf-tac-new-goals ;
+: fresh-natural ( type tag -- e goals ) drop mv-natural lf-mvar-new lf-tac-must dup false lf-tac-new-goals ;
+: probe-close ( i -- ) ['] fresh-goal lf-close-main-goal-unchecked ;
+: probe-natural ( i -- ) ['] fresh-natural lf-close-main-goal-unchecked ;
+tac-shape-plain lf-tactic: by-probe-close constant tac-k-probe-close
+' probe-close tac-k-probe-close lf-tactic-action!
+tac-shape-plain lf-tactic: by-probe-natural constant tac-k-probe-natural
+' probe-natural tac-k-probe-natural lf-tactic-action!
+T{ hab s" by-constructor by-probe-close ' h1 by-exact ' h2 by-exact" tactic-ran -> 0 }T
+T{ hab s" by-constructor by-probe-close ' h2 by-exact" tactic-ran -> 96 }T
+lf-tac-forget
+T{ hab s" by-constructor by-probe-natural ' h1 by-exact" tactic-ran -> 95 }T
 lf-tac-forget
 
 \ ---- 5. Resources: lf-calc-trans directly, every heap allocation refused

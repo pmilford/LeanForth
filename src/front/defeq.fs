@@ -76,7 +76,10 @@
 \ unsupported, never false: that covers Init's only hint, Not p =?= p ->
 \ False (Init/Hints.lean), whose key is Not, a definition, and Mathlib's
 \ 27, keyed at Shrink (a definition) and at projections (26; MF1,
-\ tests/front/unif-hints.lean, listed in ELABORATION_DATA.md). A library
+\ tests/front/unif-hints.lean, listed in ELABORATION_DATA.md). With the
+\ data of Init alone, a side that is no Not application has no hint, and
+\ a Not side's hint fails at once against a side whose head is an
+\ inductive type or a constructor (false, as Lean; de-hints). A library
 \ with a hint keyed at a constructor, an inductive type or a variable is
 \ not covered: it needs the hint table first (plan FE1c).
 \ Machine: each Lean call is an activation with registers (t, s, x, y
@@ -441,16 +444,31 @@ defer lf-meta-synth ( type -- inst flag outcome )
 \ (Init/Hints.lean): a side that whnfR makes no Not application has no
 \ candidate (Lean's DiscrTree.getMatch keys it withReducible after
 \ reduceDT, DiscrTree/Main.lean:472, UnificationHint.lean:31; plan task
-\ for hints in the data); a Not side or another library: unsupported; a
-\ whnfR that fails passes its outcome on (fuel, room). A side may match a
-\ hint when its head is a definition or a projection node (Lean's key
-\ .proj, the key of 26 of Mathlib's 27 hints).
+\ for hints in the data); another library: unsupported. A Not side t has
+\ the one candidate, whose check (tryCandidate's isDefEqPattern, at
+\ reducible) is Not ?p =?= t, which holds, then ?p → False =?= s: false,
+\ with no assignment, when s's whnfR has an inductive type or a
+\ constructor at its head (no pi, no delta, no hint keyed there: Lean's
+\ isExprDefEqAux fails; the rfl rule exact Iff.rfl on a goal ¬ p at
+\ reducible, rw's closing, review of small tactics 2, B2); any other s
+\ would need that comparison, not ported: unsupported. A whnfR that fails
+\ passes its outcome on (fuel, room). A side may match a hint when its
+\ head is a definition or a projection node (Lean's key .proj, the key of
+\ 26 of Mathlib's 27 hints). Lean tries t's hints, then s's (de-other:
+\ the side t is compared with).
 : de-not? ( t -- flag ) lf-not-app? ;
+: de-not-ok ( t -- flag outcome ) de-not? outcome-ok ;
 : de-hint-key? ( t -- flag )
   dup de-head-defn? if drop true else lf-meta-head lf-proj? then ;
+: de-rigid-head? ( t -- flag )
+  lf-meta-head dup lf-kind-inductive de-kind? swap lf-kind-constructor de-kind? or ;
+: de-rigid-ok ( t -- flag outcome ) de-rigid-head? outcome-ok ;
+: de-rhs-rigid ( s -- flag outcome ) lf-meta-whnf-r ['] de-rigid-ok ok-apply ;
+: de-candidate ( s not? -- flag outcome ) if de-rhs-rigid else drop true outcome-ok then ;
+: de-other ( t -- s ) de-t = if de-s else de-t then ;
 : de-hint-free? ( t -- flag outcome )
   elab-init-only? 0= if drop false outcome-ok exit then
-  lf-meta-whnf-r ok-then? if de-not? 0= outcome-ok else false swap then ;
+  dup de-other swap lf-meta-whnf-r ['] de-not-ok ok-apply ['] de-candidate ok-apply2 ;
 : de-hints ( t -- )
   dup lf-mvar? if drop exit then dup de-hint-key? 0= if drop exit then
   de-hint-free? ok-then? 0= if de-abort exit then

@@ -41,17 +41,14 @@ require ../tactic-api.fs
 ' twr-instances twr-mode constant twr-mode-instances
 ' twr-all twr-mode constant twr-mode-all
 
-\ ---- The words: a block each, run in the block around it.
+\ ---- The words: a block each, run in the block around it; a kind's
+\ Lean name, mode and action.
+: twr-tactic ( c-addr u mode kind -- )
+  tuck lf-tactic-mode! ['] lf-tac-all over lf-tactic-action! lf-tactic-lean! ;
 0 0 0 tac-shape-block lf-tactic: by-with-reducible constant tac-k-with-reducible
-s" with_reducible" tac-k-with-reducible lf-tactic-lean!
-twr-mode-reducible tac-k-with-reducible lf-tactic-mode!
-' lf-tac-all tac-k-with-reducible lf-tactic-action!
+s" with_reducible" twr-mode-reducible tac-k-with-reducible twr-tactic
 0 0 0 tac-shape-block lf-tactic: by-with-reducible-and-instances
   constant tac-k-with-instances
-s" with_reducible_and_instances" tac-k-with-instances lf-tactic-lean!
-twr-mode-instances tac-k-with-instances lf-tactic-mode!
-' lf-tac-all tac-k-with-instances lf-tactic-action!
+s" with_reducible_and_instances" twr-mode-instances tac-k-with-instances twr-tactic
 0 0 0 tac-shape-block lf-tactic: by-with-unfolding-all constant tac-k-with-all
-s" with_unfolding_all" tac-k-with-all lf-tactic-lean!
-twr-mode-all tac-k-with-all lf-tactic-mode!
-' lf-tac-all tac-k-with-all lf-tactic-action!
+s" with_unfolding_all" twr-mode-all tac-k-with-all twr-tactic

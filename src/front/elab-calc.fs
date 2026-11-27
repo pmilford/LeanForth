@@ -6,8 +6,9 @@
 \ - lf-calc-relation? ( e -- r a b true | false ): getCalcRelation? (:21):
 \   e an application of two arguments at least, r its function without
 \   the last two (taken to be the relation's, explicit, as Lean assumes);
-\   lf-calc-rel, lf-calc-lhs, lf-calc-rhs ( e -- x ) the parts of one.
-\ - lf-calc-trans ( result rtype step stype -- x y code ): mkCalcTrans
+\   lf-calc-rel? ( e -- flag ) its test alone; lf-calc-rel, lf-calc-lhs,
+\   lf-calc-rhs ( e -- x ) the parts of one.
+\ - lf-calc-trans ( result rtype step stype -- x y true | x code false ): mkCalcTrans
 \   (:35): r a b of rtype, s _ c of stype instantiated; u and v their
 \   relations' sorts (getRelUniv, :28: the sort that ends r's type, which
 \   is the sort of r a b, rtype itself, as inferType of r a b instantiates
@@ -15,12 +16,12 @@
 \   of a b c and their levels u1 u2 u3; w a new level metavariable and t a
 \   new natural metavariable of α → γ → Sort w; then trySynthInstance of
 \   Trans.{u,v,w,u1,u2,u3} α β γ r s t (t is Trans's out-parameter).
-\   Found: code 0, x Trans.trans.{the same} α β γ r s t self a b c result
+\   Found: true, x Trans.trans.{the same} α β γ r s t self a b c result
 \   step and y its type instantiated and head-beta reduced, which must be
-\   a relation (else code 511, Lean's "invalid 'calc' step, step result
-\   is not a relation", x that type). Not found (or stuck): code 510,
-\   "invalid 'calc' step, failed to synthesize `Trans` instance", x the
-\   type sought. y is -1 with a code.
+\   a relation (else false with code 511, Lean's "invalid 'calc' step,
+\   step result is not a relation", x that type). Not found (or stuck):
+\   false with code 510, "invalid 'calc' step, failed to synthesize
+\   `Trans` instance", x the type sought.
 \ - lf-elab-calc-steps ( i n -- val type ): elabCalcSteps (:107) of the n
 \   steps that are step i's arguments in pairs (a relation term T, then
 \   its proof e), in the current context, in the elaborator's
@@ -62,6 +63,7 @@ require ../lib/bounds.fs
 require ../lib/slab.fs
 require ./syntax.fs
 require ./mvars.fs
+require ./meta-spine.fs
 require ./instantiate.fs
 require ./synth.fs
 require ./elab-pending.fs
@@ -80,14 +82,18 @@ require ./tactic-api.fs
 : lf-calc-rhs ( e -- b ) lf-term-second@ ;
 : lf-calc-lhs ( e -- a ) lf-term-first@ lf-term-second@ ;
 : lf-calc-rel ( e -- r ) lf-term-first@ lf-term-first@ ;
-: ecl-rel? ( e -- flag ) lf-meta-args# 1 > ;
-: ecl-parts ( e -- r a b ) dup lf-calc-rel over lf-calc-lhs rot lf-calc-rhs ;
+: lf-calc-rel? ( e -- flag ) lf-meta-args# 1 > ;
+: ecl-parts ( e -- r a b ) dup lf-calc-rel swap lf-meta-args2 ;
 : lf-calc-relation? ( e -- r a b true | false )
-  dup ecl-rel? if ecl-parts true exit then drop false ;
+  dup lf-calc-rel? if ecl-parts true exit then drop false ;
 \ One the caller made sure of (Lean's unreachable!): else a fault.
-: ecl-relation ( e -- r a b ) dup ecl-rel? 0= if outcome-invalid lf-must then ecl-parts ;
+: ecl-relation ( e -- r a b )
+  dup lf-calc-rel? 0= if outcome-invalid lf-must then ecl-parts ;
 
 \ ---- mkCalcTrans: a frame of the levels, then Trans.trans's arguments.
+\ The layout is Trans.trans's: its six levels from ecf-u and its twelve
+\ arguments from ecf-alpha lie in adjacent cells in Lean's order, read as
+\ arrays by ecl-levels and ecl-applied (keep the fields in that order).
 begin-structure /ecf
   field: ecf-u  field: ecf-v  field: ecf-w  field: ecf-u1  field: ecf-u2  field: ecf-u3
   field: ecf-alpha  field: ecf-beta  field: ecf-gamma
@@ -103,12 +109,13 @@ end-structure
 : ecl-step! ( step stype -- )
   lf-instantiate! dup lf-level! ['] ecf-v ecf! ecl-relation ['] ecf-c ecf! drop
   ['] ecf-s ecf! ['] ecf-step ecf! ;
-\ α β γ the types of a b c, u1 u2 u3 their levels.
-: ecl-each ( x1 x2 x3 xt -- y1 y2 y3 ) >r r@ execute rot r@ execute rot r> execute rot ;
-: ecl-types! ( -- )
-  ecf ecf-a cell-triple@ ['] lf-infer! ecl-each ecf ecf-alpha cell-triple! ;
-: ecl-levels! ( -- )
-  ecf ecf-alpha cell-triple@ ['] lf-level! ecl-each ecf ecf-u1 cell-triple! ;
+\ α β γ the types of a b c, u1 u2 u3 their levels, each in Lean's order.
+: ecl-types ( -- α β γ )
+  ecf ecf-a @ lf-infer! ecf ecf-b @ lf-infer! ecf ecf-c @ lf-infer! ;
+: ecl-types! ( -- ) ecl-types ecf ecf-alpha cell-triple! ;
+: ecl-sorts ( -- u1 u2 u3 )
+  ecf ecf-alpha @ lf-level! ecf ecf-beta @ lf-level! ecf ecf-gamma @ lf-level! ;
+: ecl-levels! ( -- ) ecl-sorts ecf ecf-u1 cell-triple! ;
 \ w, then t : α → γ → Sort w.
 : ecl-arrow ( dom body -- pi ) lf-term-pi lf-made! ;
 : ecl-sort ( level -- sort ) lf-term-symbolic-sort lf-made! ;
@@ -121,17 +128,18 @@ end-structure
 : ecl-levels ( -- u v w u1 u2 u3 ) ecf ecf-u 6 0 do dup i cells + @ swap loop drop ;
 : ecl-applied ( c-addr u n -- e )
   >r ecl-levels 6 lf-mk-const ecf ecf-alpha r> lf-mk-app-cells ;
-: ecl-relation-result ( e type -- x y code )
-  dup ecl-rel? if 0 else nip -1 lfa-e-calc-not-rel then ;
-: ecl-result ( -- x y code )
+: ecl-relation-result ( e type -- x y true | x code false )
+  dup lf-calc-rel? if true else nip lfa-e-calc-not-rel false then ;
+: ecl-result ( -- x y true | x code false )
   s" Trans.trans" 12 ecl-applied dup lf-infer! lf-instantiate! lf-meta-head-beta lf-must
   ecl-relation-result ;
-: ecl-synth ( -- x y code )
+: ecl-synth ( -- x y true | x code false )
   s" Trans" 6 ecl-applied dup lf-try-synth lf-must lf-synth-some =
-  if ['] ecf-self ecf! drop ecl-result else drop -1 lfa-e-calc-trans then ;
+  if ['] ecf-self ecf! drop ecl-result else drop lfa-e-calc-trans false then ;
 : ecl-frame! ( result rtype step stype -- ) ecl-step! ecl-chain! ecl-types! ecl-levels! ;
-: ecl-trans ( result rtype step stype -- x y code ) ecl-frame! ecl-fresh! ecl-synth ;
-: lf-calc-trans ( result rtype step stype -- x y code )
+: ecl-trans ( result rtype step stype -- x y true | x code false )
+  ecl-frame! ecl-fresh! ecl-synth ;
+: lf-calc-trans ( result rtype step stype -- x y true | x code false )
   ecl-trans-frames ['] ecl-trans lf-with-record ;
 
 \ ---- The step's errors: 512 with T; 513 with both sides; a code of
@@ -178,7 +186,7 @@ end-structure
 \ T's type, its sides; the first step's T as written, a later one's
 \ with its first hole ascribed the type of the right side before it.
 : ecl-sides ( type -- type lhs rhs )
-  dup ecl-rel? 0= if ecl-no-relation then dup lf-calc-lhs over lf-calc-rhs ;
+  dup lf-calc-rel? 0= if ecl-no-relation then dup lf-meta-args2 ;
 : ecl-term ( k -- node ) 2* ecl-node ;
 : ecl-later ( k -- node ) ecl-term ecs ecs-prev @ lf-infer! ecl-annotate ;
 : ecl-first ( -- )
@@ -188,10 +196,12 @@ end-structure
   ecs ecs-prev @ 2dup lf-meta-defeq-guarded lf-must if 2drop else ecl-lhs-fail then ;
 : ecl-chain ( proof type -- )
   ecl-defaults ecs ecs-result @ ecs ecs-rtype @ 2swap lf-calc-trans
-  ?dup if nip ecl-trans-fail then ecs ecs-rtype ! ecs ecs-result ! ;
-: ecl-next ( k -- )
-  dup ecl-later ecl-type ecl-sides >r ecl-lhs tuck swap ecl-proved swap ecl-chain
-  r> ecs ecs-prev ! ;
+  0= if ecl-trans-fail then ecs ecs-rtype ! ecs ecs-result ! ;
+\ Step k's T, its left side the right side before, which its own right
+\ side then becomes (nothing reads it before the next step); its proof.
+: ecl-sided ( k -- k type )
+  dup ecl-later ecl-type ecl-sides swap ecl-lhs ecs ecs-prev ! ;
+: ecl-next ( k -- ) ecl-sided tuck swap ecl-proved swap ecl-chain ;
 : ecl-steps ( i n -- val type )
   swap ecs ecs-i ! ecl-first 1 ?do i ecl-next loop ecl-defaults
   ecs ecs-result @ ecs ecs-rtype @ ;

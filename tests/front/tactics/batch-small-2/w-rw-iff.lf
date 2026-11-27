@@ -1,0 +1,14 @@
+\ A wrong twin (plan row 9.4.8z12, small tactics 2; batch-small-2-wrong.lean;
+\ review of small tactics 2, B2): rw's closing rfl is Lean's with_reducible rfl,
+\ so its exact Iff.rfl compares Nat.pred (Nat.succ b) = b with b = b at
+\ reducible, where Nat.pred does not unfold: the goal stays, Lean's "unsolved
+\ goals" (89).
+\ Lean: theorem w_rw_iff (a b : Nat) (h : a = b) :
+\           Nat.pred (Nat.succ a) = b ↔ b = b := by
+\         rw [h]
+theorem w_rw_iff
+  Nat explicit: a  Nat explicit: b  a b = explicit: h
+  a Nat.succ Nat.pred b =  b b = ↔
+:= by
+  by-rw[ ' h ]
+end w_rw_iff

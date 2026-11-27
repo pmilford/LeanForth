@@ -2014,7 +2014,7 @@ A statement's hypothesis is written with a tick when it stands alone,
 | `by-skip` | `( -- )` | ordinary | read: a step. Run: nothing | Does nothing, with goals or none. | `skip` |
 | `by-done` | `( -- )` | ordinary | read: a step. Run: no goal may be left | Checks the proof is finished at that point; goals left: 89 at `by-done` (inside `by-try` taken back). | `done` |
 | `by-iterate` | `( n -- )` (n a numeral) | ordinary; opens a block that `by-end` closes; names given inside it stay | read: a block step holding n. Run: the block's tactics n times over, each pass on the goals of its moment, no focus and no save (0: none at all) | Repeats a tactic block an exact number of times; a pass's error is that step's (90 no goal, 383, ...); n no numeral: 99; open blocks weighing more than 240 (an iterate its count and 2, the proof's `by` 4: a count up to 234 alone; [D.2](#d2-by-by-end-and-the-block-words)): 99, as Lean's recursion depth runs out at 252; names inside are resolved when the text is read, so `0 by-iterate ' nonexistent by-exact by-end` is error 1 where Lean accepts it. | `iterate n tacs` |
-| `by-calc[ T1 e1 T2 e2 .. ]` | `( -- )` | parsing: a list of terms up to `]`, in pairs (a relation, then its proof) | read: a step holding the terms. Run: each relation elaborated as a type (a later one's first `_` given the type of the right side before it), its left side defeq the right side before it, its proof against it, the chain joined by `Trans.trans` with the instance found for each pair of relations; the main goal closed by the chain, or, when the goal is `x ~ y` and the chain `x ~ b`, by the chain and a new goal `b ~ y` tagged `calc.step`; `?_` proofs are new goals after the others (see [D.12](#d12-by-calc-by-with-reducible-and-its-siblings)) | Proves a relation by a chain of steps; 512 no relation, 513 a left side not the right side before it, 510 no `Trans` instance; a chain that is not the goal and cannot be extended: 131 (Lean then reports `throwCalcFailure`'s sides, not ported); an odd count or a later step `_` alone: 99; an empty list 460. | `calc T1 := e1` `T2 := e2` .. |
+| `by-calc[ T1 e1 T2 e2 .. ]` | `( -- )` | parsing: a list of terms up to `]`, in pairs (a relation, then its proof) | read: a step holding the terms. Run: each relation elaborated as a type (a later one's first `_` given the type of the right side before it), its left side defeq the right side before it, its proof against it, the chain joined by `Trans.trans` with the instance found for each pair of relations; the main goal closed by the chain, or, when the goal is `x ~ y` and the chain `x ~ b`, by the chain and a new goal `b ~ y` tagged `calc.step`; `?_` proofs are new goals, which with `calc.step` last go in front of the other goals, as Lean's `pushGoals` puts them (see [D.12](#d12-by-calc-by-with-reducible-and-its-siblings)) | Proves a relation by a chain of steps; 512 no relation, 513 a left side not the right side before it, 510 no `Trans` instance; a chain that is not the goal and cannot be extended: 131 (Lean then reports `throwCalcFailure`'s sides, not ported); an odd count or a later step `_` alone: 99; an empty list 460. | `calc T1 := e1` `T2 := e2` .. |
 | `by-with-reducible` | `( -- )` | ordinary; opens a block that `by-end` closes; names given inside it stay | read: a block step. Run: the block's tactics on the goals as they are, no focus and no save, each at reducible transparency (their elaboration and isDefEq too), the transparency before it back however a step ends | Runs tactics unfolding only reducible definitions; the errors are the tactics'; nesting past 118 (2 units of the 240 each; Lean's limit 167): 99. | `with_reducible tacs` |
 | `by-with-reducible-and-instances` | `( -- )` | as `by-with-reducible` | as `by-with-reducible`, at instances transparency | As `by-with-reducible`, instances unfolding too; an elaboration that needs an instance unfolded there: 139 (not supported yet). | `with_reducible_and_instances tacs` |
 | `by-with-unfolding-all` | `( -- )` | as `by-with-reducible` | as `by-with-reducible`, at all transparency | As `by-with-reducible`, every definition unfolding. | `with_unfolding_all tacs` |
@@ -3272,7 +3272,11 @@ end cc_ext
 ```
 
 A proof `?_` is a new goal too (one alone keeps the main goal's tag; several are `calc_1`,
-`calc_2`, ..). Limits: a first step written alone (Lean's `calc a` for `a = _ := rfl`) has
+`calc_2`, ..). The new goals, the `?_` ones in order and `calc.step` last, come before the
+goals that were open beside the main one, as Lean's `pushGoals` puts them: after
+`by-constructor` on `a = d ∧ d = d`, a calc with two `?_` and a last step leaves `calc_1`,
+`calc_2`, `calc.step`, then `right` (pinned Lean's `trace_state`, 2026-11-26;
+`cc_order` in `calc.lf`). Limits: a first step written alone (Lean's `calc a` for `a = _ := rfl`) has
 no form, so an odd count is 99; a later step that is `_` alone is 99; a chain whose type is
 not the goal's and cannot be extended is 131 (Lean looks for a coercion, then reports both
 sides: not ported); a proof whose type is not its step's is the elaborator's 131 (a
@@ -3304,9 +3308,10 @@ its transparency; when a step fails, the transparency before the block is back, 
 `exact` after `try` above runs at the default again. `by-with-reducible-and-instances`
 (instances unfold too) and `by-with-unfolding-all` (every definition) are the same blocks
 at another transparency; at instances transparency an elaboration that needs an instance
-unfolded is not supported yet (139, `u-wr-inst.lf`). Inside rw's own closing `rfl`
-LeanForth elaborates at the default transparency where Lean is at reducible (plan row
-9.4.8z12). Depth: each block weighs 2 units of the 240 (D.2): 118 nested are supported,
+unfolded is not supported yet (139, `u-wr-inst.lf`). rw's own closing `rfl` runs at
+reducible as Lean's `with_reducible rfl` does, its `exact Iff.rfl` included, so `by-rw[ ' h ]`
+leaves `Nat.pred (Nat.succ b) = b ↔ b = b` open (Lean's "unsolved goals", 89), inside a
+`by-with-unfolding-all` block too (`w-rw-iff.lf`, `w-rw-all.lf`). Depth: each block weighs 2 units of the 240 (D.2): 118 nested are supported,
 Lean takes 167.
 
 ---

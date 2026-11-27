@@ -41,7 +41,9 @@
 \       (lf-tac-step): a tactic Lean writes as another one, run on the
 \       same step (lf-tac-eval)
 \   lf-tac-rfl-reducible ( -- )  with_reducible rfl on the step running:
-\       by-rfl's row at reducible transparency (rw's and rwa's closing)
+\       by-rfl's row at reducible transparency (rw's and rwa's closing),
+\       the tactics' own included (meta-must.fs's lf-tac-at: rfl's exact
+\       Iff.rfl elaborates at reducible, as Lean's does)
 \   lf-tac-only ( goal -- )  setGoals [goal] (an alternative's or a case's)
 \   lf-tac-with-synth ( i*x xt -- j*x )  Term.withSynthesize (with
 \       synthesizeSyntheticMVarsNoPostponing): xt run with the pending
@@ -58,7 +60,9 @@
 \       lf-elab-code: no room 60, fuel 138, a step not ported 139),
 \       stopping the step (elab-decl.fs's hook and #check use them too);
 \       Lean's logged class (tactic-run.fs's lf-tac-log-fail): final in a
-\       block that recovers, as Lean's errToSorry logs it
+\       block that recovers, as Lean's errToSorry logs it;
+\       lf-tac-elab-must ( outcome -- ) the same for a failure only, ok
+\       dropped (a Term elaboration run in the tactic: calc's steps)
 \   lf-tac-try-lean ( xt -- flag )  try (observing?): xt ( -- ) from a
 \       saved state (lf-tac-try) with recover false (withoutRecover, as
 \       Lean's try is first | xt | skip; tactic-run.fs's
@@ -120,8 +124,10 @@
 \       the goal (meta-tactic/goal.fs's lf-goal-checked-assign) and leaves
 \       the list (since batch 3b the check is new-goals.fs's: a hole left
 \       open is Lean's placeholder error, 461); lf-close-main-goal-unchecked
-\       the same with checkNewUnassigned := false (calc's: xt makes its
-\       new goals itself, with lf-tac-new-goals)
+\       the same with checkNewUnassigned := false (calc's): xt ( i*x type
+\       tag -- e goals ) also gives its new goals (lf-tac-new-goals), which
+\       go in front of the others once the main goal is closed and off the
+\       list (Lean pops it first, then pushGoals: goals.fs's lf-goals-push)
 \   lf-tac-new-goals ( e allow? -- goals )  withCollectingNewGoalsFrom's
 \       goals of a term elaborated already (ElabTerm.lean:171-182): e's
 \       new metavariables still open (numbered from tb-from), oldest
@@ -291,7 +297,7 @@ end-structure
 
 \ ---- A row on the step running; with_reducible rfl.
 : lf-tac-row ( kind -- ) lf-tac-step swap lf-tac-eval ;
-: lf-tac-rfl-reducible ( -- ) tac-k-rfl ['] lf-tac-row lf-with-reducible ;
+: lf-tac-rfl-reducible ( -- ) tac-k-rfl ['] lf-tac-row lf-tr-reducible lf-tac-at ;
 
 \ ---- The elaborator's failure: its error, as Lean's throwError gives it.
 \ One with a rest (elab-pending.fs's lf-elab-rest+, plan row TB2 batch
@@ -383,13 +389,15 @@ end-structure
 \ tb-from) that the term leaves unassigned, logUnassignedAndAbort's
 \ (new-goals.fs).
 : tcr-fresh-free ( e -- e ) dup tb tb-from @ lf-fresh-mvars lf-tac-log-unassigned ;
-: tcr-using ( i*x xt -- e )
-  tb tb-want @ swap tb tb-goal @ lf-goal-tag swap execute lf-instantiate! ;
+: tcr-called ( i*x xt -- j*x ) tb tb-want @ swap tb tb-goal @ lf-goal-tag swap execute ;
+: tcr-using ( i*x xt -- e ) tcr-called lf-instantiate! ;
 : tcr-assigned ( e -- ) tb tb-goal @ swap lf-goal-checked-assign lf-tac-pop-main ;
 : tcr-closing ( i*x xt i -- ) drop tcr-using tcr-fresh-free tcr-assigned ;
 : lf-close-main-goal-using ( i*x i xt -- ) swap ['] tcr-closing lf-tac-step-run ;
-\ checkNewUnassigned := false: the term's open metavariables are xt's own.
-: tcr-closing-unchecked ( i*x xt i -- ) drop tcr-using tcr-assigned ;
+\ checkNewUnassigned := false: the term's open metavariables are xt's own
+\ goals, pushed in front once the main goal is off the list.
+: tcr-pushed ( goals e -- ) lf-instantiate! tcr-assigned lf-goals-push lf-tac-must ;
+: tcr-closing-unchecked ( i*x xt i -- ) drop tcr-called swap tcr-pushed ;
 : lf-close-main-goal-unchecked ( i*x i xt -- )
   swap ['] tcr-closing-unchecked lf-tac-step-run ;
 

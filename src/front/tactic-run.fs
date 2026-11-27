@@ -28,6 +28,11 @@
 \ back (closeUsingOrAdmit; LeanForth never admits, ADR 0021 D3). How
 \ deep blocks nest is bounded by Lean's recursion depth: past it, 99
 \ (lf-tac-depth-most, lf-mode-weight! ( xt mode -- ); "Blocks"). Each
+\ block runs its steps at its frame's transparency (with_reducible's:
+\ a mode's open sets it with lf-tac-transparency! ( mode frame -- ),
+\ plan row 9.4.8z12), which meta-must.fs's lf-tac-transparency reads
+\ and its lf-tac-at sets for a tactic Lean runs under withTransparency.
+\ Each
 \ step spends one unit of the run's own fuel (lf-tactic-fuel!; Lean
 \ counts heartbeats instead, so where its limit and this one differ is
 \ a listed difference, none known) and one of the declaration's budget
@@ -1004,6 +1009,10 @@ lfr-states# 2* 0 xt-table: lfr-states
 \ well, and dropped when the next authoring run starts, lfr-run-fresh).
 : lfr-block-transp ( -- mode ) lfr-depth if lfr-top tfr-transp @ else lf-defeq-mode then ;
 ' lfr-block-transp is lf-tac-transparency
+\ meta-must.fs's lf-tac-at sets it so (no frame: the one in force).
+: lfr-block-transp! ( mode -- )
+  lfr-depth if lfr-top tfr-transp ! else lf-defeq-mode! then ;
+' lfr-block-transp! is lf-tac-transparency-to
 \ try (Init/Tactics.lean:445, first | tacs | skip): withoutRecover, kept
 \ at its end; at an error, the state back and the block closed.
 ' drop ' lfr-keep ' lfr-skip lfr-no-recover lfr-saving or lf-block-mode

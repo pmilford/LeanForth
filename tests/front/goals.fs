@@ -246,6 +246,13 @@ tgoal constant gd  tgoal constant ge  tgoal constant gf
 T{ list-de lf-goals! 0 gf run-push made lf-replace-main lf-goals cells. -> outcome-ok outcome-ok gf ge }T
 T{ 0 gd run-push made lf-goals-append lf-goals cells. -> outcome-ok gf ge gd }T
 T{ 0 lf-goals! 0 lf-replace-main lf-goals 99 lf-goals-append -> outcome-ok outcome-invalid 0 outcome-invalid }T
+\ pushGoals (review of small tactics 2, B1): the list in front of the goals;
+\ an empty list, or onto none, the other one; a list that names no run
+\ invalid, the goals unchanged.
+T{ list-de lf-goals! 0 gf run-push made lf-goals-push lf-goals cells. -> outcome-ok outcome-ok gf gd ge }T
+T{ 0 lf-goals-push lf-goals cells. -> outcome-ok gf gd ge }T
+T{ 0 lf-goals! list-de lf-goals-push lf-goals cells. -> outcome-ok outcome-ok gd ge }T
+T{ 99 lf-goals-push lf-goals cells. -> outcome-invalid gd ge }T
 \ The walk by place (all_goals', review tb2-blocks2 finding 1): from
 \ place k the first goal not assigned and the place after it, none from
 \ k false; it makes no run. ga and gb are assigned, gd and ge not.

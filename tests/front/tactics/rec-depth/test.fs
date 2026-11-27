@@ -134,6 +134,11 @@ T{ 40 haves0 -> 99 }T   lf-tac-forget
 T{ 59 tries0 -> 0 }T
 T{ 60 tries0 s" by-try" token? -> 99 true }T   lf-tac-forget
 T{ 70 tries0 80 tries0 -> 99 99 }T   lf-tac-forget
+\ with_reducible weighs 2 (review of small tactics 2, Low 2): 118 nested
+\ pass, 119 are 99 at the innermost (u-rd-wr.lf; Lean takes 167).
+: wrs0 ( k -- code ) >r s" by-with-reducible" s" by-end" r> around0 ;
+T{ 118 wrs0 -> 0 }T
+T{ 119 wrs0 s" by-with-reducible" token? -> 99 true }T   lf-tac-forget
 
 \ ---- 1, 5. The largest count (nine digits, the reader's most) weighs the
 \ bound and 2 (so that no sum wraps on a 32-bit host): 99 at once, three

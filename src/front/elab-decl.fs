@@ -172,7 +172,7 @@ action-of lfa-run-fresh constant edc-run-before
 : edc-tac-run ( node expected postpone? -- term outcome )
   dup >r edc-elab ok-then? 0= if r> drop no-result exit then r> edc-mode edc-finish ;
 : edc-tac-with ( i*x xt -- term outcome )
-  lf-elab-configured dup ok? 0= if lf-tac-elab-fail then ;
+  lf-elab-configured dup lf-tac-elab-must ;
 : edc-tac-elab ( node expected postpone? -- term outcome ) ['] edc-tac-run edc-tac-with ;
 ' edc-tac-elab is lf-tac-elab
 \ Term.elabType, then synthesis with postpone := .partial (have's type).

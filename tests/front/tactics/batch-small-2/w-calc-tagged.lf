@@ -1,0 +1,24 @@
+\ A wrong twin (plan row 9.4.8z12, small tactics 2; batch-small-2-wrong.lean;
+\ review of small tactics 2, B1): the first calc's goals left.calc_1 and
+\ left.calc_2 come before right, so the second calc runs on left.calc_1 (a = b)
+\ and extends it by the goal c = b (left.calc_1.calc.step), which h1 does not
+\ fit: Lean's "Type mismatch" (96) at the last step.
+\ Lean: theorem w_calc_tagged (a b c : Nat) (h1 : a = b) (h2 : b = c) :
+\           a = c ∧ a = c := by
+\         constructor
+\         calc a = b := ?_
+\           _ = c := ?_;
+\         calc a = b := h1
+\           _ = c := h2
+\         case left.calc_2 => exact h2
+\         exact h1
+theorem w_calc_tagged
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h1  b c = explicit: h2  a c =  a c = /\
+:= by
+  by-constructor
+  by-calc[ a b = ?_  _ c = ?_ ]
+  by-calc[ a b = ' h1  _ c = ' h2 ]
+  by-case: left.calc_2 => ' h2 by-exact by-end
+  ' h1 by-exact
+end w_calc_tagged

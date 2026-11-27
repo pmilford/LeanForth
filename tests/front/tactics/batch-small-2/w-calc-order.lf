@@ -1,0 +1,20 @@
+\ A wrong twin (plan row 9.4.8z12, small tactics 2; batch-small-2-wrong.lean;
+\ review of small tactics 2, B1): calc's new goals go in front of the other
+\ goals (Lean's pushGoals), so after by-constructor the main goal is the ?_
+\ goal a = b, not right: h2 does not fit it, Lean's "Type mismatch" (96).
+\ With the new goals after the others, h2 would close right and h1 the ?_.
+\ Lean: theorem w_calc_order (a b c : Nat) (h1 : a = b) (h2 : c = c) :
+\           a = b ∧ c = c := by
+\         constructor
+\         calc a = b := ?_;
+\         exact h2
+\         exact h1
+theorem w_calc_order
+  Nat explicit: a  Nat explicit: b  Nat explicit: c
+  a b = explicit: h1  c c = explicit: h2  a b =  c c = /\
+:= by
+  by-constructor
+  by-calc[ a b = ?_ ]
+  ' h2 by-exact
+  ' h1 by-exact
+end w_calc_order

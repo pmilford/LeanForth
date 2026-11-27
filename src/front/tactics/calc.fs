@@ -18,8 +18,9 @@
 \ the main goal's tag and the suffix calc): the chain's metavariables the
 \ step made and left open, oldest first (a ?_ in a proof, the last
 \ step's goal), a natural one Lean's placeholder error (461), each
-\ anonymous one tagged (tagUntaggedGoals), pushed after the other goals
-\ (pushGoals); then the main goal is assigned the chain and taken off.
+\ anonymous one tagged (tagUntaggedGoals); the main goal is assigned the
+\ chain and taken off, and the new goals go in front of the other goals
+\ (pushGoals, Elab/Tactic/Basic.lean:471: mvarIds ++ goals).
 \ The terms are the bracket's (tac-shape-list+: an empty one is 460), in
 \ pairs, T then e; an odd count (Lean's first step written alone, a = _
 \ := rfl) has no form: 99.
@@ -29,7 +30,7 @@
 \ lf-calc-relation?; mkFreshExprSyntheticOpaqueMVar -> lf-goal-new;
 \ Term.mkCalcTrans -> lf-calc-trans; try ... catch _ -> tcx-mismatch;
 \ withCollectingNewGoalsFrom -> lf-tac-new-goals, lf-tac-tag-new;
-\ pushGoals -> lf-goals-append.
+\ popMainGoal, pushGoals -> lf-close-main-goal-unchecked (lf-goals-push).
 \ Untrusted: only the kernel's check of the finished term decides.
 \ State: none of its own.
 
@@ -58,11 +59,12 @@ s" calc" tac-k-calc lf-tactic-lean!
 : tcx-step-tag ( tag -- tag' ) s" calc.step" lfa-intern lf-name-append-tag ;
 : tcx-goal ( stype -- stype goal )
   dup tcx-tag tcx-step-tag lf-mctx-view lf-goal-new lf-must ;
-: tcx-tried ( val vtype goal stype -- val' vtype' ) lf-calc-trans if tcx-mismatch then ;
+: tcx-tried ( val vtype goal stype -- val' vtype' )
+  lf-calc-trans 0= if tcx-mismatch then ;
 : tcx-extended ( val vtype stype goal -- val' )
   swap tcx-tried tcx-target lf-defeq! 0= if tcx-mismatch then ;
 : tcx-extend ( val vtype -- val' )
-  tcx-target lf-calc-relation? 0= if tcx-mismatch then 2drop drop
+  tcx-target lf-calc-rel? 0= if tcx-mismatch then
   dup tcx-target tcx-fits? 0= if tcx-mismatch then
   dup tcx-target tcx-last tcx-goal tcx-extended ;
 \ The chain, when its type is the target, else extended.
@@ -70,9 +72,9 @@ s" calc" tac-k-calc lf-tactic-lean!
 : tcx-chain ( i -- val ) tcx-steps lf-elab-calc-steps tcx-fit ;
 : tcx-elab ( i -- val ) ['] tcx-chain lf-elab-configured ;
 
-\ ---- closeMainGoalUsing's body: the chain, its new goals pushed.
-: tcx-goals ( val -- val )
-  dup false lf-tac-new-goals c" calc" lf-tac-tag-new lf-goals-append lf-tac-must ;
-: tcx-calc ( i type tag -- val ) 2drop ['] tcx-elab lf-tac-with-synth tcx-goals ;
+\ ---- closeMainGoalUsing's body: the chain and its new goals, which
+\ lf-close-main-goal-unchecked pushes in front of the others.
+: tcx-goals ( val -- val goals ) dup false lf-tac-new-goals c" calc" lf-tac-tag-new ;
+: tcx-calc ( i type tag -- val goals ) 2drop ['] tcx-elab lf-tac-with-synth tcx-goals ;
 : tcx-run ( i -- ) dup ['] tcx-calc lf-close-main-goal-unchecked ;
 ' tcx-run tac-k-calc lf-tactic-action!

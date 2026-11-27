@@ -49,6 +49,14 @@ theorem cc_holes (a b c : Nat) (h1 : a = b) (h2 : b = c) : a = c := by
 theorem cc_num (a b : Nat) (h1 : a = b) (h2 : b = 1 + 1) : a = 1 + 1 := by
   calc a = b := h1
     _ = 1 + 1 := h2
+theorem cc_order (a b c d : Nat) (h1 : a = b) (h2 : b = c) (h3 : c = d) : a = d ∧ d = d := by
+  constructor
+  calc a = b := ?_
+    _ = c := ?_;
+  exact h1
+  exact h2
+  exact h3
+  exact rfl
 theorem wr_ok (a : Nat) : a = a := by
   with_reducible rfl
 theorem wr_inst (a b : Nat) (h : a + b = b) : a + b = b := by
@@ -93,7 +101,7 @@ def dump (n : Name) : MetaM Unit := do
 
 #eval do
   for n in [``cc_eq, ``cc_explicit, ``cc_one, ``cc_le, ``cc_lt, ``cc_mix, ``cc_ltle,
-            ``cc_leeq, ``cc_ext, ``cc_ext_lt, ``cc_hole, ``cc_holes, ``cc_num, ``wr_ok,
-            ``wr_inst, ``wr_all, ``wr_exact_dflt, ``wr_try, ``wr_all_exact, ``wr_two,
+            ``cc_leeq, ``cc_ext, ``cc_ext_lt, ``cc_hole, ``cc_holes, ``cc_num, ``cc_order,
+            ``wr_ok, ``wr_inst, ``wr_all, ``wr_exact_dflt, ``wr_try, ``wr_all_exact, ``wr_two,
             ``wr_have] do
     dump n

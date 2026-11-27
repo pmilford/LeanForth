@@ -86,7 +86,20 @@
 \                                     configuration in force, at
 \                                     transparency mode, the stuck signal
 \                                     made invalid (outcome-sane); no THROW
-\   lf-tac-defeq ( t s -- flag outcome ) the same at default transparency
+\   lf-tac-defeq ( t s -- flag outcome ) the same at the tactics'
+\                                     transparency, lf-tac-transparency
+\                                     ( -- mode ): the runner's top
+\                                     frame's (default, or a with_reducible
+\                                     block's), default outside a run
+\   lf-tac-at ( i*x xt mode -- j*x )  xt run under Lean's withTransparency
+\                                     mode as a tactic sees it (with_reducible
+\                                     rfl, rw's closing): the transparency in
+\                                     force and the tactics' (the top
+\                                     frame's, through lf-tac-transparency-to
+\                                     ( mode -- ), which tactic-run.fs sets)
+\                                     both mode, both put back however xt
+\                                     ends (CATCH, THROW); xt opens no block
+\                                     that outlives it
 \   lf-found ( x true | false -- x )  a lookup's answer, none thrown invalid
 \                                     (a record LeanForth made is missing: a fault)
 \   lf-match-const-induct ( f -- d true | false ) matchConstInduct
@@ -235,13 +248,19 @@ end-structure
 \ A tactic's isDefEq at its block's transparency (plan row 9.4.8z12):
 \ lf-tac-transparency ( -- mode ), which tactic-run.fs sets, is the
 \ runner's top frame's (default, but reducible inside a with_reducible
-\ block, as Lean's TacticM reads it), default outside a tactic run. A
-\ LeanForth scope inside a step (rw's closing rfl, meta-config.fs's
-\ lf-with-reducible) does not change it: plan row 9.4.8z12 (the rfl after
-\ rw elaborates at default where Lean is at reducible).
+\ block, as Lean's TacticM reads it), the one in force outside a tactic
+\ run. A LeanForth scope inside a step (meta-config.fs's
+\ lf-with-reducible) does not change it; a tactic Lean runs under
+\ withTransparency (rw's closing with_reducible rfl) runs in lf-tac-at,
+\ which sets both (review of small tactics 2, B2).
 defer lf-tac-transparency ( -- mode )
+defer lf-tac-transparency-to ( mode -- )
 ' lf-defeq-mode is lf-tac-transparency
+' lf-defeq-mode! is lf-tac-transparency-to
 : lf-tac-defeq ( t s -- flag outcome ) lf-tac-transparency lf-defeq-elab-at ;
+: lf-tac-at ( i*x xt mode -- j*x )
+  lf-tac-transparency >r dup lf-tac-transparency-to ['] lf-meta-at catch
+  r> lf-tac-transparency-to throw ;
 
 \ ---- commitWhen: the metavariable context marked, xt run; its changes
 \ kept on true, rolled back on false and on a THROW (thrown on). A

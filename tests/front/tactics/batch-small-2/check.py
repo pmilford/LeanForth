@@ -23,15 +23,22 @@ ENV = tactic_check.Env("tests/front/patterns-slice.ndjson",
                        "tests/front/patterns-slice.elab.ndjson", "patterns-dump")
 FILES = [(D + "calc.lf", ["cc_eq", "cc_explicit", "cc_one", "cc_le", "cc_lt", "cc_mix",
                           "cc_ltle", "cc_leeq", "cc_ext", "cc_ext_lt", "cc_hole", "cc_holes",
-                          "cc_num"]),
+                          "cc_num", "cc_order"]),
          (D + "with-reducible.lf", ["wr_ok", "wr_inst", "wr_all", "wr_exact_dflt", "wr_try",
                                     "wr_all_exact", "wr_two", "wr_have"])]
 
+UNSOLVED_IFF = "a b : Nat\nh : a = b\n⊢ "
 WRONG = [(D + "w-calc-lhs.lf", 513, "invalid 'calc' step, left-hand side is",
           "  a : Nat\nbut previous right-hand side is\n  b : Nat"),
          (D + "w-calc-trans.lf", 510,
           "invalid 'calc' step, failed to synthesize `Trans` instance", ""),
          (D + "w-calc-relation.lf", 512, "invalid 'calc' step, relation expected", "  True"),
+         (D + "w-calc-order.lf", 96, "Type mismatch", "  h2\nhas type\n  c = c"),
+         (D + "w-calc-tagged.lf", 96, "Type mismatch", "  h1\nhas type\n  a = b"),
+         (D + "w-calc-natural.lf", 461, "don't know how to synthesize placeholder",
+          "context:\na b c : Nat\nh1 : a = b\nh2 : b = c\n⊢ a = b"),
+         (D + "w-rw-iff.lf", 89, "unsolved goals", UNSOLVED_IFF),
+         (D + "w-rw-all.lf", 89, "unsolved goals", UNSOLVED_IFF),
          (D + "w-wr-rfl.lf", 97, "Tactic `rfl` failed: The left-hand side", "  a + 0"),
          (D + "w-wr-exact.lf", 96, "Type mismatch", "  h")]
 NOT_YET = "not supported yet"

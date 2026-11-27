@@ -420,6 +420,22 @@ T{ deeper ?t fk app ?t fx app lf-defeq-elab lf-defeq-const or with-flags
   lf-tr-reducible lf-defeq-mode! 0 s" Nat.add" cn fk dq lf-tr-default lf-defeq-mode! ;
 T{ elab-init-only? hint-dq -> true false outcome-ok }T
 T{ 2 elab elab-modules# ! hint-dq 1 elab elab-modules# ! -> false outcome-unsupported }T
+\ A Not side has Init's hint as candidate (review of small tactics 2, B2):
+\ at reducible, ¬ a = b against Iff (a = b) (a = b), either way round, is
+\ false as Lean's (the check a = b → False =?= Iff .. fails, Iff being an
+\ inductive type), with no assignment of ?r left; against a = b → False
+\ the check would need a comparison: unsupported (Lean: true); with the
+\ data of another library: unsupported.
+: red-hint ( t s -- flag outcome ) lf-tr-reducible lf-defeq-mode! dq lf-tr-default lf-defeq-mode! ;
+: not-ab ( -- t ) 0 s" Not" cn eqab app ;
+: iff-ab ( -- t ) 0 s" Iff" cn eqab app eqab app ;
+: eq-r ( -- t ) lv1 1 s" Eq" cn nat app ?r app fa app ;
+: iff-r ( -- t ) 0 s" Iff" cn eqab app eq-r app ;
+T{ not-ab iff-ab red-hint iff-ab not-ab red-hint -> false outcome-ok false outcome-ok }T
+T{ not-ab iff-r red-hint ?r free? -> false outcome-ok true }T
+T{ not-ab eqab 0 s" False" cn tpi red-hint -> false outcome-unsupported }T
+T{ 2 elab elab-modules# ! not-ab iff-ab red-hint 1 elab elab-modules# !
+   -> false outcome-unsupported }T
 \ 26 of Mathlib's 27 hints are keyed at a projection node (Lean's key
 \ .proj; tests/front/unif-hints.lean, MF1): a side whose head is one may
 \ match a hint, as may one whose head is a definition; a variable's

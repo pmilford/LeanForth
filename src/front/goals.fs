@@ -41,7 +41,8 @@
 \   (Lean's "no goals to be proved").
 \ - lf-replace-main ( list -- outcome ): replaceMainGoal, the list in
 \   place of the first goal; lf-goals-append ( list -- outcome ):
-\   appendGoals, the list after the goals.
+\   appendGoals, the list after the goals; lf-goals-push ( list --
+\   outcome ): pushGoals (Basic.lean:471), the list in front of them.
 \ - lf-goals-next-open ( list k -- k' goal true | false ): the list's
 \   first goal not assigned at or after place k, and the place after it,
 \   or false when every goal from k is (all_goals' walk, BuiltinTactic.
@@ -157,3 +158,4 @@ end-structure
 : lf-replace-main ( list -- outcome )
   gl-tail ok-then? if run-cat gl-set-ok else nip then ;
 : lf-goals-append ( list -- outcome ) lf-goals swap run-cat gl-set-ok ;
+: lf-goals-push ( list -- outcome ) lf-goals run-cat gl-set-ok ;

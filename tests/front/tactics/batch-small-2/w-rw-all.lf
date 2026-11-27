@@ -1,0 +1,13 @@
+\ A wrong twin (plan row 9.4.8z12, small tactics 2; batch-small-2-wrong.lean;
+\ review of small tactics 2, B2): inside with_unfolding_all, rw's closing rfl
+\ still runs at reducible (with_reducible rfl), so the goal stays: Lean's
+\ "unsolved goals" (89).
+\ Lean: theorem w_rw_all (a b : Nat) (h : a = b) :
+\           Nat.pred (Nat.succ a) = b ↔ b = b := by
+\         with_unfolding_all rw [h]
+theorem w_rw_all
+  Nat explicit: a  Nat explicit: b  a b = explicit: h
+  a Nat.succ Nat.pred b =  b b = ↔
+:= by
+  by-with-unfolding-all by-rw[ ' h ] by-end
+end w_rw_all
