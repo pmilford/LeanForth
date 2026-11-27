@@ -3170,6 +3170,13 @@ is a proposition nothing depends on and the target; after both forms
 (`by-simp at[ h ]`, `by-simp[ ' r ] at[ h ]`). A hypothesis that becomes
 `False` closes the goal; nothing changed anywhere is Lean's error 500.
 
+On the small test slice (`tests/front/simp-slice.ndjson`, 194 of Init's
+10,296 default lemmas, the others left out) a goal or hypothesis that simp
+does not close outright, such as `h : a + 0 = b` becoming `h : a = b`,
+answers 99, because a left-out lemma is reached; with Init's snapshot and
+its format 4.1 data (`ELAB_FORMAT=4.1 scripts/export-elab.sh`) the same text
+is accepted, and a goal simp cannot close is Lean's "unsolved goals" (89).
+
 | Form | Example |
 |---|---|
 | Mathematics | from $h : a = b$, $a + 0 = b$; from $h_1 : a = b$ and $h_2 : a + 0 = b$, $h_2$ becomes True |
@@ -3206,7 +3213,7 @@ anything else is not supported yet (99).
 **On all of Init.** `make reference-simp-init` (part of `make daily`) runs
 Init's 640 one-line `simp` and `simp [..]` proofs as LeanForth text against
 Init and pinned Lean's re-run: 57 are accepted with Lean's term node for
-node, none with another term; 393 can be written in LeanForth today, and the
+node, none with another term; 385 can be written in LeanForth today, and the
 rest answer 99 for the reasons above, the largest a bracket theorem with
 `<-` ([measurement](../development/measurements/simp-init-2026-11-26/README.md#the-harness-make-reference-simp-init-simp-group-4-pass-3)).
 `simp only`'s and `simp`'s options (`config[ ]`, `-'`, `'*`), `simp_all`,
