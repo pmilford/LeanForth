@@ -240,8 +240,8 @@ reason = "review tactic-fidelity B1: the last two arguments given in the wrong o
 [[fault]]
 id = "tf-synth-failure-is-125"
 file = "src/front/tactic-core.fs"
-old = ''': tcr-synthesized ( outcome -- ) dup ok? 0= if lf-tac-elab-fail then drop ;'''
-new = ''': tcr-synthesized ( outcome -- ) dup ok? 0= if lf-tac-elab-detail drop lfa-e-elab-synth lf-tac-stop then drop ;'''
+old = ''': lf-tac-elab-must ( outcome -- ) dup ok? 0= if lf-tac-elab-fail then drop ;'''
+new = ''': lf-tac-elab-must ( outcome -- ) dup ok? 0= if lf-tac-elab-detail drop lfa-e-elab-synth lf-tac-stop then drop ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "review tactic-fidelity M1 (its r23b): an exhausted or unsupported synthesis reported as Lean's 125, which try catches as a Lean error"
 
