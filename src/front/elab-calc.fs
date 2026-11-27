@@ -83,7 +83,7 @@ require ./tactic-api.fs
 : ecl-rel? ( e -- flag ) lf-meta-args# 1 > ;
 : ecl-parts ( e -- r a b ) dup lf-calc-rel over lf-calc-lhs rot lf-calc-rhs ;
 : lf-calc-relation? ( e -- r a b true | false )
-  dup ecl-rel? if ecl-parts true else drop false then ;
+  dup ecl-rel? if ecl-parts true exit then drop false ;
 \ One the caller made sure of (Lean's unreachable!): else a fault.
 : ecl-relation ( e -- r a b ) dup ecl-rel? 0= if outcome-invalid lf-must then ecl-parts ;
 
@@ -129,8 +129,8 @@ end-structure
 : ecl-synth ( -- x y code )
   s" Trans" 6 ecl-applied dup lf-try-synth lf-must lf-synth-some =
   if ['] ecf-self ecf! drop ecl-result else drop -1 lfa-e-calc-trans then ;
-: ecl-trans ( result rtype step stype -- x y code )
-  ecl-step! ecl-chain! ecl-types! ecl-levels! ecl-fresh! ecl-synth ;
+: ecl-frame! ( result rtype step stype -- ) ecl-step! ecl-chain! ecl-types! ecl-levels! ;
+: ecl-trans ( result rtype step stype -- x y code ) ecl-frame! ecl-fresh! ecl-synth ;
 : lf-calc-trans ( result rtype step stype -- x y code )
   ecl-trans-frames ['] ecl-trans lf-with-record ;
 
@@ -143,9 +143,9 @@ end-structure
 : ecl-typed. ( e -- outcome ) dup lf-tac-indented. ['] ecl-type-of. ok-with nip ;
 : ecl-but. ( prev -- outcome )
   s\" \nbut previous right-hand side is\n" lf-pp-emit ecl-typed. ;
-: ecl-sides. ( lhs prev -- outcome ) swap ecl-typed. ['] ecl-but. ok-with nip ;
+: ecl-sides. ( prev lhs -- outcome ) ecl-typed. ['] ecl-but. ok-with nip ;
 : ecl-lhs-fail ( lhs prev -- )
-  2 ['] ecl-sides. lf-tac-detail-n lfa-e-calc-lhs lf-tac-stop ;
+  swap 2 ['] ecl-sides. lf-tac-detail-n lfa-e-calc-lhs lf-tac-stop ;
 : ecl-hinted. ( term -- outcome ) lf-tac-indented. ['] lf-tac-diagnostics. ok-and ;
 : ecl-detail ( code -- xt )
   lfa-e-calc-trans = if ['] ecl-hinted. else ['] lf-tac-indented. then ;
@@ -153,10 +153,9 @@ end-structure
 
 \ ---- The elaborator's words (lf-elab-calc-steps runs in its
 \ configuration), a failure stopping the step.
-: ecl-sure ( outcome -- ) dup ok? 0= if lf-tac-elab-fail then drop ;
-: ecl-type ( node -- type ) lf-elab-type ecl-sure ;
-: ecl-ensuring ( node type -- proof ) lf-elab-ensuring ecl-sure ;
-: ecl-defaults ( -- ) lf-elab-synthesize-default ecl-sure ;
+: ecl-type ( node -- type ) lf-elab-type lf-tac-elab-must ;
+: ecl-ensuring ( node type -- proof ) lf-elab-ensuring lf-tac-elab-must ;
+: ecl-defaults ( -- ) lf-elab-synthesize-default lf-tac-elab-must ;
 
 \ ---- annotateFirstHoleWithType: the leaf the left operands lead to,
 \ when the term is an operator's and the leaf is _ (a step _ alone: 99).

@@ -532,7 +532,7 @@ reason = "review tactic-move M3: introN without checkNotAssigned (Intro.lean:15)
 [[fault]]
 id = "lib-with-synth-status-dropped"
 file = "src/front/tactic-core.fs"
-old = '''  ['] tcr-under lf-postpone-no lf-elab-with-synth tcr-synthesized ;'''
+old = '''  ['] tcr-under lf-postpone-no lf-elab-with-synth lf-tac-elab-must ;'''
 new = '''  ['] tcr-under lf-postpone-no lf-elab-with-synth drop ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "review tactic-move M3: withSynthesize's failure dropped, so a problem no instance fills is left and the tactic goes on as if it had succeeded"

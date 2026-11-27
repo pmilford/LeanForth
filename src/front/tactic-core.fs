@@ -316,9 +316,9 @@ end-structure
 \ ---- withSynthesize: xt run under the pending list's window, the
 \ window's mode (no postponing) given back above the caller's cells.
 : tcr-under ( i*x xt mode -- j*x mode ) drop execute lf-postpone-no ;
-: tcr-synthesized ( outcome -- ) dup ok? 0= if lf-tac-elab-fail then drop ;
+: lf-tac-elab-must ( outcome -- ) dup ok? 0= if lf-tac-elab-fail then drop ;
 : lf-tac-with-synth ( i*x xt -- j*x )
-  ['] tcr-under lf-postpone-no lf-elab-with-synth tcr-synthesized ;
+  ['] tcr-under lf-postpone-no lf-elab-with-synth lf-tac-elab-must ;
 
 \ ---- try: first | xt | skip (Init/Tactics.lean:445), xt a non-last
 \ alternative, run withoutRecover (Basic.lean:436-437's orElse);

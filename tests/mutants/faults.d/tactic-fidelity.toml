@@ -146,7 +146,7 @@ reason = "9.4.8l: exact's Type mismatch (96) without its has type and expected t
 [[fault]]
 id = "tf-synth-runner-code"
 file = "src/front/tactic-core.fs"
-old = '''  ['] tcr-under lf-postpone-no lf-elab-with-synth tcr-synthesized ;'''
+old = '''  ['] tcr-under lf-postpone-no lf-elab-with-synth lf-tac-elab-must ;'''
 new = '''  ['] tcr-under lf-postpone-no lf-elab-with-synth lf-tac-must ;'''
 test = "$GFORTH tests/front/tactic-lib.fs"
 reason = "9.4.8l S: a problem no instance fills reported as the runner's mapping of invalid (93) instead of the elaborator's recorded 125"

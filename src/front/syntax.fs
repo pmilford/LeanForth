@@ -101,7 +101,7 @@ max-n store-header - /syn cell+ / constant syn-limit
 : syn-at@ ( node -- pos ) syn-node syn-at @ ;
 : syn-hole? ( node -- flag ) syn-kind@ syn-k-hole syn-k-synthetic one-of2? ;
 \ A type ascribed to a hole (b, c true), or none.
-: syn-ascribe! ( type node -- ) syn-node tuck syn-b ! true swap syn-c ! ;
+: syn-ascribe! ( type node -- ) syn-node true over syn-c ! syn-b ! ;
 : syn-ascribed? ( node -- type true | false )
   syn-node dup syn-c @ if syn-b @ true else drop false then ;
 : syn-a! ( node x -- node ) over syn-node syn-a ! ;
