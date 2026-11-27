@@ -64,7 +64,7 @@ reason = "small tactics 2: the runner never runs a step at its frame's transpare
 [[fault]]
 id = "sm2-tac-defeq-default"
 file = "src/front/meta-must.fs"
-old = ''': lf-tac-defeq ( t s -- flag outcome ) lf-defeq-mode lf-defeq-elab-at ;'''
+old = ''': lf-tac-defeq ( t s -- flag outcome ) lf-tac-transparency lf-defeq-elab-at ;'''
 new = ''': lf-tac-defeq ( t s -- flag outcome ) lf-tr-default lf-defeq-elab-at ;'''
 test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
 reason = "small tactics 2: a tactic's isDefEq forces default transparency inside with_reducible, so exact h is accepted where Lean's Type mismatch refuses it (test.fs's 96)"
@@ -72,8 +72,8 @@ reason = "small tactics 2: a tactic's isDefEq forces default transparency inside
 [[fault]]
 id = "sm2-elab-configured-default"
 file = "src/front/elab-decl.fs"
-old = ''': lf-elab-configured ( i*x xt -- j*x ) edc-kept lf-defeq-elab or lf-defeq-mode lf-meta-with ;'''
-new = ''': lf-elab-configured ( i*x xt -- j*x ) edc-kept lf-defeq-elab or lf-tr-default lf-meta-with ;'''
+old = '''  edc-kept lf-defeq-elab or lf-tac-transparency lf-meta-with ;'''
+new = '''  edc-kept lf-defeq-elab or lf-tr-default lf-meta-with ;'''
 test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
 reason = "small tactics 2: the elaborator forces default transparency inside with_reducible, so calc's proof is accepted where Lean refuses it (test.fs's calc inside by-with-reducible)"
 
@@ -84,3 +84,11 @@ old = '''  dup lf-has-open-mvar? if mtg-checked else mtg-in-scope then mtg-assig
 new = '''  lf-open-mvar-free mtg-in-scope mtg-assigned ;'''
 test = "$GFORTH tests/front/tactics/batch-small-2/test.fs"
 reason = "small tactics 2: checkedAssign refuses every value with an open metavariable (93), so calc's new goals never close the main goal, where Lean's checkAssignment keeps those of its scope (test.fs's checked assignment and calc texts)"
+
+[[fault]]
+id = "sm2-block-transp-in-force"
+file = "src/front/tactic-run.fs"
+old = ''': lfr-block-transp ( -- mode ) lfr-depth if lfr-top tfr-transp @ else lf-defeq-mode then ;'''
+new = ''': lfr-block-transp ( -- mode ) lf-defeq-mode ;'''
+test = "$GFORTH tests/front/tactics/batch-d/test.fs"
+reason = "small tactics 2: the tactics' isDefEq and elaboration read a LeanForth scope's reducible transparency (rw's closing rfl), not their block's, which rwa's run on a negated goal does not support yet (93 where main accepts, batch-d's rwa)"

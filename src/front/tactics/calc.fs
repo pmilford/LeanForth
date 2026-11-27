@@ -9,10 +9,12 @@
 \ target; else, when the target is a relation er x' y and the chain's x ~
 \ b has x defeq x' and b's type defeq x''s, the chain is extended by a new
 \ goal er b y (synthetic opaque, tagged the main goal's tag ++ calc.step)
-\ through mkCalcTrans (a Lean error there caught, as Lean's try ... catch
-\ _), kept when its type is defeq the target; anything else is Lean's
-\ ensureHasType with a coercion and then throwCalcFailure, not ported:
-\ 131, not supported yet. The new goals (withCollectingNewGoalsFrom with
+\ through mkCalcTrans, kept when its type is defeq the target; anything
+\ else, mkCalcTrans' own errors included (which Lean's try ... catch _
+\ takes back), is Lean's ensureHasType with a coercion and then
+\ throwCalcFailure, not ported: 131, not supported yet (a failure
+\ mkCalcTrans throws, never met on well-typed steps, stops the step: no
+\ acceptance either way). The new goals (withCollectingNewGoalsFrom with
 \ the main goal's tag and the suffix calc): the chain's metavariables the
 \ step made and left open, oldest first (a ?_ in a proof, the last
 \ step's goal), a natural one Lean's placeholder error (461), each
@@ -25,7 +27,7 @@
 \ runTermElab -> lf-tac-with-synth; Term.elabCalcSteps ->
 \ lf-elab-calc-steps; isDefEq -> lf-defeq!; getCalcRelation? ->
 \ lf-calc-relation?; mkFreshExprSyntheticOpaqueMVar -> lf-goal-new;
-\ Term.mkCalcTrans -> lf-calc-trans; try ... catch _ -> lf-meta-try;
+\ Term.mkCalcTrans -> lf-calc-trans; try ... catch _ -> tcx-mismatch;
 \ withCollectingNewGoalsFrom -> lf-tac-new-goals, lf-tac-tag-new;
 \ pushGoals -> lf-goals-append.
 \ Untrusted: only the kernel's check of the finished term decides.
@@ -58,8 +60,7 @@ s" calc" tac-k-calc lf-tactic-lean!
   dup tcx-tag tcx-step-tag lf-mctx-view lf-goal-new lf-must ;
 : tcx-tried ( val vtype goal stype -- val' vtype' ) lf-calc-trans if tcx-mismatch then ;
 : tcx-extended ( val vtype stype goal -- val' )
-  swap ['] tcx-tried 4 2 lf-meta-try 0= if tcx-mismatch then
-  tcx-target lf-defeq! 0= if tcx-mismatch then ;
+  swap tcx-tried tcx-target lf-defeq! 0= if tcx-mismatch then ;
 : tcx-extend ( val vtype -- val' )
   tcx-target lf-calc-relation? 0= if tcx-mismatch then 2drop drop
   dup tcx-target tcx-fits? 0= if tcx-mismatch then

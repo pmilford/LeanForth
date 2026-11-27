@@ -141,6 +141,20 @@ T{ s" Nat explicit: a Nat explicit: b a b = explicit: h1 b a =" s" by-calc[ a b 
 lf-tac-forget
 T{ h3 s" by-calc[ a b = ' h1 _ ' h1 ]" tactic-ran -> 99 }T
 lf-tac-forget
+\ The last-step extension's other ways out, each 131: a goal that is no
+\ relation; no Trans for And with Or; Nat.instTransLtLe's chain a < c for
+\ the goal a ≤ c.
+T{ s" Nat explicit: a Nat explicit: b a b = explicit: h1 True" s" by-calc[ a b = ' h1 ]"
+   tactic-ran -> 131 }T
+lf-tac-forget
+T{ s" Nat explicit: a Nat explicit: b a b = a b = /\ explicit: h1 a b = a b = \/"
+   s" by-calc[ a b = a b = /\ ' h1 ]" tactic-ran -> 131 }T
+lf-tac-forget
+T{ s" Nat explicit: a Nat explicit: b Nat explicit: c a b < explicit: h1 a c <="
+   s" by-calc[ a b < ' h1 ]" tactic-ran -> 131 }T
+lf-tac-forget
+\ 510's detail is the type with Lean's hint, 511's the type alone.
+T{ lfa-e-calc-trans ecl-detail lfa-e-calc-not-rel ecl-detail -> ' ecl-hinted. ' lf-tac-indented. }T
 
 \ ---- 2. Malformed: empty (460), never closed (458), an odd count (99).
 T{ h3 s" by-calc[ ]" tactic-ran s" ]" token? -> 460 true }T

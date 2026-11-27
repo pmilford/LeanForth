@@ -539,7 +539,9 @@ T{ prop nat s" c" lf-binder-default pi-named goal-of names 0 2 intro-code lf-aut
 lf-tac-forget
 \ checkedAssign: assigned; assigned again or a variable outside the
 \ context: 98 with the term, Lean's line and the goal; an open
-\ metavariable: 93's unsupported.
+\ metavariable of the goal's own context: assigned, as Lean's
+\ checkAssignment keeps it (plan row 9.4.8z12; one Lean would narrow is
+\ assign-check.fs's unsupported, tests/front/defeq.fs).
 : assign-code ( goal e -- code ) ['] lf-goal-checked-assign catch dup if nip nip then ;
 nat goal-of constant ga
 T{ ga zero assign-code ga lf-goal-assigned? -> 0 true }T
@@ -549,7 +551,8 @@ lf-tac-forget
 T{ nat goal-of nat lf-lctx-local made assign-code lf-author-code -> lf-author-throw 98 }T
 T{ s\" this is often due to an occurs-check failure\n\n" detail-has? -> true }T
 lf-tac-forget
-T{ nat goal-of nat mv-natural lf-mvar-new made assign-code -> -4205 }T
+T{ nat goal-of dup nat mv-natural lf-mvar-new made assign-code swap lf-goal-assigned?
+   -> 0 true }T
 \ MVarId.refl: 0 = 0 closed by Eq.refl; r = s, two variables: 97 with
 \ Lean's text; Nat: no Eq, so applyRfl, whose whnfR finds no relation:
 \ Lean's 457 with its hint (plan row TB2 batch 3a).

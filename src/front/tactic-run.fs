@@ -998,6 +998,12 @@ lfr-states# 2* 0 xt-table: lfr-states
 \ step ends, a THROW to a handler below included (meta-config.fs's
 \ lf-meta-at), so that no block leaves its transparency behind.
 : lfr-advance-at ( -- ) ['] lfr-advance lfr-top tfr-transp @ lf-meta-at ;
+\ The transparency the tactics' isDefEq and elaboration read
+\ (meta-must.fs's lf-tac-transparency): the top frame's, that in force
+\ outside a run (no frame: a run's frames are all closed when it ends
+\ well, and dropped when the next authoring run starts, lfr-run-fresh).
+: lfr-block-transp ( -- mode ) lfr-depth if lfr-top tfr-transp @ else lf-defeq-mode then ;
+' lfr-block-transp is lf-tac-transparency
 \ try (Init/Tactics.lean:445, first | tacs | skip): withoutRecover, kept
 \ at its end; at an error, the state back and the block closed.
 ' drop ' lfr-keep ' lfr-skip lfr-no-recover lfr-saving or lf-block-mode
@@ -1150,7 +1156,9 @@ defer lf-front-by-statement ( -- type )
 : lfr-parts-reset ( -- ) trun-parts slab-clear trun-text slab-clear lfr-log-reset ;
 action-of lfa-run-fresh constant lfr-run-fresh-before
 : lfr-run-fresh ( -- ) lfr-run-fresh-before execute lfr-parts-reset ;
-' lfr-run-fresh is lfa-run-fresh
+\ (A run that stopped leaves its frames: dropped, as lfr-block-transp reads them.)
+: lfr-run-anew ( -- ) lfr-run-fresh trun-frames slab-clear ;
+' lfr-run-anew is lfa-run-fresh
 : lfr-chars ( first n -- c-addr u ) swap trun-text slab-at swap ;
 : lfr-.pos ( pos -- ) lfa-pos> swap lfa-.n ." :" lfa-.n ;
 : lfr-.place ( addr -- ) ." (by-sorry at line:col " top-at @ lfr-.pos ." )" ;

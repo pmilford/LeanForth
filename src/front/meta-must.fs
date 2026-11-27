@@ -232,10 +232,16 @@ end-structure
 \ TermElabM a scope's bits stay set in Lean too (review tactic-fidelity L5).
 : lf-defeq-elab-at ( t s mode -- flag outcome )
   ['] lf-meta-defeq lf-defeq-flags lf-defeq-elab or rot lf-meta-with outcome-sane ;
-\ A tactic's isDefEq: at the transparency in force (default, but inside a
-\ with_reducible block: the runner's frame, tactic-run.fs; plan row
-\ 9.4.8z12), as Lean's TacticM reads it.
-: lf-tac-defeq ( t s -- flag outcome ) lf-defeq-mode lf-defeq-elab-at ;
+\ A tactic's isDefEq at its block's transparency (plan row 9.4.8z12):
+\ lf-tac-transparency ( -- mode ), which tactic-run.fs sets, is the
+\ runner's top frame's (default, but reducible inside a with_reducible
+\ block, as Lean's TacticM reads it), default outside a tactic run. A
+\ LeanForth scope inside a step (rw's closing rfl, meta-config.fs's
+\ lf-with-reducible) does not change it: plan row 9.4.8z12 (the rfl after
+\ rw elaborates at default where Lean is at reducible).
+defer lf-tac-transparency ( -- mode )
+' lf-defeq-mode is lf-tac-transparency
+: lf-tac-defeq ( t s -- flag outcome ) lf-tac-transparency lf-defeq-elab-at ;
 
 \ ---- commitWhen: the metavariable context marked, xt run; its changes
 \ kept on true, rolled back on false and on a THROW (thrown on). A

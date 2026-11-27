@@ -209,8 +209,11 @@ T{ s" n by-exact end t" proof nrun err -> outcome-invalid 96 1 45 }T
 T{ detail s\"   h\nhas type\n  q\nbut is expected to have type\n  p" compare -> 0 }T
 ' p-term chosen !  ' imp-p stating
 \ A metavariable the term made, left unassigned: 95; one made before the
-\ step (by the statement), still open: 93; a free variable outside the
-\ goal's context: 98, with the term and the goal.
+\ step (by the statement), still open, of a context the goal's extends:
+\ assigned, as Lean's checkAssignment keeps it (meta-tactic/goal.fs, plan
+\ row 9.4.8z12), the proof then ending with it open: 77 at end, not
+\ supported yet; a free variable outside the goal's context: 98, with the
+\ term and the goal.
 : new-hole ( -- t ) p @ mv-natural lf-mvar-new made ;
 ' new-hole chosen !
 T{ s" by-intro: h n by-exact end t" proof nrun err -> outcome-invalid 95 1 57 }T
@@ -218,7 +221,7 @@ variable old
 : holed-p ( -- type ) imp-p p @ mv-natural lf-mvar-new made old ! ;
 : old-hole ( -- t ) old @ ;
 ' holed-p stating  ' old-hole chosen !
-T{ s" by-intro: h n by-exact end t" proof nrun err -> outcome-unsupported 93 1 57 }T
+T{ s" by-intro: h n by-exact end t" proof nrun err -> outcome-unsupported 77 1 66 }T
 : stray ( -- t ) p @ lf-lctx-local made ;
 ' imp-p stating  ' stray chosen !
 T{ s" by-intro: h n by-exact end t" proof nrun err -> outcome-invalid 98 1 57 }T
